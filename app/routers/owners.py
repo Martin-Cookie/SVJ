@@ -4,15 +4,27 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
+from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from app.config import settings
 from app.database import get_db
-from app.models import ImportLog, Owner, OwnerType, Unit
+from app.models import ImportLog, Owner, OwnerType, OwnerUnit, Unit
 from app.services.excel_import import import_owners_from_excel, preview_owners_from_excel
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
+
+
+SORT_COLUMNS = {
+    "name": Owner.name_normalized,
+    "type": Owner.owner_type,
+    "email": Owner.email,
+    "phone": Owner.phone,
+    "podil": None,  # handled in Python — needs sum across units
+    "jednotky": None,  # handled in Python
+    "sekce": None,  # handled in Python
+}
 
 
 @router.get("/")
@@ -20,30 +32,92 @@ async def owner_list(
     request: Request,
     q: str = Query("", alias="q"),
     owner_type: str = Query("", alias="typ"),
+    sekce: str = Query("", alias="sekce"),
+    sort: str = Query("name", alias="sort"),
+    order: str = Query("asc", alias="order"),
     db: Session = Depends(get_db),
 ):
     query = db.query(Owner).filter_by(is_active=True).options(
-        joinedload(Owner.units)
+        joinedload(Owner.units).joinedload(OwnerUnit.unit)
     )
     if q:
+        search = f"%{q}%"
+        # Search across name, email, phone, birth number, company ID, unit number
         query = query.filter(
-            Owner.name_with_titles.ilike(f"%{q}%")
-            | Owner.name_normalized.ilike(f"%{q}%")
-            | Owner.first_name.ilike(f"%{q}%")
-            | Owner.last_name.ilike(f"%{q}%")
-            | Owner.email.ilike(f"%{q}%")
+            Owner.name_with_titles.ilike(search)
+            | Owner.name_normalized.ilike(search)
+            | Owner.first_name.ilike(search)
+            | Owner.last_name.ilike(search)
+            | Owner.email.ilike(search)
+            | Owner.phone.ilike(search)
+            | Owner.birth_number.ilike(search)
+            | Owner.company_id.ilike(search)
+            | Owner.units.any(OwnerUnit.unit.has(Unit.unit_number.ilike(search)))
         )
     if owner_type:
         query = query.filter(Owner.owner_type == owner_type)
+    if sekce:
+        query = query.filter(
+            Owner.units.any(OwnerUnit.unit.has(Unit.section == sekce))
+        )
 
-    owners = query.order_by(Owner.name_normalized).all()
+    # Sorting
+    sort_col = SORT_COLUMNS.get(sort)
+    if sort == "podil":
+        owners = query.all()
+        owners.sort(
+            key=lambda o: sum(ou.votes for ou in o.units),
+            reverse=(order == "desc"),
+        )
+    elif sort == "jednotky":
+        owners = query.all()
+        owners.sort(
+            key=lambda o: (o.units[0].unit.unit_number if o.units else ""),
+            reverse=(order == "desc"),
+        )
+    elif sort == "sekce":
+        owners = query.all()
+        owners.sort(
+            key=lambda o: (o.units[0].unit.section or "") if o.units else "",
+            reverse=(order == "desc"),
+        )
+    elif sort_col is not None:
+        if order == "desc":
+            query = query.order_by(sort_col.desc().nulls_last())
+        else:
+            query = query.order_by(sort_col.asc().nulls_last())
+        owners = query.all()
+    else:
+        owners = query.order_by(Owner.name_normalized).all()
 
-    # Check if HTMX request for search
-    if request.headers.get("HX-Request"):
+    # Return partial only for targeted HTMX requests (search/filter), not boosted navigation
+    is_htmx = request.headers.get("HX-Request")
+    is_boosted = request.headers.get("HX-Boosted")
+    if is_htmx and not is_boosted:
         return templates.TemplateResponse("partials/owner_table_body.html", {
             "request": request,
             "owners": owners,
         })
+
+    # Stats for header
+    all_owners = db.query(Owner).filter_by(is_active=True).count()
+    total_units = db.query(Unit).count()
+    type_counts_raw = (
+        db.query(Owner.owner_type, func.count(Owner.id))
+        .filter_by(is_active=True)
+        .group_by(Owner.owner_type)
+        .all()
+    )
+    type_counts = {ot.value: cnt for ot, cnt in type_counts_raw}
+    sections = [
+        r[0] for r in
+        db.query(Unit.section).filter(Unit.section.isnot(None)).distinct().order_by(Unit.section).all()
+    ]
+    emails_count = db.query(Owner).filter(
+        Owner.is_active == True,
+        Owner.email.isnot(None),
+        Owner.email != "",
+    ).count()
 
     return templates.TemplateResponse("owners/list.html", {
         "request": request,
@@ -51,7 +125,17 @@ async def owner_list(
         "owners": owners,
         "q": q,
         "owner_type": owner_type,
+        "sekce": sekce,
+        "sort": sort,
+        "order": order,
         "owner_types": OwnerType,
+        "stats": {
+            "total_owners": all_owners,
+            "total_units": total_units,
+            "type_counts": type_counts,
+            "sections": sections,
+            "emails_count": emails_count,
+        },
     })
 
 
@@ -137,7 +221,9 @@ async def import_excel_confirm(
 
 @router.get("/{owner_id}")
 async def owner_detail(owner_id: int, request: Request, db: Session = Depends(get_db)):
-    owner = db.query(Owner).options(joinedload(Owner.units)).get(owner_id)
+    owner = db.query(Owner).options(
+        joinedload(Owner.units).joinedload(OwnerUnit.unit)
+    ).get(owner_id)
     if not owner:
         return RedirectResponse("/vlastnici", status_code=302)
     return templates.TemplateResponse("owners/detail.html", {
