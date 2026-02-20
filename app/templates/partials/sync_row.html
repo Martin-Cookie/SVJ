@@ -1,0 +1,54 @@
+<tr id="sync-{{ record.id }}"
+    class="{% if record.resolution.value == 'accepted' %}bg-green-50
+           {% elif record.resolution.value == 'rejected' %}bg-gray-50
+           {% elif record.status.value == 'match' %}bg-green-50
+           {% elif record.status.value == 'difference' %}bg-yellow-50
+           {% else %}bg-red-50{% endif %}">
+    <td class="px-4 py-3 text-sm font-medium text-gray-900">{{ record.unit_number }}</td>
+    <td class="px-4 py-3 text-sm text-gray-700">{{ record.csv_owner_name or '—' }}</td>
+    <td class="px-4 py-3 text-sm text-gray-700">
+        {% if record.admin_corrected_name %}
+        <span class="line-through text-gray-400">{{ record.excel_owner_name or '—' }}</span>
+        <br><span class="text-blue-600 font-medium">{{ record.admin_corrected_name }}</span>
+        {% else %}
+        {{ record.excel_owner_name or '—' }}
+        {% endif %}
+    </td>
+    <td class="px-4 py-3 text-sm text-gray-500">{{ record.csv_ownership_type or '—' }}</td>
+    <td class="px-4 py-3 text-xs text-gray-500">{{ record.match_details or '' }}</td>
+    <td class="px-4 py-3 text-sm">
+        {% if record.resolution.value == 'pending' and record.status.value != 'match' %}
+        <div class="flex flex-col gap-1">
+            <div class="flex gap-1">
+                <button hx-post="/synchronizace/{{ record.session_id }}/prijmout/{{ record.id }}"
+                        hx-target="#sync-{{ record.id }}" hx-swap="outerHTML"
+                        class="px-2 py-1 bg-green-500 text-white rounded text-xs hover:bg-green-600">
+                    Přijmout
+                </button>
+                <button hx-post="/synchronizace/{{ record.session_id }}/odmitnout/{{ record.id }}"
+                        hx-target="#sync-{{ record.id }}" hx-swap="outerHTML"
+                        class="px-2 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600">
+                    Odmítnout
+                </button>
+            </div>
+            <form hx-post="/synchronizace/{{ record.session_id }}/upravit/{{ record.id }}"
+                  hx-target="#sync-{{ record.id }}" hx-swap="outerHTML"
+                  class="flex gap-1">
+                <input type="text" name="corrected_name" placeholder="Opravit..."
+                       class="text-xs border border-gray-300 rounded px-1 py-0.5 w-32">
+                <button type="submit" class="px-2 py-0.5 bg-blue-500 text-white rounded text-xs hover:bg-blue-600">
+                    Upravit
+                </button>
+            </form>
+        </div>
+        {% elif record.resolution.value == 'accepted' %}
+        <span class="text-xs text-green-600 font-medium">Přijato</span>
+        {% elif record.resolution.value == 'rejected' %}
+        <span class="text-xs text-gray-500 font-medium">Odmítnuto</span>
+        {% elif record.resolution.value == 'manual_edit' %}
+        <span class="text-xs text-blue-600 font-medium">Ručně upraveno</span>
+        {% else %}
+        <span class="text-xs text-green-600">OK</span>
+        {% endif %}
+    </td>
+</tr>

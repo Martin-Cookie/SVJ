@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}{{ owner.name_with_titles }} - SVJ Správa{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <a href="/vlastnici" class="text-sm text-gray-500 hover:text-gray-700">&larr; Zpět na seznam vlastníků</a>
+</div>
+
+<div class="flex items-start justify-between mb-6">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-800">{{ owner.name_with_titles }}</h1>
+        <div class="mt-1">
+            {% if owner.owner_type.value == 'sjm' %}
+            <span class="px-2 py-1 text-xs font-medium bg-purple-100 text-purple-800 rounded-full">SJM</span>
+            {% elif owner.owner_type.value == 'legal' %}
+            <span class="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">Právnická osoba</span>
+            {% elif owner.owner_type.value == 'partial' %}
+            <span class="px-2 py-1 text-xs font-medium bg-orange-100 text-orange-800 rounded-full">Podílový spoluvlastník</span>
+            {% else %}
+            <span class="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">Fyzická osoba</span>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <!-- Contact info -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-lg font-semibold text-gray-700 mb-4">Kontaktní údaje</h2>
+        <div id="contact-form">
+            {% include "partials/owner_contact_form.html" %}
+        </div>
+    </div>
+
+    <!-- Units -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-lg font-semibold text-gray-700 mb-4">Jednotky</h2>
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead>
+                <tr>
+                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Číslo</th>
+                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Podíl</th>
+                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Hlasy</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200">
+                {% for ou in owner.units %}
+                <tr>
+                    <td class="px-4 py-2 text-sm font-medium text-gray-900">
+                        {{ ou.unit.unit_number }}{% if ou.unit.sub_number %}/{{ ou.unit.sub_number }}{% endif %}
+                    </td>
+                    <td class="px-4 py-2 text-sm text-gray-500">{{ "%.0f"|format(ou.share * 100) }}%</td>
+                    <td class="px-4 py-2 text-sm text-gray-500">{{ "{:,}".format(ou.votes).replace(",", " ") }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <div class="mt-3 pt-3 border-t border-gray-200 text-sm text-gray-600">
+            {% set total_votes = owner.units | map(attribute='votes') | sum %}
+            Celkem hlasů: <strong>{{ "{:,}".format(total_votes).replace(",", " ") }}</strong>
+        </div>
+    </div>
+
+    <!-- Proxy info -->
+    {% if owner.proxy_raw %}
+    <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-lg font-semibold text-gray-700 mb-4">Plná moc</h2>
+        <p class="text-sm text-gray-600">Zmocněnec: <strong>{{ owner.proxy_raw }}</strong></p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

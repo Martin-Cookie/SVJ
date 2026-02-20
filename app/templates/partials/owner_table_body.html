@@ -1,0 +1,8 @@
+{% for owner in owners %}
+{% include "partials/owner_row.html" %}
+{% endfor %}
+{% if not owners %}
+<tr>
+    <td colspan="6" class="px-6 py-8 text-center text-gray-500">Žádní vlastníci nenalezeni.</td>
+</tr>
+{% endif %}

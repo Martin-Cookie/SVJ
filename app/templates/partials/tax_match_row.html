@@ -1,0 +1,50 @@
+<tr id="tax-row-{{ doc.id }}"
+    class="{% if dist and dist.match_status.value == 'confirmed' %}bg-green-50{% elif dist and dist.match_status.value == 'unmatched' %}bg-red-50{% elif dist and dist.match_status.value == 'auto_matched' %}bg-yellow-50{% endif %}">
+    <td class="px-6 py-4 text-sm font-medium text-gray-900">{{ doc.filename }}</td>
+    <td class="px-6 py-4 text-sm text-gray-500">{{ doc.unit_number }}{{ doc.unit_letter }}</td>
+    <td class="px-6 py-4 text-sm text-gray-500">{{ doc.extracted_owner_name or '—' }}</td>
+    <td class="px-6 py-4 text-sm">
+        {% if dist and dist.owner %}
+        <span class="font-medium text-gray-900">{{ dist.owner.name_with_titles }}</span>
+        {% else %}
+        <span class="text-red-500">Nepřiřazeno</span>
+        {% endif %}
+    </td>
+    <td class="px-6 py-4 text-sm">
+        {% if dist and dist.match_confidence %}
+        <span class="{% if dist.match_confidence >= 0.9 %}text-green-600{% elif dist.match_confidence >= 0.7 %}text-yellow-600{% else %}text-red-600{% endif %}">
+            {{ (dist.match_confidence * 100)|round(0)|int }}%
+        </span>
+        {% else %}
+        —
+        {% endif %}
+    </td>
+    <td class="px-6 py-4 text-sm">
+        {% if dist and dist.match_status.value == 'auto_matched' %}
+        <button hx-post="/dane/{{ doc.session_id }}/potvrdit/{{ dist.id }}"
+                hx-target="#tax-row-{{ doc.id }}" hx-swap="outerHTML"
+                class="px-2 py-1 bg-green-500 text-white rounded text-xs hover:bg-green-600 mr-1">
+            Potvrdit
+        </button>
+        {% endif %}
+        {% if not dist or dist.match_status.value in ('unmatched', 'auto_matched') %}
+        <form hx-post="/dane/{{ doc.session_id }}/prirazeni/{{ doc.id }}"
+              hx-target="#tax-row-{{ doc.id }}" hx-swap="outerHTML"
+              class="inline-flex items-center gap-1">
+            <select name="owner_id" class="text-xs border border-gray-300 rounded px-1 py-1">
+                <option value="">Vybrat...</option>
+                {% for owner in owners %}
+                <option value="{{ owner.id }}">{{ owner.name_normalized }} (j. {{ owner.units[0].unit.unit_number if owner.units else '?' }})</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="px-2 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600">
+                Přiřadit
+            </button>
+        </form>
+        {% elif dist and dist.match_status.value == 'confirmed' %}
+        <span class="text-green-600 text-xs font-medium">Potvrzeno</span>
+        {% elif dist and dist.match_status.value == 'manual' %}
+        <span class="text-blue-600 text-xs font-medium">Ručně přiřazeno</span>
+        {% endif %}
+    </td>
+</tr>

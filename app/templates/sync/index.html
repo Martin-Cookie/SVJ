@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Kontrola vlastníků - SVJ Správa{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+    <h1 class="text-2xl font-bold text-gray-800">Kontrola vlastníků</h1>
+    <a href="/synchronizace/nova" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
+        Nová kontrola
+    </a>
+</div>
+
+{% if sessions %}
+<div class="space-y-4">
+    {% for session in sessions %}
+    <div class="bg-white rounded-lg shadow hover:shadow-md transition-shadow p-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <a href="/synchronizace/{{ session.id }}" class="text-lg font-semibold text-blue-600 hover:text-blue-800">
+                    {{ session.csv_filename }}
+                </a>
+                <div class="flex items-center mt-2 space-x-4 text-sm text-gray-500">
+                    <span>{{ session.created_at.strftime('%d.%m.%Y %H:%M') }}</span>
+                    <span class="text-green-600">Shoda: {{ session.total_matches }}</span>
+                    <span class="text-yellow-600">Rozdíly: {{ session.total_differences }}</span>
+                    <span class="text-red-600">Chybí: {{ session.total_missing }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="bg-white rounded-lg shadow p-8 text-center text-gray-500">
+    <p>Zatím nebyla provedena žádná kontrola.</p>
+    <a href="/synchronizace/nova" class="mt-4 inline-block text-blue-600 hover:underline">Nahrát CSV export</a>
+</div>
+{% endif %}
+{% endblock %}

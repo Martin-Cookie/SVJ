@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Nové hlasování - SVJ Správa{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <a href="/hlasovani" class="text-sm text-gray-500 hover:text-gray-700">&larr; Zpět na hlasování</a>
+</div>
+
+<h1 class="text-2xl font-bold text-gray-800 mb-6">Nové hlasování per rollam</h1>
+
+<div class="bg-white rounded-lg shadow p-6 max-w-2xl">
+    <form action="/hlasovani/nova" method="post" enctype="multipart/form-data">
+        <div class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Název hlasování *</label>
+                <input type="text" name="title" required
+                       placeholder="např. Hlasování per rollam č. 1/2026"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Popis</label>
+                <textarea name="description" rows="3"
+                          placeholder="Volitelný popis hlasování..."
+                          class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"></textarea>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Datum zahájení</label>
+                    <input type="date" name="start_date"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Datum ukončení</label>
+                    <input type="date" name="end_date"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Práh kvóra (%)</label>
+                <input type="number" name="quorum_threshold" value="50" min="0" max="100" step="1"
+                       class="w-32 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+                <p class="text-xs text-gray-400 mt-1">Zadejte jako procenta (50 = 50%)</p>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Režim podílového spoluvlastnictví</label>
+                <select name="partial_owner_mode"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+                    <option value="shared">Společný lístek (doporučeno)</option>
+                    <option value="separate">Každý svůj lístek</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Šablona Word (.docx)</label>
+                <input type="file" name="file" accept=".docx"
+                       class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4
+                              file:rounded-lg file:border-0 file:text-sm file:font-medium
+                              file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                <p class="text-xs text-gray-400 mt-1">Systém automaticky extrahuje body hlasování ze šablony.</p>
+            </div>
+        </div>
+
+        <div class="mt-6 flex gap-3">
+            <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
+                Vytvořit hlasování
+            </button>
+            <a href="/hlasovani" class="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">
+                Zrušit
+            </a>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% block title %}Přehled - SVJ Správa{% endblock %}
+
+{% block content %}
+<h1 class="text-2xl font-bold text-gray-800 mb-6">Přehled</h1>
+
+<!-- Stats cards -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <div class="bg-white rounded-lg shadow p-6">
+        <div class="flex items-center">
+            <div class="p-3 bg-blue-100 rounded-lg">
+                <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+                </svg>
+            </div>
+            <div class="ml-4">
+                <p class="text-sm text-gray-500">Vlastníci</p>
+                <p class="text-2xl font-bold text-gray-800">{{ owners_count }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="bg-white rounded-lg shadow p-6">
+        <div class="flex items-center">
+            <div class="p-3 bg-green-100 rounded-lg">
+                <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+                </svg>
+            </div>
+            <div class="ml-4">
+                <p class="text-sm text-gray-500">Jednotky</p>
+                <p class="text-2xl font-bold text-gray-800">{{ units_count }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="bg-white rounded-lg shadow p-6">
+        <div class="flex items-center">
+            <div class="p-3 bg-purple-100 rounded-lg">
+                <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                </svg>
+            </div>
+            <div class="ml-4">
+                <p class="text-sm text-gray-500">Aktivní hlasování</p>
+                <p class="text-2xl font-bold text-gray-800">{{ active_votings }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Module cards -->
+<h2 class="text-lg font-semibold text-gray-700 mb-4">Moduly</h2>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <!-- Module A -->
+    <div class="bg-white rounded-lg shadow hover:shadow-md transition-shadow">
+        <div class="p-6">
+            <div class="flex items-center mb-4">
+                <div class="p-2 bg-indigo-100 rounded-lg">
+                    <svg class="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+                    </svg>
+                </div>
+                <h3 class="ml-3 text-lg font-semibold text-gray-800">Hlasování per rollam</h3>
+            </div>
+            <p class="text-sm text-gray-600 mb-4">Generování hlasovacích lístků, distribuce, zpracování výsledků a dashboard.</p>
+            <a href="/hlasovani" class="inline-flex items-center text-sm font-medium text-indigo-600 hover:text-indigo-500">
+                Otevřít modul
+                <svg class="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                </svg>
+            </a>
+        </div>
+    </div>
+
+    <!-- Module B -->
+    <div class="bg-white rounded-lg shadow hover:shadow-md transition-shadow">
+        <div class="p-6">
+            <div class="flex items-center mb-4">
+                <div class="p-2 bg-emerald-100 rounded-lg">
+                    <svg class="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z"/>
+                    </svg>
+                </div>
+                <h3 class="ml-3 text-lg font-semibold text-gray-800">Rozúčtování příjmů</h3>
+            </div>
+            <p class="text-sm text-gray-600 mb-4">Přiřazení PDF s daňovými příjmy k vlastníkům a rozeslání emailem.</p>
+            <a href="/dane" class="inline-flex items-center text-sm font-medium text-emerald-600 hover:text-emerald-500">
+                Otevřít modul
+                <svg class="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                </svg>
+            </a>
+        </div>
+    </div>
+
+    <!-- Module C -->
+    <div class="bg-white rounded-lg shadow hover:shadow-md transition-shadow">
+        <div class="p-6">
+            <div class="flex items-center mb-4">
+                <div class="p-2 bg-amber-100 rounded-lg">
+                    <svg class="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                    </svg>
+                </div>
+                <h3 class="ml-3 text-lg font-semibold text-gray-800">Kontrola vlastníků</h3>
+            </div>
+            <p class="text-sm text-gray-600 mb-4">Porovnání vlastníků z CSV exportu se seznamem v Excelu, synchronizace změn.</p>
+            <a href="/synchronizace" class="inline-flex items-center text-sm font-medium text-amber-600 hover:text-amber-500">
+                Otevřít modul
+                <svg class="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                </svg>
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Recent activity -->
+{% if recent_emails %}
+<div class="mt-8">
+    <h2 class="text-lg font-semibold text-gray-700 mb-4">Poslední aktivita</h2>
+    <div class="bg-white rounded-lg shadow overflow-hidden">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Datum</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Modul</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Příjemce</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Předmět</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stav</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200">
+                {% for email in recent_emails %}
+                <tr>
+                    <td class="px-6 py-4 text-sm text-gray-500">{{ email.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
+                    <td class="px-6 py-4 text-sm text-gray-500">{{ email.module }}</td>
+                    <td class="px-6 py-4 text-sm text-gray-900">{{ email.recipient_name or email.recipient_email }}</td>
+                    <td class="px-6 py-4 text-sm text-gray-500">{{ email.subject }}</td>
+                    <td class="px-6 py-4">
+                        {% if email.status.value == 'sent' %}
+                        <span class="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">Odesláno</span>
+                        {% elif email.status.value == 'failed' %}
+                        <span class="px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded-full">Chyba</span>
+                        {% else %}
+                        <span class="px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full">Čeká</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

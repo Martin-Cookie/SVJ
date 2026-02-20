@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% block title %}{{ voting.title }} - SVJ Správa{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <a href="/hlasovani" class="text-sm text-gray-500 hover:text-gray-700">&larr; Zpět na hlasování</a>
+</div>
+
+<div class="flex items-center justify-between mb-6">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-800">{{ voting.title }}</h1>
+        <div class="flex items-center mt-2 space-x-3">
+            {% if voting.status.value == 'draft' %}
+            <span class="px-3 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">Koncept</span>
+            {% elif voting.status.value == 'active' %}
+            <span class="px-3 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">Aktivní</span>
+            {% elif voting.status.value == 'closed' %}
+            <span class="px-3 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">Uzavřeno</span>
+            {% endif %}
+            {% if voting.start_date %}<span class="text-sm text-gray-500">Od: {{ voting.start_date.strftime('%d.%m.%Y') }}</span>{% endif %}
+            {% if voting.end_date %}<span class="text-sm text-gray-500">Do: {{ voting.end_date.strftime('%d.%m.%Y') }}</span>{% endif %}
+        </div>
+    </div>
+    <div class="flex gap-2">
+        {% if voting.status.value in ('draft', 'active') %}
+        <form action="/hlasovani/{{ voting.id }}/generovat" method="post">
+            <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium">
+                Generovat lístky
+            </button>
+        </form>
+        {% endif %}
+        <a href="/hlasovani/{{ voting.id }}/listky" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">
+            Hlasovací lístky
+        </a>
+        <a href="/hlasovani/{{ voting.id }}/zpracovani" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">
+            Zpracovat výsledky
+        </a>
+    </div>
+</div>
+
+<!-- Status overview -->
+<div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+    <div class="bg-white rounded-lg shadow p-4 text-center">
+        <p class="text-2xl font-bold text-gray-800">{{ total_ballots }}</p>
+        <p class="text-xs text-gray-500 mt-1">Celkem lístků</p>
+    </div>
+    <div class="bg-white rounded-lg shadow p-4 text-center">
+        <p class="text-2xl font-bold text-blue-600">{{ status_counts.get('generated', 0) }}</p>
+        <p class="text-xs text-gray-500 mt-1">Vygenerováno</p>
+    </div>
+    <div class="bg-white rounded-lg shadow p-4 text-center">
+        <p class="text-2xl font-bold text-yellow-600">{{ status_counts.get('sent', 0) }}</p>
+        <p class="text-xs text-gray-500 mt-1">Odesláno</p>
+    </div>
+    <div class="bg-white rounded-lg shadow p-4 text-center">
+        <p class="text-2xl font-bold text-green-600">{{ status_counts.get('processed', 0) }}</p>
+        <p class="text-xs text-gray-500 mt-1">Zpracováno</p>
+    </div>
+    <div class="bg-white rounded-lg shadow p-4 text-center">
+        {% set quorum_pct = (total_processed_votes / voting.total_votes_possible * 100)|round(1) if voting.total_votes_possible else 0 %}
+        <p class="text-2xl font-bold {% if quorum_reached %}text-green-600{% else %}text-red-600{% endif %}">
+            {{ quorum_pct }}%
+        </p>
+        <p class="text-xs text-gray-500 mt-1">
+            Kvórum ({{ (voting.quorum_threshold * 100)|round(0)|int }}%)
+            {% if quorum_reached %}<span class="text-green-600 font-semibold">Dosaženo</span>{% endif %}
+        </p>
+    </div>
+</div>
+
+<!-- Voting items & results -->
+<div class="bg-white rounded-lg shadow mb-8">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <h2 class="text-lg font-semibold text-gray-700">Výsledky po bodech</h2>
+    </div>
+    {% if results %}
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Bod</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">PRO (hlasy)</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">PRO (%)</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">PROTI (hlasy)</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">PROTI (%)</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Neodevzdáno</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200">
+                {% for r in results %}
+                <tr>
+                    <td class="px-6 py-4 text-sm">
+                        <span class="font-medium text-gray-900">{{ r.item.order }}.</span>
+                        {{ r.item.title }}
+                    </td>
+                    <td class="px-6 py-4 text-sm font-medium text-green-600">{{ "{:,}".format(r.votes_for).replace(",", " ") }}</td>
+                    <td class="px-6 py-4 text-sm text-green-600">{{ r.pct_for }}%</td>
+                    <td class="px-6 py-4 text-sm font-medium text-red-600">{{ "{:,}".format(r.votes_against).replace(",", " ") }}</td>
+                    <td class="px-6 py-4 text-sm text-red-600">{{ r.pct_against }}%</td>
+                    <td class="px-6 py-4 text-sm text-gray-500">
+                        {{ "{:,}".format(r.votes_missing).replace(",", " ") }}
+                        ({{ r.pct_missing }}%)
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="p-6 text-center text-gray-500 text-sm">
+        Přidejte body hlasování nebo nahrajte Word šablonu.
+    </div>
+    {% endif %}
+</div>
+
+<!-- Add voting item -->
+<div class="bg-white rounded-lg shadow p-6 mb-8">
+    <h2 class="text-lg font-semibold text-gray-700 mb-4">Přidat bod hlasování</h2>
+    <form action="/hlasovani/{{ voting.id }}/pridat-bod" method="post">
+        <div class="flex gap-4 items-end">
+            <div class="flex-1">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Text bodu</label>
+                <input type="text" name="title" required placeholder="např. Schválení účetní závěrky"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+            </div>
+            <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium whitespace-nowrap">
+                Přidat bod
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- Actions -->
+<div class="bg-white rounded-lg shadow p-6">
+    <h2 class="text-lg font-semibold text-gray-700 mb-4">Správa hlasování</h2>
+    <div class="flex gap-3">
+        {% if voting.status.value == 'active' %}
+        <form action="/hlasovani/{{ voting.id }}/stav" method="post">
+            <input type="hidden" name="status" value="closed">
+            <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
+                Uzavřít hlasování
+            </button>
+        </form>
+        {% endif %}
+        <a href="/hlasovani/{{ voting.id }}/neodevzdane" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">
+            Neodevzdané lístky
+        </a>
+    </div>
+</div>
+{% endblock %}

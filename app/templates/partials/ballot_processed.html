@@ -1,0 +1,14 @@
+<div id="ballot-{{ ballot.id }}" class="bg-green-50 rounded-lg shadow p-6 border border-green-200">
+    <div class="flex items-center justify-between">
+        <div>
+            <h3 class="font-semibold text-gray-800">{{ ballot.owner.name_with_titles }}</h3>
+            <p class="text-sm text-gray-500">
+                Jednotky: {{ ballot.units_text }} | Hlasů: {{ "{:,}".format(ballot.total_votes).replace(",", " ") }}
+            </p>
+        </div>
+        <span class="px-3 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">Zpracováno</span>
+    </div>
+    <div class="mt-2 text-sm text-green-600">
+        Zpracováno {{ ballot.processed_at.strftime('%d.%m.%Y %H:%M') if ballot.processed_at else '' }}
+    </div>
+</div>

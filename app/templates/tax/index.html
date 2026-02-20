@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Rozúčtování příjmů - SVJ Správa{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+    <h1 class="text-2xl font-bold text-gray-800">Rozúčtování příjmů</h1>
+    <a href="/dane/nova" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
+        Nové rozúčtování
+    </a>
+</div>
+
+{% if sessions %}
+<div class="space-y-4">
+    {% for session in sessions %}
+    <div class="bg-white rounded-lg shadow hover:shadow-md transition-shadow p-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <a href="/dane/{{ session.id }}" class="text-lg font-semibold text-blue-600 hover:text-blue-800">
+                    {{ session.title }}
+                </a>
+                <div class="flex items-center mt-2 space-x-4 text-sm text-gray-500">
+                    {% if session.year %}<span>Rok: {{ session.year }}</span>{% endif %}
+                    <span>Dokumentů: {{ session.documents|length }}</span>
+                    <span>Vytvořeno: {{ session.created_at.strftime('%d.%m.%Y') }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="bg-white rounded-lg shadow p-8 text-center text-gray-500">
+    <p>Zatím nebylo vytvořeno žádné rozúčtování.</p>
+    <a href="/dane/nova" class="mt-4 inline-block text-blue-600 hover:underline">Vytvořit první rozúčtování</a>
+</div>
+{% endif %}
+{% endblock %}

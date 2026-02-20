@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Hlasování per rollam - SVJ Správa{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+    <h1 class="text-2xl font-bold text-gray-800">Hlasování per rollam</h1>
+    <a href="/hlasovani/nova" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
+        Nové hlasování
+    </a>
+</div>
+
+{% if votings %}
+<div class="space-y-4">
+    {% for voting in votings %}
+    <div class="bg-white rounded-lg shadow hover:shadow-md transition-shadow p-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <a href="/hlasovani/{{ voting.id }}" class="text-lg font-semibold text-blue-600 hover:text-blue-800">
+                    {{ voting.title }}
+                </a>
+                <div class="flex items-center mt-2 space-x-4 text-sm text-gray-500">
+                    {% if voting.start_date %}
+                    <span>Od: {{ voting.start_date.strftime('%d.%m.%Y') }}</span>
+                    {% endif %}
+                    {% if voting.end_date %}
+                    <span>Do: {{ voting.end_date.strftime('%d.%m.%Y') }}</span>
+                    {% endif %}
+                    <span>Bodů: {{ voting.items|length }}</span>
+                    <span>Lístků: {{ voting.ballots|length }}</span>
+                </div>
+            </div>
+            <div>
+                {% if voting.status.value == 'draft' %}
+                <span class="px-3 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">Koncept</span>
+                {% elif voting.status.value == 'active' %}
+                <span class="px-3 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">Aktivní</span>
+                {% elif voting.status.value == 'closed' %}
+                <span class="px-3 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">Uzavřeno</span>
+                {% else %}
+                <span class="px-3 py-1 text-xs font-medium bg-red-100 text-red-800 rounded-full">Zrušeno</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="bg-white rounded-lg shadow p-8 text-center text-gray-500">
+    <p>Zatím nebylo vytvořeno žádné hlasování.</p>
+    <a href="/hlasovani/nova" class="mt-4 inline-block text-blue-600 hover:underline">Vytvořit první hlasování</a>
+</div>
+{% endif %}
+{% endblock %}

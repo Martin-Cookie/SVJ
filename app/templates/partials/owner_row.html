@@ -1,0 +1,27 @@
+<tr class="hover:bg-gray-50">
+    <td class="px-6 py-4">
+        <a href="/vlastnici/{{ owner.id }}" class="text-sm font-medium text-blue-600 hover:text-blue-800">
+            {{ owner.name_with_titles }}
+        </a>
+    </td>
+    <td class="px-6 py-4">
+        {% if owner.owner_type.value == 'sjm' %}
+        <span class="px-2 py-1 text-xs font-medium bg-purple-100 text-purple-800 rounded-full">SJM</span>
+        {% elif owner.owner_type.value == 'legal' %}
+        <span class="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">Právnická os.</span>
+        {% elif owner.owner_type.value == 'partial' %}
+        <span class="px-2 py-1 text-xs font-medium bg-orange-100 text-orange-800 rounded-full">Podíl. spoluvl.</span>
+        {% else %}
+        <span class="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">Fyzická os.</span>
+        {% endif %}
+    </td>
+    <td class="px-6 py-4 text-sm text-gray-500">
+        {% for ou in owner.units %}{{ ou.unit.unit_number }}{% if ou.unit.sub_number %}/{{ ou.unit.sub_number }}{% endif %}{% if ou.share < 1 %} ({{ "%.0f"|format(ou.share * 100) }}%){% endif %}{% if not loop.last %}, {% endif %}{% endfor %}
+    </td>
+    <td class="px-6 py-4 text-sm text-gray-500">{{ owner.email or '—' }}</td>
+    <td class="px-6 py-4 text-sm text-gray-500">{{ owner.phone or '—' }}</td>
+    <td class="px-6 py-4 text-sm text-gray-500">
+        {% set total_votes = owner.units | map(attribute='votes') | sum %}
+        {{ "{:,}".format(total_votes).replace(",", " ") }}
+    </td>
+</tr>
