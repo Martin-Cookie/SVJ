@@ -16,7 +16,7 @@
         {% endif %}
     </td>
     <td class="px-6 py-4 text-sm text-gray-500">
-        {% for ou in owner.units %}{{ ou.unit.unit_number }}{% if ou.unit.sub_number %}/{{ ou.unit.sub_number }}{% endif %}{% if ou.share < 1 %} ({{ "%.0f"|format(ou.share * 100) }}%){% endif %}{% if not loop.last %}, {% endif %}{% endfor %}
+        {% for ou in owner.units %}{{ ou.unit.unit_number }}{% if not loop.last %}, {% endif %}{% endfor %}
     </td>
     <td class="px-6 py-4 text-sm text-gray-500">{{ owner.email or '—' }}</td>
     <td class="px-6 py-4 text-sm text-gray-500">{{ owner.phone or '—' }}</td>

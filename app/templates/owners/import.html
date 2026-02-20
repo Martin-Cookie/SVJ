@@ -24,12 +24,11 @@
 
     <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
         <p class="text-sm text-yellow-700">
-            <strong>Pozor:</strong> Import nahradí všechny stávající vlastníky v databázi.
+            <strong>Pozor:</strong> Import nahradí všechny stávající vlastníky v databázi. Před uložením se zobrazí náhled dat ke kontrole.
         </p>
     </div>
 
-    <form hx-post="/vlastnici/import" hx-target="#import-result" hx-encoding="multipart/form-data"
-          hx-indicator="#upload-spinner">
+    <form action="/vlastnici/import" method="post" enctype="multipart/form-data">
         <div class="mb-4">
             <label class="block text-sm font-medium text-gray-700 mb-2">Soubor Excel (.xlsx)</label>
             <input type="file" name="file" accept=".xlsx,.xls" required
@@ -38,11 +37,8 @@
                           file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
         </div>
         <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
-            Importovat
+            Nahrát a zobrazit náhled
         </button>
-        <span id="upload-spinner" class="htmx-indicator ml-3 text-sm text-gray-500">Nahrávání...</span>
     </form>
-
-    <div id="import-result" class="mt-6"></div>
 </div>
 {% endblock %}

@@ -9,7 +9,7 @@
 <div class="flex items-start justify-between mb-6">
     <div>
         <h1 class="text-2xl font-bold text-gray-800">{{ owner.name_with_titles }}</h1>
-        <div class="mt-1">
+        <div class="mt-1 flex items-center gap-2">
             {% if owner.owner_type.value == 'sjm' %}
             <span class="px-2 py-1 text-xs font-medium bg-purple-100 text-purple-800 rounded-full">SJM</span>
             {% elif owner.owner_type.value == 'legal' %}
@@ -18,6 +18,11 @@
             <span class="px-2 py-1 text-xs font-medium bg-orange-100 text-orange-800 rounded-full">Podílový spoluvlastník</span>
             {% else %}
             <span class="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">Fyzická osoba</span>
+            {% endif %}
+            {% if owner.birth_number %}
+            <span class="text-xs text-gray-500">RČ: {{ owner.birth_number }}</span>
+            {% elif owner.company_id %}
+            <span class="text-xs text-gray-500">IČ: {{ owner.company_id }}</span>
             {% endif %}
         </div>
     </div>
@@ -35,37 +40,82 @@
     <!-- Units -->
     <div class="bg-white rounded-lg shadow p-6">
         <h2 class="text-lg font-semibold text-gray-700 mb-4">Jednotky</h2>
-        <table class="min-w-full divide-y divide-gray-200">
-            <thead>
-                <tr>
-                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Číslo</th>
-                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Podíl</th>
-                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Hlasy</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-200">
-                {% for ou in owner.units %}
-                <tr>
-                    <td class="px-4 py-2 text-sm font-medium text-gray-900">
-                        {{ ou.unit.unit_number }}{% if ou.unit.sub_number %}/{{ ou.unit.sub_number }}{% endif %}
-                    </td>
-                    <td class="px-4 py-2 text-sm text-gray-500">{{ "%.0f"|format(ou.share * 100) }}%</td>
-                    <td class="px-4 py-2 text-sm text-gray-500">{{ "{:,}".format(ou.votes).replace(",", " ") }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead>
+                    <tr>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Jednotka KN</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Prostor</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Typ</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Podíl SČD</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Plocha</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Vlastnictví</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+                    {% for ou in owner.units %}
+                    <tr>
+                        <td class="px-3 py-2 text-sm font-medium text-gray-900">{{ ou.unit.unit_number }}</td>
+                        <td class="px-3 py-2 text-sm text-gray-500">{{ ou.unit.building_number or '—' }}</td>
+                        <td class="px-3 py-2 text-sm text-gray-500">{{ ou.unit.space_type or '—' }}</td>
+                        <td class="px-3 py-2 text-sm text-gray-500">{{ "{:,}".format(ou.unit.podil_scd or 0).replace(",", " ") }}</td>
+                        <td class="px-3 py-2 text-sm text-gray-500">{% if ou.unit.floor_area %}{{ ou.unit.floor_area }} m²{% else %}—{% endif %}</td>
+                        <td class="px-3 py-2 text-sm text-gray-500">{{ ou.ownership_type or '—' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
         <div class="mt-3 pt-3 border-t border-gray-200 text-sm text-gray-600">
             {% set total_votes = owner.units | map(attribute='votes') | sum %}
-            Celkem hlasů: <strong>{{ "{:,}".format(total_votes).replace(",", " ") }}</strong>
+            Celkem hlasů (podíl SČD): <strong>{{ "{:,}".format(total_votes).replace(",", " ") }}</strong>
         </div>
     </div>
 
-    <!-- Proxy info -->
-    {% if owner.proxy_raw %}
+    <!-- Permanent address -->
+    {% if owner.perm_street or owner.perm_city %}
     <div class="bg-white rounded-lg shadow p-6">
-        <h2 class="text-lg font-semibold text-gray-700 mb-4">Plná moc</h2>
-        <p class="text-sm text-gray-600">Zmocněnec: <strong>{{ owner.proxy_raw }}</strong></p>
+        <h2 class="text-lg font-semibold text-gray-700 mb-4">Trvalá adresa</h2>
+        <div class="text-sm text-gray-600 space-y-1">
+            {% if owner.perm_street %}<p>{{ owner.perm_street }}</p>{% endif %}
+            {% if owner.perm_district %}<p>{{ owner.perm_district }}</p>{% endif %}
+            <p>
+                {% if owner.perm_zip %}{{ owner.perm_zip }} {% endif %}
+                {{ owner.perm_city or '' }}
+            </p>
+            {% if owner.perm_country %}<p>{{ owner.perm_country }}</p>{% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Correspondence address -->
+    {% if owner.corr_street or owner.corr_city %}
+    <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-lg font-semibold text-gray-700 mb-4">Korespondenční adresa</h2>
+        <div class="text-sm text-gray-600 space-y-1">
+            {% if owner.corr_street %}<p>{{ owner.corr_street }}</p>{% endif %}
+            {% if owner.corr_district %}<p>{{ owner.corr_district }}</p>{% endif %}
+            <p>
+                {% if owner.corr_zip %}{{ owner.corr_zip }} {% endif %}
+                {{ owner.corr_city or '' }}
+            </p>
+            {% if owner.corr_country %}<p>{{ owner.corr_country }}</p>{% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Notes -->
+    {% if owner.note or owner.owner_since %}
+    <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-lg font-semibold text-gray-700 mb-4">Poznámky</h2>
+        <div class="text-sm text-gray-600 space-y-2">
+            {% if owner.owner_since %}
+            <p><span class="font-medium">Vlastník od:</span> {{ owner.owner_since }}</p>
+            {% endif %}
+            {% if owner.note %}
+            <p>{{ owner.note }}</p>
+            {% endif %}
+        </div>
     </div>
     {% endif %}
 </div>

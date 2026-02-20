@@ -189,9 +189,7 @@ async def generate_ballots(
 
         total_votes = sum(ou.votes for ou in owner.units)
         units_text = ", ".join(
-            f"{ou.unit.unit_number}"
-            + (f"/{ou.unit.sub_number}" if ou.unit.sub_number else "")
-            for ou in owner.units
+            ou.unit.unit_number for ou in owner.units
         )
 
         ballot = Ballot(
@@ -201,11 +199,6 @@ async def generate_ballots(
             units_text=units_text,
             status=BallotStatus.GENERATED,
         )
-
-        # Handle proxy
-        if owner.proxy_raw:
-            ballot.voted_by_proxy = True
-            ballot.proxy_holder_name = owner.proxy_raw
 
         db.add(ballot)
         db.flush()

@@ -20,12 +20,43 @@ class Owner(Base):
     __tablename__ = "owners"
 
     id = Column(Integer, primary_key=True)
+
+    # Identity (columns L, M, N from Excel)
+    first_name = Column(String(200), nullable=False)
+    last_name = Column(String(200), nullable=True)
+    title = Column(String(50), nullable=True)
     name_with_titles = Column(String(300), nullable=False)
     name_normalized = Column(String(300), nullable=False)
     owner_type = Column(Enum(OwnerType), nullable=False, default=OwnerType.PHYSICAL)
-    email = Column(String(200), nullable=True)
+
+    # Identification (column O)
+    birth_number = Column(String(20), nullable=True)
+    company_id = Column(String(20), nullable=True)
+
+    # Permanent address (columns P-T)
+    perm_street = Column(String(200), nullable=True)
+    perm_district = Column(String(100), nullable=True)
+    perm_city = Column(String(100), nullable=True)
+    perm_zip = Column(String(20), nullable=True)
+    perm_country = Column(String(50), nullable=True)
+
+    # Correspondence address (columns U-Y)
+    corr_street = Column(String(200), nullable=True)
+    corr_district = Column(String(100), nullable=True)
+    corr_city = Column(String(100), nullable=True)
+    corr_zip = Column(String(20), nullable=True)
+    corr_country = Column(String(50), nullable=True)
+
+    # Contact (columns Z, AA, AB, AC)
     phone = Column(String(50), nullable=True)
-    proxy_raw = Column(String(200), nullable=True)
+    phone_landline = Column(String(50), nullable=True)
+    email = Column(String(200), nullable=True)
+    email_secondary = Column(String(200), nullable=True)
+
+    # Metadata (columns AD, AE)
+    owner_since = Column(String(50), nullable=True)
+    note = Column(Text, nullable=True)
+
     data_source = Column(String(50), default="excel")
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -46,8 +77,16 @@ class Unit(Base):
     __tablename__ = "units"
 
     id = Column(Integer, primary_key=True)
-    unit_number = Column(String(20), nullable=False)
-    sub_number = Column(String(20), nullable=True)
+    unit_number = Column(String(20), nullable=False, unique=True)
+    building_number = Column(String(20), nullable=True)
+    podil_scd = Column(Integer, nullable=True)
+    floor_area = Column(Float, nullable=True)
+    room_count = Column(String(20), nullable=True)
+    space_type = Column(String(50), nullable=True)
+    section = Column(String(10), nullable=True)
+    orientation_number = Column(Integer, nullable=True)
+    address = Column(String(200), nullable=True)
+    lv_number = Column(Integer, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     owners = relationship("OwnerUnit", back_populates="unit", cascade="all, delete-orphan")
@@ -59,8 +98,9 @@ class OwnerUnit(Base):
     id = Column(Integer, primary_key=True)
     owner_id = Column(Integer, ForeignKey("owners.id"), nullable=False)
     unit_id = Column(Integer, ForeignKey("units.id"), nullable=False)
+    ownership_type = Column(String(20), nullable=True)
     share = Column(Float, nullable=False, default=1.0)
-    votes = Column(Integer, nullable=False, default=1)
+    votes = Column(Integer, nullable=False, default=0)
     excel_row_number = Column(Integer, nullable=True)
 
     owner = relationship("Owner", back_populates="units")
