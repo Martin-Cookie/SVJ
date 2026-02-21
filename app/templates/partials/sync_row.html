@@ -13,7 +13,7 @@
             <input type="checkbox" class="sync-row-checkbox cursor-pointer" data-record="{{ record.id }}" onchange="syncToggleRow(this)">
             {% endif %}
         </td>
-        <td class="px-1 py-1 font-medium text-gray-900" rowspan="2">{{ record.unit_number }}</td>
+        <td class="px-1 py-1 font-medium" rowspan="2">{% if unit_map is defined and record.unit_number in unit_map %}<a href="/jednotky/{{ unit_map[record.unit_number] }}?back={{ back_url|urlencode }}" class="text-blue-600 hover:text-blue-800 hover:underline">{{ record.unit_number }}</a>{% else %}<span class="text-gray-900">{{ record.unit_number }}</span>{% endif %}</td>
         <td class="px-0 py-1"><span class="text-blue-600 font-bold">E</span></td>
         {% set back_url = ("/synchronizace/" ~ session.id ~ "?filtr=" ~ filtr) if filtr else ("/synchronizace/" ~ session.id) %}
         {% set owners_list = owner_map[record.unit_number] if (owner_map is defined and record.unit_number in owner_map) else [] %}

@@ -4,7 +4,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import func
+from sqlalchemy import cast, func, String
 from sqlalchemy.orm import Session, joinedload
 
 from app.config import settings
@@ -52,7 +52,7 @@ async def owner_list(
             | Owner.phone.ilike(search)
             | Owner.birth_number.ilike(search)
             | Owner.company_id.ilike(search)
-            | Owner.units.any(OwnerUnit.unit.has(Unit.unit_number.ilike(search)))
+            | Owner.units.any(OwnerUnit.unit.has(cast(Unit.unit_number, String).ilike(search)))
         )
     if owner_type:
         query = query.filter(Owner.owner_type == owner_type)
@@ -72,7 +72,7 @@ async def owner_list(
     elif sort == "jednotky":
         owners = query.all()
         owners.sort(
-            key=lambda o: (o.units[0].unit.unit_number if o.units else ""),
+            key=lambda o: (o.units[0].unit.unit_number if o.units else 0),
             reverse=(order == "desc"),
         )
     elif sort == "sekce":
@@ -236,7 +236,11 @@ async def owner_detail(
         "active_nav": "owners",
         "owner": owner,
         "back_url": back or "/vlastnici",
-        "back_label": "Zpět na porovnání" if back else "Zpět na seznam vlastníků",
+        "back_label": (
+            "Zpět na detail jednotky" if "/jednotky/" in back
+            else "Zpět na porovnání" if "/synchronizace/" in back
+            else "Zpět na seznam vlastníků"
+        ),
     })
 
 

@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}Jednotky - SVJ Správa{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-3">
+    <div>
+        <h1 class="text-xl font-bold text-gray-800">Evidence jednotek</h1>
+        <p class="text-xs text-gray-500 mt-0.5">{{ stats.total_units }} jednotek | Celkový podíl SČD: {{ "{:,}".format(stats.total_scd).replace(",", " ") }}</p>
+    </div>
+</div>
+
+{% if stats %}
+<!-- Type filter bubbles -->
+<div class="flex gap-2 mb-3 flex-wrap">
+    <a href="/jednotky?q={{ q }}&sekce={{ sekce }}&sort={{ sort }}&order={{ order }}" class="block bg-white rounded-lg shadow p-2 text-center hover:ring-2 hover:ring-gray-300 min-w-[80px] {% if not typ %}ring-2 ring-gray-400{% endif %}">
+        <p class="text-lg font-bold text-gray-800">{{ stats.total_units }}</p>
+        <p class="text-xs text-gray-500">Vše</p>
+    </a>
+    {% for space_type, count in stats.type_counts.items()|sort(attribute='0') %}
+    <a href="/jednotky?typ={{ space_type|urlencode }}&q={{ q }}&sekce={{ sekce }}&sort={{ sort }}&order={{ order }}" class="block bg-blue-50 rounded-lg shadow p-2 text-center border border-blue-200 hover:ring-2 hover:ring-blue-300 min-w-[80px] {% if typ == space_type %}ring-2 ring-blue-400{% endif %}">
+        <p class="text-lg font-bold text-blue-600">{{ count }}</p>
+        <p class="text-xs text-blue-600 truncate" style="max-width:100px" title="{{ space_type }}">{{ space_type }}</p>
+    </a>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- Search & section filter -->
+<div class="flex items-center gap-3 mb-2 bg-white rounded-lg shadow px-3 py-2">
+    <input type="hidden" name="sort" value="{{ sort }}">
+    <input type="hidden" name="order" value="{{ order }}">
+    <input type="hidden" name="typ" value="{{ typ }}">
+    <div class="flex-1">
+        <input type="text" name="q" value="{{ q }}" placeholder="Hledat č. jednotky, budovu, adresu, vlastníka..."
+               hx-get="/jednotky" hx-trigger="keyup changed delay:300ms"
+               hx-target="#unit-table-body" hx-include="[name='typ'],[name='sekce'],[name='sort'],[name='order']"
+               hx-push-url="true"
+               class="w-full px-3 py-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs">
+    </div>
+    {% if stats and stats.sections %}
+    <select name="sekce"
+            hx-get="/jednotky" hx-trigger="change"
+            hx-target="#unit-table-body" hx-include="[name='q'],[name='typ'],[name='sort'],[name='order']"
+            hx-push-url="true"
+            class="px-3 py-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 text-xs">
+        <option value="">Všechny sekce</option>
+        {% for s in stats.sections %}
+        <option value="{{ s }}" {% if sekce == s %}selected{% endif %}>Sekce {{ s }}</option>
+        {% endfor %}
+    </select>
+    {% endif %}
+</div>
+
+<!-- Unit table -->
+<div class="bg-white rounded-lg shadow" style="max-height:calc(100vh - 280px); overflow-y:auto; overflow-x:hidden">
+    <table class="w-full text-xs" style="table-layout:fixed">
+        <colgroup>
+            <col style="width:7%">
+            <col style="width:7%">
+            <col style="width:9%">
+            <col style="width:5%">
+            <col style="width:14%">
+            <col style="width:4%">
+            <col style="width:5%">
+            <col style="width:6%">
+            <col style="width:8%">
+            <col style="width:35%">
+        </colgroup>
+        <thead class="bg-gray-50 border-b-2 border-gray-300 sticky top-0 z-10">
+            <tr>
+                {% macro sort_th(label, col, align="left") %}
+                {% set next_order = "desc" if sort == col and order == "asc" else "asc" %}
+                <th class="px-2 py-1.5 text-{{ align }} font-medium {% if sort == col %}text-blue-600{% else %}text-gray-500{% endif %}">
+                    <a href="/jednotky?sort={{ col }}&order={{ next_order }}&q={{ q }}&typ={{ typ }}&sekce={{ sekce }}"
+                       class="inline-flex items-center gap-0.5 cursor-pointer hover:text-blue-600 select-none">
+                        {{ label }}
+                        {% if sort == col %}
+                            {% if order == "asc" %}
+                            <svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L10 6.414l-3.293 3.293a1 1 0 01-1.414 0z"/></svg>
+                            {% else %}
+                            <svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path d="M14.707 10.293a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L10 13.586l3.293-3.293a1 1 0 011.414 0z"/></svg>
+                            {% endif %}
+                        {% endif %}
+                    </a>
+                </th>
+                {% endmacro %}
+                {{ sort_th("Jednotka", "unit_number") }}
+                {{ sort_th("Budova", "building") }}
+                {{ sort_th("Typ", "space_type") }}
+                {{ sort_th("Sekce", "section") }}
+                {{ sort_th("Adresa", "address") }}
+                {{ sort_th("LV", "lv", "right") }}
+                {{ sort_th("Místn.", "room_count") }}
+                {{ sort_th("Plocha", "floor_area", "right") }}
+                {{ sort_th("Podíl SČD", "podil", "right") }}
+                {{ sort_th("Vlastníci", "owners") }}
+            </tr>
+        </thead>
+        <tbody id="unit-table-body" class="divide-y divide-gray-200">
+            {% for unit in units %}
+            {% include "partials/unit_row.html" %}
+            {% endfor %}
+        </tbody>
+    </table>
+    {% if not units %}
+    <div class="p-6 text-center text-gray-500 text-sm">
+        Žádné jednotky. <a href="/vlastnici/import" class="text-blue-600 hover:underline">Importujte data z Excelu</a>.
+    </div>
+    {% endif %}
+</div>
+
+<div class="mt-2 text-xs text-gray-400">Zobrazeno: {{ units|length }} jednotek</div>
+{% endblock %}

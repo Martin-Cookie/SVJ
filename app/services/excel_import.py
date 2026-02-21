@@ -216,9 +216,9 @@ def _parse_row(row: tuple, row_idx: int) -> dict | None:
     # Strip building prefix: "1098/115" → "115"
     if "/" in unit_kn:
         unit_kn = unit_kn.split("/")[-1].strip()
-    # Convert to number (remove leading zeros etc.)
+    # Convert to integer
     try:
-        unit_kn = str(int(unit_kn))
+        unit_kn = int(unit_kn)
     except (ValueError, TypeError):
         pass
 

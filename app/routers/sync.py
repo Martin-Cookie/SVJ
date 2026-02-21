@@ -86,11 +86,7 @@ async def sync_create(
     excel_data = []
     for owner in owners:
         for ou in owner.units:
-            # Strip building prefix from unit number (e.g. "1098/14" -> "14")
-            # to match CSV format which uses short unit numbers
-            unit_num = ou.unit.unit_number
-            if "/" in unit_num:
-                unit_num = unit_num.split("/")[-1].strip()
+            unit_num = str(ou.unit.unit_number)
             excel_data.append({
                 "unit_number": unit_num,
                 "owner_name": owner.name_with_titles,
@@ -209,16 +205,19 @@ async def sync_detail(
     records = query.all()
 
     # Build unit_number → [(owner_id, owner_name), ...] mapping for clickable owner links
+    # and unit_number → unit_id mapping for clickable unit links
     owner_map = {}
+    unit_map = {}
     owner_units = (
-        db.query(OwnerUnit.owner_id, Unit.unit_number, Owner.name_with_titles)
+        db.query(OwnerUnit.owner_id, Unit.unit_number, Owner.name_with_titles, Unit.id)
         .join(OwnerUnit.unit)
         .join(Owner, OwnerUnit.owner_id == Owner.id)
         .all()
     )
-    for oid, unit_num, oname in owner_units:
-        short = unit_num.split("/")[-1].strip() if "/" in unit_num else unit_num
+    for oid, unit_num, oname, unit_id in owner_units:
+        short = str(unit_num)
         owner_map.setdefault(short, []).append((oid, oname))
+        unit_map[short] = unit_id
 
     return templates.TemplateResponse("sync/compare.html", {
         "request": request,
@@ -231,6 +230,7 @@ async def sync_detail(
         "total_full_match": total_full_match,
         "total_partial": total_partial,
         "owner_map": owner_map,
+        "unit_map": unit_map,
     })
 
 
@@ -362,8 +362,7 @@ async def apply_selected_updates(
         unit = (
             db.query(Unit)
             .filter(
-                Unit.unit_number.endswith(f"/{short_num}")
-                | (Unit.unit_number == short_num)
+                Unit.unit_number == int(short_num)
             )
             .first()
         )

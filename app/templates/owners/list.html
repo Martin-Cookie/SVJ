@@ -84,9 +84,6 @@
                 {% set next_order = "desc" if sort == col and order == "asc" else "asc" %}
                 <th class="px-2 py-1.5 text-{{ align }} font-medium {% if sort == col %}text-blue-600{% else %}text-gray-500{% endif %}">
                     <a href="/vlastnici?sort={{ col }}&order={{ next_order }}&q={{ q }}&typ={{ owner_type }}&sekce={{ sekce }}"
-                       hx-get="/vlastnici?sort={{ col }}&order={{ next_order }}&q={{ q }}&typ={{ owner_type }}&sekce={{ sekce }}"
-                       hx-target="#owner-table-body"
-                       hx-push-url="true"
                        class="inline-flex items-center gap-0.5 cursor-pointer hover:text-blue-600 select-none">
                         {{ label }}
                         {% if sort == col %}

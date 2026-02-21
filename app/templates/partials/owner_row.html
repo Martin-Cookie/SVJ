@@ -21,7 +21,7 @@
         {% endif %}
     </td>
     <td class="px-2 py-1.5 text-gray-700 font-mono">
-        {% for ou in owner.units %}{{ ou.unit.unit_number }}{% if not loop.last %}, {% endif %}{% endfor %}
+        {% for ou in owner.units %}<a href="/jednotky/{{ ou.unit.id }}?back=/vlastnici" class="text-blue-600 hover:text-blue-800 hover:underline">{{ ou.unit.unit_number }}</a>{% if not loop.last %}, {% endif %}{% endfor %}
     </td>
     <td class="px-2 py-1.5 text-gray-500 text-center">
         {% set sections = [] %}

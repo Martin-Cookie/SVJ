@@ -56,7 +56,7 @@
                 <tbody class="divide-y divide-gray-200">
                     {% for ou in owner.units %}
                     <tr>
-                        <td class="px-3 py-2 text-sm font-medium text-gray-900">{{ ou.unit.unit_number }}</td>
+                        <td class="px-3 py-2 text-sm font-medium"><a href="/jednotky/{{ ou.unit.id }}?back=/vlastnici/{{ owner.id }}" class="text-blue-600 hover:text-blue-800 hover:underline">{{ ou.unit.unit_number }}</a></td>
                         <td class="px-3 py-2 text-sm text-gray-500">{{ ou.unit.building_number or '—' }}</td>
                         <td class="px-3 py-2 text-sm text-gray-500">{{ ou.unit.space_type or '—' }}</td>
                         <td class="px-3 py-2 text-sm text-gray-500">{{ "{:,}".format(ou.unit.podil_scd or 0).replace(",", " ") }}</td>

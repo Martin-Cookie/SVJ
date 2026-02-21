@@ -1,0 +1,19 @@
+<tr class="hover:bg-gray-50">
+    <td class="px-2 py-1.5 font-mono">
+        <a href="/jednotky/{{ unit.id }}" class="font-medium text-blue-600 hover:text-blue-800 hover:underline">{{ unit.unit_number }}</a>
+    </td>
+    <td class="px-2 py-1.5 text-gray-700">{{ unit.building_number or '—' }}</td>
+    <td class="px-2 py-1.5 text-gray-500 overflow-hidden" style="text-overflow:ellipsis;white-space:nowrap" title="{{ unit.space_type or '' }}">{{ unit.space_type or '—' }}</td>
+    <td class="px-2 py-1.5 text-gray-500 text-center">{{ unit.section or '—' }}</td>
+    <td class="px-2 py-1.5 text-gray-500 overflow-hidden" style="text-overflow:ellipsis;white-space:nowrap" title="{{ unit.address or '' }}">{{ unit.address or '—' }}</td>
+    <td class="px-2 py-1.5 text-gray-500 text-right font-mono">{{ unit.lv_number or '—' }}</td>
+    <td class="px-2 py-1.5 text-gray-500 text-center">{{ unit.room_count or '—' }}</td>
+    <td class="px-2 py-1.5 text-gray-700 text-right font-mono">{% if unit.floor_area %}{{ unit.floor_area }}{% else %}—{% endif %}</td>
+    <td class="px-2 py-1.5 text-gray-700 text-right font-mono">{{ "{:,}".format(unit.podil_scd or 0).replace(",", " ") }}</td>
+    <td class="px-2 py-1.5 overflow-hidden" style="text-overflow:ellipsis;white-space:nowrap">
+        {% for ou in unit.owners %}
+        <a href="/vlastnici/{{ ou.owner.id }}?back=/jednotky" class="text-blue-600 hover:text-blue-800 hover:underline">{{ ou.owner.name_with_titles }}</a>{% if not loop.last %}, {% endif %}
+        {% endfor %}
+        {% if not unit.owners %}<span class="text-gray-300">—</span>{% endif %}
+    </td>
+</tr>

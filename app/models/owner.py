@@ -77,7 +77,7 @@ class Unit(Base):
     __tablename__ = "units"
 
     id = Column(Integer, primary_key=True)
-    unit_number = Column(String(20), nullable=False, unique=True, index=True)
+    unit_number = Column(Integer, nullable=False, unique=True, index=True)
     building_number = Column(String(20), nullable=True, index=True)
     podil_scd = Column(Integer, nullable=True)
     floor_area = Column(Float, nullable=True)

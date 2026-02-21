@@ -189,7 +189,7 @@ async def generate_ballots(
 
         total_votes = sum(ou.votes for ou in owner.units)
         units_text = ", ".join(
-            ou.unit.unit_number for ou in owner.units
+            str(ou.unit.unit_number) for ou in owner.units
         )
 
         ballot = Ballot(

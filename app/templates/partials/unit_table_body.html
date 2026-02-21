@@ -1,0 +1,8 @@
+{% for unit in units %}
+{% include "partials/unit_row.html" %}
+{% endfor %}
+{% if not units %}
+<tr>
+    <td colspan="10" class="px-6 py-8 text-center text-gray-500">Žádné jednotky nenalezeny.</td>
+</tr>
+{% endif %}

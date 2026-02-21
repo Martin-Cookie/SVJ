@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block title %}Jednotka {{ unit.unit_number }} - SVJ Správa{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <a href="{{ back_url }}" class="text-sm text-gray-500 hover:text-gray-700">&larr; {{ back_label }}</a>
+</div>
+
+<div class="flex items-start justify-between mb-6">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-800">Jednotka {{ unit.unit_number }}</h1>
+        <div class="mt-1 flex items-center gap-2">
+            {% if unit.space_type %}
+            <span class="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">{{ unit.space_type }}</span>
+            {% endif %}
+            {% if unit.section %}
+            <span class="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-700 rounded-full">Sekce {{ unit.section }}</span>
+            {% endif %}
+            {% if unit.lv_number %}
+            <span class="px-2 py-1 text-xs font-medium bg-gray-50 text-gray-700 rounded border border-gray-200">LV: {{ unit.lv_number }}</span>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <!-- Basic info -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-lg font-semibold text-gray-700 mb-4">Základní údaje</h2>
+        <dl class="space-y-2 text-sm">
+            <div class="flex justify-between">
+                <dt class="text-gray-500">Číslo jednotky</dt>
+                <dd class="text-gray-900 font-medium">{{ unit.unit_number }}</dd>
+            </div>
+            <div class="flex justify-between">
+                <dt class="text-gray-500">Číslo budovy</dt>
+                <dd class="text-gray-900">{{ unit.building_number or '—' }}</dd>
+            </div>
+            <div class="flex justify-between">
+                <dt class="text-gray-500">Typ prostoru</dt>
+                <dd class="text-gray-900">{{ unit.space_type or '—' }}</dd>
+            </div>
+            <div class="flex justify-between">
+                <dt class="text-gray-500">Sekce</dt>
+                <dd class="text-gray-900">{{ unit.section or '—' }}</dd>
+            </div>
+            <div class="flex justify-between">
+                <dt class="text-gray-500">Orientační číslo</dt>
+                <dd class="text-gray-900">{{ unit.orientation_number or '—' }}</dd>
+            </div>
+            <div class="flex justify-between">
+                <dt class="text-gray-500">Adresa</dt>
+                <dd class="text-gray-900">{{ unit.address or '—' }}</dd>
+            </div>
+            <div class="flex justify-between">
+                <dt class="text-gray-500">List vlastnictví</dt>
+                <dd class="text-gray-900">{{ unit.lv_number or '—' }}</dd>
+            </div>
+            <div class="flex justify-between">
+                <dt class="text-gray-500">Počet místností</dt>
+                <dd class="text-gray-900">{{ unit.room_count or '—' }}</dd>
+            </div>
+            <div class="flex justify-between">
+                <dt class="text-gray-500">Plocha</dt>
+                <dd class="text-gray-900">{% if unit.floor_area %}{{ unit.floor_area }} m²{% else %}—{% endif %}</dd>
+            </div>
+            <div class="flex justify-between">
+                <dt class="text-gray-500">Podíl SČD</dt>
+                <dd class="text-gray-900 font-medium">{{ "{:,}".format(unit.podil_scd or 0).replace(",", " ") }}</dd>
+            </div>
+            <div class="flex justify-between">
+                <dt class="text-gray-500">Vytvořeno</dt>
+                <dd class="text-gray-900">{{ unit.created_at.strftime('%d.%m.%Y %H:%M') if unit.created_at else '—' }}</dd>
+            </div>
+        </dl>
+    </div>
+
+    <!-- Owners -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-lg font-semibold text-gray-700 mb-4">Vlastníci</h2>
+        {% if unit.owners %}
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead>
+                    <tr>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Jméno</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Vlastnictví</th>
+                        <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Podíl</th>
+                        <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Hlasy</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+                    {% for ou in unit.owners %}
+                    <tr>
+                        <td class="px-3 py-2 text-sm">
+                            <a href="/vlastnici/{{ ou.owner.id }}?back=/jednotky/{{ unit.id }}" class="text-blue-600 hover:text-blue-800 hover:underline font-medium">{{ ou.owner.name_with_titles }}</a>
+                        </td>
+                        <td class="px-3 py-2 text-sm text-gray-500">{{ ou.ownership_type or '—' }}</td>
+                        <td class="px-3 py-2 text-sm text-gray-500 text-right">{{ ou.share }}</td>
+                        <td class="px-3 py-2 text-sm text-gray-700 text-right font-mono">{{ "{:,}".format(ou.votes).replace(",", " ") }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="mt-3 pt-3 border-t border-gray-200 text-sm text-gray-600">
+            {% set total_votes = unit.owners | map(attribute='votes') | sum %}
+            Celkem hlasů: <strong>{{ "{:,}".format(total_votes).replace(",", " ") }}</strong>
+        </div>
+        {% else %}
+        <p class="text-sm text-gray-500">Žádní vlastníci.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

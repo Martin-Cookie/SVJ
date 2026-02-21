@@ -77,7 +77,7 @@ async def tax_create(
     owner_units = db.query(OwnerUnit).all()
     unit_to_owners = {}
     for ou in owner_units:
-        unit_num = ou.unit.unit_number
+        unit_num = str(ou.unit.unit_number)
         if unit_num not in unit_to_owners:
             unit_to_owners[unit_num] = []
         owner_data = next((o for o in owner_dicts if o["id"] == ou.owner_id), None)
