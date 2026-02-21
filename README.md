@@ -70,7 +70,9 @@ Aplikace běží na http://localhost:8000
   - Řádkový checkbox pro hromadné zaškrtnutí všech polí záznamu
   - Toolbar: Vybrat vše / Zrušit výběr / počítadlo / Aktualizovat vybrané
   - Po aktualizaci se přepočítá status záznamu a počítadla v bublinách
+- Aktualizace jmen více vlastníků (SJM): fuzzy párování jednotlivých jmen
 - Logování změn: každá úprava zaznamenána s názvem zdrojového CSV a časem
+- Proklik jména vlastníka do detailní karty s návratem zpět na porovnání
 - Přenos kontaktů z CSV do databáze
 
 ## Struktura projektu
