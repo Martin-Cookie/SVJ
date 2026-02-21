@@ -47,17 +47,17 @@
         <span class="text-sm text-gray-500">{{ preview.preview_rows|length }} řádků</span>
     </div>
     <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-gray-200">
+        <table id="preview-table" class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
                 <tr>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Řádek</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Jméno</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Typ</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Jednotka KN</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sekce</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Vlastnictví</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Podíl SČD</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-blue-600 select-none" onclick="sortPreview(0,'num')">Řádek <span class="sort-arrow"></span></th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-blue-600 select-none" onclick="sortPreview(1,'str')">Jméno <span class="sort-arrow"></span></th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-blue-600 select-none" onclick="sortPreview(2,'str')">Typ <span class="sort-arrow"></span></th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-blue-600 select-none" onclick="sortPreview(3,'str')">Jednotka KN <span class="sort-arrow"></span></th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-blue-600 select-none" onclick="sortPreview(4,'str')">Sekce <span class="sort-arrow"></span></th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-blue-600 select-none" onclick="sortPreview(5,'str')">Vlastnictví <span class="sort-arrow"></span></th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-blue-600 select-none" onclick="sortPreview(6,'num')">Podíl SČD <span class="sort-arrow"></span></th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-blue-600 select-none" onclick="sortPreview(7,'str')">Email <span class="sort-arrow"></span></th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-200">
@@ -101,4 +101,32 @@
         Zrušit
     </a>
 </div>
+
+<script>
+var previewSortCol = -1, previewSortAsc = true;
+function sortPreview(col, type) {
+    var table = document.getElementById('preview-table');
+    var tbody = table.querySelector('tbody');
+    var rows = Array.from(tbody.querySelectorAll('tr'));
+    if (previewSortCol === col) { previewSortAsc = !previewSortAsc; } else { previewSortCol = col; previewSortAsc = true; }
+    rows.sort(function(a, b) {
+        var aText = a.cells[col].textContent.trim();
+        var bText = b.cells[col].textContent.trim();
+        if (type === 'num') {
+            var aNum = parseInt(aText.replace(/\s/g, '')) || 0;
+            var bNum = parseInt(bText.replace(/\s/g, '')) || 0;
+            return previewSortAsc ? aNum - bNum : bNum - aNum;
+        }
+        return previewSortAsc ? aText.localeCompare(bText, 'cs') : bText.localeCompare(aText, 'cs');
+    });
+    rows.forEach(function(row) { tbody.appendChild(row); });
+    table.querySelectorAll('.sort-arrow').forEach(function(s) { s.textContent = ''; });
+    var arrow = table.querySelectorAll('thead th')[col].querySelector('.sort-arrow');
+    if (arrow) arrow.textContent = previewSortAsc ? ' \u25B2' : ' \u25BC';
+    table.querySelectorAll('thead th').forEach(function(th, i) {
+        th.classList.toggle('text-blue-600', i === col);
+        th.classList.toggle('text-gray-500', i !== col);
+    });
+}
+</script>
 {% endblock %}
