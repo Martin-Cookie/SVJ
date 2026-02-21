@@ -12,7 +12,7 @@
 
 {% if stats %}
 <!-- Type filter bubbles -->
-<div class="grid grid-cols-6 gap-2 mb-3">
+<div class="grid grid-cols-4 gap-2 mb-3">
     <a href="/vlastnici?q={{ q }}&sekce={{ sekce }}&sort={{ sort }}&order={{ order }}" class="block bg-white rounded-lg shadow p-2 text-center hover:ring-2 hover:ring-gray-300 {% if not owner_type %}ring-2 ring-gray-400{% endif %}">
         <p class="text-lg font-bold text-gray-800">{{ stats.total_owners }}</p>
         <p class="text-xs text-gray-500">Vše</p>
@@ -21,17 +21,9 @@
         <p class="text-lg font-bold text-gray-600">{{ stats.type_counts.get('physical', 0) }}</p>
         <p class="text-xs text-gray-600">Fyzická os.</p>
     </a>
-    <a href="/vlastnici?typ=sjm&q={{ q }}&sekce={{ sekce }}&sort={{ sort }}&order={{ order }}" class="block bg-purple-50 rounded-lg shadow p-2 text-center border border-purple-200 hover:ring-2 hover:ring-purple-300 {% if owner_type == 'sjm' %}ring-2 ring-purple-400{% endif %}">
-        <p class="text-lg font-bold text-purple-600">{{ stats.type_counts.get('sjm', 0) }}</p>
-        <p class="text-xs text-purple-600">SJM</p>
-    </a>
     <a href="/vlastnici?typ=legal&q={{ q }}&sekce={{ sekce }}&sort={{ sort }}&order={{ order }}" class="block bg-blue-50 rounded-lg shadow p-2 text-center border border-blue-200 hover:ring-2 hover:ring-blue-300 {% if owner_type == 'legal' %}ring-2 ring-blue-400{% endif %}">
         <p class="text-lg font-bold text-blue-600">{{ stats.type_counts.get('legal', 0) }}</p>
         <p class="text-xs text-blue-600">Právnická os.</p>
-    </a>
-    <a href="/vlastnici?typ=partial&q={{ q }}&sekce={{ sekce }}&sort={{ sort }}&order={{ order }}" class="block bg-orange-50 rounded-lg shadow p-2 text-center border border-orange-200 hover:ring-2 hover:ring-orange-300 {% if owner_type == 'partial' %}ring-2 ring-orange-400{% endif %}">
-        <p class="text-lg font-bold text-orange-600">{{ stats.type_counts.get('partial', 0) }}</p>
-        <p class="text-xs text-orange-600">Podíl. spoluvl.</p>
     </a>
     <div class="bg-white rounded-lg shadow p-2 text-center">
         <p class="text-lg font-bold text-teal-600">{{ stats.emails_count }}</p>
@@ -97,7 +89,7 @@
                 </th>
                 {% endmacro %}
                 {{ sort_th("Vlastník", "name") }}
-                {{ sort_th("Typ", "type") }}
+                {{ sort_th("Subjekt", "type") }}
                 {{ sort_th("Jednotky", "jednotky") }}
                 {{ sort_th("Sekce", "sekce") }}
                 {{ sort_th("Email", "email") }}

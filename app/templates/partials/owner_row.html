@@ -10,12 +10,8 @@
         {% endif %}
     </td>
     <td class="px-2 py-1.5">
-        {% if owner.owner_type.value == 'sjm' %}
-        <span class="px-1.5 py-0.5 text-xs font-medium bg-purple-100 text-purple-800 rounded-full">SJM</span>
-        {% elif owner.owner_type.value == 'legal' %}
+        {% if owner.owner_type.value == 'legal' %}
         <span class="px-1.5 py-0.5 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">Právnická</span>
-        {% elif owner.owner_type.value == 'partial' %}
-        <span class="px-1.5 py-0.5 text-xs font-medium bg-orange-100 text-orange-800 rounded-full">Podíl.</span>
         {% else %}
         <span class="px-1.5 py-0.5 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">Fyzická</span>
         {% endif %}

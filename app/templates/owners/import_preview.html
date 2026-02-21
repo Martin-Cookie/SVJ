@@ -22,12 +22,10 @@
 </div>
 
 {% set physical_count = preview.preview_rows | selectattr('owner_type', 'equalto', 'physical') | list | length %}
-{% set sjm_count = preview.preview_rows | selectattr('owner_type', 'equalto', 'sjm') | list | length %}
 {% set legal_count = preview.preview_rows | selectattr('owner_type', 'equalto', 'legal') | list | length %}
-{% set partial_count = preview.preview_rows | selectattr('owner_type', 'equalto', 'partial') | list | length %}
 
 <!-- Filter bubbles -->
-<div class="grid grid-cols-6 gap-2 mb-3">
+<div class="grid grid-cols-4 gap-2 mb-3">
     <a href="#" onclick="filterPreview('all');return false" class="filter-bubble block bg-white rounded-lg shadow p-2 text-center hover:ring-2 hover:ring-gray-300 ring-2 ring-gray-400" data-filter="all">
         <p class="text-lg font-bold text-gray-800">{{ preview.preview_rows|length }}</p>
         <p class="text-xs text-gray-500">Vše</p>
@@ -36,17 +34,9 @@
         <p class="text-lg font-bold text-gray-600">{{ physical_count }}</p>
         <p class="text-xs text-gray-600">Fyzická os.</p>
     </a>
-    <a href="#" onclick="filterPreview('sjm');return false" class="filter-bubble block bg-purple-50 rounded-lg shadow p-2 text-center border border-purple-200 hover:ring-2 hover:ring-purple-300" data-filter="sjm">
-        <p class="text-lg font-bold text-purple-600">{{ sjm_count }}</p>
-        <p class="text-xs text-purple-600">SJM</p>
-    </a>
     <a href="#" onclick="filterPreview('legal');return false" class="filter-bubble block bg-blue-50 rounded-lg shadow p-2 text-center border border-blue-200 hover:ring-2 hover:ring-blue-300" data-filter="legal">
         <p class="text-lg font-bold text-blue-600">{{ legal_count }}</p>
         <p class="text-xs text-blue-600">Právnická os.</p>
-    </a>
-    <a href="#" onclick="filterPreview('partial');return false" class="filter-bubble block bg-orange-50 rounded-lg shadow p-2 text-center border border-orange-200 hover:ring-2 hover:ring-orange-300" data-filter="partial">
-        <p class="text-lg font-bold text-orange-600">{{ partial_count }}</p>
-        <p class="text-xs text-orange-600">Podíl. spoluvl.</p>
     </a>
     <a href="#" onclick="filterPreview('error');return false" class="filter-bubble block bg-red-50 rounded-lg shadow p-2 text-center border border-red-200 hover:ring-2 hover:ring-red-300" data-filter="error">
         <p class="text-lg font-bold {% if preview.errors %}text-red-600{% else %}text-gray-400{% endif %}">{{ preview.errors|length }}</p>
@@ -83,7 +73,7 @@
             <tr>
                 <th class="px-2 py-2 text-left font-medium text-gray-500 cursor-pointer hover:text-blue-600 select-none" onclick="sortPreview(0,'num')">Řádek <span class="sort-arrow"></span></th>
                 <th class="px-2 py-2 text-left font-medium text-gray-500 cursor-pointer hover:text-blue-600 select-none" onclick="sortPreview(1,'str')">Jméno <span class="sort-arrow"></span></th>
-                <th class="px-2 py-2 text-left font-medium text-gray-500 cursor-pointer hover:text-blue-600 select-none" onclick="sortPreview(2,'str')">Typ <span class="sort-arrow"></span></th>
+                <th class="px-2 py-2 text-left font-medium text-gray-500 cursor-pointer hover:text-blue-600 select-none" onclick="sortPreview(2,'str')">Subjekt <span class="sort-arrow"></span></th>
                 <th class="px-2 py-2 text-left font-medium text-gray-500 cursor-pointer hover:text-blue-600 select-none" onclick="sortPreview(3,'num')">Jednotka <span class="sort-arrow"></span></th>
                 <th class="px-2 py-2 text-left font-medium text-gray-500 cursor-pointer hover:text-blue-600 select-none" onclick="sortPreview(4,'str')">Sekce <span class="sort-arrow"></span></th>
                 <th class="px-2 py-2 text-left font-medium text-gray-500 cursor-pointer hover:text-blue-600 select-none" onclick="sortPreview(5,'str')">Vlastnictví <span class="sort-arrow"></span></th>
@@ -97,12 +87,8 @@
                 <td class="px-2 py-1.5 text-gray-400">{{ row.row }}</td>
                 <td class="px-2 py-1.5 font-medium text-gray-900 overflow-hidden" style="text-overflow:ellipsis;white-space:nowrap" title="{{ row.name }}" data-sort="{{ row.sort_name }}">{{ row.name }}</td>
                 <td class="px-2 py-1.5">
-                    {% if row.owner_type == 'sjm' %}
-                    <span class="px-2 py-0.5 text-xs font-medium bg-purple-100 text-purple-800 rounded-full">SJM</span>
-                    {% elif row.owner_type == 'legal' %}
+                    {% if row.owner_type == 'legal' %}
                     <span class="px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">Právnická os.</span>
-                    {% elif row.owner_type == 'partial' %}
-                    <span class="px-2 py-0.5 text-xs font-medium bg-orange-100 text-orange-800 rounded-full">Podíl. spoluvl.</span>
                     {% else %}
                     <span class="px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">Fyzická os.</span>
                     {% endif %}
@@ -146,16 +132,10 @@ function filterPreview(type) {
     document.querySelectorAll('.filter-bubble').forEach(function(b) {
         var isActive = b.dataset.filter === type;
         b.classList.toggle('ring-2', isActive);
-        if (b.dataset.filter === 'all') {
+        if (b.dataset.filter === 'all' || b.dataset.filter === 'physical') {
             b.classList.toggle('ring-gray-400', isActive);
-        } else if (b.dataset.filter === 'physical') {
-            b.classList.toggle('ring-gray-400', isActive);
-        } else if (b.dataset.filter === 'sjm') {
-            b.classList.toggle('ring-purple-400', isActive);
         } else if (b.dataset.filter === 'legal') {
             b.classList.toggle('ring-blue-400', isActive);
-        } else if (b.dataset.filter === 'partial') {
-            b.classList.toggle('ring-orange-400', isActive);
         } else if (b.dataset.filter === 'error') {
             b.classList.toggle('ring-red-400', isActive);
         }

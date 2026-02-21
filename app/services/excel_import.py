@@ -139,24 +139,21 @@ def _is_company_id(value: str) -> bool:
     return clean.isdigit() and len(clean) == 8 and "/" not in value
 
 
-def _detect_owner_type(ownership_type_raw: str | None, birth_or_ic: str | None) -> OwnerType:
-    """Detect owner type from column K value and column O value."""
-    is_legal = False
-    if birth_or_ic:
-        if _is_company_id(birth_or_ic):
-            is_legal = True
-
-    if is_legal:
+def _detect_owner_type(birth_or_ic: str | None) -> OwnerType:
+    """Detect owner type: legal if IČ (8-digit), otherwise physical."""
+    if birth_or_ic and _is_company_id(birth_or_ic):
         return OwnerType.LEGAL_ENTITY
-
-    ot = (ownership_type_raw or "").strip().upper()
-
-    if ot in ("ANO", "SJM"):
-        return OwnerType.SJM
-    if ot in ("SJVL", "SVJL"):
-        return OwnerType.PARTIAL
-    # VL, NE, empty, or other values → physical
     return OwnerType.PHYSICAL
+
+
+def _normalize_ownership_type(raw: str | None) -> str | None:
+    """Normalize ownership type: ANO → SJM, keep others as-is."""
+    if not raw:
+        return None
+    val = raw.strip()
+    if val.upper() == "ANO":
+        return "SJM"
+    return val
 
 
 def _build_name_with_titles(title: str | None, first_name: str, last_name: str | None) -> str:
@@ -286,7 +283,7 @@ def preview_owners_from_excel(file_path: str) -> dict:
         key = _owner_group_key(parsed["first_name"], parsed["last_name"], parsed["birth_or_ic"])
         owner_keys.add(key)
 
-        owner_type = _detect_owner_type(parsed["ownership_type"], parsed["birth_or_ic"])
+        owner_type = _detect_owner_type(parsed["birth_or_ic"])
 
         last = parsed["last_name"] or ""
         first = parsed["first_name"] or ""
@@ -297,7 +294,7 @@ def preview_owners_from_excel(file_path: str) -> dict:
             "owner_type": owner_type.value,
             "unit_number": parsed["unit_kn"],
             "building_number": parsed["building_number"] or "",
-            "ownership_type_raw": parsed["ownership_type"] or "",
+            "ownership_type_raw": _normalize_ownership_type(parsed["ownership_type"]) or "",
             "podil_scd": parsed["podil_scd"] or 0,
             "section": parsed["section"] or "",
             "email": parsed["email_evidence"] or parsed["email_contacts"] or "",
@@ -346,7 +343,7 @@ def import_owners_from_excel(db: Session, file_path: str) -> dict:
         first_row = rows[0]
 
         # Detect owner type
-        owner_type = _detect_owner_type(first_row["ownership_type"], first_row["birth_or_ic"])
+        owner_type = _detect_owner_type(first_row["birth_or_ic"])
 
         # Parse birth number vs company ID
         birth_number = None
@@ -443,7 +440,7 @@ def import_owners_from_excel(db: Session, file_path: str) -> dict:
             owner_unit = OwnerUnit(
                 owner_id=owner.id,
                 unit_id=unit_obj.id,
-                ownership_type=row_data["ownership_type"],
+                ownership_type=_normalize_ownership_type(row_data["ownership_type"]),
                 share=1.0,
                 votes=votes,
                 excel_row_number=row_data["row_idx"],

@@ -11,9 +11,7 @@ from app.database import Base
 
 class OwnerType(str, enum.Enum):
     PHYSICAL = "physical"
-    SJM = "sjm"
     LEGAL_ENTITY = "legal"
-    PARTIAL = "partial"
 
 
 class Owner(Base):
