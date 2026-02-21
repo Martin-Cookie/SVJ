@@ -5,6 +5,7 @@
            {% elif record.status.value == 'difference' %}bg-yellow-50
            {% else %}bg-red-50{% endif %}">
     <td class="px-4 py-3 text-sm font-medium text-gray-900">{{ record.unit_number }}</td>
+    <td class="px-4 py-3 text-xs text-gray-500">{{ record.excel_space_type or '—' }}</td>
     <td class="px-4 py-3 text-sm text-gray-700">{{ record.csv_owner_name or '—' }}</td>
     <td class="px-4 py-3 text-sm text-gray-700">
         {% if record.admin_corrected_name %}
@@ -14,7 +15,16 @@
         {{ record.excel_owner_name or '—' }}
         {% endif %}
     </td>
-    <td class="px-4 py-3 text-sm text-gray-500">{{ record.csv_ownership_type or '—' }}</td>
+    <td class="px-4 py-3 text-xs text-gray-500">
+        {% if record.excel_ownership_type %}{{ record.excel_ownership_type }}{% endif %}
+        {% if record.csv_ownership_type and record.csv_ownership_type != record.excel_ownership_type %}
+        <span class="text-gray-400">/ CSV: {{ record.csv_ownership_type }}</span>
+        {% endif %}
+        {% if not record.excel_ownership_type and not record.csv_ownership_type %}—{% endif %}
+    </td>
+    <td class="px-4 py-3 text-sm text-gray-700 text-right font-mono">
+        {% if record.excel_podil_scd %}{{ "{:,}".format(record.excel_podil_scd).replace(",", " ") }}{% else %}—{% endif %}
+    </td>
     <td class="px-4 py-3 text-xs text-gray-500">{{ record.match_details or '' }}</td>
     <td class="px-4 py-3 text-sm">
         {% if record.resolution.value == 'pending' and record.status.value != 'match' %}

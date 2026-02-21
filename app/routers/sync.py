@@ -91,6 +91,9 @@ async def sync_create(
                 "owner_name": owner.name_with_titles,
                 "name_normalized": owner.name_normalized,
                 "owner_type": owner.owner_type.value,
+                "space_type": ou.unit.space_type or "",
+                "podil_scd": ou.unit.podil_scd or 0,
+                "ownership_type": ou.ownership_type or "",
             })
 
     # Compare
@@ -119,6 +122,8 @@ async def sync_create(
             excel_owner_name=comp.get("excel_owner_name"),
             csv_ownership_type=comp.get("csv_ownership_type"),
             excel_ownership_type=comp.get("excel_ownership_type"),
+            excel_space_type=comp.get("excel_space_type"),
+            excel_podil_scd=comp.get("excel_podil_scd"),
             csv_email=comp.get("csv_email", ""),
             csv_phone=comp.get("csv_phone", ""),
             status=comp["status"],

@@ -102,6 +102,8 @@ def compare_owners(
                 "excel_owner_name": None,
                 "csv_ownership_type": csv_type,
                 "excel_ownership_type": None,
+                "excel_space_type": None,
+                "excel_podil_scd": None,
                 "csv_email": csv_rec.get("email", ""),
                 "csv_phone": csv_rec.get("phone", ""),
                 "status": SyncStatus.MISSING_EXCEL,
@@ -113,6 +115,9 @@ def compare_owners(
         # Combine all Excel owner names for this unit
         excel_names_combined = "; ".join(e["owner_name"] for e in excel_entries)
         excel_type = excel_entries[0].get("owner_type", "")
+        excel_space_type = excel_entries[0].get("space_type", "")
+        excel_podil_scd = excel_entries[0].get("podil_scd", 0)
+        excel_ownership_type_raw = excel_entries[0].get("ownership_type", "")
 
         csv_norm = normalize_for_matching(csv_owners_raw)
         excel_norm = normalize_for_matching(excel_names_combined)
@@ -160,6 +165,8 @@ def compare_owners(
             "excel_owner_name": excel_names_combined,
             "csv_ownership_type": csv_type,
             "excel_ownership_type": excel_type,
+            "excel_space_type": excel_space_type,
+            "excel_podil_scd": excel_podil_scd,
             "csv_email": csv_rec.get("email", ""),
             "csv_phone": csv_rec.get("phone", ""),
             "status": status,
@@ -176,6 +183,8 @@ def compare_owners(
                     "excel_owner_name": ee["owner_name"],
                     "csv_ownership_type": None,
                     "excel_ownership_type": ee.get("owner_type", ""),
+                    "excel_space_type": ee.get("space_type", ""),
+                    "excel_podil_scd": ee.get("podil_scd", 0),
                     "csv_email": "",
                     "csv_phone": "",
                     "status": SyncStatus.MISSING_CSV,

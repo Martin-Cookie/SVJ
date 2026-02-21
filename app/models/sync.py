@@ -53,6 +53,8 @@ class SyncRecord(Base):
     excel_ownership_type = Column(String(50), nullable=True)
     csv_email = Column(String(200), nullable=True)
     csv_phone = Column(String(50), nullable=True)
+    excel_space_type = Column(String(50), nullable=True)
+    excel_podil_scd = Column(Integer, nullable=True)
     status = Column(Enum(SyncStatus), nullable=False)
     resolution = Column(Enum(SyncResolution), default=SyncResolution.PENDING)
     admin_corrected_name = Column(String(300), nullable=True)
