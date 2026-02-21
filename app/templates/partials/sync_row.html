@@ -44,7 +44,7 @@
     <tr class="{{ bg_class }} border-b-2 border-gray-200">
         <td class="px-0 py-1"><span class="text-gray-400 font-bold">C</span></td>
         <td class="px-1 py-1 overflow-hidden {% if st == 'match' %}text-gray-300{% elif st == 'name_order' %}text-orange-400{% else %}text-red-400{% endif %}" style="text-overflow:ellipsis;white-space:nowrap" title="{{ record.csv_owner_name or '' }}">
-            {% if st == 'match' %}—{% else %}{{ record.csv_owner_name or '—' }}{% endif %}
+{{ record.csv_owner_name or '—' }}
         </td>
         <td class="px-1 py-1 text-gray-300">—</td>
         <td class="px-1 py-1 {% if record.csv_ownership_type and record.excel_ownership_type and record.csv_ownership_type == record.excel_ownership_type %}text-gray-300{% elif record.csv_ownership_type and record.excel_ownership_type %}text-orange-400{% else %}text-gray-300{% endif %}">
