@@ -11,6 +11,7 @@ from app.database import Base
 
 class SyncStatus(str, enum.Enum):
     MATCH = "match"
+    NAME_ORDER = "name_order"
     DIFFERENCE = "difference"
     MISSING_CSV = "missing_csv"
     MISSING_EXCEL = "missing_excel"
@@ -31,6 +32,7 @@ class SyncSession(Base):
     csv_path = Column(String(500), nullable=False)
     total_records = Column(Integer, default=0)
     total_matches = Column(Integer, default=0)
+    total_name_order = Column(Integer, default=0)
     total_differences = Column(Integer, default=0)
     total_missing = Column(Integer, default=0)
     is_finalized = Column(Boolean, default=False)

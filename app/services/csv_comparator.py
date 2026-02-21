@@ -150,11 +150,13 @@ def compare_owners(
 
         best_ratio = max(ratio, parts_overlap)
 
-        # Determine status
-        if best_ratio >= 0.85:
+        # Determine status: exact match vs reordered names vs real difference
+        exact_string_match = csv_norm == excel_norm
+        if best_ratio >= 0.85 and exact_string_match:
             status = SyncStatus.MATCH
-        elif best_ratio >= 0.3:
-            status = SyncStatus.DIFFERENCE
+        elif best_ratio >= 0.85:
+            # Names are the same people, just in different order/format
+            status = SyncStatus.NAME_ORDER
         else:
             status = SyncStatus.DIFFERENCE
 
@@ -166,9 +168,9 @@ def compare_owners(
                ("sjm" not in csv_type_norm and excel_type == "sjm"):
                 type_mismatch = True
 
-        details = f"Shoda jmen: {best_ratio:.0%}"
+        details = f"{best_ratio:.0%}"
         if type_mismatch:
-            details += f" | Typ vlastnictví se liší (CSV: {csv_type}, Excel: {excel_type})"
+            details += f" | Typ se liší"
 
         results.append({
             "unit_number": unit,

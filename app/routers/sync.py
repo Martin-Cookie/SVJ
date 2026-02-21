@@ -2,7 +2,7 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session, joinedload
@@ -105,6 +105,7 @@ async def sync_create(
         csv_path=str(dest),
         total_records=len(comparison),
         total_matches=sum(1 for c in comparison if c["status"] == SyncStatus.MATCH),
+        total_name_order=sum(1 for c in comparison if c["status"] == SyncStatus.NAME_ORDER),
         total_differences=sum(1 for c in comparison if c["status"] == SyncStatus.DIFFERENCE),
         total_missing=sum(
             1 for c in comparison
@@ -131,7 +132,7 @@ async def sync_create(
             match_details=comp.get("match_details"),
             resolution=(
                 SyncResolution.ACCEPTED
-                if comp["status"] == SyncStatus.MATCH
+                if comp["status"] in (SyncStatus.MATCH, SyncStatus.NAME_ORDER)
                 else SyncResolution.PENDING
             ),
         )
@@ -142,23 +143,33 @@ async def sync_create(
 
 
 @router.get("/{session_id}")
-async def sync_detail(session_id: int, request: Request, db: Session = Depends(get_db)):
+async def sync_detail(
+    session_id: int,
+    request: Request,
+    filtr: str = Query("", alias="filtr"),
+    db: Session = Depends(get_db),
+):
     session = db.query(SyncSession).get(session_id)
     if not session:
         return RedirectResponse("/synchronizace", status_code=302)
 
-    records = (
-        db.query(SyncRecord)
-        .filter_by(session_id=session_id)
-        .order_by(SyncRecord.id)
-        .all()
-    )
+    query = db.query(SyncRecord).filter_by(session_id=session_id)
+    if filtr == "match":
+        query = query.filter(SyncRecord.status == SyncStatus.MATCH)
+    elif filtr == "name_order":
+        query = query.filter(SyncRecord.status == SyncStatus.NAME_ORDER)
+    elif filtr == "difference":
+        query = query.filter(SyncRecord.status == SyncStatus.DIFFERENCE)
+    elif filtr == "missing":
+        query = query.filter(SyncRecord.status.in_([SyncStatus.MISSING_CSV, SyncStatus.MISSING_EXCEL]))
+    records = query.order_by(SyncRecord.id).all()
 
     return templates.TemplateResponse("sync/compare.html", {
         "request": request,
         "active_nav": "sync",
         "session": session,
         "records": records,
+        "filtr": filtr,
     })
 
 

@@ -2,85 +2,76 @@
 {% block title %}Porovnání - {{ session.csv_filename }}{% endblock %}
 
 {% block content %}
-<div class="mb-4">
-    <a href="/synchronizace" class="text-sm text-gray-500 hover:text-gray-700">&larr; Zpět na kontrolu vlastníků</a>
+<div class="mb-3">
+    <a href="/synchronizace" class="text-sm text-gray-500 hover:text-gray-700">&larr; Zpět</a>
 </div>
 
-<div class="flex items-center justify-between mb-4">
+<div class="flex items-center justify-between mb-3">
     <div>
         <h1 class="text-xl font-bold text-gray-800">Porovnání vlastníků</h1>
-        <p class="text-xs text-gray-500 mt-1">CSV: {{ session.csv_filename }} | {{ session.created_at.strftime('%d.%m.%Y %H:%M') }}</p>
+        <p class="text-xs text-gray-500 mt-0.5">{{ session.csv_filename }} | {{ session.created_at.strftime('%d.%m.%Y %H:%M') }}</p>
     </div>
     <div class="flex gap-2">
         <form action="/synchronizace/{{ session.id }}/aplikovat-kontakty" method="post">
-            <button type="submit" class="px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-xs font-medium">
-                Přenést kontakty z CSV
-            </button>
+            <button type="submit" class="px-3 py-1.5 bg-green-600 text-white rounded hover:bg-green-700 text-xs font-medium">Přenést kontakty</button>
         </form>
         <form action="/synchronizace/{{ session.id }}/exportovat" method="post">
-            <button type="submit" class="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs font-medium">
-                Export do Excelu
-            </button>
+            <button type="submit" class="px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs font-medium">Export Excel</button>
         </form>
     </div>
 </div>
 
-<!-- Stats -->
-<div class="grid grid-cols-4 gap-3 mb-4">
-    <div class="bg-white rounded-lg shadow p-3 text-center">
-        <p class="text-xl font-bold text-gray-800">{{ session.total_records }}</p>
-        <p class="text-xs text-gray-500">Celkem</p>
-    </div>
-    <div class="bg-green-50 rounded-lg shadow p-3 text-center border border-green-200">
-        <p class="text-xl font-bold text-green-600">{{ session.total_matches }}</p>
+<!-- Stats - clickable filters -->
+<div class="grid grid-cols-5 gap-2 mb-3">
+    <a href="/synchronizace/{{ session.id }}" class="block bg-white rounded-lg shadow p-2 text-center hover:ring-2 hover:ring-gray-300 {% if not filtr %}ring-2 ring-gray-400{% endif %}">
+        <p class="text-lg font-bold text-gray-800">{{ session.total_records }}</p>
+        <p class="text-xs text-gray-500">Vše</p>
+    </a>
+    <a href="/synchronizace/{{ session.id }}?filtr=match" class="block bg-green-50 rounded-lg shadow p-2 text-center border border-green-200 hover:ring-2 hover:ring-green-300 {% if filtr == 'match' %}ring-2 ring-green-400{% endif %}">
+        <p class="text-lg font-bold text-green-600">{{ session.total_matches }}</p>
         <p class="text-xs text-green-600">Shoda</p>
-    </div>
-    <div class="bg-yellow-50 rounded-lg shadow p-3 text-center border border-yellow-200">
-        <p class="text-xl font-bold text-yellow-600">{{ session.total_differences }}</p>
-        <p class="text-xs text-yellow-600">Rozdíly</p>
-    </div>
-    <div class="bg-red-50 rounded-lg shadow p-3 text-center border border-red-200">
-        <p class="text-xl font-bold text-red-600">{{ session.total_missing }}</p>
-        <p class="text-xs text-red-600">Chybí</p>
-    </div>
-</div>
-
-<!-- Legend -->
-<div class="flex gap-3 mb-3 text-xs text-gray-500">
-    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded bg-green-200 inline-block"></span> Shoda</span>
-    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded bg-yellow-200 inline-block"></span> Rozdíl</span>
-    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded bg-red-200 inline-block"></span> Chybí</span>
-    <span class="flex items-center gap-1 ml-2 text-green-500 font-bold">=</span><span class="text-xs text-gray-500">shodné</span>
-    <span class="text-orange-500 font-bold">!</span><span class="text-xs text-gray-500">odlišné</span>
+    </a>
+    <a href="/synchronizace/{{ session.id }}?filtr=name_order" class="block bg-orange-50 rounded-lg shadow p-2 text-center border border-orange-200 hover:ring-2 hover:ring-orange-300 {% if filtr == 'name_order' %}ring-2 ring-orange-400{% endif %}">
+        <p class="text-lg font-bold text-orange-500">{{ session.total_name_order or 0 }}</p>
+        <p class="text-xs text-orange-500">Přeházená</p>
+    </a>
+    <a href="/synchronizace/{{ session.id }}?filtr=difference" class="block bg-red-50 rounded-lg shadow p-2 text-center border border-red-200 hover:ring-2 hover:ring-red-300 {% if filtr == 'difference' %}ring-2 ring-red-400{% endif %}">
+        <p class="text-lg font-bold text-red-600">{{ session.total_differences }}</p>
+        <p class="text-xs text-red-600">Rozdíly</p>
+    </a>
+    <a href="/synchronizace/{{ session.id }}?filtr=missing" class="block bg-gray-50 rounded-lg shadow p-2 text-center border border-gray-200 hover:ring-2 hover:ring-gray-300 {% if filtr == 'missing' %}ring-2 ring-gray-400{% endif %}">
+        <p class="text-lg font-bold text-gray-600">{{ session.total_missing }}</p>
+        <p class="text-xs text-gray-600">Chybí</p>
+    </a>
 </div>
 
 <!-- Comparison table -->
-<div class="bg-white rounded-lg shadow overflow-hidden">
+<div class="bg-white rounded-lg shadow overflow-hidden" style="max-height:calc(100vh - 230px); overflow-y:auto">
     <table class="w-full text-xs" style="table-layout:fixed">
         <colgroup>
-            <col style="width:32px">
-            <col style="width:28px">
+            <col style="width:30px">
+            <col style="width:16px">
             <col>
-            <col style="width:42px">
             <col style="width:36px">
-            <col style="width:52px">
-            <col>
-            <col style="width:72px">
+            <col style="width:30px">
             <col style="width:48px">
-            <col style="width:64px">
+            <col style="width:140px">
+            <col style="width:80px">
+            <col style="width:32px">
+            <col style="width:56px">
         </colgroup>
-        <thead class="bg-gray-50 border-b-2 border-gray-300">
+        <thead class="bg-gray-50 border-b-2 border-gray-300 sticky top-0 z-10">
             <tr>
-                <th class="px-1 py-1.5 text-left font-medium text-gray-500 uppercase">J.</th>
-                <th class="px-1 py-1.5 text-left font-medium text-gray-500 uppercase"></th>
-                <th class="px-1 py-1.5 text-left font-medium text-gray-500 uppercase">Vlastník</th>
-                <th class="px-1 py-1.5 text-left font-medium text-gray-500 uppercase">Typ</th>
-                <th class="px-1 py-1.5 text-left font-medium text-gray-500 uppercase">Vl.</th>
-                <th class="px-1 py-1.5 text-right font-medium text-gray-500 uppercase">Podíl</th>
-                <th class="px-1 py-1.5 text-left font-medium text-gray-500 uppercase">Email</th>
-                <th class="px-1 py-1.5 text-left font-medium text-gray-500 uppercase">Telefon</th>
-                <th class="px-1 py-1.5 text-center font-medium text-gray-500 uppercase">%</th>
-                <th class="px-1 py-1.5 text-left font-medium text-gray-500 uppercase">Akce</th>
+                <th class="px-1 py-1.5 text-left font-medium text-gray-500">J.</th>
+                <th class="px-0 py-1.5"></th>
+                <th class="px-1 py-1.5 text-left font-medium text-gray-500">Vlastník</th>
+                <th class="px-1 py-1.5 text-left font-medium text-gray-500">Typ</th>
+                <th class="px-1 py-1.5 text-left font-medium text-gray-500">Vl.</th>
+                <th class="px-1 py-1.5 text-right font-medium text-gray-500">Podíl</th>
+                <th class="px-1 py-1.5 text-left font-medium text-gray-500">Email</th>
+                <th class="px-1 py-1.5 text-left font-medium text-gray-500">Telefon</th>
+                <th class="px-1 py-1.5 text-center font-medium text-gray-500">%</th>
+                <th class="px-1 py-1.5 text-left font-medium text-gray-500">Akce</th>
             </tr>
         </thead>
         {% for record in records %}
@@ -88,4 +79,6 @@
         {% endfor %}
     </table>
 </div>
+
+<div class="mt-2 text-xs text-gray-400">Zobrazeno: {{ records|length }} záznamů</div>
 {% endblock %}
