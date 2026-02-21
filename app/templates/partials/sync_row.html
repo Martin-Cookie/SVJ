@@ -43,17 +43,17 @@
     </tr>
     <tr class="{{ bg_class }} border-b-2 border-gray-200">
         <td class="px-0 py-1"><span class="text-gray-400 font-bold">C</span></td>
-        <td class="px-1 py-1 overflow-hidden {% if st == 'match' %}text-gray-300{% elif st == 'name_order' %}text-orange-400{% else %}text-red-400{% endif %}" style="text-overflow:ellipsis;white-space:nowrap" title="{{ record.csv_owner_name or '' }}">
+        <td class="px-1 py-1 overflow-hidden {% if st == 'match' %}text-gray-500{% elif st == 'name_order' %}text-orange-600{% else %}text-red-600{% endif %}" style="text-overflow:ellipsis;white-space:nowrap" title="{{ record.csv_owner_name or '' }}">
 {{ record.csv_owner_name or '—' }}
         </td>
         <td class="px-1 py-1 text-gray-300">—</td>
-        <td class="px-1 py-1 {% if record.csv_ownership_type and record.excel_ownership_type and record.csv_ownership_type == record.excel_ownership_type %}text-gray-300{% elif record.csv_ownership_type and record.excel_ownership_type %}text-orange-400{% else %}text-gray-300{% endif %}">
+        <td class="px-1 py-1 {% if record.csv_ownership_type and record.excel_ownership_type and record.csv_ownership_type == record.excel_ownership_type %}text-gray-400{% elif record.csv_ownership_type and record.excel_ownership_type %}text-orange-600{% else %}text-gray-400{% endif %}">
             {% if record.csv_ownership_type and record.excel_ownership_type and record.csv_ownership_type == record.excel_ownership_type %}—{% else %}{{ record.csv_ownership_type or '—' }}{% endif %}
         </td>
-        <td class="px-1 py-1 text-right font-mono whitespace-nowrap {% if podil_ok %}text-gray-300{% elif podil_diff %}text-orange-500 font-bold{% else %}text-gray-300{% endif %}">
+        <td class="px-1 py-1 text-right font-mono whitespace-nowrap {% if podil_ok %}text-gray-400{% elif podil_diff %}text-orange-600 font-bold{% else %}text-gray-400{% endif %}">
             {% if podil_ok %}—{% elif record.csv_share %}{{ "{:,}".format(record.csv_share).replace(",", " ") }}{% else %}—{% endif %}
         </td>
-        <td class="px-1 py-1 text-gray-400 overflow-hidden" style="text-overflow:ellipsis;white-space:nowrap">{{ record.csv_email or '—' }}</td>
-        <td class="px-1 py-1 text-gray-400 whitespace-nowrap">{{ record.csv_phone or '—' }}</td>
+        <td class="px-1 py-1 text-gray-500 overflow-hidden" style="text-overflow:ellipsis;white-space:nowrap">{{ record.csv_email or '—' }}</td>
+        <td class="px-1 py-1 text-gray-500 whitespace-nowrap">{{ record.csv_phone or '—' }}</td>
     </tr>
 </tbody>
