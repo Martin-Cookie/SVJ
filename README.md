@@ -64,9 +64,12 @@ Aplikace běží na http://localhost:8000
 - Vytvoření hlasování (název, termíny, kvórum)
 - Nahrání šablony hlasovacího lístku (.docx)
 - Automatická extrakce bodů hlasování z šablony
-- Přidání dalších bodů hlasování
+- Přidání a smazání jednotlivých bodů hlasování
 - Generování personalizovaných PDF lístků pro každého vlastníka
-- Zpracování naskenovaných lístků (OCR)
+- Seznam hlasování s výsledky po bodech (PRO/PROTI/Zdržel se s procenty)
+- Seznam lístků s dynamickými sloupci hlasování pro každý bod
+- Detail hlasovacího lístku s prokliky na vlastníka
+- Zpracování lístků: zadání hlasů (PRO/PROTI/Zdržel se) pro každý bod
 - Sčítání hlasů a výpočet kvóra
 - Podpora hlasování v zastoupení (plné moci)
 - Stavy hlasování: návrh → aktivní → uzavřené / zrušené
@@ -153,6 +156,7 @@ app/
 │   │   ├── create.html        #     Vytvoření hlasování
 │   │   ├── detail.html        #     Detail hlasování
 │   │   ├── ballots.html       #     Seznam lístků
+│   │   ├── ballot_detail.html #     Detail hlasovacího lístku
 │   │   ├── process.html       #     Zpracování lístků
 │   │   └── not_submitted.html #     Neodevzdané lístky
 │   ├── tax/                   #   Stránky daní
@@ -230,8 +234,10 @@ data/
 | GET | `/hlasovani/{id}` | Detail hlasování s výsledky |
 | POST | `/hlasovani/{id}/stav` | Změna stavu hlasování |
 | POST | `/hlasovani/{id}/pridat-bod` | Přidání bodu hlasování |
+| POST | `/hlasovani/{id}/smazat-bod/{item_id}` | Smazání bodu hlasování |
 | POST | `/hlasovani/{id}/generovat` | Generování PDF lístků |
-| GET | `/hlasovani/{id}/listky` | Seznam vygenerovaných lístků |
+| GET | `/hlasovani/{id}/listky` | Seznam lístků s hlasy po bodech |
+| GET | `/hlasovani/{id}/listek/{ballot_id}` | Detail hlasovacího lístku |
 | GET | `/hlasovani/{id}/zpracovani` | Stránka zpracování lístků |
 | POST | `/hlasovani/{id}/zpracovat/{ballot_id}` | Zpracování jednoho lístku |
 | GET | `/hlasovani/{id}/neodevzdane` | Neodevzdané lístky |
