@@ -50,8 +50,8 @@
         <td class="px-1 py-1 {% if record.csv_ownership_type and record.excel_ownership_type and record.csv_ownership_type == record.excel_ownership_type %}text-gray-400{% elif record.csv_ownership_type and record.excel_ownership_type %}text-orange-600{% else %}text-gray-400{% endif %}">
             {% if record.csv_ownership_type and record.excel_ownership_type and record.csv_ownership_type == record.excel_ownership_type %}—{% else %}{{ record.csv_ownership_type or '—' }}{% endif %}
         </td>
-        <td class="px-1 py-1 text-right font-mono whitespace-nowrap {% if podil_ok %}text-gray-400{% elif podil_diff %}text-orange-600 font-bold{% else %}text-gray-400{% endif %}">
-            {% if podil_ok %}—{% elif record.csv_share %}{{ "{:,}".format(record.csv_share).replace(",", " ") }}{% else %}—{% endif %}
+        <td class="px-1 py-1 text-right font-mono whitespace-nowrap {% if podil_diff %}text-orange-600 font-bold{% elif podil_ok %}text-gray-400{% else %}text-gray-400{% endif %}">
+            {% if record.csv_share %}{{ "{:,}".format(record.csv_share).replace(",", " ") }}{% else %}—{% endif %}
         </td>
         <td class="px-1 py-1 text-gray-500 overflow-hidden" style="text-overflow:ellipsis;white-space:nowrap">{{ record.csv_email or '—' }}</td>
         <td class="px-1 py-1 text-gray-500 whitespace-nowrap">{{ record.csv_phone or '—' }}</td>
