@@ -1,0 +1,64 @@
+<div class="bg-white rounded-lg shadow p-4 mb-4">
+    <h2 class="text-sm font-semibold text-gray-700 mb-3">Nová jednotka</h2>
+    <form hx-post="/jednotky/nova" hx-target="#unit-create-section" hx-swap="innerHTML">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+            <div>
+                <label class="block text-xs text-gray-500 mb-1">Číslo jednotky *</label>
+                <input type="number" name="unit_number" required
+                       class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-xs text-gray-500 mb-1">Číslo budovy</label>
+                <input type="text" name="building_number"
+                       class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-xs text-gray-500 mb-1">Typ prostoru</label>
+                <input type="text" name="space_type"
+                       class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-xs text-gray-500 mb-1">Sekce</label>
+                <input type="text" name="section"
+                       class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-xs text-gray-500 mb-1">Adresa</label>
+                <input type="text" name="address"
+                       class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-xs text-gray-500 mb-1">LV</label>
+                <input type="text" name="lv_number"
+                       class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-xs text-gray-500 mb-1">Místnosti</label>
+                <input type="text" name="room_count"
+                       class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-xs text-gray-500 mb-1">Plocha (m²)</label>
+                <input type="text" name="floor_area"
+                       class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-xs text-gray-500 mb-1">Podíl SČD</label>
+                <input type="text" name="podil_scd"
+                       class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500">
+            </div>
+        </div>
+        {% if error %}
+        <p class="text-sm text-red-600 mb-2">{{ error }}</p>
+        {% endif %}
+        <div class="flex items-center gap-2">
+            <button type="submit" class="px-3 py-1.5 bg-green-600 text-white rounded hover:bg-green-700 text-sm font-medium">
+                Vytvořit
+            </button>
+            <button type="button" onclick="document.getElementById('unit-create-section').innerHTML=''"
+                    class="px-3 py-1.5 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm font-medium">
+                Zrušit
+            </button>
+        </div>
+    </form>
+</div>

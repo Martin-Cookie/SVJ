@@ -1,0 +1,27 @@
+<div class="space-y-3 text-sm">
+    <div class="flex justify-between">
+        <dt class="text-gray-500">Email (Evidence 2024)</dt>
+        <dd class="text-gray-900">{{ owner.email or '—' }}</dd>
+    </div>
+    <div class="flex justify-between">
+        <dt class="text-gray-500">Email (Kontakty)</dt>
+        <dd class="text-gray-900">{{ owner.email_secondary or '—' }}</dd>
+    </div>
+    <div class="flex justify-between">
+        <dt class="text-gray-500">Telefon GSM</dt>
+        <dd class="text-gray-900">{{ owner.phone or '—' }}</dd>
+    </div>
+    <div class="flex justify-between">
+        <dt class="text-gray-500">Telefon pevný</dt>
+        <dd class="text-gray-900">{{ owner.phone_landline or '—' }}</dd>
+    </div>
+</div>
+<div class="mt-4 flex items-center gap-2">
+    <button hx-get="/vlastnici/{{ owner.id }}/upravit-formular" hx-target="#contact-form" hx-swap="innerHTML"
+            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
+        Upravit
+    </button>
+    {% if saved %}
+    <span class="text-sm text-green-600">Uloženo</span>
+    {% endif %}
+</div>

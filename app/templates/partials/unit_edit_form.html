@@ -1,0 +1,66 @@
+<form hx-post="/jednotky/{{ unit.id }}/upravit" hx-target="#unit-edit-form" hx-swap="innerHTML">
+    <div class="space-y-3">
+        <div class="flex items-center">
+            <label class="w-36 text-sm font-medium text-gray-700">Číslo jednotky *</label>
+            <input type="number" name="unit_number" value="{{ unit.unit_number }}" required
+                   class="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div class="flex items-center">
+            <label class="w-36 text-sm font-medium text-gray-700">Číslo budovy</label>
+            <input type="text" name="building_number" value="{{ unit.building_number or '' }}"
+                   class="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div class="flex items-center">
+            <label class="w-36 text-sm font-medium text-gray-700">Typ prostoru</label>
+            <input type="text" name="space_type" value="{{ unit.space_type or '' }}"
+                   class="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div class="flex items-center">
+            <label class="w-36 text-sm font-medium text-gray-700">Sekce</label>
+            <input type="text" name="section" value="{{ unit.section or '' }}"
+                   class="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div class="flex items-center">
+            <label class="w-36 text-sm font-medium text-gray-700">Orientační číslo</label>
+            <input type="text" name="orientation_number" value="{{ unit.orientation_number or '' }}"
+                   class="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div class="flex items-center">
+            <label class="w-36 text-sm font-medium text-gray-700">Adresa</label>
+            <input type="text" name="address" value="{{ unit.address or '' }}"
+                   class="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div class="flex items-center">
+            <label class="w-36 text-sm font-medium text-gray-700">List vlastnictví</label>
+            <input type="text" name="lv_number" value="{{ unit.lv_number or '' }}"
+                   class="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div class="flex items-center">
+            <label class="w-36 text-sm font-medium text-gray-700">Počet místností</label>
+            <input type="text" name="room_count" value="{{ unit.room_count or '' }}"
+                   class="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div class="flex items-center">
+            <label class="w-36 text-sm font-medium text-gray-700">Plocha (m²)</label>
+            <input type="text" name="floor_area" value="{{ unit.floor_area or '' }}"
+                   class="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div class="flex items-center">
+            <label class="w-36 text-sm font-medium text-gray-700">Podíl SČD</label>
+            <input type="text" name="podil_scd" value="{{ unit.podil_scd or '' }}"
+                   class="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div class="flex items-center gap-2">
+            <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
+                Uložit
+            </button>
+            <button type="button" hx-get="/jednotky/{{ unit.id }}/info" hx-target="#unit-edit-form" hx-swap="innerHTML"
+                    class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm font-medium">
+                Zrušit
+            </button>
+            {% if error %}
+            <span class="text-sm text-red-600">{{ error }}</span>
+            {% endif %}
+        </div>
+    </div>
+</form>

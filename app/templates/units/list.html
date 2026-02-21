@@ -7,7 +7,13 @@
         <h1 class="text-xl font-bold text-gray-800">Evidence jednotek</h1>
         <p class="text-xs text-gray-500 mt-0.5">{{ stats.total_units }} jednotek | Celkový podíl SČD: {{ "{:,}".format(stats.total_scd).replace(",", " ") }}</p>
     </div>
+    <button hx-get="/jednotky/nova-formular" hx-target="#unit-create-section" hx-swap="innerHTML"
+            class="px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium">
+        + Nová jednotka
+    </button>
 </div>
+
+<div id="unit-create-section"></div>
 
 {% if stats %}
 <!-- Type filter bubbles -->

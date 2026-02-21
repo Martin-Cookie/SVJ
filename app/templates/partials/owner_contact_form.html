@@ -25,11 +25,14 @@
                    placeholder="+420 ..."
                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
         </div>
-        <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
-            Uložit
-        </button>
-        {% if saved %}
-        <span class="ml-2 text-sm text-green-600">Uloženo</span>
-        {% endif %}
+        <div class="flex items-center gap-2">
+            <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
+                Uložit
+            </button>
+            <button type="button" hx-get="/vlastnici/{{ owner.id }}/info" hx-target="#contact-form" hx-swap="innerHTML"
+                    class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm font-medium">
+                Zrušit
+            </button>
+        </div>
     </div>
 </form>

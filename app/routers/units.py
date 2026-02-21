@@ -1,5 +1,7 @@
-from fastapi import APIRouter, Depends, Query, Request
-from fastapi.responses import RedirectResponse
+from datetime import datetime
+
+from fastapi import APIRouter, Depends, Form, Query, Request
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import cast, func, String
 from sqlalchemy.orm import Session, joinedload
@@ -22,6 +24,158 @@ SORT_COLUMNS = {
     "floor_area": Unit.floor_area,
     "podil": Unit.podil_scd,
 }
+
+
+@router.get("/nova-formular")
+async def unit_create_form(request: Request):
+    return templates.TemplateResponse("partials/unit_create_form.html", {
+        "request": request,
+    })
+
+
+@router.post("/nova")
+async def unit_create(
+    request: Request,
+    unit_number: str = Form(...),
+    building_number: str = Form(""),
+    space_type: str = Form(""),
+    section: str = Form(""),
+    address: str = Form(""),
+    lv_number: str = Form(""),
+    room_count: str = Form(""),
+    floor_area: str = Form(""),
+    podil_scd: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    # Parse unit_number
+    try:
+        unit_number_int = int(unit_number)
+    except (ValueError, TypeError):
+        return templates.TemplateResponse("partials/unit_create_form.html", {
+            "request": request,
+            "error": "Číslo jednotky musí být celé číslo.",
+        })
+
+    # Check uniqueness
+    existing = db.query(Unit).filter(Unit.unit_number == unit_number_int).first()
+    if existing:
+        return templates.TemplateResponse("partials/unit_create_form.html", {
+            "request": request,
+            "error": f"Jednotka s číslem {unit_number_int} již existuje.",
+        })
+
+    unit = Unit(
+        unit_number=unit_number_int,
+        building_number=building_number or None,
+        space_type=space_type or None,
+        section=section or None,
+        address=address or None,
+        lv_number=int(lv_number) if lv_number else None,
+        room_count=room_count or None,
+        floor_area=float(floor_area) if floor_area else None,
+        podil_scd=int(podil_scd) if podil_scd else None,
+        created_at=datetime.utcnow(),
+    )
+    db.add(unit)
+    db.commit()
+
+    if request.headers.get("HX-Request"):
+        return HTMLResponse(
+            content=f'<p class="text-sm text-green-600 p-4">Jednotka {unit_number_int} vytvořena. <a href="/jednotky/{unit.id}" class="text-blue-600 hover:underline">Zobrazit</a></p>',
+        )
+    return RedirectResponse(f"/jednotky/{unit.id}", status_code=302)
+
+
+@router.get("/{unit_id}/upravit-formular")
+async def unit_edit_form(
+    unit_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    unit = db.query(Unit).get(unit_id)
+    if not unit:
+        return RedirectResponse("/jednotky", status_code=302)
+    return templates.TemplateResponse("partials/unit_edit_form.html", {
+        "request": request,
+        "unit": unit,
+    })
+
+
+@router.get("/{unit_id}/info")
+async def unit_info(
+    unit_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    unit = db.query(Unit).get(unit_id)
+    if not unit:
+        return RedirectResponse("/jednotky", status_code=302)
+    return templates.TemplateResponse("partials/unit_info.html", {
+        "request": request,
+        "unit": unit,
+    })
+
+
+@router.post("/{unit_id}/upravit")
+async def unit_update(
+    unit_id: int,
+    request: Request,
+    unit_number: str = Form(...),
+    building_number: str = Form(""),
+    space_type: str = Form(""),
+    section: str = Form(""),
+    orientation_number: str = Form(""),
+    address: str = Form(""),
+    lv_number: str = Form(""),
+    room_count: str = Form(""),
+    floor_area: str = Form(""),
+    podil_scd: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    unit = db.query(Unit).get(unit_id)
+    if not unit:
+        return RedirectResponse("/jednotky", status_code=302)
+
+    # Parse and validate unit_number
+    try:
+        unit_number_int = int(unit_number)
+    except (ValueError, TypeError):
+        return templates.TemplateResponse("partials/unit_edit_form.html", {
+            "request": request,
+            "unit": unit,
+            "error": "Číslo jednotky musí být celé číslo.",
+        })
+
+    # Check uniqueness (exclude self)
+    existing = db.query(Unit).filter(
+        Unit.unit_number == unit_number_int, Unit.id != unit_id
+    ).first()
+    if existing:
+        return templates.TemplateResponse("partials/unit_edit_form.html", {
+            "request": request,
+            "unit": unit,
+            "error": f"Jednotka s číslem {unit_number_int} již existuje.",
+        })
+
+    unit.unit_number = unit_number_int
+    unit.building_number = building_number or None
+    unit.space_type = space_type or None
+    unit.section = section or None
+    unit.orientation_number = int(orientation_number) if orientation_number else None
+    unit.address = address or None
+    unit.lv_number = int(lv_number) if lv_number else None
+    unit.room_count = room_count or None
+    unit.floor_area = float(floor_area) if floor_area else None
+    unit.podil_scd = int(podil_scd) if podil_scd else None
+    db.commit()
+
+    if request.headers.get("HX-Request"):
+        return templates.TemplateResponse("partials/unit_info.html", {
+            "request": request,
+            "unit": unit,
+            "saved": True,
+        })
+    return RedirectResponse(f"/jednotky/{unit_id}", status_code=302)
 
 
 @router.get("/")

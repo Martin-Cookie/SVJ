@@ -34,42 +34,15 @@
     <div class="bg-white rounded-lg shadow p-6">
         <h2 class="text-lg font-semibold text-gray-700 mb-4">Kontaktní údaje</h2>
         <div id="contact-form">
-            {% include "partials/owner_contact_form.html" %}
+            {% include "partials/owner_contact_info.html" %}
         </div>
     </div>
 
     <!-- Units -->
     <div class="bg-white rounded-lg shadow p-6">
         <h2 class="text-lg font-semibold text-gray-700 mb-4">Jednotky</h2>
-        <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
-                <thead>
-                    <tr>
-                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Jednotka KN</th>
-                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Prostor</th>
-                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Typ</th>
-                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Podíl SČD</th>
-                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Plocha</th>
-                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Vlastnictví</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-200">
-                    {% for ou in owner.units %}
-                    <tr>
-                        <td class="px-3 py-2 text-sm font-medium"><a href="/jednotky/{{ ou.unit.id }}?back=/vlastnici/{{ owner.id }}" class="text-blue-600 hover:text-blue-800 hover:underline">{{ ou.unit.unit_number }}</a></td>
-                        <td class="px-3 py-2 text-sm text-gray-500">{{ ou.unit.building_number or '—' }}</td>
-                        <td class="px-3 py-2 text-sm text-gray-500">{{ ou.unit.space_type or '—' }}</td>
-                        <td class="px-3 py-2 text-sm text-gray-500">{{ "{:,}".format(ou.unit.podil_scd or 0).replace(",", " ") }}</td>
-                        <td class="px-3 py-2 text-sm text-gray-500">{% if ou.unit.floor_area %}{{ ou.unit.floor_area }} m²{% else %}—{% endif %}</td>
-                        <td class="px-3 py-2 text-sm text-gray-500">{{ ou.ownership_type or '—' }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        <div class="mt-3 pt-3 border-t border-gray-200 text-sm text-gray-600">
-            {% set total_votes = owner.units | map(attribute='votes') | sum %}
-            Celkem hlasů (podíl SČD): <strong>{{ "{:,}".format(total_votes).replace(",", " ") }}</strong>
+        <div id="owner-units-section">
+            {% include "partials/owner_units_section.html" %}
         </div>
     </div>
 

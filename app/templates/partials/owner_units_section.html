@@ -1,0 +1,74 @@
+<div class="overflow-x-auto">
+    <table class="min-w-full divide-y divide-gray-200">
+        <thead>
+            <tr>
+                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Jednotka KN</th>
+                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Prostor</th>
+                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Typ</th>
+                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Podíl SČD</th>
+                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Plocha</th>
+                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Vlastnictví</th>
+                <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase"></th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-200">
+            {% for ou in owner.units %}
+            <tr>
+                <td class="px-3 py-2 text-sm font-medium"><a href="/jednotky/{{ ou.unit.id }}?back=/vlastnici/{{ owner.id }}" class="text-blue-600 hover:text-blue-800 hover:underline">{{ ou.unit.unit_number }}</a></td>
+                <td class="px-3 py-2 text-sm text-gray-500">{{ ou.unit.building_number or '—' }}</td>
+                <td class="px-3 py-2 text-sm text-gray-500">{{ ou.unit.space_type or '—' }}</td>
+                <td class="px-3 py-2 text-sm text-gray-500">{{ "{:,}".format(ou.unit.podil_scd or 0).replace(",", " ") }}</td>
+                <td class="px-3 py-2 text-sm text-gray-500">{% if ou.unit.floor_area %}{{ ou.unit.floor_area }} m²{% else %}—{% endif %}</td>
+                <td class="px-3 py-2 text-sm text-gray-500">{{ ou.ownership_type or '—' }}</td>
+                <td class="px-3 py-2 text-right">
+                    <button hx-post="/vlastnici/{{ owner.id }}/jednotky/{{ ou.id }}/odebrat"
+                            hx-target="#owner-units-section"
+                            hx-confirm="Opravdu odebrat jednotku {{ ou.unit.unit_number }} od tohoto vlastníka?"
+                            class="text-xs text-red-600 hover:text-red-800 hover:underline">Odebrat</button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+<div class="mt-3 pt-3 border-t border-gray-200 text-sm text-gray-600">
+    {% set total_votes = owner.units | map(attribute='votes') | sum %}
+    Celkem hlasů (podíl SČD): <strong>{{ "{:,}".format(total_votes).replace(",", " ") }}</strong>
+</div>
+
+<!-- Add unit form -->
+{% if available_units %}
+<div class="mt-4 pt-4 border-t border-gray-200">
+    <h3 class="text-sm font-medium text-gray-700 mb-2">Přidat jednotku</h3>
+    <form hx-post="/vlastnici/{{ owner.id }}/jednotky/pridat" hx-target="#owner-units-section"
+          class="flex items-end gap-2 flex-wrap">
+        <div>
+            <label class="block text-xs text-gray-500 mb-1">Jednotka</label>
+            <select name="unit_id" required class="px-2 py-1.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500">
+                <option value="">— vyberte —</option>
+                {% for u in available_units %}
+                <option value="{{ u.id }}">{{ u.unit_number }}{% if u.space_type %} ({{ u.space_type }}){% endif %}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="block text-xs text-gray-500 mb-1">Typ vlastnictví</label>
+            <input type="text" name="ownership_type" placeholder="vlastnictví"
+                   class="w-28 px-2 py-1.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div>
+            <label class="block text-xs text-gray-500 mb-1">Podíl</label>
+            <input type="text" name="share" value="1.0" placeholder="1.0"
+                   class="w-16 px-2 py-1.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div>
+            <label class="block text-xs text-gray-500 mb-1">Hlasy</label>
+            <input type="text" name="votes" value="0" placeholder="0"
+                   class="w-20 px-2 py-1.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500">
+        </div>
+        <button type="submit" class="px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm font-medium">
+            Přidat
+        </button>
+    </form>
+</div>
+{% endif %}

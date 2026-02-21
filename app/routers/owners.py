@@ -231,16 +231,57 @@ async def owner_detail(
     ).get(owner_id)
     if not owner:
         return RedirectResponse("/vlastnici", status_code=302)
+
+    # Units not yet assigned to this owner
+    assigned_unit_ids = [ou.unit_id for ou in owner.units]
+    if assigned_unit_ids:
+        available_units = db.query(Unit).filter(
+            Unit.id.notin_(assigned_unit_ids)
+        ).order_by(Unit.unit_number).all()
+    else:
+        available_units = db.query(Unit).order_by(Unit.unit_number).all()
+
     return templates.TemplateResponse("owners/detail.html", {
         "request": request,
         "active_nav": "owners",
         "owner": owner,
+        "available_units": available_units,
         "back_url": back or "/vlastnici",
         "back_label": (
             "Zpět na detail jednotky" if "/jednotky/" in back
             else "Zpět na porovnání" if "/synchronizace/" in back
             else "Zpět na seznam vlastníků"
         ),
+    })
+
+
+@router.get("/{owner_id}/upravit-formular")
+async def owner_edit_form(
+    owner_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    owner = db.query(Owner).get(owner_id)
+    if not owner:
+        return RedirectResponse("/vlastnici", status_code=302)
+    return templates.TemplateResponse("partials/owner_contact_form.html", {
+        "request": request,
+        "owner": owner,
+    })
+
+
+@router.get("/{owner_id}/info")
+async def owner_info(
+    owner_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    owner = db.query(Owner).get(owner_id)
+    if not owner:
+        return RedirectResponse("/vlastnici", status_code=302)
+    return templates.TemplateResponse("partials/owner_contact_info.html", {
+        "request": request,
+        "owner": owner,
     })
 
 
@@ -264,9 +305,91 @@ async def owner_update(
         db.commit()
 
     if request.headers.get("HX-Request"):
-        return templates.TemplateResponse("partials/owner_contact_form.html", {
+        return templates.TemplateResponse("partials/owner_contact_info.html", {
             "request": request,
             "owner": owner,
             "saved": True,
+        })
+    return RedirectResponse(f"/vlastnici/{owner_id}", status_code=302)
+
+
+def _owner_units_context(owner, db):
+    """Helper to build context for owner_units_section partial."""
+    assigned_unit_ids = [ou.unit_id for ou in owner.units]
+    if assigned_unit_ids:
+        available_units = db.query(Unit).filter(
+            Unit.id.notin_(assigned_unit_ids)
+        ).order_by(Unit.unit_number).all()
+    else:
+        available_units = db.query(Unit).order_by(Unit.unit_number).all()
+    return available_units
+
+
+@router.post("/{owner_id}/jednotky/pridat")
+async def owner_add_unit(
+    owner_id: int,
+    request: Request,
+    unit_id: str = Form(...),
+    ownership_type: str = Form(""),
+    share: str = Form("1.0"),
+    votes: str = Form("0"),
+    db: Session = Depends(get_db),
+):
+    owner = db.query(Owner).options(
+        joinedload(Owner.units).joinedload(OwnerUnit.unit)
+    ).get(owner_id)
+    if not owner:
+        return RedirectResponse("/vlastnici", status_code=302)
+
+    # Check for duplicate
+    unit_id_int = int(unit_id)
+    exists = db.query(OwnerUnit).filter_by(
+        owner_id=owner_id, unit_id=unit_id_int
+    ).first()
+    if not exists:
+        ou = OwnerUnit(
+            owner_id=owner_id,
+            unit_id=unit_id_int,
+            ownership_type=ownership_type or None,
+            share=float(share) if share else 1.0,
+            votes=int(votes) if votes else 0,
+        )
+        db.add(ou)
+        db.commit()
+        # Refresh owner to get updated units
+        db.refresh(owner)
+
+    if request.headers.get("HX-Request"):
+        available_units = _owner_units_context(owner, db)
+        return templates.TemplateResponse("partials/owner_units_section.html", {
+            "request": request,
+            "owner": owner,
+            "available_units": available_units,
+        })
+    return RedirectResponse(f"/vlastnici/{owner_id}", status_code=302)
+
+
+@router.post("/{owner_id}/jednotky/{ou_id}/odebrat")
+async def owner_remove_unit(
+    owner_id: int,
+    ou_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    ou = db.query(OwnerUnit).filter_by(id=ou_id, owner_id=owner_id).first()
+    if ou:
+        db.delete(ou)
+        db.commit()
+
+    owner = db.query(Owner).options(
+        joinedload(Owner.units).joinedload(OwnerUnit.unit)
+    ).get(owner_id)
+
+    if request.headers.get("HX-Request"):
+        available_units = _owner_units_context(owner, db)
+        return templates.TemplateResponse("partials/owner_units_section.html", {
+            "request": request,
+            "owner": owner,
+            "available_units": available_units,
         })
     return RedirectResponse(f"/vlastnici/{owner_id}", status_code=302)
