@@ -35,7 +35,7 @@
         <p class="text-lg font-bold text-orange-500">{{ total_partial or 0 }}</p>
         <p class="text-xs text-orange-500">Částečná shoda</p>
     </a>
-    <a href="/synchronizace/{{ session.id }}?filtr=name_order" class="block bg-red-50 rounded-lg shadow p-2 text-center border border-red-200 hover:ring-2 hover:ring-red-300 {% if filtr == 'name_order' %}ring-2 ring-red-400{% endif %}">
+    <a href="/synchronizace/{{ session.id }}?filtr=name_order" class="block bg-orange-50 rounded-lg shadow p-2 text-center border border-orange-200 hover:ring-2 hover:ring-orange-300 {% if filtr == 'name_order' %}ring-2 ring-orange-400{% endif %}">
         <p class="text-lg font-bold text-red-600">{{ session.total_name_order or 0 }}</p>
         <p class="text-xs text-red-600">Přeházená jména</p>
     </a>
@@ -51,6 +51,7 @@
 
 <!-- Update toolbar -->
 <form id="sync-update-form" action="/synchronizace/{{ session.id }}/aktualizovat" method="post">
+<input type="hidden" name="filtr" value="{{ filtr }}">
 <div class="flex items-center gap-3 mb-2 bg-white rounded-lg shadow px-3 py-2">
     <button type="button" onclick="syncSelectAll()" class="px-2 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 text-xs">Vybrat vše</button>
     <button type="button" onclick="syncDeselectAll()" class="px-2 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 text-xs">Zrušit výběr</button>

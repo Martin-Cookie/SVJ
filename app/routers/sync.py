@@ -15,6 +15,7 @@ from app.models import (
     SyncStatus, Unit,
 )
 from app.services.csv_comparator import compare_owners, parse_sousede_csv
+from app.services.owner_matcher import normalize_for_matching
 from app.services.excel_export import export_owners_to_excel
 
 router = APIRouter()
@@ -156,8 +157,9 @@ async def sync_detail(
     if not session:
         return RedirectResponse("/synchronizace", status_code=302)
 
-    # Field difference condition (type, ownership, or share differs)
+    # Field difference condition (name, type, ownership, or share differs)
     field_diff = or_(
+        and_(SyncRecord.csv_owner_name.isnot(None), SyncRecord.excel_owner_name.isnot(None), SyncRecord.csv_owner_name != SyncRecord.excel_owner_name),
         and_(SyncRecord.csv_space_type.isnot(None), SyncRecord.excel_space_type.isnot(None), SyncRecord.csv_space_type != SyncRecord.excel_space_type),
         and_(SyncRecord.csv_ownership_type.isnot(None), SyncRecord.excel_ownership_type.isnot(None), SyncRecord.csv_ownership_type != SyncRecord.excel_ownership_type),
         and_(SyncRecord.excel_podil_scd.isnot(None), SyncRecord.csv_share.isnot(None), SyncRecord.excel_podil_scd != SyncRecord.csv_share),
@@ -269,7 +271,7 @@ async def export_excel(session_id: int, db: Session = Depends(get_db)):
     )
 
 
-ALLOWED_UPDATE_FIELDS = {"ownership_type", "space_type", "podil_scd"}
+ALLOWED_UPDATE_FIELDS = {"ownership_type", "space_type", "podil_scd", "owner_name"}
 
 
 @router.post("/{session_id}/aktualizovat")
@@ -339,7 +341,25 @@ async def apply_selected_updates(
 
         changes = []
         for field, new_value in fields.items():
-            if field == "ownership_type":
+            if field == "owner_name":
+                owner = db.query(Owner).get(owner_unit.owner_id)
+                if not owner:
+                    continue
+                old_val = owner.name_with_titles
+                # Parse CSV name: "Příjmení Jméno" or "Jméno Příjmení"
+                # CSV from sousede.cz uses "Příjmení Jméno" format
+                parts = new_value.strip().split(None, 1)
+                if len(parts) == 2:
+                    owner.last_name = parts[0]
+                    owner.first_name = parts[1]
+                else:
+                    owner.first_name = parts[0]
+                    owner.last_name = None
+                owner.name_with_titles = new_value.strip()
+                owner.name_normalized = normalize_for_matching(new_value)
+                record.excel_owner_name = new_value.strip()
+                changes.append(f"jméno: {old_val} → {new_value.strip()}")
+            elif field == "ownership_type":
                 old_val = owner_unit.ownership_type or ""
                 owner_unit.ownership_type = new_value
                 record.excel_ownership_type = new_value
@@ -362,10 +382,16 @@ async def apply_selected_updates(
             note_entries = [f"{ch} (z {csv_name}, {now})" for ch in changes]
             record.admin_note = (record.admin_note + "\n" if record.admin_note else "") + "\n".join(note_entries)
             record.resolution = SyncResolution.MANUAL_EDIT
+
+            # Recalculate status after update
+            name_match = (record.csv_owner_name or "") == (record.excel_owner_name or "")
+            if name_match:
+                record.status = SyncStatus.MATCH
+
             success_count += 1
             change_details.append(f"J. {short_num}: {', '.join(changes)}")
 
-    # Batch log
+    # Batch log & recalculate session totals
     if updates:
         log = ImportLog(
             filename=f"sync_session_{session_id}",
@@ -378,8 +404,19 @@ async def apply_selected_updates(
         )
         db.add(log)
 
+        # Recalculate session counts from current record statuses
+        all_records = db.query(SyncRecord).filter_by(session_id=session_id).all()
+        session.total_matches = sum(1 for r in all_records if r.status == SyncStatus.MATCH)
+        session.total_name_order = sum(1 for r in all_records if r.status == SyncStatus.NAME_ORDER)
+        session.total_differences = sum(1 for r in all_records if r.status == SyncStatus.DIFFERENCE)
+        session.total_missing = sum(1 for r in all_records if r.status in (SyncStatus.MISSING_CSV, SyncStatus.MISSING_EXCEL))
+
     db.commit()
-    return RedirectResponse(f"/synchronizace/{session_id}", status_code=302)
+    filtr = form.get("filtr", "")
+    url = f"/synchronizace/{session_id}"
+    if filtr:
+        url += f"?filtr={filtr}"
+    return RedirectResponse(url, status_code=302)
 
 
 @router.post("/{session_id}/aplikovat-kontakty")
