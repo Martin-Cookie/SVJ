@@ -1,31 +1,29 @@
 <tr class="hover:bg-gray-50">
-    <td class="px-4 py-3">
-        <a href="/vlastnici/{{ owner.id }}" class="text-sm font-medium text-blue-600 hover:text-blue-800">
+    <td class="px-2 py-1.5 overflow-hidden" style="text-overflow:ellipsis;white-space:nowrap">
+        <a href="/vlastnici/{{ owner.id }}" class="font-medium text-blue-600 hover:text-blue-800 hover:underline" title="{{ owner.name_with_titles }}">
             {{ owner.name_with_titles }}
         </a>
         {% if owner.birth_number %}
-        <p class="text-xs text-gray-400 mt-0.5">RČ: {{ owner.birth_number }}</p>
+        <span class="text-gray-400 ml-1">{{ owner.birth_number }}</span>
         {% elif owner.company_id %}
-        <p class="text-xs text-gray-400 mt-0.5">IČ: {{ owner.company_id }}</p>
+        <span class="text-gray-400 ml-1">IČ {{ owner.company_id }}</span>
         {% endif %}
     </td>
-    <td class="px-4 py-3">
+    <td class="px-2 py-1.5">
         {% if owner.owner_type.value == 'sjm' %}
-        <span class="inline-flex px-2 py-0.5 text-xs font-medium bg-purple-100 text-purple-800 rounded-full">SJM</span>
+        <span class="px-1.5 py-0.5 text-xs font-medium bg-purple-100 text-purple-800 rounded-full">SJM</span>
         {% elif owner.owner_type.value == 'legal' %}
-        <span class="inline-flex px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">Právnická os.</span>
+        <span class="px-1.5 py-0.5 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">Právnická</span>
         {% elif owner.owner_type.value == 'partial' %}
-        <span class="inline-flex px-2 py-0.5 text-xs font-medium bg-orange-100 text-orange-800 rounded-full">Podíl. spoluvl.</span>
+        <span class="px-1.5 py-0.5 text-xs font-medium bg-orange-100 text-orange-800 rounded-full">Podíl.</span>
         {% else %}
-        <span class="inline-flex px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">Fyzická os.</span>
+        <span class="px-1.5 py-0.5 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">Fyzická</span>
         {% endif %}
     </td>
-    <td class="px-4 py-3 text-sm text-gray-700">
-        {% for ou in owner.units %}
-        <span class="whitespace-nowrap">{{ ou.unit.unit_number }}</span>{% if not loop.last %}, {% endif %}
-        {% endfor %}
+    <td class="px-2 py-1.5 text-gray-700 font-mono">
+        {% for ou in owner.units %}{{ ou.unit.unit_number }}{% if not loop.last %}, {% endif %}{% endfor %}
     </td>
-    <td class="px-4 py-3 text-sm text-gray-500">
+    <td class="px-2 py-1.5 text-gray-500 text-center">
         {% set sections = [] %}
         {% for ou in owner.units %}
             {% if ou.unit.section and ou.unit.section not in sections %}
@@ -34,24 +32,13 @@
         {% endfor %}
         {{ sections|join(", ") or '—' }}
     </td>
-    <td class="px-4 py-3">
-        {% if owner.email %}
-        <span class="text-sm text-gray-700">{{ owner.email }}</span>
-        {% else %}
-        <span class="text-sm text-gray-300">—</span>
-        {% endif %}
-        {% if owner.email_secondary and owner.email_secondary != owner.email %}
-        <p class="text-xs text-gray-400 mt-0.5">{{ owner.email_secondary }}</p>
-        {% endif %}
+    <td class="px-2 py-1.5 text-gray-700 overflow-hidden" style="text-overflow:ellipsis;white-space:nowrap" title="{{ owner.email or '' }}{% if owner.email_secondary and owner.email_secondary != owner.email %} / {{ owner.email_secondary }}{% endif %}">
+        {% if owner.email %}{{ owner.email }}{% else %}<span class="text-gray-300">—</span>{% endif %}
     </td>
-    <td class="px-4 py-3">
-        {% if owner.phone %}
-        <span class="text-sm text-gray-700">{{ owner.phone }}</span>
-        {% else %}
-        <span class="text-sm text-gray-300">—</span>
-        {% endif %}
+    <td class="px-2 py-1.5 text-gray-700">
+        {% if owner.phone %}{{ owner.phone }}{% else %}<span class="text-gray-300">—</span>{% endif %}
     </td>
-    <td class="px-4 py-3 text-sm text-gray-700 text-right font-mono">
+    <td class="px-2 py-1.5 text-gray-700 text-right font-mono">
         {% set total_votes = owner.units | map(attribute='votes') | sum %}
         {{ "{:,}".format(total_votes).replace(",", " ") }}
     </td>
