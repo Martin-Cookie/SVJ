@@ -15,10 +15,15 @@
         </td>
         <td class="px-1 py-1 font-medium text-gray-900" rowspan="2">{{ record.unit_number }}</td>
         <td class="px-0 py-1"><span class="text-blue-600 font-bold">E</span></td>
+        {% set back_url = ("/synchronizace/" ~ session.id ~ "?filtr=" ~ filtr) if filtr else ("/synchronizace/" ~ session.id) %}
+        {% set owners_list = owner_map[record.unit_number] if (owner_map is defined and record.unit_number in owner_map) else [] %}
         <td class="px-1 py-1 text-gray-800 overflow-hidden" style="text-overflow:ellipsis;white-space:nowrap" title="{{ record.excel_owner_name or '' }}">
             {% if record.admin_corrected_name %}
             <span class="line-through text-gray-300">{{ record.excel_owner_name or '—' }}</span>
-            <span class="text-blue-600 font-medium">{{ record.admin_corrected_name }}</span>
+            {% for oid, oname in owners_list %}{% if not loop.first %}; {% endif %}<a href="/vlastnici/{{ oid }}?back={{ back_url|urlencode }}" class="text-blue-600 font-medium hover:underline">{{ oname }}</a>{% endfor %}
+            {% if not owners_list %}<span class="text-blue-600 font-medium">{{ record.admin_corrected_name }}</span>{% endif %}
+            {% elif owners_list %}
+            {% for oid, oname in owners_list %}{% if not loop.first %}; {% endif %}<a href="/vlastnici/{{ oid }}?back={{ back_url|urlencode }}" class="hover:underline hover:text-blue-600">{{ oname }}</a>{% endfor %}
             {% else %}
             {{ record.excel_owner_name or '—' }}
             {% endif %}

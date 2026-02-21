@@ -220,7 +220,12 @@ async def import_excel_confirm(
 
 
 @router.get("/{owner_id}")
-async def owner_detail(owner_id: int, request: Request, db: Session = Depends(get_db)):
+async def owner_detail(
+    owner_id: int,
+    request: Request,
+    back: str = Query("", alias="back"),
+    db: Session = Depends(get_db),
+):
     owner = db.query(Owner).options(
         joinedload(Owner.units).joinedload(OwnerUnit.unit)
     ).get(owner_id)
@@ -230,6 +235,8 @@ async def owner_detail(owner_id: int, request: Request, db: Session = Depends(ge
         "request": request,
         "active_nav": "owners",
         "owner": owner,
+        "back_url": back or "/vlastnici",
+        "back_label": "Zpět na porovnání" if back else "Zpět na seznam vlastníků",
     })
 
 

@@ -1,5 +1,7 @@
+import re
 import shutil
 from datetime import datetime
+from difflib import SequenceMatcher
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
@@ -206,6 +208,18 @@ async def sync_detail(
         query = query.order_by(SyncRecord.unit_number.asc())
     records = query.all()
 
+    # Build unit_number → [(owner_id, owner_name), ...] mapping for clickable owner links
+    owner_map = {}
+    owner_units = (
+        db.query(OwnerUnit.owner_id, Unit.unit_number, Owner.name_with_titles)
+        .join(OwnerUnit.unit)
+        .join(Owner, OwnerUnit.owner_id == Owner.id)
+        .all()
+    )
+    for oid, unit_num, oname in owner_units:
+        short = unit_num.split("/")[-1].strip() if "/" in unit_num else unit_num
+        owner_map.setdefault(short, []).append((oid, oname))
+
     return templates.TemplateResponse("sync/compare.html", {
         "request": request,
         "active_nav": "sync",
@@ -216,6 +230,7 @@ async def sync_detail(
         "order": order,
         "total_full_match": total_full_match,
         "total_partial": total_partial,
+        "owner_map": owner_map,
     })
 
 
@@ -366,23 +381,65 @@ async def apply_selected_updates(
         changes = []
         for field, new_value in fields.items():
             if field == "owner_name":
-                owner = db.query(Owner).get(owner_unit.owner_id)
-                if not owner:
-                    continue
-                old_val = owner.name_with_titles
-                # Parse CSV name: "Příjmení Jméno" or "Jméno Příjmení"
-                # CSV from sousede.cz uses "Příjmení Jméno" format
-                parts = new_value.strip().split(None, 1)
-                if len(parts) == 2:
-                    owner.last_name = parts[0]
-                    owner.first_name = parts[1]
+                # Split CSV name into individual names (handles multi-owner units like SJM)
+                csv_names = re.split(r'\s*[;,]\s*', new_value.strip())
+                csv_names = [n.strip() for n in csv_names if n.strip()]
+
+                all_owner_units = db.query(OwnerUnit).filter_by(unit_id=unit.id).all()
+                all_owners = []
+                for ou in all_owner_units:
+                    o = db.query(Owner).get(ou.owner_id)
+                    if o:
+                        all_owners.append(o)
+
+                if len(csv_names) > 1 and len(csv_names) == len(all_owners):
+                    # Multiple owners — match each CSV name to closest existing owner
+                    used = set()
+                    matched = []
+                    for csv_name in csv_names:
+                        csv_norm = normalize_for_matching(csv_name)
+                        best_idx, best_ratio = None, -1
+                        for i, o in enumerate(all_owners):
+                            if i in used:
+                                continue
+                            r = SequenceMatcher(None, csv_norm, o.name_normalized or "").ratio()
+                            if r > best_ratio:
+                                best_ratio = r
+                                best_idx = i
+                        if best_idx is not None:
+                            used.add(best_idx)
+                            matched.append((all_owners[best_idx], csv_name))
+
+                    for owner, csv_name in matched:
+                        old_val = owner.name_with_titles
+                        name_parts = csv_name.split(None, 1)
+                        if len(name_parts) == 2:
+                            owner.last_name = name_parts[0]
+                            owner.first_name = name_parts[1]
+                        else:
+                            owner.first_name = name_parts[0]
+                            owner.last_name = None
+                        owner.name_with_titles = csv_name
+                        owner.name_normalized = normalize_for_matching(csv_name)
+                        changes.append(f"jméno: {old_val} → {csv_name}")
+                    record.excel_owner_name = "; ".join(csv_names)
                 else:
-                    owner.first_name = parts[0]
-                    owner.last_name = None
-                owner.name_with_titles = new_value.strip()
-                owner.name_normalized = normalize_for_matching(new_value)
-                record.excel_owner_name = new_value.strip()
-                changes.append(f"jméno: {old_val} → {new_value.strip()}")
+                    # Single owner or count mismatch — update first owner
+                    owner = db.query(Owner).get(owner_unit.owner_id)
+                    if not owner:
+                        continue
+                    old_val = owner.name_with_titles
+                    name_parts = new_value.strip().split(None, 1)
+                    if len(name_parts) == 2:
+                        owner.last_name = name_parts[0]
+                        owner.first_name = name_parts[1]
+                    else:
+                        owner.first_name = name_parts[0]
+                        owner.last_name = None
+                    owner.name_with_titles = new_value.strip()
+                    owner.name_normalized = normalize_for_matching(new_value)
+                    record.excel_owner_name = new_value.strip()
+                    changes.append(f"jméno: {old_val} → {new_value.strip()}")
             elif field == "ownership_type":
                 old_val = record.excel_ownership_type or owner_unit.ownership_type or ""
                 owner_unit.ownership_type = new_value
