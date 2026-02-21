@@ -124,6 +124,7 @@ async def sync_create(
             excel_ownership_type=comp.get("excel_ownership_type"),
             excel_space_type=comp.get("excel_space_type"),
             excel_podil_scd=comp.get("excel_podil_scd"),
+            csv_share=comp.get("csv_share"),
             csv_email=comp.get("csv_email", ""),
             csv_phone=comp.get("csv_phone", ""),
             status=comp["status"],

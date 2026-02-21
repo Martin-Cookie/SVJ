@@ -94,6 +94,14 @@ def compare_owners(
         csv_units_seen.add(unit)
         csv_owners_raw = csv_rec.get("owners", "")
         csv_type = csv_rec.get("ownership_type", "")
+        # Extract share numerator from format "12212/1000000" -> 12212
+        csv_share_raw = csv_rec.get("share", "")
+        csv_share = None
+        if csv_share_raw and "/" in csv_share_raw:
+            try:
+                csv_share = int(csv_share_raw.split("/")[0].strip())
+            except (ValueError, TypeError):
+                pass
 
         if unit not in excel_by_unit:
             results.append({
@@ -104,6 +112,7 @@ def compare_owners(
                 "excel_ownership_type": None,
                 "excel_space_type": None,
                 "excel_podil_scd": None,
+                "csv_share": csv_share,
                 "csv_email": csv_rec.get("email", ""),
                 "csv_phone": csv_rec.get("phone", ""),
                 "status": SyncStatus.MISSING_EXCEL,
@@ -167,6 +176,7 @@ def compare_owners(
             "excel_ownership_type": excel_type,
             "excel_space_type": excel_space_type,
             "excel_podil_scd": excel_podil_scd,
+            "csv_share": csv_share,
             "csv_email": csv_rec.get("email", ""),
             "csv_phone": csv_rec.get("phone", ""),
             "status": status,
@@ -185,6 +195,7 @@ def compare_owners(
                     "excel_ownership_type": ee.get("owner_type", ""),
                     "excel_space_type": ee.get("space_type", ""),
                     "excel_podil_scd": ee.get("podil_scd", 0),
+                    "csv_share": None,
                     "csv_email": "",
                     "csv_phone": "",
                     "status": SyncStatus.MISSING_CSV,
