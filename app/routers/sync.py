@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.config import settings
 from app.database import get_db
 from app.models import (
-    Owner, OwnerUnit, SyncRecord, SyncResolution, SyncSession, SyncStatus,
+    Owner, OwnerUnit, SyncRecord, SyncResolution, SyncSession, SyncStatus, Unit,
 )
 from app.services.csv_comparator import compare_owners, parse_sousede_csv
 from app.services.excel_export import export_owners_to_excel
@@ -81,8 +81,13 @@ async def sync_create(
     excel_data = []
     for owner in owners:
         for ou in owner.units:
+            # Strip building prefix from unit number (e.g. "1098/14" -> "14")
+            # to match CSV format which uses short unit numbers
+            unit_num = ou.unit.unit_number
+            if "/" in unit_num:
+                unit_num = unit_num.split("/")[-1].strip()
             excel_data.append({
-                "unit_number": ou.unit.unit_number,
+                "unit_number": unit_num,
                 "owner_name": owner.name_with_titles,
                 "name_normalized": owner.name_normalized,
                 "owner_type": owner.owner_type.value,
@@ -241,11 +246,13 @@ async def apply_contacts(session_id: int, db: Session = Depends(get_db)):
     for record in records:
         if not record.unit_number:
             continue
-        # Find owner by unit number
+        # Find owner by unit number — record has short number (e.g. "14"),
+        # DB has full KN number (e.g. "1098/14"), so search with LIKE suffix
+        short_num = record.unit_number
         owner_unit = (
             db.query(OwnerUnit)
             .join(OwnerUnit.unit)
-            .filter_by(unit_number=record.unit_number)
+            .filter(Unit.unit_number.endswith(f"/{short_num}") | (Unit.unit_number == short_num))
             .first()
         )
         if not owner_unit:
