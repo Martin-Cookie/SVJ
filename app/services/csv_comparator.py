@@ -31,6 +31,9 @@ def parse_sousede_csv(csv_content: str) -> list[dict]:
             "Vlastníci jednotky", "Vlastnici jednotky", "vlastnici",
             "Vlastníci", "Vlastnici",
         ],
+        "space_type": [
+            "Typ jednoky", "Typ jednotky", "typ_jednotky",
+        ],
         "ownership_type": [
             "Typ vlastnictví", "Typ vlastnictvi", "typ_vlastnictvi",
         ],
@@ -94,6 +97,7 @@ def compare_owners(
         csv_units_seen.add(unit)
         csv_owners_raw = csv_rec.get("owners", "")
         csv_type = csv_rec.get("ownership_type", "")
+        csv_space_type = csv_rec.get("space_type", "")
         # Extract share numerator from format "12212/1000000" -> 12212
         csv_share_raw = csv_rec.get("share", "")
         csv_share = None
@@ -110,6 +114,7 @@ def compare_owners(
                 "excel_owner_name": None,
                 "csv_ownership_type": csv_type,
                 "excel_ownership_type": None,
+                "csv_space_type": csv_space_type,
                 "excel_space_type": None,
                 "excel_podil_scd": None,
                 "csv_share": csv_share,
@@ -150,9 +155,18 @@ def compare_owners(
 
         best_ratio = max(ratio, parts_overlap)
 
+        # Check share mismatch
+        share_mismatch = (
+            csv_share is not None
+            and excel_podil_scd
+            and csv_share != excel_podil_scd
+        )
+
         # Determine status: exact match vs reordered names vs real difference
         exact_string_match = csv_norm == excel_norm
-        if best_ratio >= 0.85 and exact_string_match:
+        if share_mismatch:
+            status = SyncStatus.DIFFERENCE
+        elif best_ratio >= 0.85 and exact_string_match:
             status = SyncStatus.MATCH
         elif best_ratio >= 0.85:
             # Names are the same people, just in different order/format
@@ -169,8 +183,10 @@ def compare_owners(
                 type_mismatch = True
 
         details = f"{best_ratio:.0%}"
+        if share_mismatch:
+            details += " | Podíl se liší"
         if type_mismatch:
-            details += f" | Typ se liší"
+            details += " | Typ se liší"
 
         results.append({
             "unit_number": unit,
@@ -178,6 +194,7 @@ def compare_owners(
             "excel_owner_name": excel_names_combined,
             "csv_ownership_type": csv_type,
             "excel_ownership_type": excel_type,
+            "csv_space_type": csv_space_type,
             "excel_space_type": excel_space_type,
             "excel_podil_scd": excel_podil_scd,
             "csv_share": csv_share,
