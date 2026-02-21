@@ -20,9 +20,10 @@
             <span class="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">Fyzická osoba</span>
             {% endif %}
             {% if owner.birth_number %}
-            <span class="text-xs text-gray-500">RČ: {{ owner.birth_number }}</span>
-            {% elif owner.company_id %}
-            <span class="text-xs text-gray-500">IČ: {{ owner.company_id }}</span>
+            <span class="px-2 py-1 text-xs font-medium bg-gray-50 text-gray-700 rounded border border-gray-200">RČ: {{ owner.birth_number }}</span>
+            {% endif %}
+            {% if owner.company_id %}
+            <span class="px-2 py-1 text-xs font-medium bg-gray-50 text-gray-700 rounded border border-gray-200">IČ: {{ owner.company_id }}</span>
             {% endif %}
         </div>
     </div>

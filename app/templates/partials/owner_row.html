@@ -1,12 +1,12 @@
 <tr class="hover:bg-gray-50">
-    <td class="px-2 py-1.5 overflow-hidden" style="text-overflow:ellipsis;white-space:nowrap">
-        <a href="/vlastnici/{{ owner.id }}" class="font-medium text-blue-600 hover:text-blue-800 hover:underline" title="{{ owner.name_with_titles }}">
-            {{ owner.name_with_titles }}
-        </a>
+    <td class="px-2 py-1.5">
+        <div class="overflow-hidden" style="text-overflow:ellipsis;white-space:nowrap">
+            <a href="/vlastnici/{{ owner.id }}" class="font-medium text-blue-600 hover:text-blue-800 hover:underline" title="{{ owner.name_with_titles }}">{{ owner.name_with_titles }}</a>
+        </div>
         {% if owner.birth_number %}
-        <span class="text-gray-400 ml-1">{{ owner.birth_number }}</span>
+        <div class="text-gray-400" style="font-size:10px">RČ: {{ owner.birth_number }}</div>
         {% elif owner.company_id %}
-        <span class="text-gray-400 ml-1">IČ {{ owner.company_id }}</span>
+        <div class="text-gray-400" style="font-size:10px">IČ: {{ owner.company_id }}</div>
         {% endif %}
     </td>
     <td class="px-2 py-1.5">
