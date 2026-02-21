@@ -288,9 +288,12 @@ def preview_owners_from_excel(file_path: str) -> dict:
 
         owner_type = _detect_owner_type(parsed["ownership_type"], parsed["birth_or_ic"])
 
+        last = parsed["last_name"] or ""
+        first = parsed["first_name"] or ""
         preview_rows.append({
             "row": row_idx,
-            "name": _build_name_with_titles(parsed["title"], parsed["first_name"], parsed["last_name"]),
+            "name": _build_name_with_titles(parsed["title"], first, last),
+            "sort_name": f"{last} {first}".strip().lower(),
             "owner_type": owner_type.value,
             "unit_number": parsed["unit_kn"],
             "building_number": parsed["building_number"] or "",

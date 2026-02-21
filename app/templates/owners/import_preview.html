@@ -95,7 +95,7 @@
             {% for row in preview.preview_rows %}
             <tr class="hover:bg-gray-50 preview-row" data-type="{{ row.owner_type }}">
                 <td class="px-2 py-1.5 text-gray-400">{{ row.row }}</td>
-                <td class="px-2 py-1.5 font-medium text-gray-900 overflow-hidden" style="text-overflow:ellipsis;white-space:nowrap" title="{{ row.name }}">{{ row.name }}</td>
+                <td class="px-2 py-1.5 font-medium text-gray-900 overflow-hidden" style="text-overflow:ellipsis;white-space:nowrap" title="{{ row.name }}" data-sort="{{ row.sort_name }}">{{ row.name }}</td>
                 <td class="px-2 py-1.5">
                     {% if row.owner_type == 'sjm' %}
                     <span class="px-2 py-0.5 text-xs font-medium bg-purple-100 text-purple-800 rounded-full">SJM</span>
@@ -108,7 +108,7 @@
                     {% endif %}
                 </td>
                 <td class="px-2 py-1.5 text-gray-500">{{ row.unit_number }}</td>
-                <td class="px-2 py-1.5 text-gray-500">{{ row.section }}</td>
+                <td class="px-2 py-1.5 text-gray-500" data-sort="{{ row.section or 'zzz' }}">{{ row.section or '—' }}</td>
                 <td class="px-2 py-1.5 text-gray-500">{{ row.ownership_type_raw }}</td>
                 <td class="px-2 py-1.5 text-gray-500 text-right font-mono">{{ "{:,}".format(row.podil_scd).replace(",", " ") }}</td>
                 <td class="px-2 py-1.5 text-gray-500 overflow-hidden" style="text-overflow:ellipsis;white-space:nowrap" title="{{ row.email or '' }}">{{ row.email or '—' }}</td>
@@ -169,8 +169,9 @@ function sortPreview(col, type) {
     var rows = Array.from(tbody.querySelectorAll('tr'));
     if (previewSortCol === col) { previewSortAsc = !previewSortAsc; } else { previewSortCol = col; previewSortAsc = true; }
     rows.sort(function(a, b) {
-        var aText = a.cells[col].textContent.trim();
-        var bText = b.cells[col].textContent.trim();
+        var aCell = a.cells[col], bCell = b.cells[col];
+        var aText = aCell.dataset.sort || aCell.textContent.trim();
+        var bText = bCell.dataset.sort || bCell.textContent.trim();
         if (type === 'num') {
             var aNum = parseInt(aText.replace(/\s/g, '')) || 0;
             var bNum = parseInt(bText.replace(/\s/g, '')) || 0;
