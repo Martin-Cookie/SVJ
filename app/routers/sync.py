@@ -161,6 +161,7 @@ SYNC_SORT_COLUMNS = {
     "ownership": SyncRecord.excel_ownership_type,
     "podil": SyncRecord.excel_podil_scd,
     "match": SyncRecord.match_details,
+    "action": SyncRecord.resolution,
 }
 
 
@@ -178,18 +179,17 @@ async def sync_detail(
         return RedirectResponse("/synchronizace", status_code=302)
 
     # Field difference condition (name, type, ownership, or share differs)
+    # Use coalesce so that NULL vs "value" counts as a difference
     field_diff = or_(
-        and_(SyncRecord.csv_owner_name.isnot(None), SyncRecord.excel_owner_name.isnot(None), SyncRecord.csv_owner_name != SyncRecord.excel_owner_name),
-        and_(SyncRecord.csv_space_type.isnot(None), SyncRecord.excel_space_type.isnot(None), SyncRecord.csv_space_type != SyncRecord.excel_space_type),
-        and_(SyncRecord.csv_ownership_type.isnot(None), SyncRecord.excel_ownership_type.isnot(None), SyncRecord.csv_ownership_type != SyncRecord.excel_ownership_type),
-        and_(SyncRecord.excel_podil_scd.isnot(None), SyncRecord.csv_share.isnot(None), SyncRecord.excel_podil_scd != SyncRecord.csv_share),
+        func.coalesce(SyncRecord.csv_owner_name, '') != func.coalesce(SyncRecord.excel_owner_name, ''),
+        func.coalesce(SyncRecord.csv_space_type, '') != func.coalesce(SyncRecord.excel_space_type, ''),
+        func.coalesce(SyncRecord.csv_ownership_type, '') != func.coalesce(SyncRecord.excel_ownership_type, ''),
+        func.coalesce(SyncRecord.excel_podil_scd, 0) != func.coalesce(SyncRecord.csv_share, 0),
     )
 
     # Podíl-only difference condition
-    podil_diff = and_(
-        SyncRecord.excel_podil_scd.isnot(None),
-        SyncRecord.csv_share.isnot(None),
-        SyncRecord.excel_podil_scd != SyncRecord.csv_share,
+    podil_diff = (
+        func.coalesce(SyncRecord.excel_podil_scd, 0) != func.coalesce(SyncRecord.csv_share, 0)
     )
 
     base = db.query(SyncRecord).filter_by(session_id=session_id)
@@ -459,8 +459,8 @@ async def apply_selected_updates(
                     # Multiple owners — match each CSV name to closest existing owner
                     used = set()
                     matched = []
-                    for csv_name in csv_names:
-                        csv_norm = normalize_for_matching(csv_name)
+                    for cn in csv_names:
+                        csv_norm = normalize_for_matching(cn)
                         best_idx, best_ratio = None, -1
                         for i, o in enumerate(all_owners):
                             if i in used:
@@ -471,21 +471,21 @@ async def apply_selected_updates(
                                 best_idx = i
                         if best_idx is not None:
                             used.add(best_idx)
-                            matched.append((all_owners[best_idx], csv_name))
+                            matched.append((all_owners[best_idx], cn))
 
-                    for owner, csv_name in matched:
+                    for owner, matched_name in matched:
                         old_val = owner.name_with_titles
-                        name_parts = csv_name.split(None, 1)
+                        name_parts = matched_name.split(None, 1)
                         if len(name_parts) == 2:
                             owner.last_name = name_parts[0]
                             owner.first_name = name_parts[1]
                         else:
                             owner.first_name = name_parts[0]
                             owner.last_name = None
-                        owner.name_with_titles = csv_name
-                        owner.name_normalized = normalize_for_matching(csv_name)
-                        changes.append(f"jméno: {old_val} → {csv_name}")
-                    record.excel_owner_name = "; ".join(csv_names)
+                        owner.name_with_titles = matched_name
+                        owner.name_normalized = normalize_for_matching(matched_name)
+                        changes.append(f"jméno: {old_val} → {matched_name}")
+                    record.excel_owner_name = new_value.strip()
                 else:
                     # Single owner or count mismatch — update first owner
                     owner = db.query(Owner).get(owner_unit.owner_id)
@@ -527,10 +527,17 @@ async def apply_selected_updates(
             record.admin_note = (record.admin_note + "\n" if record.admin_note else "") + "\n".join(note_entries)
             record.resolution = SyncResolution.MANUAL_EDIT
 
-            # Recalculate status after update
-            name_match = (record.csv_owner_name or "") == (record.excel_owner_name or "")
-            if name_match:
+            # Recalculate status after update — check all fields
+            csv_parts = sorted(p.strip() for p in re.split(r'[;,]', record.csv_owner_name or '') if p.strip())
+            excel_parts = sorted(p.strip() for p in re.split(r'[;,]', record.excel_owner_name or '') if p.strip())
+            names_ok = csv_parts == excel_parts
+            type_ok = (record.csv_space_type or '') == (record.excel_space_type or '')
+            own_ok = (record.csv_ownership_type or '') == (record.excel_ownership_type or '')
+            podil_ok = (record.excel_podil_scd or 0) == (record.csv_share or 0)
+            if names_ok:
                 record.status = SyncStatus.MATCH
+                if type_ok and own_ok and podil_ok:
+                    record.match_details = "100%"
 
             success_count += 1
             change_details.append(f"J. {short_num}: {', '.join(changes)}")

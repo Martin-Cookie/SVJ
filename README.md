@@ -33,37 +33,63 @@ Aplikace běží na http://localhost:8000
 
 ### A. Evidence vlastníků (`/vlastnici`)
 
-- Import z Excelu (31 sloupců, sheet `Vlastnici_SVJ`)
+- Import z Excelu (31 sloupců, sheet `Vlastnici_SVJ`) s náhledem a potvrzením
+- Historie importů s možností smazání (smaže vlastníky, jednotky i přiřazení)
 - Seznam s vyhledáváním (jméno, email, telefon, RČ, IČ, č. jednotky)
-- Filtrování podle typu vlastníka a sekce domu
-- Řazení kliknutím na hlavičky sloupců
-- Detail vlastníka (kontakty, adresy, jednotky)
+- Filtrační bubliny podle typu vlastníka (fyzická/právnická osoba) a sekce domu
+- Řazení kliknutím na hlavičky sloupců (jméno, typ, email, telefon, podíl, jednotky, sekce)
+- Sticky hlavička tabulky
+- RČ/IČ viditelné v seznamu i detailu
+- Detail vlastníka:
+  - Inline editace kontaktů (email, telefon) přes HTMX
+  - Inline editace trvalé a korespondenční adresy přes HTMX
+  - Správa přiřazených jednotek (přidat z dropdownu, odebrat)
+  - Proklik na detail jednotky
 - Export zpět do Excelu
 
-### B. Hlasování per rollam (`/hlasovani`)
+### B. Evidence jednotek (`/jednotky`)
+
+- Seznam jednotek s vyhledáváním (číslo, budova, typ, sekce, adresa, vlastník)
+- Filtrační bubliny podle typu prostoru a sekce domu
+- Řazení kliknutím na hlavičky sloupců
+- Vytvoření nové jednotky (inline HTMX formulář)
+- Detail jednotky:
+  - Inline editace všech polí přes HTMX (číslo, budova, typ, sekce, adresa, LV, místnosti, plocha, podíl)
+  - Seznam vlastníků s prokliky
+  - Smazání jednotky (cascade smaže přiřazení)
+- Číslo jednotky uloženo jako INTEGER
+
+### C. Hlasování per rollam (`/hlasovani`)
 
 - Vytvoření hlasování (název, termíny, kvórum)
 - Nahrání šablony hlasovacího lístku (.docx)
 - Automatická extrakce bodů hlasování z šablony
+- Přidání dalších bodů hlasování
 - Generování personalizovaných PDF lístků pro každého vlastníka
 - Zpracování naskenovaných lístků (OCR)
 - Sčítání hlasů a výpočet kvóra
 - Podpora hlasování v zastoupení (plné moci)
+- Stavy hlasování: návrh → aktivní → uzavřené / zrušené
+- Přehled neodevzdaných lístků
 
-### C. Rozúčtování příjmů (`/dane`)
+### D. Rozúčtování příjmů (`/dane`)
 
 - Nahrání daňových PDF dokumentů
 - Extrakce jmen z PDF (pdfplumber)
-- Fuzzy párování jmen na vlastníky v databázi
+- Fuzzy párování jmen na vlastníky v databázi (práh 0.6 pro jednotku, 0.75 globálně)
 - Ruční ověření a oprava párování
 - Hromadné rozeslání emailem s přílohami
 
-### D. Kontrola vlastníků (`/synchronizace`)
+### E. Kontrola vlastníků (`/synchronizace`)
 
-- Nahrání CSV exportu (např. ze sousede.cz)
-- Porovnání s Excel daty (inteligentní párování jmen)
-- Rozlišení: úplná shoda / částečná shoda / přeházená jména / rozdílní vlastníci / chybí
-- Klikací filtry podle typu výsledku s dynamickými počty
+- Nahrání CSV exportu (např. ze sousede.cz) — stránka s formulářem a historií kontrol
+- Historie kontrol s možností smazání (cascade smaže záznamy i CSV soubor)
+- Porovnání s daty v databázi (inteligentní párování jmen)
+- Rozlišení: úplná shoda / částečná shoda / přeházená jména / rozdílní vlastníci / rozdílné podíly / chybí
+- Klikací filtrační bubliny s dynamickými počty a souhrny podílů:
+  - Každá bublina zobrazuje podíly v evidenci, CSV a rozdíl
+  - Bublina „Vše" zobrazuje i katastrální podíl (4 103 391) s procentuálními rozdíly
+  - Bublina „Rozdílné podíly" filtruje záznamy kde se liší pouze podíl SČD
 - Třídění kliknutím na hlavičky sloupců (jednotka, vlastník, typ, vlastnictví, podíl, shoda)
 - Selektivní aktualizace dat z CSV do databáze:
   - Checkboxy u lišících se polí (jméno, typ, vlastnictví, podíl)
@@ -73,7 +99,11 @@ Aplikace běží na http://localhost:8000
 - Aktualizace jmen více vlastníků (SJM): fuzzy párování jednotlivých jmen
 - Logování změn: každá úprava zaznamenána s názvem zdrojového CSV a časem
 - Proklik jména vlastníka do detailní karty s návratem zpět na porovnání
-- Přenos kontaktů z CSV do databáze
+- Přenos kontaktů (email, telefon) z CSV do databáze
+
+### F. Nastavení (`/nastaveni`)
+
+- Přehled odeslaných emailů (posledních 50)
 
 ## Struktura projektu
 
@@ -90,7 +120,8 @@ app/
 │   └── common.py              #   EmailLog, ImportLog
 ├── routers/                   # HTTP endpointy
 │   ├── dashboard.py           #   GET /
-│   ├── owners.py              #   /vlastnici
+│   ├── owners.py              #   /vlastnici (+ /vlastnici/import)
+│   ├── units.py               #   /jednotky
 │   ├── voting.py              #   /hlasovani
 │   ├── tax.py                 #   /dane
 │   ├── sync.py                #   /synchronizace
@@ -106,17 +137,130 @@ app/
 │   └── email_service.py       #   SMTP odesílání emailů
 ├── templates/                 # Jinja2 šablony
 │   ├── base.html              #   Layout se sidebar navigací
+│   ├── dashboard.html         #   Přehled
+│   ├── settings.html          #   Nastavení
 │   ├── owners/                #   Stránky vlastníků
+│   │   ├── list.html          #     Seznam vlastníků
+│   │   ├── detail.html        #     Detail vlastníka
+│   │   ├── import.html        #     Import z Excelu + historie
+│   │   ├── import_preview.html#     Náhled před importem
+│   │   └── import_result.html #     Výsledek importu
+│   ├── units/                 #   Stránky jednotek
+│   │   ├── list.html          #     Seznam jednotek
+│   │   └── detail.html        #     Detail jednotky
 │   ├── voting/                #   Stránky hlasování
+│   │   ├── index.html         #     Seznam hlasování
+│   │   ├── create.html        #     Vytvoření hlasování
+│   │   ├── detail.html        #     Detail hlasování
+│   │   ├── ballots.html       #     Seznam lístků
+│   │   ├── process.html       #     Zpracování lístků
+│   │   └── not_submitted.html #     Neodevzdané lístky
 │   ├── tax/                   #   Stránky daní
+│   │   ├── index.html         #     Seznam rozúčtování
+│   │   ├── upload.html        #     Nahrání PDF
+│   │   └── matching.html      #     Párování dokumentů
 │   ├── sync/                  #   Stránky synchronizace
+│   │   ├── index.html         #     Nahrání CSV + historie kontrol
+│   │   └── compare.html       #     Porovnání s filtry a bublinami
 │   └── partials/              #   HTMX komponenty
+│       ├── owner_row.html
+│       ├── owner_table_body.html
+│       ├── owner_contact_form.html
+│       ├── owner_contact_info.html
+│       ├── owner_address_form.html
+│       ├── owner_address_info.html
+│       ├── owner_units_section.html
+│       ├── unit_row.html
+│       ├── unit_table_body.html
+│       ├── unit_create_form.html
+│       ├── unit_edit_form.html
+│       ├── unit_info.html
+│       ├── sync_row.html
+│       ├── tax_match_row.html
+│       └── ballot_processed.html
 └── static/                    # CSS, JS
+    ├── css/custom.css
+    └── js/app.js
 data/
 ├── svj.db                     # SQLite databáze
-├── uploads/                   # Nahrané soubory
-└── generated/                 # Generované dokumenty
+├── uploads/                   # Nahrané soubory (Excel, CSV, PDF)
+└── generated/                 # Generované dokumenty (PDF lístky)
 ```
+
+## API endpointy
+
+### Vlastníci (`/vlastnici`)
+
+| Metoda | Cesta | Popis |
+|--------|-------|-------|
+| GET | `/vlastnici` | Seznam vlastníků (search, filtr, řazení) |
+| GET | `/vlastnici/import` | Stránka importu z Excelu + historie |
+| POST | `/vlastnici/import` | Nahrání Excel souboru → náhled |
+| POST | `/vlastnici/import/potvrdit` | Potvrzení importu → uložení |
+| POST | `/vlastnici/import/{log_id}/smazat` | Smazání importu (data + soubor) |
+| GET | `/vlastnici/{id}` | Detail vlastníka |
+| GET | `/vlastnici/{id}/upravit-formular` | HTMX: formulář kontaktů |
+| GET | `/vlastnici/{id}/info` | HTMX: zobrazení kontaktů |
+| POST | `/vlastnici/{id}/upravit` | Uložení kontaktů |
+| GET | `/vlastnici/{id}/adresa/{prefix}/upravit-formular` | HTMX: formulář adresy (perm/corr) |
+| GET | `/vlastnici/{id}/adresa/{prefix}/info` | HTMX: zobrazení adresy |
+| POST | `/vlastnici/{id}/adresa/{prefix}/upravit` | Uložení adresy |
+| POST | `/vlastnici/{id}/jednotky/pridat` | Přidat jednotku vlastníkovi |
+| POST | `/vlastnici/{id}/jednotky/{ou_id}/odebrat` | Odebrat jednotku vlastníkovi |
+
+### Jednotky (`/jednotky`)
+
+| Metoda | Cesta | Popis |
+|--------|-------|-------|
+| GET | `/jednotky` | Seznam jednotek (search, filtr, řazení) |
+| GET | `/jednotky/nova-formular` | HTMX: formulář nové jednotky |
+| POST | `/jednotky/nova` | Vytvoření jednotky |
+| GET | `/jednotky/{id}` | Detail jednotky |
+| GET | `/jednotky/{id}/upravit-formular` | HTMX: formulář editace |
+| GET | `/jednotky/{id}/info` | HTMX: zobrazení údajů |
+| POST | `/jednotky/{id}/upravit` | Uložení údajů jednotky |
+
+### Hlasování (`/hlasovani`)
+
+| Metoda | Cesta | Popis |
+|--------|-------|-------|
+| GET | `/hlasovani` | Seznam hlasování |
+| GET | `/hlasovani/nova` | Formulář nového hlasování |
+| POST | `/hlasovani/nova` | Vytvoření hlasování + šablona .docx |
+| GET | `/hlasovani/{id}` | Detail hlasování s výsledky |
+| POST | `/hlasovani/{id}/stav` | Změna stavu hlasování |
+| POST | `/hlasovani/{id}/pridat-bod` | Přidání bodu hlasování |
+| POST | `/hlasovani/{id}/generovat` | Generování PDF lístků |
+| GET | `/hlasovani/{id}/listky` | Seznam vygenerovaných lístků |
+| GET | `/hlasovani/{id}/zpracovani` | Stránka zpracování lístků |
+| POST | `/hlasovani/{id}/zpracovat/{ballot_id}` | Zpracování jednoho lístku |
+| GET | `/hlasovani/{id}/neodevzdane` | Neodevzdané lístky |
+
+### Rozúčtování (`/dane`)
+
+| Metoda | Cesta | Popis |
+|--------|-------|-------|
+| GET | `/dane` | Seznam rozúčtování |
+| GET | `/dane/nova` | Formulář nového rozúčtování |
+| POST | `/dane/nova` | Vytvoření s nahráním PDF |
+| GET | `/dane/{id}` | Detail s párováním dokumentů |
+| POST | `/dane/{id}/potvrdit/{dist_id}` | Potvrzení automatického párování |
+| POST | `/dane/{id}/prirazeni/{doc_id}` | Ruční přiřazení dokumentu |
+
+### Kontrola vlastníků (`/synchronizace`)
+
+| Metoda | Cesta | Popis |
+|--------|-------|-------|
+| GET | `/synchronizace` | Nahrání CSV + historie kontrol |
+| POST | `/synchronizace/nova` | Nahrání a porovnání CSV |
+| POST | `/synchronizace/{id}/smazat` | Smazání kontroly (záznamy + CSV) |
+| GET | `/synchronizace/{id}` | Porovnání s filtry a bublinami |
+| POST | `/synchronizace/{id}/aktualizovat` | Aplikace vybraných změn z CSV |
+| POST | `/synchronizace/{id}/aplikovat-kontakty` | Přenos kontaktů z CSV |
+| POST | `/synchronizace/{id}/exportovat` | Export do Excelu |
+| POST | `/synchronizace/{id}/prijmout/{rec_id}` | Přijetí změny |
+| POST | `/synchronizace/{id}/odmitnout/{rec_id}` | Odmítnutí změny |
+| POST | `/synchronizace/{id}/upravit/{rec_id}` | Ruční úprava jména |
 
 ## Konfigurace (.env)
 
@@ -135,11 +279,20 @@ LIBREOFFICE_PATH=/Applications/LibreOffice.app/Contents/MacOS/soffice
 
 ## Datový model
 
-- **Owner** — vlastník (jméno, tituly, RČ/IČ, adresy, kontakty)
-- **Unit** — jednotka (číslo KN, sekce, plocha, podíl SČD)
-- **OwnerUnit** — vazba vlastník-jednotka (typ vlastnictví, hlasovací váha)
+- **Owner** — vlastník (jméno, tituly, RČ/IČ, adresy, kontakty, is_active)
+- **Unit** — jednotka (číslo KN jako INTEGER, budova, sekce, plocha, podíl SČD)
+- **OwnerUnit** — vazba vlastník-jednotka (typ vlastnictví, podíl, hlasovací váha)
+- **Proxy** — plná moc pro hlasování
 - **Voting** → VotingItem → Ballot → BallotVote
 - **TaxSession** → TaxDocument → TaxDistribution
-- **SyncSession** → SyncRecord
-- **Proxy** — plná moc pro hlasování
+- **SyncSession** → SyncRecord (cascade delete)
 - **EmailLog**, **ImportLog** — systémové logy
+
+## UI vzory
+
+- **Sidebar navigace** — fixní levý panel (w-44) s ikonami a sekcemi
+- **Filtrační bubliny** — klikací filtry nad tabulkou s počty záznamů
+- **Sticky hlavičky** — záhlaví tabulek zůstává viditelné při scrollu
+- **HTMX inline editace** — formuláře pro kontakty, adresy a údaje jednotek se přepínají bez reloadu
+- **Dvousloupcový layout** — formulář vlevo + historie vpravo (import, kontrola)
+- **Flex layout s fixní hlavičkou** — `height:calc(100vh - 48px)` pro stránky kde scrolluje jen tělo tabulky

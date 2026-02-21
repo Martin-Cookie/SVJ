@@ -91,8 +91,7 @@
 <form id="sync-update-form" action="/synchronizace/{{ session.id }}/aktualizovat" method="post">
 <input type="hidden" name="filtr" value="{{ filtr }}">
 <div class="flex items-center gap-3 mb-2 bg-white rounded-lg shadow px-3 py-2">
-    <button type="button" onclick="syncSelectAll()" class="px-2 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 text-xs">Vybrat vše</button>
-    <button type="button" onclick="syncDeselectAll()" class="px-2 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 text-xs">Zrušit výběr</button>
+    <button type="button" id="sync-toggle-btn" onclick="syncToggleAll()" class="px-2 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 text-xs">Vybrat vše</button>
     <span id="sync-selected-count" class="text-xs text-gray-500">0 polí vybráno</span>
     <button type="submit" id="sync-submit-btn" disabled class="ml-auto px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed">Aktualizovat vybrané</button>
 </div>
@@ -130,14 +129,14 @@
             {% endmacro %}
             <tr>
                 <th class="px-0 py-1.5"></th>
-                {{ sort_th("J.", "unit") }}
+                {{ sort_th("Jedn.", "unit") }}
                 <th class="px-0 py-1.5"></th>
                 {{ sort_th("Vlastník", "owner") }}
                 {{ sort_th("Typ", "space_type") }}
-                {{ sort_th("Vl.", "ownership") }}
+                {{ sort_th("Vlastnictví", "ownership") }}
                 {{ sort_th("Podíl", "podil", "right") }}
                 {{ sort_th("%", "match", "center") }}
-                <th class="px-1 py-1.5 text-left font-medium text-gray-500">Akce</th>
+                {{ sort_th("Akce", "action") }}
             </tr>
         </thead>
         {% for record in records %}
@@ -150,15 +149,13 @@
 <div class="mt-2 text-xs text-gray-400">Zobrazeno: {{ records|length }} záznamů</div>
 
 <script>
-function syncSelectAll() {
-    document.querySelectorAll('.sync-checkbox').forEach(function(cb) { cb.checked = true; });
-    document.querySelectorAll('.sync-row-checkbox').forEach(function(cb) { cb.checked = true; });
+function syncToggleAll() {
+    var all = document.querySelectorAll('.sync-checkbox');
+    var anyUnchecked = Array.from(all).some(function(cb) { return !cb.checked; });
+    all.forEach(function(cb) { cb.checked = anyUnchecked; });
+    document.querySelectorAll('.sync-row-checkbox').forEach(function(cb) { cb.checked = anyUnchecked; cb.indeterminate = false; });
     syncUpdateCount();
-}
-function syncDeselectAll() {
-    document.querySelectorAll('.sync-checkbox').forEach(function(cb) { cb.checked = false; });
-    document.querySelectorAll('.sync-row-checkbox').forEach(function(cb) { cb.checked = false; cb.indeterminate = false; });
-    syncUpdateCount();
+    document.getElementById('sync-toggle-btn').textContent = anyUnchecked ? 'Zrušit výběr' : 'Vybrat vše';
 }
 function syncToggleRow(rowCb) {
     var recordId = rowCb.dataset.record;
@@ -180,11 +177,14 @@ function syncUpdateRowCheckbox(fieldCb) {
     rowCb.indeterminate = checked.length > 0 && checked.length < all.length;
 }
 function syncUpdateCount() {
+    var all = document.querySelectorAll('.sync-checkbox');
     var checked = document.querySelectorAll('.sync-checkbox:checked').length;
     var counter = document.getElementById('sync-selected-count');
     var btn = document.getElementById('sync-submit-btn');
+    var toggle = document.getElementById('sync-toggle-btn');
     if (counter) counter.textContent = checked + ' polí vybráno';
     if (btn) btn.disabled = checked === 0;
+    if (toggle) toggle.textContent = (checked === all.length && all.length > 0) ? 'Zrušit výběr' : 'Vybrat vše';
 }
 </script>
 {% endblock %}

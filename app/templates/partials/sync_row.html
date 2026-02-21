@@ -1,10 +1,10 @@
 {% set st = record.status.value %}
 {% set bg_class %}{% if st == 'name_order' %}bg-orange-50{% elif st == 'difference' %}bg-red-50{% elif st == 'match' %}bg-green-50{% elif record.resolution.value == 'rejected' %}bg-gray-50{% else %}bg-gray-100{% endif %}{% endset %}
-{% set podil_ok = record.excel_podil_scd and record.csv_share and record.excel_podil_scd == record.csv_share %}
-{% set podil_diff = record.excel_podil_scd and record.csv_share and record.excel_podil_scd != record.csv_share %}
-{% set has_name_diff = record.csv_owner_name and record.excel_owner_name and record.csv_owner_name != record.excel_owner_name %}
-{% set has_space_diff = record.csv_space_type and record.excel_space_type and record.csv_space_type != record.excel_space_type %}
-{% set has_ownership_diff = record.csv_ownership_type and record.excel_ownership_type and record.csv_ownership_type != record.excel_ownership_type %}
+{% set podil_diff = (record.excel_podil_scd or 0) != (record.csv_share or 0) %}
+{% set podil_ok = not podil_diff and (record.excel_podil_scd or record.csv_share) %}
+{% set has_name_diff = (record.csv_owner_name or '') != (record.excel_owner_name or '') %}
+{% set has_space_diff = (record.csv_space_type or '') != (record.excel_space_type or '') %}
+{% set has_ownership_diff = (record.csv_ownership_type or '') != (record.excel_ownership_type or '') %}
 {% set has_any_diff = has_name_diff or has_space_diff or has_ownership_diff or podil_diff %}
 <tbody id="sync-{{ record.id }}">
     <tr class="{{ bg_class }} border-b border-gray-100">
