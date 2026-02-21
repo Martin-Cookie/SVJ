@@ -50,23 +50,37 @@
     <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-green-200 inline-block"></span> Shoda</span>
     <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-yellow-200 inline-block"></span> Rozdíl</span>
     <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-red-200 inline-block"></span> Chybí v jednom zdroji</span>
+    <span class="flex items-center gap-1 ml-4"><span class="text-green-500 font-bold">=</span> Shodné pole</span>
+    <span class="flex items-center gap-1"><span class="text-orange-500 font-bold">!</span> Odlišné pole</span>
 </div>
 
 <!-- Comparison table -->
 <div class="bg-white rounded-lg shadow overflow-hidden">
-    <table class="min-w-full text-xs">
+    <table class="min-w-full text-xs" style="table-layout:fixed">
+        <colgroup>
+            <col style="width:42px">
+            <col style="width:40px">
+            <col>
+            <col style="width:60px">
+            <col style="width:55px">
+            <col style="width:70px">
+            <col>
+            <col style="width:90px">
+            <col style="width:80px">
+            <col style="width:80px">
+        </colgroup>
         <thead class="bg-gray-50 border-b-2 border-gray-300">
             <tr>
-                <th class="px-2 py-2 text-left font-medium text-gray-500 uppercase">Jedn.</th>
-                <th class="px-2 py-2 text-left font-medium text-gray-500 uppercase">Zdroj</th>
-                <th class="px-2 py-2 text-left font-medium text-gray-500 uppercase">Vlastník</th>
-                <th class="px-2 py-2 text-left font-medium text-gray-500 uppercase">Typ</th>
-                <th class="px-2 py-2 text-left font-medium text-gray-500 uppercase">Vlastnictví</th>
-                <th class="px-2 py-2 text-right font-medium text-gray-500 uppercase">Podíl SČD</th>
-                <th class="px-2 py-2 text-left font-medium text-gray-500 uppercase">Email</th>
-                <th class="px-2 py-2 text-left font-medium text-gray-500 uppercase">Telefon</th>
-                <th class="px-2 py-2 text-left font-medium text-gray-500 uppercase">Shoda</th>
-                <th class="px-2 py-2 text-left font-medium text-gray-500 uppercase">Akce</th>
+                <th class="px-1 py-2 text-left font-medium text-gray-500 uppercase">Jedn.</th>
+                <th class="px-1 py-2 text-left font-medium text-gray-500 uppercase">Zdroj</th>
+                <th class="px-1 py-2 text-left font-medium text-gray-500 uppercase">Vlastník</th>
+                <th class="px-1 py-2 text-left font-medium text-gray-500 uppercase">Typ</th>
+                <th class="px-1 py-2 text-left font-medium text-gray-500 uppercase">Vlast.</th>
+                <th class="px-1 py-2 text-right font-medium text-gray-500 uppercase whitespace-nowrap">Podíl SČD</th>
+                <th class="px-1 py-2 text-left font-medium text-gray-500 uppercase">Email</th>
+                <th class="px-1 py-2 text-left font-medium text-gray-500 uppercase">Telefon</th>
+                <th class="px-1 py-2 text-left font-medium text-gray-500 uppercase">Shoda</th>
+                <th class="px-1 py-2 text-left font-medium text-gray-500 uppercase">Akce</th>
             </tr>
         </thead>
         {% for record in records %}
