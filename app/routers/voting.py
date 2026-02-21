@@ -24,11 +24,55 @@ templates = Jinja2Templates(directory="app/templates")
 
 @router.get("/")
 async def voting_list(request: Request, db: Session = Depends(get_db)):
-    votings = db.query(Voting).order_by(Voting.created_at.desc()).all()
+    votings = db.query(Voting).options(
+        joinedload(Voting.items),
+        joinedload(Voting.ballots).joinedload(Ballot.votes),
+    ).order_by(Voting.created_at.desc()).all()
+
+    # Compute stats per voting
+    voting_stats = {}
+    for voting in votings:
+        total = voting.total_votes_possible or 1
+        processed = [b for b in voting.ballots if b.status == BallotStatus.PROCESSED]
+        processed_votes = sum(b.total_votes for b in processed)
+
+        # Per-item results
+        item_results = []
+        for item in voting.items:
+            votes_for = 0
+            votes_against = 0
+            votes_abstain = 0
+            for b in processed:
+                for bv in b.votes:
+                    if bv.voting_item_id == item.id:
+                        if bv.vote == VoteValue.FOR:
+                            votes_for += bv.votes_count
+                        elif bv.vote == VoteValue.AGAINST:
+                            votes_against += bv.votes_count
+                        elif bv.vote == VoteValue.ABSTAIN:
+                            votes_abstain += bv.votes_count
+            item_results.append({
+                "item": item,
+                "votes_for": votes_for,
+                "votes_against": votes_against,
+                "votes_abstain": votes_abstain,
+                "pct_for": round(votes_for / total * 100, 1) if total else 0,
+                "pct_against": round(votes_against / total * 100, 1) if total else 0,
+            })
+
+        voting_stats[voting.id] = {
+            "processed_count": len(processed),
+            "processed_votes": processed_votes,
+            "quorum_pct": round(processed_votes / total * 100, 1) if total else 0,
+            "quorum_reached": processed_votes / total >= voting.quorum_threshold if total else False,
+            "item_results": item_results,
+        }
+
     return templates.TemplateResponse("voting/index.html", {
         "request": request,
         "active_nav": "voting",
         "votings": votings,
+        "voting_stats": voting_stats,
     })
 
 
@@ -226,6 +270,7 @@ async def ballot_list(voting_id: int, request: Request, db: Session = Depends(ge
     voting = db.query(Voting).options(
         joinedload(Voting.items),
         joinedload(Voting.ballots).joinedload(Ballot.owner),
+        joinedload(Voting.ballots).joinedload(Ballot.votes),
     ).get(voting_id)
     if not voting:
         return RedirectResponse("/hlasovani", status_code=302)
@@ -234,6 +279,29 @@ async def ballot_list(voting_id: int, request: Request, db: Session = Depends(ge
         "request": request,
         "active_nav": "voting",
         "voting": voting,
+    })
+
+
+@router.get("/{voting_id}/listek/{ballot_id}")
+async def ballot_detail(
+    voting_id: int,
+    ballot_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    ballot = db.query(Ballot).options(
+        joinedload(Ballot.owner),
+        joinedload(Ballot.votes).joinedload(BallotVote.voting_item),
+        joinedload(Ballot.voting).joinedload(Voting.items),
+    ).filter_by(id=ballot_id, voting_id=voting_id).first()
+    if not ballot:
+        return RedirectResponse(f"/hlasovani/{voting_id}/listky", status_code=302)
+
+    return templates.TemplateResponse("voting/ballot_detail.html", {
+        "request": request,
+        "active_nav": "voting",
+        "voting": ballot.voting,
+        "ballot": ballot,
     })
 
 
@@ -289,6 +357,10 @@ async def process_ballot(
             "request": request,
             "ballot": ballot,
         })
+    # If submitted from ballot detail, redirect there; otherwise to bulk processing
+    referer = request.headers.get("referer", "")
+    if f"/listek/{ballot_id}" in referer:
+        return RedirectResponse(f"/hlasovani/{voting_id}/listek/{ballot_id}", status_code=302)
     return RedirectResponse(f"/hlasovani/{voting_id}/zpracovani", status_code=302)
 
 
@@ -302,6 +374,19 @@ async def update_voting_status(
     if voting:
         voting.status = VotingStatus(status)
         voting.updated_at = datetime.utcnow()
+        db.commit()
+    return RedirectResponse(f"/hlasovani/{voting_id}", status_code=302)
+
+
+@router.post("/{voting_id}/smazat-bod/{item_id}")
+async def delete_voting_item(
+    voting_id: int,
+    item_id: int,
+    db: Session = Depends(get_db),
+):
+    item = db.query(VotingItem).filter_by(id=item_id, voting_id=voting_id).first()
+    if item:
+        db.delete(item)
         db.commit()
     return RedirectResponse(f"/hlasovani/{voting_id}", status_code=302)
 

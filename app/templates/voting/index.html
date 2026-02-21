@@ -12,21 +12,24 @@
 {% if votings %}
 <div class="space-y-4">
     {% for voting in votings %}
+    {% set stats = voting_stats[voting.id] %}
     <div class="bg-white rounded-lg shadow hover:shadow-md transition-shadow p-6">
-        <div class="flex items-center justify-between">
+        <div class="flex items-center justify-between mb-3">
             <div>
                 <a href="/hlasovani/{{ voting.id }}" class="text-lg font-semibold text-blue-600 hover:text-blue-800">
                     {{ voting.title }}
                 </a>
-                <div class="flex items-center mt-2 space-x-4 text-sm text-gray-500">
+                <div class="flex items-center mt-1 space-x-4 text-sm text-gray-500">
                     {% if voting.start_date %}
                     <span>Od: {{ voting.start_date.strftime('%d.%m.%Y') }}</span>
                     {% endif %}
                     {% if voting.end_date %}
                     <span>Do: {{ voting.end_date.strftime('%d.%m.%Y') }}</span>
                     {% endif %}
-                    <span>Bodů: {{ voting.items|length }}</span>
-                    <span>Lístků: {{ voting.ballots|length }}</span>
+                    <span>Lístků: {{ stats.processed_count }}/{{ voting.ballots|length }}</span>
+                    <span class="{% if stats.quorum_reached %}text-green-600 font-medium{% else %}text-gray-500{% endif %}">
+                        Kvórum: {{ stats.quorum_pct }}%{% if stats.quorum_reached %} ✓{% endif %}
+                    </span>
                 </div>
             </div>
             <div>
@@ -41,6 +44,35 @@
                 {% endif %}
             </div>
         </div>
+
+        {% if stats.item_results %}
+        <table class="w-full text-xs" style="table-layout:fixed">
+            <colgroup>
+                <col>
+                <col style="width:80px">
+                <col style="width:80px">
+                <col style="width:60px">
+            </colgroup>
+            <thead class="border-b border-gray-200">
+                <tr>
+                    <th class="px-2 py-1 text-left font-medium text-gray-500">Bod</th>
+                    <th class="px-2 py-1 text-right font-medium text-green-600">PRO</th>
+                    <th class="px-2 py-1 text-right font-medium text-red-600">PROTI</th>
+                    <th class="px-2 py-1 text-right font-medium text-gray-400">Zdržel se</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-50">
+                {% for r in stats.item_results %}
+                <tr>
+                    <td class="px-2 py-1 text-gray-700"><span class="font-medium">{{ r.item.order }}.</span> {{ r.item.title }}</td>
+                    <td class="px-2 py-1 text-right font-mono" style="white-space:nowrap"><span class="text-green-600">{{ "{:,}".format(r.votes_for).replace(",", " ") }}</span><br><span class="text-gray-400">{{ r.pct_for }}%</span></td>
+                    <td class="px-2 py-1 text-right font-mono" style="white-space:nowrap"><span class="text-red-600">{{ "{:,}".format(r.votes_against).replace(",", " ") }}</span><br><span class="text-gray-400">{{ r.pct_against }}%</span></td>
+                    <td class="px-2 py-1 text-right text-gray-400 font-mono" style="white-space:nowrap">{{ "{:,}".format(r.votes_abstain).replace(",", " ") }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
     </div>
     {% endfor %}
 </div>

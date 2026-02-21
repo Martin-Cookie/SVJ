@@ -284,6 +284,7 @@ async def owner_detail(
         "back_label": (
             "Zpět na detail jednotky" if "/jednotky/" in back
             else "Zpět na porovnání" if "/synchronizace/" in back
+            else "Zpět na hlasovací lístek" if "/hlasovani/" in back
             else "Zpět na seznam vlastníků"
         ),
     })

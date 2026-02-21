@@ -84,6 +84,7 @@
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">PROTI (hlasy)</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">PROTI (%)</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Neodevzdáno</th>
+                    <th class="px-6 py-3"></th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-200">
@@ -100,6 +101,12 @@
                     <td class="px-6 py-4 text-sm text-gray-500">
                         {{ "{:,}".format(r.votes_missing).replace(",", " ") }}
                         ({{ r.pct_missing }}%)
+                    </td>
+                    <td class="px-6 py-4 text-right">
+                        <form action="/hlasovani/{{ voting.id }}/smazat-bod/{{ r.item.id }}" method="post" style="display:inline"
+                              onsubmit="return confirm('Smazat bod {{ r.item.order }}. {{ r.item.title }}?')">
+                            <button type="submit" class="text-red-500 hover:text-red-700 text-xs font-medium">Smazat</button>
+                        </form>
                     </td>
                 </tr>
                 {% endfor %}
