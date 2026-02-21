@@ -64,6 +64,7 @@ Aplikace běží na http://localhost:8000
 - Porovnání s Excel daty (inteligentní párování jmen)
 - Rozlišení: úplná shoda / částečná shoda / přeházená jména / rozdílní vlastníci / chybí
 - Klikací filtry podle typu výsledku s dynamickými počty
+- Třídění kliknutím na hlavičky sloupců (jednotka, vlastník, typ, vlastnictví, podíl, shoda)
 - Selektivní aktualizace dat z CSV do databáze:
   - Checkboxy u lišících se polí (jméno, typ, vlastnictví, podíl)
   - Řádkový checkbox pro hromadné zaškrtnutí všech polí záznamu
