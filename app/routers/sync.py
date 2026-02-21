@@ -10,7 +10,8 @@ from sqlalchemy.orm import Session, joinedload
 from app.config import settings
 from app.database import get_db
 from app.models import (
-    Owner, OwnerUnit, SyncRecord, SyncResolution, SyncSession, SyncStatus, Unit,
+    ImportLog, Owner, OwnerUnit, SyncRecord, SyncResolution, SyncSession,
+    SyncStatus, Unit,
 )
 from app.services.csv_comparator import compare_owners, parse_sousede_csv
 from app.services.excel_export import export_owners_to_excel
@@ -248,6 +249,107 @@ async def export_excel(session_id: int, db: Session = Depends(get_db)):
         filename=f"vlastnici_{timestamp}.xlsx",
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
+
+
+ALLOWED_UPDATE_FIELDS = {"ownership_type", "space_type", "podil_scd"}
+
+
+@router.post("/{session_id}/aktualizovat")
+async def apply_selected_updates(
+    session_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Apply selected CSV field updates to the database."""
+    form = await request.form()
+
+    # Parse form keys: update__{record_id}__{field} → {record_id: {field: value}}
+    updates: dict[int, dict[str, str]] = {}
+    for key, value in form.items():
+        if not key.startswith("update__"):
+            continue
+        parts = key.split("__")
+        if len(parts) != 3:
+            continue
+        _, record_id_str, field = parts
+        if field not in ALLOWED_UPDATE_FIELDS:
+            continue
+        try:
+            rid = int(record_id_str)
+        except ValueError:
+            continue
+        updates.setdefault(rid, {})[field] = value
+
+    success_count = 0
+    error_count = 0
+    change_details = []
+
+    for record_id, fields in updates.items():
+        record = db.query(SyncRecord).filter_by(
+            id=record_id, session_id=session_id,
+        ).first()
+        if not record or not record.unit_number:
+            error_count += 1
+            continue
+
+        short_num = record.unit_number
+        unit = (
+            db.query(Unit)
+            .filter(
+                Unit.unit_number.endswith(f"/{short_num}")
+                | (Unit.unit_number == short_num)
+            )
+            .first()
+        )
+        if not unit:
+            error_count += 1
+            change_details.append(f"Jednotka {short_num}: nenalezena")
+            continue
+
+        owner_unit = db.query(OwnerUnit).filter_by(unit_id=unit.id).first()
+        if not owner_unit:
+            error_count += 1
+            change_details.append(f"Jednotka {short_num}: vlastník nenalezen")
+            continue
+
+        changes = []
+        for field, new_value in fields.items():
+            if field == "ownership_type":
+                old_val = owner_unit.ownership_type or ""
+                owner_unit.ownership_type = new_value
+                changes.append(f"vlastnictví: {old_val} → {new_value}")
+            elif field == "space_type":
+                old_val = unit.space_type or ""
+                unit.space_type = new_value
+                changes.append(f"typ: {old_val} → {new_value}")
+            elif field == "podil_scd":
+                old_val = unit.podil_scd
+                unit.podil_scd = int(new_value)
+                changes.append(
+                    f"podíl: {old_val} → {new_value}"
+                )
+
+        if changes:
+            record.admin_note = (record.admin_note + "; " if record.admin_note else "") + ", ".join(changes)
+            record.resolution = SyncResolution.MANUAL_EDIT
+            success_count += 1
+            change_details.append(f"J. {short_num}: {', '.join(changes)}")
+
+    # Batch log
+    if updates:
+        log = ImportLog(
+            filename=f"sync_session_{session_id}",
+            file_path=f"sync_update/{session_id}",
+            import_type="sync_update",
+            rows_total=len(updates),
+            rows_imported=success_count,
+            rows_skipped=error_count,
+            errors="\n".join(change_details) if change_details else None,
+        )
+        db.add(log)
+
+    db.commit()
+    return RedirectResponse(f"/synchronizace/{session_id}", status_code=302)
 
 
 @router.post("/{session_id}/aplikovat-kontakty")

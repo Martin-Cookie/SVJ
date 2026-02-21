@@ -28,3 +28,4 @@ document.body.addEventListener('htmx:confirm', function(event) {
         }
     }
 });
+

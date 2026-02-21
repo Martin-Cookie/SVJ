@@ -2,8 +2,16 @@
 {% set bg_class %}{% if record.resolution.value == 'accepted' %}bg-green-50{% elif record.resolution.value == 'rejected' %}bg-gray-50{% elif st == 'match' %}bg-green-50{% elif st == 'name_order' %}bg-orange-50{% elif st == 'difference' %}bg-red-50{% else %}bg-gray-100{% endif %}{% endset %}
 {% set podil_ok = record.excel_podil_scd and record.csv_share and record.excel_podil_scd == record.csv_share %}
 {% set podil_diff = record.excel_podil_scd and record.csv_share and record.excel_podil_scd != record.csv_share %}
+{% set has_space_diff = record.csv_space_type and record.excel_space_type and record.csv_space_type != record.excel_space_type %}
+{% set has_ownership_diff = record.csv_ownership_type and record.excel_ownership_type and record.csv_ownership_type != record.excel_ownership_type %}
+{% set has_any_diff = has_space_diff or has_ownership_diff or podil_diff %}
 <tbody id="sync-{{ record.id }}">
     <tr class="{{ bg_class }} border-b border-gray-100">
+        <td class="px-0 py-1 text-center" rowspan="2">
+            {% if has_any_diff %}
+            <input type="checkbox" class="sync-row-checkbox cursor-pointer" data-record="{{ record.id }}" onchange="syncToggleRow(this)">
+            {% endif %}
+        </td>
         <td class="px-1 py-1 font-medium text-gray-900" rowspan="2">{{ record.unit_number }}</td>
         <td class="px-0 py-1"><span class="text-blue-600 font-bold">E</span></td>
         <td class="px-1 py-1 text-gray-800 overflow-hidden" style="text-overflow:ellipsis;white-space:nowrap" title="{{ record.excel_owner_name or '' }}">
@@ -45,13 +53,19 @@
 {{ record.csv_owner_name or '—' }}
         </td>
         <td class="px-1 py-1 {% if record.csv_space_type and record.excel_space_type and record.csv_space_type == record.excel_space_type %}text-gray-400{% elif record.csv_space_type and record.excel_space_type %}text-orange-600{% else %}text-gray-400{% endif %}" style="text-overflow:ellipsis;overflow:hidden;white-space:nowrap">
-            {% if record.csv_space_type and record.excel_space_type and record.csv_space_type == record.excel_space_type %}—{% else %}{{ record.csv_space_type or '—' }}{% endif %}
+            {% if record.csv_space_type and record.excel_space_type and record.csv_space_type != record.excel_space_type %}
+            <label class="inline-flex items-center gap-0.5 cursor-pointer"><input type="checkbox" name="update__{{ record.id }}__space_type" value="{{ record.csv_space_type }}" class="sync-checkbox" onchange="syncUpdateRowCheckbox(this);syncUpdateCount()"><span>{{ record.csv_space_type }}</span></label>
+            {% elif record.csv_space_type and record.excel_space_type and record.csv_space_type == record.excel_space_type %}—{% else %}{{ record.csv_space_type or '—' }}{% endif %}
         </td>
         <td class="px-1 py-1 {% if record.csv_ownership_type and record.excel_ownership_type and record.csv_ownership_type == record.excel_ownership_type %}text-gray-400{% elif record.csv_ownership_type and record.excel_ownership_type %}text-orange-600{% else %}text-gray-400{% endif %}">
-            {% if record.csv_ownership_type and record.excel_ownership_type and record.csv_ownership_type == record.excel_ownership_type %}—{% else %}{{ record.csv_ownership_type or '—' }}{% endif %}
+            {% if record.csv_ownership_type and record.excel_ownership_type and record.csv_ownership_type != record.excel_ownership_type %}
+            <label class="inline-flex items-center gap-0.5 cursor-pointer"><input type="checkbox" name="update__{{ record.id }}__ownership_type" value="{{ record.csv_ownership_type }}" class="sync-checkbox" onchange="syncUpdateRowCheckbox(this);syncUpdateCount()"><span>{{ record.csv_ownership_type }}</span></label>
+            {% elif record.csv_ownership_type and record.excel_ownership_type and record.csv_ownership_type == record.excel_ownership_type %}—{% else %}{{ record.csv_ownership_type or '—' }}{% endif %}
         </td>
         <td class="px-1 py-1 text-right font-mono whitespace-nowrap {% if podil_diff %}text-orange-600 font-bold{% elif podil_ok %}text-gray-400{% else %}text-gray-400{% endif %}">
-            {% if record.csv_share %}{{ "{:,}".format(record.csv_share).replace(",", " ") }}{% else %}—{% endif %}
+            {% if podil_diff %}
+            <label class="inline-flex items-center gap-0.5 cursor-pointer"><input type="checkbox" name="update__{{ record.id }}__podil_scd" value="{{ record.csv_share }}" class="sync-checkbox" onchange="syncUpdateRowCheckbox(this);syncUpdateCount()"><span>{{ "{:,}".format(record.csv_share).replace(",", " ") }}</span></label>
+            {% elif record.csv_share %}{{ "{:,}".format(record.csv_share).replace(",", " ") }}{% else %}—{% endif %}
         </td>
     </tr>
 </tbody>

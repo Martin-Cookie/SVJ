@@ -45,13 +45,23 @@
     </a>
 </div>
 
+<!-- Update toolbar -->
+<form id="sync-update-form" action="/synchronizace/{{ session.id }}/aktualizovat" method="post">
+<div class="flex items-center gap-3 mb-2 bg-white rounded-lg shadow px-3 py-2">
+    <button type="button" onclick="syncSelectAll()" class="px-2 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 text-xs">Vybrat vše</button>
+    <button type="button" onclick="syncDeselectAll()" class="px-2 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 text-xs">Zrušit výběr</button>
+    <span id="sync-selected-count" class="text-xs text-gray-500">0 polí vybráno</span>
+    <button type="submit" id="sync-submit-btn" disabled class="ml-auto px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed">Aktualizovat vybrané</button>
+</div>
+
 <!-- Comparison table -->
-<div class="bg-white rounded-lg shadow" style="max-height:calc(100vh - 230px); overflow-y:auto; overflow-x:hidden">
+<div class="bg-white rounded-lg shadow" style="max-height:calc(100vh - 280px); overflow-y:auto; overflow-x:hidden">
     <table class="w-full text-xs" style="table-layout:fixed">
         <colgroup>
+            <col style="width:2.5%">
             <col style="width:3.5%">
             <col style="width:2%">
-            <col style="width:55%">
+            <col style="width:53.5%">
             <col style="width:6%">
             <col style="width:5%">
             <col style="width:9%">
@@ -60,6 +70,7 @@
         </colgroup>
         <thead class="bg-gray-50 border-b-2 border-gray-300 sticky top-0 z-10">
             <tr>
+                <th class="px-0 py-1.5"></th>
                 <th class="px-1 py-1.5 text-left font-medium text-gray-500">J.</th>
                 <th class="px-0 py-1.5"></th>
                 <th class="px-1 py-1.5 text-left font-medium text-gray-500">Vlastník</th>
@@ -75,6 +86,46 @@
         {% endfor %}
     </table>
 </div>
+</form>
 
 <div class="mt-2 text-xs text-gray-400">Zobrazeno: {{ records|length }} záznamů</div>
+
+<script>
+function syncSelectAll() {
+    document.querySelectorAll('.sync-checkbox').forEach(function(cb) { cb.checked = true; });
+    document.querySelectorAll('.sync-row-checkbox').forEach(function(cb) { cb.checked = true; });
+    syncUpdateCount();
+}
+function syncDeselectAll() {
+    document.querySelectorAll('.sync-checkbox').forEach(function(cb) { cb.checked = false; });
+    document.querySelectorAll('.sync-row-checkbox').forEach(function(cb) { cb.checked = false; cb.indeterminate = false; });
+    syncUpdateCount();
+}
+function syncToggleRow(rowCb) {
+    var recordId = rowCb.dataset.record;
+    var tbody = document.getElementById('sync-' + recordId);
+    if (!tbody) return;
+    tbody.querySelectorAll('.sync-checkbox').forEach(function(cb) {
+        cb.checked = rowCb.checked;
+    });
+    syncUpdateCount();
+}
+function syncUpdateRowCheckbox(fieldCb) {
+    var tbody = fieldCb.closest('tbody');
+    if (!tbody) return;
+    var rowCb = tbody.querySelector('.sync-row-checkbox');
+    if (!rowCb) return;
+    var all = tbody.querySelectorAll('.sync-checkbox');
+    var checked = tbody.querySelectorAll('.sync-checkbox:checked');
+    rowCb.checked = checked.length === all.length;
+    rowCb.indeterminate = checked.length > 0 && checked.length < all.length;
+}
+function syncUpdateCount() {
+    var checked = document.querySelectorAll('.sync-checkbox:checked').length;
+    var counter = document.getElementById('sync-selected-count');
+    var btn = document.getElementById('sync-submit-btn');
+    if (counter) counter.textContent = checked + ' polí vybráno';
+    if (btn) btn.disabled = checked === 0;
+}
+</script>
 {% endblock %}
