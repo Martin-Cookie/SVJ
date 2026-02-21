@@ -134,10 +134,12 @@ def compare_owners(
         # Compare names
         ratio = SequenceMatcher(None, csv_norm, excel_norm).ratio()
 
-        # Also try comparing as sets of name parts
-        csv_parts = set(csv_norm.replace(",", " ").split())
-        excel_parts = set(excel_norm.replace(",", " ").split())
-        connectors = {"a", "and", "und", "sjm", "sj"}
+        # Compare as sets of name parts (handles different order and separators)
+        # Split on commas, semicolons, and whitespace
+        separators = re.compile(r"[,;\s]+")
+        csv_parts = set(separators.split(csv_norm))
+        excel_parts = set(separators.split(excel_norm))
+        connectors = {"a", "and", "und", "sjm", "sj", ""}
         csv_parts -= connectors
         excel_parts -= connectors
 

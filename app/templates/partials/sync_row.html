@@ -1,98 +1,61 @@
 {% set bg_class %}{% if record.resolution.value == 'accepted' %}bg-green-50{% elif record.resolution.value == 'rejected' %}bg-gray-50{% elif record.status.value == 'match' %}bg-green-50{% elif record.status.value == 'difference' %}bg-yellow-50{% else %}bg-red-50{% endif %}{% endset %}
-{# Compare fields for match/diff indicators #}
-{% set podil_match = record.excel_podil_scd and record.csv_share and record.excel_podil_scd == record.csv_share %}
+{% set name_ok = record.status.value == 'match' %}
+{% set podil_ok = record.excel_podil_scd and record.csv_share and record.excel_podil_scd == record.csv_share %}
 {% set podil_diff = record.excel_podil_scd and record.csv_share and record.excel_podil_scd != record.csv_share %}
-{% set email_match = record.csv_email and record.csv_email == (record.csv_email or '') %}
-{% set phone_match = record.csv_phone and record.csv_phone == (record.csv_phone or '') %}
+{# Extract match percentage from match_details like "Shoda jmen: 85%" #}
+{% set pct = record.match_details.split(':')[1].split('|')[0].strip() if record.match_details and ':' in record.match_details else '' %}
 <tbody id="sync-{{ record.id }}">
-    <!-- Row 1: Excel data -->
     <tr class="{{ bg_class }} border-b border-gray-100">
-        <td class="px-1 py-1 font-medium text-gray-900 whitespace-nowrap" rowspan="2">{{ record.unit_number }}</td>
-        <td class="px-1 py-1">
-            <span class="inline-flex px-1 py-0.5 font-medium bg-blue-100 text-blue-700 rounded leading-none">Exc</span>
-        </td>
-        <td class="px-1 py-1 text-gray-800 truncate">
+        <td class="px-1 py-1 font-medium text-gray-900" rowspan="2">{{ record.unit_number }}</td>
+        <td class="px-1 py-1"><span class="text-blue-600 font-semibold">E</span></td>
+        <td class="px-1 py-1 text-gray-800 truncate" title="{{ record.excel_owner_name or '' }}">
             {% if record.admin_corrected_name %}
-            <span class="line-through text-gray-400">{{ record.excel_owner_name or '—' }}</span>
-            <span class="text-blue-600 font-medium ml-1">{{ record.admin_corrected_name }}</span>
+            <span class="line-through text-gray-300">{{ record.excel_owner_name or '—' }}</span>
+            <span class="text-blue-600 font-medium">{{ record.admin_corrected_name }}</span>
             {% else %}
             {{ record.excel_owner_name or '—' }}
             {% endif %}
         </td>
-        <td class="px-1 py-1 text-gray-600 whitespace-nowrap">{{ record.excel_space_type or '—' }}</td>
-        <td class="px-1 py-1 text-gray-600 whitespace-nowrap">{{ record.excel_ownership_type or '—' }}</td>
-        <td class="px-1 py-1 text-gray-800 text-right font-mono whitespace-nowrap">
-            {% if record.excel_podil_scd %}{{ "{:,}".format(record.excel_podil_scd).replace(",", " ") }}{% else %}—{% endif %}
-        </td>
-        <td class="px-1 py-1 text-gray-600 truncate">{{ record.csv_email or '—' }}</td>
-        <td class="px-1 py-1 text-gray-600 whitespace-nowrap">{{ record.csv_phone or '—' }}</td>
-        <td class="px-1 py-1 text-gray-500" rowspan="2">{{ record.match_details or '' }}</td>
+        <td class="px-1 py-1 text-gray-500 truncate">{{ record.excel_space_type or '—' }}</td>
+        <td class="px-1 py-1 text-gray-500">{{ record.excel_ownership_type or '—' }}</td>
+        <td class="px-1 py-1 text-gray-800 text-right font-mono whitespace-nowrap">{% if record.excel_podil_scd %}{{ "{:,}".format(record.excel_podil_scd).replace(",", " ") }}{% else %}—{% endif %}</td>
+        <td class="px-1 py-1 text-gray-500 truncate" title="{{ record.csv_email or '' }}">{{ record.csv_email or '—' }}</td>
+        <td class="px-1 py-1 text-gray-500 whitespace-nowrap">{{ record.csv_phone or '—' }}</td>
+        <td class="px-1 py-1 text-center font-medium whitespace-nowrap {% if name_ok %}text-green-600{% else %}text-orange-500{% endif %}" rowspan="2">{{ pct }}</td>
         <td class="px-1 py-1" rowspan="2">
             {% if record.resolution.value == 'pending' and record.status.value != 'match' %}
-            <div class="flex flex-col gap-1">
-                <div class="flex gap-1">
-                    <button hx-post="/synchronizace/{{ record.session_id }}/prijmout/{{ record.id }}"
-                            hx-target="#sync-{{ record.id }}" hx-swap="outerHTML"
-                            class="px-1.5 py-0.5 bg-green-500 text-white rounded hover:bg-green-600">OK</button>
-                    <button hx-post="/synchronizace/{{ record.session_id }}/odmitnout/{{ record.id }}"
-                            hx-target="#sync-{{ record.id }}" hx-swap="outerHTML"
-                            class="px-1.5 py-0.5 bg-red-500 text-white rounded hover:bg-red-600">Ne</button>
-                </div>
-                <form hx-post="/synchronizace/{{ record.session_id }}/upravit/{{ record.id }}"
-                      hx-target="#sync-{{ record.id }}" hx-swap="outerHTML"
-                      class="flex gap-1">
-                    <input type="text" name="corrected_name" placeholder="Opravit..."
-                           class="border border-gray-300 rounded px-1 py-0.5 w-20">
-                    <button type="submit" class="px-1 py-0.5 bg-blue-500 text-white rounded hover:bg-blue-600">OK</button>
-                </form>
+            <div class="flex gap-0.5">
+                <button hx-post="/synchronizace/{{ record.session_id }}/prijmout/{{ record.id }}"
+                        hx-target="#sync-{{ record.id }}" hx-swap="outerHTML"
+                        class="px-1 py-0.5 bg-green-500 text-white rounded hover:bg-green-600">OK</button>
+                <button hx-post="/synchronizace/{{ record.session_id }}/odmitnout/{{ record.id }}"
+                        hx-target="#sync-{{ record.id }}" hx-swap="outerHTML"
+                        class="px-1 py-0.5 bg-red-500 text-white rounded hover:bg-red-600">Ne</button>
             </div>
             {% elif record.resolution.value == 'accepted' %}
             <span class="text-green-600 font-medium">OK</span>
             {% elif record.resolution.value == 'rejected' %}
-            <span class="text-gray-500 font-medium">Odmítnuto</span>
+            <span class="text-gray-400">Odm.</span>
             {% elif record.resolution.value == 'manual_edit' %}
-            <span class="text-blue-600 font-medium">Upraveno</span>
+            <span class="text-blue-600">Upr.</span>
             {% else %}
             <span class="text-green-600">OK</span>
             {% endif %}
         </td>
     </tr>
-    <!-- Row 2: CSV data — match indicators -->
     <tr class="{{ bg_class }} border-b-2 border-gray-300">
-        <td class="px-1 py-1">
-            <span class="inline-flex px-1 py-0.5 font-medium bg-gray-200 text-gray-500 rounded leading-none">CSV</span>
+        <td class="px-1 py-1"><span class="text-gray-400 font-semibold">C</span></td>
+        <td class="px-1 py-1 truncate {% if name_ok %}text-green-500{% else %}text-orange-500{% endif %}" title="{{ record.csv_owner_name or '' }}">
+            {% if name_ok %}<span>=</span>{% else %}{{ record.csv_owner_name or '—' }}{% endif %}
         </td>
-        <td class="px-1 py-1 truncate {% if record.status.value == 'match' %}text-green-500{% elif record.csv_owner_name and record.excel_owner_name and record.csv_owner_name != record.excel_owner_name %}text-orange-500{% else %}text-gray-400{% endif %}">
-            {% if record.status.value == 'match' %}
-            <span title="{{ record.csv_owner_name }}">=</span>
-            {% else %}
-            {{ record.csv_owner_name or '—' }}
-            {% endif %}
+        <td class="px-1 py-1 text-gray-300">—</td>
+        <td class="px-1 py-1 {% if record.csv_ownership_type and record.excel_ownership_type and record.csv_ownership_type == record.excel_ownership_type %}text-green-500{% elif record.csv_ownership_type and record.excel_ownership_type and record.csv_ownership_type != record.excel_ownership_type %}text-orange-500{% else %}text-gray-400{% endif %}">
+            {% if record.csv_ownership_type and record.excel_ownership_type and record.csv_ownership_type == record.excel_ownership_type %}={% else %}{{ record.csv_ownership_type or '—' }}{% endif %}
         </td>
-        <td class="px-1 py-1 text-gray-400">—</td>
-        <td class="px-1 py-1 whitespace-nowrap {% if record.csv_ownership_type and record.excel_ownership_type and record.csv_ownership_type == record.excel_ownership_type %}text-green-500{% elif record.csv_ownership_type and record.excel_ownership_type and record.csv_ownership_type != record.excel_ownership_type %}text-orange-500{% else %}text-gray-400{% endif %}">
-            {% if record.csv_ownership_type and record.excel_ownership_type and record.csv_ownership_type == record.excel_ownership_type %}
-            <span title="{{ record.csv_ownership_type }}">=</span>
-            {% else %}
-            {{ record.csv_ownership_type or '—' }}
-            {% endif %}
+        <td class="px-1 py-1 text-right font-mono whitespace-nowrap {% if podil_ok %}text-green-500{% elif podil_diff %}text-orange-500 font-bold{% else %}text-gray-400{% endif %}">
+            {% if podil_ok %}={% elif record.csv_share %}{{ "{:,}".format(record.csv_share).replace(",", " ") }}{% else %}—{% endif %}
         </td>
-        <td class="px-1 py-1 text-right font-mono whitespace-nowrap {% if podil_match %}text-green-500{% elif podil_diff %}text-orange-500 font-bold{% else %}text-gray-400{% endif %}">
-            {% if podil_match %}
-            <span title="{{ record.csv_share }}">=</span>
-            {% elif record.csv_share %}
-            {{ "{:,}".format(record.csv_share).replace(",", " ") }}
-            {% else %}—{% endif %}
-        </td>
-        <td class="px-1 py-1 truncate text-gray-400">
-            {% if record.csv_email %}
-            {{ record.csv_email }}
-            {% else %}—{% endif %}
-        </td>
-        <td class="px-1 py-1 whitespace-nowrap text-gray-400">
-            {% if record.csv_phone %}
-            {{ record.csv_phone }}
-            {% else %}—{% endif %}
-        </td>
+        <td class="px-1 py-1 text-gray-400 truncate">{{ record.csv_email or '—' }}</td>
+        <td class="px-1 py-1 text-gray-400 whitespace-nowrap">{{ record.csv_phone or '—' }}</td>
     </tr>
 </tbody>

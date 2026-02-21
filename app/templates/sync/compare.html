@@ -2,23 +2,23 @@
 {% block title %}Porovnání - {{ session.csv_filename }}{% endblock %}
 
 {% block content %}
-<div class="mb-6">
+<div class="mb-4">
     <a href="/synchronizace" class="text-sm text-gray-500 hover:text-gray-700">&larr; Zpět na kontrolu vlastníků</a>
 </div>
 
-<div class="flex items-center justify-between mb-6">
+<div class="flex items-center justify-between mb-4">
     <div>
-        <h1 class="text-2xl font-bold text-gray-800">Porovnání vlastníků</h1>
-        <p class="text-sm text-gray-500 mt-1">CSV: {{ session.csv_filename }} | {{ session.created_at.strftime('%d.%m.%Y %H:%M') }}</p>
+        <h1 class="text-xl font-bold text-gray-800">Porovnání vlastníků</h1>
+        <p class="text-xs text-gray-500 mt-1">CSV: {{ session.csv_filename }} | {{ session.created_at.strftime('%d.%m.%Y %H:%M') }}</p>
     </div>
     <div class="flex gap-2">
         <form action="/synchronizace/{{ session.id }}/aplikovat-kontakty" method="post">
-            <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium">
+            <button type="submit" class="px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-xs font-medium">
                 Přenést kontakty z CSV
             </button>
         </form>
         <form action="/synchronizace/{{ session.id }}/exportovat" method="post">
-            <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
+            <button type="submit" class="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs font-medium">
                 Export do Excelu
             </button>
         </form>
@@ -26,61 +26,61 @@
 </div>
 
 <!-- Stats -->
-<div class="grid grid-cols-4 gap-4 mb-6">
-    <div class="bg-white rounded-lg shadow p-4 text-center">
-        <p class="text-2xl font-bold text-gray-800">{{ session.total_records }}</p>
-        <p class="text-xs text-gray-500 mt-1">Celkem záznamů</p>
+<div class="grid grid-cols-4 gap-3 mb-4">
+    <div class="bg-white rounded-lg shadow p-3 text-center">
+        <p class="text-xl font-bold text-gray-800">{{ session.total_records }}</p>
+        <p class="text-xs text-gray-500">Celkem</p>
     </div>
-    <div class="bg-green-50 rounded-lg shadow p-4 text-center border border-green-200">
-        <p class="text-2xl font-bold text-green-600">{{ session.total_matches }}</p>
-        <p class="text-xs text-green-600 mt-1">Shoda</p>
+    <div class="bg-green-50 rounded-lg shadow p-3 text-center border border-green-200">
+        <p class="text-xl font-bold text-green-600">{{ session.total_matches }}</p>
+        <p class="text-xs text-green-600">Shoda</p>
     </div>
-    <div class="bg-yellow-50 rounded-lg shadow p-4 text-center border border-yellow-200">
-        <p class="text-2xl font-bold text-yellow-600">{{ session.total_differences }}</p>
-        <p class="text-xs text-yellow-600 mt-1">Rozdíly</p>
+    <div class="bg-yellow-50 rounded-lg shadow p-3 text-center border border-yellow-200">
+        <p class="text-xl font-bold text-yellow-600">{{ session.total_differences }}</p>
+        <p class="text-xs text-yellow-600">Rozdíly</p>
     </div>
-    <div class="bg-red-50 rounded-lg shadow p-4 text-center border border-red-200">
-        <p class="text-2xl font-bold text-red-600">{{ session.total_missing }}</p>
-        <p class="text-xs text-red-600 mt-1">Chybí</p>
+    <div class="bg-red-50 rounded-lg shadow p-3 text-center border border-red-200">
+        <p class="text-xl font-bold text-red-600">{{ session.total_missing }}</p>
+        <p class="text-xs text-red-600">Chybí</p>
     </div>
 </div>
 
 <!-- Legend -->
-<div class="flex gap-4 mb-4 text-xs text-gray-500">
-    <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-green-200 inline-block"></span> Shoda</span>
-    <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-yellow-200 inline-block"></span> Rozdíl</span>
-    <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-red-200 inline-block"></span> Chybí v jednom zdroji</span>
-    <span class="flex items-center gap-1 ml-4"><span class="text-green-500 font-bold">=</span> Shodné pole</span>
-    <span class="flex items-center gap-1"><span class="text-orange-500 font-bold">!</span> Odlišné pole</span>
+<div class="flex gap-3 mb-3 text-xs text-gray-500">
+    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded bg-green-200 inline-block"></span> Shoda</span>
+    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded bg-yellow-200 inline-block"></span> Rozdíl</span>
+    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded bg-red-200 inline-block"></span> Chybí</span>
+    <span class="flex items-center gap-1 ml-2 text-green-500 font-bold">=</span><span class="text-xs text-gray-500">shodné</span>
+    <span class="text-orange-500 font-bold">!</span><span class="text-xs text-gray-500">odlišné</span>
 </div>
 
 <!-- Comparison table -->
 <div class="bg-white rounded-lg shadow overflow-hidden">
-    <table class="min-w-full text-xs" style="table-layout:fixed">
+    <table class="w-full text-xs" style="table-layout:fixed">
         <colgroup>
+            <col style="width:32px">
+            <col style="width:28px">
+            <col>
             <col style="width:42px">
-            <col style="width:40px">
+            <col style="width:36px">
+            <col style="width:52px">
             <col>
-            <col style="width:60px">
-            <col style="width:55px">
-            <col style="width:70px">
-            <col>
-            <col style="width:90px">
-            <col style="width:80px">
-            <col style="width:80px">
+            <col style="width:72px">
+            <col style="width:48px">
+            <col style="width:64px">
         </colgroup>
         <thead class="bg-gray-50 border-b-2 border-gray-300">
             <tr>
-                <th class="px-1 py-2 text-left font-medium text-gray-500 uppercase">Jedn.</th>
-                <th class="px-1 py-2 text-left font-medium text-gray-500 uppercase">Zdroj</th>
-                <th class="px-1 py-2 text-left font-medium text-gray-500 uppercase">Vlastník</th>
-                <th class="px-1 py-2 text-left font-medium text-gray-500 uppercase">Typ</th>
-                <th class="px-1 py-2 text-left font-medium text-gray-500 uppercase">Vlast.</th>
-                <th class="px-1 py-2 text-right font-medium text-gray-500 uppercase whitespace-nowrap">Podíl SČD</th>
-                <th class="px-1 py-2 text-left font-medium text-gray-500 uppercase">Email</th>
-                <th class="px-1 py-2 text-left font-medium text-gray-500 uppercase">Telefon</th>
-                <th class="px-1 py-2 text-left font-medium text-gray-500 uppercase">Shoda</th>
-                <th class="px-1 py-2 text-left font-medium text-gray-500 uppercase">Akce</th>
+                <th class="px-1 py-1.5 text-left font-medium text-gray-500 uppercase">J.</th>
+                <th class="px-1 py-1.5 text-left font-medium text-gray-500 uppercase"></th>
+                <th class="px-1 py-1.5 text-left font-medium text-gray-500 uppercase">Vlastník</th>
+                <th class="px-1 py-1.5 text-left font-medium text-gray-500 uppercase">Typ</th>
+                <th class="px-1 py-1.5 text-left font-medium text-gray-500 uppercase">Vl.</th>
+                <th class="px-1 py-1.5 text-right font-medium text-gray-500 uppercase">Podíl</th>
+                <th class="px-1 py-1.5 text-left font-medium text-gray-500 uppercase">Email</th>
+                <th class="px-1 py-1.5 text-left font-medium text-gray-500 uppercase">Telefon</th>
+                <th class="px-1 py-1.5 text-center font-medium text-gray-500 uppercase">%</th>
+                <th class="px-1 py-1.5 text-left font-medium text-gray-500 uppercase">Akce</th>
             </tr>
         </thead>
         {% for record in records %}
