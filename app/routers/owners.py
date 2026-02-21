@@ -285,6 +285,92 @@ async def owner_info(
     })
 
 
+def _address_context(owner, prefix):
+    """Extract address fields for a given prefix (perm/corr)."""
+    return {
+        "prefix": prefix,
+        "street": getattr(owner, f"{prefix}_street"),
+        "district": getattr(owner, f"{prefix}_district"),
+        "city": getattr(owner, f"{prefix}_city"),
+        "zip": getattr(owner, f"{prefix}_zip"),
+        "country": getattr(owner, f"{prefix}_country"),
+    }
+
+
+@router.get("/{owner_id}/adresa/{prefix}/upravit-formular")
+async def owner_address_edit_form(
+    owner_id: int,
+    prefix: str,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    if prefix not in ("perm", "corr"):
+        return RedirectResponse(f"/vlastnici/{owner_id}", status_code=302)
+    owner = db.query(Owner).get(owner_id)
+    if not owner:
+        return RedirectResponse("/vlastnici", status_code=302)
+    return templates.TemplateResponse("partials/owner_address_form.html", {
+        "request": request,
+        "owner": owner,
+        **_address_context(owner, prefix),
+    })
+
+
+@router.get("/{owner_id}/adresa/{prefix}/info")
+async def owner_address_info(
+    owner_id: int,
+    prefix: str,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    if prefix not in ("perm", "corr"):
+        return RedirectResponse(f"/vlastnici/{owner_id}", status_code=302)
+    owner = db.query(Owner).get(owner_id)
+    if not owner:
+        return RedirectResponse("/vlastnici", status_code=302)
+    return templates.TemplateResponse("partials/owner_address_info.html", {
+        "request": request,
+        "owner": owner,
+        **_address_context(owner, prefix),
+    })
+
+
+@router.post("/{owner_id}/adresa/{prefix}/upravit")
+async def owner_address_update(
+    owner_id: int,
+    prefix: str,
+    request: Request,
+    street: str = Form(""),
+    district: str = Form(""),
+    city: str = Form(""),
+    zip: str = Form(""),
+    country: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    if prefix not in ("perm", "corr"):
+        return RedirectResponse(f"/vlastnici/{owner_id}", status_code=302)
+    owner = db.query(Owner).get(owner_id)
+    if not owner:
+        return RedirectResponse("/vlastnici", status_code=302)
+
+    setattr(owner, f"{prefix}_street", street or None)
+    setattr(owner, f"{prefix}_district", district or None)
+    setattr(owner, f"{prefix}_city", city or None)
+    setattr(owner, f"{prefix}_zip", zip or None)
+    setattr(owner, f"{prefix}_country", country or None)
+    owner.updated_at = datetime.utcnow()
+    db.commit()
+
+    if request.headers.get("HX-Request"):
+        return templates.TemplateResponse("partials/owner_address_info.html", {
+            "request": request,
+            "owner": owner,
+            "saved": True,
+            **_address_context(owner, prefix),
+        })
+    return RedirectResponse(f"/vlastnici/{owner_id}", status_code=302)
+
+
 @router.post("/{owner_id}/upravit")
 async def owner_update(
     owner_id: int,

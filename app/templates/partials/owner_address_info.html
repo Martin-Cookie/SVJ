@@ -1,0 +1,31 @@
+<div class="space-y-2 text-sm">
+    <div class="flex justify-between">
+        <dt class="text-gray-500">Ulice</dt>
+        <dd class="text-gray-900">{{ street or '—' }}</dd>
+    </div>
+    <div class="flex justify-between">
+        <dt class="text-gray-500">Část obce</dt>
+        <dd class="text-gray-900">{{ district or '—' }}</dd>
+    </div>
+    <div class="flex justify-between">
+        <dt class="text-gray-500">Město</dt>
+        <dd class="text-gray-900">{{ city or '—' }}</dd>
+    </div>
+    <div class="flex justify-between">
+        <dt class="text-gray-500">PSČ</dt>
+        <dd class="text-gray-900">{{ zip or '—' }}</dd>
+    </div>
+    <div class="flex justify-between">
+        <dt class="text-gray-500">Země</dt>
+        <dd class="text-gray-900">{{ country or '—' }}</dd>
+    </div>
+</div>
+<div class="mt-4 flex items-center gap-2">
+    <button hx-get="/vlastnici/{{ owner.id }}/adresa/{{ prefix }}/upravit-formular" hx-target="#{{ prefix }}-address-section" hx-swap="innerHTML"
+            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
+        Upravit
+    </button>
+    {% if saved %}
+    <span class="text-sm text-green-600">Uloženo</span>
+    {% endif %}
+</div>

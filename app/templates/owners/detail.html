@@ -47,36 +47,24 @@
     </div>
 
     <!-- Permanent address -->
-    {% if owner.perm_street or owner.perm_city %}
     <div class="bg-white rounded-lg shadow p-6">
         <h2 class="text-lg font-semibold text-gray-700 mb-4">Trvalá adresa</h2>
-        <div class="text-sm text-gray-600 space-y-1">
-            {% if owner.perm_street %}<p>{{ owner.perm_street }}</p>{% endif %}
-            {% if owner.perm_district %}<p>{{ owner.perm_district }}</p>{% endif %}
-            <p>
-                {% if owner.perm_zip %}{{ owner.perm_zip }} {% endif %}
-                {{ owner.perm_city or '' }}
-            </p>
-            {% if owner.perm_country %}<p>{{ owner.perm_country }}</p>{% endif %}
+        <div id="perm-address-section">
+            {% with prefix="perm", street=owner.perm_street, district=owner.perm_district, city=owner.perm_city, zip=owner.perm_zip, country=owner.perm_country %}
+            {% include "partials/owner_address_info.html" %}
+            {% endwith %}
         </div>
     </div>
-    {% endif %}
 
     <!-- Correspondence address -->
-    {% if owner.corr_street or owner.corr_city %}
     <div class="bg-white rounded-lg shadow p-6">
         <h2 class="text-lg font-semibold text-gray-700 mb-4">Korespondenční adresa</h2>
-        <div class="text-sm text-gray-600 space-y-1">
-            {% if owner.corr_street %}<p>{{ owner.corr_street }}</p>{% endif %}
-            {% if owner.corr_district %}<p>{{ owner.corr_district }}</p>{% endif %}
-            <p>
-                {% if owner.corr_zip %}{{ owner.corr_zip }} {% endif %}
-                {{ owner.corr_city or '' }}
-            </p>
-            {% if owner.corr_country %}<p>{{ owner.corr_country }}</p>{% endif %}
+        <div id="corr-address-section">
+            {% with prefix="corr", street=owner.corr_street, district=owner.corr_district, city=owner.corr_city, zip=owner.corr_zip, country=owner.corr_country %}
+            {% include "partials/owner_address_info.html" %}
+            {% endwith %}
         </div>
     </div>
-    {% endif %}
 
     <!-- Notes -->
     {% if owner.note or owner.owner_since %}
