@@ -22,22 +22,26 @@
 </div>
 
 <!-- Stats - clickable filters -->
-<div class="grid grid-cols-5 gap-2 mb-3">
+<div class="grid grid-cols-6 gap-2 mb-3">
     <a href="/synchronizace/{{ session.id }}" class="block bg-white rounded-lg shadow p-2 text-center hover:ring-2 hover:ring-gray-300 {% if not filtr %}ring-2 ring-gray-400{% endif %}">
         <p class="text-lg font-bold text-gray-800">{{ session.total_records }}</p>
         <p class="text-xs text-gray-500">Vše</p>
     </a>
     <a href="/synchronizace/{{ session.id }}?filtr=match" class="block bg-green-50 rounded-lg shadow p-2 text-center border border-green-200 hover:ring-2 hover:ring-green-300 {% if filtr == 'match' %}ring-2 ring-green-400{% endif %}">
-        <p class="text-lg font-bold text-green-600">{{ session.total_matches }}</p>
-        <p class="text-xs text-green-600">Shoda</p>
+        <p class="text-lg font-bold text-green-600">{{ total_full_match or 0 }}</p>
+        <p class="text-xs text-green-600">Úplná shoda</p>
     </a>
-    <a href="/synchronizace/{{ session.id }}?filtr=name_order" class="block bg-green-50 rounded-lg shadow p-2 text-center border border-green-200 hover:ring-2 hover:ring-green-300 {% if filtr == 'name_order' %}ring-2 ring-green-400{% endif %}">
-        <p class="text-lg font-bold text-orange-500">{{ session.total_name_order or 0 }}</p>
-        <p class="text-xs text-orange-500">Přeházená</p>
+    <a href="/synchronizace/{{ session.id }}?filtr=partial" class="block bg-green-50 rounded-lg shadow p-2 text-center border border-green-200 hover:ring-2 hover:ring-green-300 {% if filtr == 'partial' %}ring-2 ring-green-400{% endif %}">
+        <p class="text-lg font-bold text-orange-500">{{ total_partial or 0 }}</p>
+        <p class="text-xs text-orange-500">Částečná shoda</p>
+    </a>
+    <a href="/synchronizace/{{ session.id }}?filtr=name_order" class="block bg-red-50 rounded-lg shadow p-2 text-center border border-red-200 hover:ring-2 hover:ring-red-300 {% if filtr == 'name_order' %}ring-2 ring-red-400{% endif %}">
+        <p class="text-lg font-bold text-red-600">{{ session.total_name_order or 0 }}</p>
+        <p class="text-xs text-red-600">Přeházená jména</p>
     </a>
     <a href="/synchronizace/{{ session.id }}?filtr=difference" class="block bg-red-50 rounded-lg shadow p-2 text-center border border-red-200 hover:ring-2 hover:ring-red-300 {% if filtr == 'difference' %}ring-2 ring-red-400{% endif %}">
         <p class="text-lg font-bold text-red-600">{{ session.total_differences }}</p>
-        <p class="text-xs text-red-600">Rozdíly</p>
+        <p class="text-xs text-red-600">Rozdílní vlastníci</p>
     </a>
     <a href="/synchronizace/{{ session.id }}?filtr=missing" class="block bg-gray-50 rounded-lg shadow p-2 text-center border border-gray-200 hover:ring-2 hover:ring-gray-300 {% if filtr == 'missing' %}ring-2 ring-gray-400{% endif %}">
         <p class="text-lg font-bold text-gray-600">{{ session.total_missing }}</p>

@@ -5,6 +5,7 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.config import settings
@@ -155,9 +156,24 @@ async def sync_detail(
     if not session:
         return RedirectResponse("/synchronizace", status_code=302)
 
-    query = db.query(SyncRecord).filter_by(session_id=session_id)
+    # Field difference condition (type, ownership, or share differs)
+    field_diff = or_(
+        and_(SyncRecord.csv_space_type.isnot(None), SyncRecord.excel_space_type.isnot(None), SyncRecord.csv_space_type != SyncRecord.excel_space_type),
+        and_(SyncRecord.csv_ownership_type.isnot(None), SyncRecord.excel_ownership_type.isnot(None), SyncRecord.csv_ownership_type != SyncRecord.excel_ownership_type),
+        and_(SyncRecord.excel_podil_scd.isnot(None), SyncRecord.csv_share.isnot(None), SyncRecord.excel_podil_scd != SyncRecord.csv_share),
+    )
+
+    base = db.query(SyncRecord).filter_by(session_id=session_id)
+    # Partial match = owner matched (MATCH status) but some field differs
+    total_partial = base.filter(SyncRecord.status == SyncStatus.MATCH, field_diff).count()
+    # Full match = MATCH status and no field differences
+    total_full_match = session.total_matches - total_partial
+
+    query = base
     if filtr == "match":
-        query = query.filter(SyncRecord.status == SyncStatus.MATCH)
+        query = query.filter(SyncRecord.status == SyncStatus.MATCH, ~field_diff)
+    elif filtr == "partial":
+        query = query.filter(SyncRecord.status == SyncStatus.MATCH, field_diff)
     elif filtr == "name_order":
         query = query.filter(SyncRecord.status == SyncStatus.NAME_ORDER)
     elif filtr == "difference":
@@ -172,6 +188,8 @@ async def sync_detail(
         "session": session,
         "records": records,
         "filtr": filtr,
+        "total_full_match": total_full_match,
+        "total_partial": total_partial,
     })
 
 
@@ -280,6 +298,13 @@ async def apply_selected_updates(
             continue
         updates.setdefault(rid, {})[field] = value
 
+    session = db.query(SyncSession).get(session_id)
+    if not session:
+        return RedirectResponse("/synchronizace", status_code=302)
+
+    now = datetime.now().strftime("%d.%m.%Y %H:%M")
+    csv_name = session.csv_filename
+
     success_count = 0
     error_count = 0
     change_details = []
@@ -317,20 +342,25 @@ async def apply_selected_updates(
             if field == "ownership_type":
                 old_val = owner_unit.ownership_type or ""
                 owner_unit.ownership_type = new_value
+                record.excel_ownership_type = new_value
                 changes.append(f"vlastnictví: {old_val} → {new_value}")
             elif field == "space_type":
                 old_val = unit.space_type or ""
                 unit.space_type = new_value
+                record.excel_space_type = new_value
                 changes.append(f"typ: {old_val} → {new_value}")
             elif field == "podil_scd":
                 old_val = unit.podil_scd
                 unit.podil_scd = int(new_value)
+                record.excel_podil_scd = int(new_value)
                 changes.append(
                     f"podíl: {old_val} → {new_value}"
                 )
 
         if changes:
-            record.admin_note = (record.admin_note + "; " if record.admin_note else "") + ", ".join(changes)
+            # Each change as separate log entry with source file and timestamp
+            note_entries = [f"{ch} (z {csv_name}, {now})" for ch in changes]
+            record.admin_note = (record.admin_note + "\n" if record.admin_note else "") + "\n".join(note_entries)
             record.resolution = SyncResolution.MANUAL_EDIT
             success_count += 1
             change_details.append(f"J. {short_num}: {', '.join(changes)}")
