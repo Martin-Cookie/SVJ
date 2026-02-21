@@ -146,11 +146,23 @@ async def sync_create(
     return RedirectResponse(f"/synchronizace/{session.id}", status_code=302)
 
 
+SYNC_SORT_COLUMNS = {
+    "unit": SyncRecord.unit_number,
+    "owner": SyncRecord.excel_owner_name,
+    "space_type": SyncRecord.excel_space_type,
+    "ownership": SyncRecord.excel_ownership_type,
+    "podil": SyncRecord.excel_podil_scd,
+    "match": SyncRecord.match_details,
+}
+
+
 @router.get("/{session_id}")
 async def sync_detail(
     session_id: int,
     request: Request,
     filtr: str = Query("", alias="filtr"),
+    sort: str = Query("unit", alias="sort"),
+    order: str = Query("asc", alias="order"),
     db: Session = Depends(get_db),
 ):
     session = db.query(SyncSession).get(session_id)
@@ -182,7 +194,17 @@ async def sync_detail(
         query = query.filter(SyncRecord.status == SyncStatus.DIFFERENCE)
     elif filtr == "missing":
         query = query.filter(SyncRecord.status.in_([SyncStatus.MISSING_CSV, SyncStatus.MISSING_EXCEL]))
-    records = query.order_by(SyncRecord.id).all()
+
+    # Sorting
+    sort_col = SYNC_SORT_COLUMNS.get(sort)
+    if sort_col is not None:
+        if order == "desc":
+            query = query.order_by(sort_col.desc().nulls_last())
+        else:
+            query = query.order_by(sort_col.asc().nulls_last())
+    else:
+        query = query.order_by(SyncRecord.unit_number.asc())
+    records = query.all()
 
     return templates.TemplateResponse("sync/compare.html", {
         "request": request,
@@ -190,6 +212,8 @@ async def sync_detail(
         "session": session,
         "records": records,
         "filtr": filtr,
+        "sort": sort,
+        "order": order,
         "total_full_match": total_full_match,
         "total_partial": total_partial,
     })
@@ -360,17 +384,17 @@ async def apply_selected_updates(
                 record.excel_owner_name = new_value.strip()
                 changes.append(f"jméno: {old_val} → {new_value.strip()}")
             elif field == "ownership_type":
-                old_val = owner_unit.ownership_type or ""
+                old_val = record.excel_ownership_type or owner_unit.ownership_type or ""
                 owner_unit.ownership_type = new_value
                 record.excel_ownership_type = new_value
                 changes.append(f"vlastnictví: {old_val} → {new_value}")
             elif field == "space_type":
-                old_val = unit.space_type or ""
+                old_val = record.excel_space_type or unit.space_type or ""
                 unit.space_type = new_value
                 record.excel_space_type = new_value
                 changes.append(f"typ: {old_val} → {new_value}")
             elif field == "podil_scd":
-                old_val = unit.podil_scd
+                old_val = record.excel_podil_scd or unit.podil_scd
                 unit.podil_scd = int(new_value)
                 record.excel_podil_scd = int(new_value)
                 changes.append(

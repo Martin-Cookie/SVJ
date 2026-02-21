@@ -74,15 +74,31 @@
             <col style="width:7%">
         </colgroup>
         <thead class="bg-gray-50 border-b-2 border-gray-300 sticky top-0 z-10">
+            {% macro sort_th(label, col, align="left") %}
+            {% set next_order = "desc" if sort == col and order == "asc" else "asc" %}
+            <th class="px-1 py-1.5 text-{{ align }} font-medium {% if sort == col %}text-blue-600{% else %}text-gray-500{% endif %}">
+                <a href="/synchronizace/{{ session.id }}?filtr={{ filtr }}&sort={{ col }}&order={{ next_order }}"
+                   class="inline-flex items-center gap-0.5 cursor-pointer hover:text-blue-600 select-none">
+                    {{ label }}
+                    {% if sort == col %}
+                        {% if order == "asc" %}
+                        <svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L10 6.414l-3.293 3.293a1 1 0 01-1.414 0z"/></svg>
+                        {% else %}
+                        <svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path d="M14.707 10.293a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L10 13.586l3.293-3.293a1 1 0 011.414 0z"/></svg>
+                        {% endif %}
+                    {% endif %}
+                </a>
+            </th>
+            {% endmacro %}
             <tr>
                 <th class="px-0 py-1.5"></th>
-                <th class="px-1 py-1.5 text-left font-medium text-gray-500">J.</th>
+                {{ sort_th("J.", "unit") }}
                 <th class="px-0 py-1.5"></th>
-                <th class="px-1 py-1.5 text-left font-medium text-gray-500">Vlastník</th>
-                <th class="px-1 py-1.5 text-left font-medium text-gray-500">Typ</th>
-                <th class="px-1 py-1.5 text-left font-medium text-gray-500">Vl.</th>
-                <th class="px-1 py-1.5 text-right font-medium text-gray-500">Podíl</th>
-                <th class="px-1 py-1.5 text-center font-medium text-gray-500">%</th>
+                {{ sort_th("Vlastník", "owner") }}
+                {{ sort_th("Typ", "space_type") }}
+                {{ sort_th("Vl.", "ownership") }}
+                {{ sort_th("Podíl", "podil", "right") }}
+                {{ sort_th("%", "match", "center") }}
                 <th class="px-1 py-1.5 text-left font-medium text-gray-500">Akce</th>
             </tr>
         </thead>
