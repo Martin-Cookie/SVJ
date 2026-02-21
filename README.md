@@ -62,8 +62,14 @@ Aplikace běží na http://localhost:8000
 
 - Nahrání CSV exportu (např. ze sousede.cz)
 - Porovnání s Excel daty (inteligentní párování jmen)
-- Rozlišení: shoda / přeházená jména / rozdíl / chybí
-- Klikací filtry podle typu výsledku
+- Rozlišení: úplná shoda / částečná shoda / přeházená jména / rozdílní vlastníci / chybí
+- Klikací filtry podle typu výsledku s dynamickými počty
+- Selektivní aktualizace dat z CSV do databáze:
+  - Checkboxy u lišících se polí (jméno, typ, vlastnictví, podíl)
+  - Řádkový checkbox pro hromadné zaškrtnutí všech polí záznamu
+  - Toolbar: Vybrat vše / Zrušit výběr / počítadlo / Aktualizovat vybrané
+  - Po aktualizaci se přepočítá status záznamu a počítadla v bublinách
+- Logování změn: každá úprava zaznamenána s názvem zdrojového CSV a časem
 - Přenos kontaktů z CSV do databáze
 
 ## Struktura projektu
