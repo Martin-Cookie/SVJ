@@ -140,10 +140,12 @@ async def owner_list(
 
 
 @router.get("/import")
-async def import_page(request: Request):
+async def import_page(request: Request, db: Session = Depends(get_db)):
+    imports = db.query(ImportLog).filter_by(import_type="owners_excel").order_by(ImportLog.created_at.desc()).all()
     return templates.TemplateResponse("owners/import.html", {
         "request": request,
         "active_nav": "import",
+        "imports": imports,
     })
 
 
@@ -217,6 +219,38 @@ async def import_excel_confirm(
         "active_nav": "import",
         "result": result,
     })
+
+
+@router.post("/import/{log_id}/smazat")
+async def import_delete(
+    log_id: int,
+    db: Session = Depends(get_db),
+):
+    """Delete an import: remove data, log entry, and uploaded file."""
+    from pathlib import Path
+
+    log = db.query(ImportLog).filter_by(id=log_id, import_type="owners_excel").first()
+    if not log:
+        return RedirectResponse("/vlastnici/import", status_code=302)
+
+    # Clear imported data
+    db.query(OwnerUnit).delete()
+    db.query(Owner).delete()
+    db.query(Unit).delete()
+
+    # Remove uploaded file
+    try:
+        p = Path(log.file_path)
+        if p.exists():
+            p.unlink()
+    except Exception:
+        pass
+
+    # Remove log entry
+    db.delete(log)
+    db.commit()
+
+    return RedirectResponse("/vlastnici/import", status_code=302)
 
 
 @router.get("/{owner_id}")

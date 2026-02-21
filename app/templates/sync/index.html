@@ -2,37 +2,88 @@
 {% block title %}Kontrola vlastníků - SVJ Správa{% endblock %}
 
 {% block content %}
-<div class="flex items-center justify-between mb-6">
-    <h1 class="text-2xl font-bold text-gray-800">Kontrola vlastníků</h1>
-    <a href="/synchronizace/nova" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
-        Nová kontrola
-    </a>
-</div>
+<div class="flex flex-col" style="height:calc(100vh - 48px)">
+    <div class="mb-3 flex-none">
+        <a href="/vlastnici" class="text-sm text-gray-500 hover:text-gray-700">&larr; Zpět na seznam vlastníků</a>
+    </div>
+    <h1 class="text-xl font-bold text-gray-800 mb-4 flex-none">Kontrola vlastníků</h1>
 
-{% if sessions %}
-<div class="space-y-4">
-    {% for session in sessions %}
-    <div class="bg-white rounded-lg shadow hover:shadow-md transition-shadow p-6">
-        <div class="flex items-center justify-between">
-            <div>
-                <a href="/synchronizace/{{ session.id }}" class="text-lg font-semibold text-blue-600 hover:text-blue-800">
-                    {{ session.csv_filename }}
-                </a>
-                <div class="flex items-center mt-2 space-x-4 text-sm text-gray-500">
-                    <span>{{ session.created_at.strftime('%d.%m.%Y %H:%M') }}</span>
-                    <span class="text-green-600">Shoda: {{ session.total_matches }}</span>
-                    <span class="text-yellow-600">Rozdíly: {{ session.total_differences }}</span>
-                    <span class="text-red-600">Chybí: {{ session.total_missing }}</span>
-                </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start flex-1 min-h-0">
+        <!-- Left: upload form (static) -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-sm font-semibold text-gray-700 mb-3">Nahrát CSV export</h2>
+            <div class="mb-4">
+                <ol class="text-xs text-gray-500 list-decimal list-inside space-y-0.5">
+                    <li>Exportujte seznam vlastníků ze sousede.cz jako CSV</li>
+                    <li>Nahrajte CSV soubor níže</li>
+                    <li>Systém porovná vlastníky s daty v evidenci</li>
+                    <li>Zkontrolujte a schvalte nalezené rozdíly</li>
+                </ol>
             </div>
+
+            <form action="/synchronizace/nova" method="post" enctype="multipart/form-data">
+                <div class="mb-3">
+                    <input type="file" name="file" accept=".csv" required
+                           class="block w-full text-sm text-gray-500 file:mr-4 file:py-1.5 file:px-3
+                                  file:rounded file:border-0 file:text-sm file:font-medium
+                                  file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                    <p class="text-xs text-gray-400 mt-1">
+                        CSV s oddělovačem středník nebo čárka, kódování UTF-8 nebo Windows-1250.
+                    </p>
+                </div>
+                <button type="submit" class="px-4 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm font-medium">
+                    Nahrát a porovnat
+                </button>
+            </form>
+        </div>
+
+        <!-- Right: history (only tbody scrolls) -->
+        <div class="bg-white rounded-lg shadow flex flex-col min-h-0 h-full">
+            <div class="px-4 pt-4 flex-none">
+                <h2 class="text-sm font-semibold text-gray-700 mb-2">Historie kontrol</h2>
+            </div>
+            {% if sessions %}
+            <div class="flex-none px-4">
+                <table class="w-full text-sm">
+                    <thead class="border-b border-gray-200">
+                        <tr>
+                            <th class="px-3 py-1.5 text-left font-medium text-gray-500">Soubor</th>
+                            <th class="px-3 py-1.5 text-left font-medium text-gray-500">Datum</th>
+                            <th class="px-3 py-1.5 text-right font-medium text-gray-500">Shoda</th>
+                            <th class="px-3 py-1.5 text-right font-medium text-gray-500">Rozdíly</th>
+                            <th class="px-3 py-1.5"></th>
+                        </tr>
+                    </thead>
+                </table>
+            </div>
+            <div class="flex-1 overflow-y-auto px-4 pb-4 min-h-0">
+                <table class="w-full text-sm">
+                    <tbody class="divide-y divide-gray-100">
+                        {% for session in sessions %}
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-3 py-1.5">
+                                <a href="/synchronizace/{{ session.id }}" class="text-blue-600 hover:text-blue-800 hover:underline font-medium">{{ session.csv_filename }}</a>
+                            </td>
+                            <td class="px-3 py-1.5 text-gray-500 text-xs" style="white-space:nowrap">{{ session.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
+                            <td class="px-3 py-1.5 text-green-600 text-right">{{ session.total_matches }}</td>
+                            <td class="px-3 py-1.5 text-red-600 text-right">{{ session.total_differences + session.total_missing }}</td>
+                            <td class="px-3 py-1.5 text-right">
+                                <form action="/synchronizace/{{ session.id }}/smazat" method="post" style="display:inline"
+                                      onsubmit="return confirm('Smazat kontrolu {{ session.csv_filename }}?')">
+                                    <button type="submit" class="text-red-500 hover:text-red-700 text-xs font-medium">Smazat</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="px-4 pb-4">
+                <p class="text-sm text-gray-400">Zatím žádné kontroly.</p>
+            </div>
+            {% endif %}
         </div>
     </div>
-    {% endfor %}
 </div>
-{% else %}
-<div class="bg-white rounded-lg shadow p-8 text-center text-gray-500">
-    <p>Zatím nebyla provedena žádná kontrola.</p>
-    <a href="/synchronizace/nova" class="mt-4 inline-block text-blue-600 hover:underline">Nahrát CSV export</a>
-</div>
-{% endif %}
 {% endblock %}

@@ -7,7 +7,7 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.config import settings
@@ -34,12 +34,27 @@ async def sync_list(request: Request, db: Session = Depends(get_db)):
     })
 
 
+@router.post("/{session_id}/smazat")
+async def sync_delete(session_id: int, db: Session = Depends(get_db)):
+    """Delete a sync session, its records, and the uploaded CSV file."""
+    session = db.query(SyncSession).get(session_id)
+    if session:
+        # Remove CSV file
+        try:
+            p = Path(session.csv_path)
+            if p.exists():
+                p.unlink()
+        except Exception:
+            pass
+        # Cascade deletes SyncRecord entries
+        db.delete(session)
+        db.commit()
+    return RedirectResponse("/synchronizace", status_code=302)
+
+
 @router.get("/nova")
-async def sync_create_page(request: Request):
-    return templates.TemplateResponse("sync/upload.html", {
-        "request": request,
-        "active_nav": "sync",
-    })
+async def sync_create_page():
+    return RedirectResponse("/synchronizace", status_code=302)
 
 
 @router.post("/nova")
@@ -69,12 +84,7 @@ async def sync_create(
             continue
 
     if not csv_content:
-        return templates.TemplateResponse("sync/upload.html", {
-            "request": request,
-            "active_nav": "sync",
-            "flash_message": "Nepodařilo se přečíst CSV soubor.",
-            "flash_type": "error",
-        })
+        return RedirectResponse("/synchronizace", status_code=302)
 
     csv_records = parse_sousede_csv(csv_content)
 
@@ -175,11 +185,48 @@ async def sync_detail(
         and_(SyncRecord.excel_podil_scd.isnot(None), SyncRecord.csv_share.isnot(None), SyncRecord.excel_podil_scd != SyncRecord.csv_share),
     )
 
+    # Podíl-only difference condition
+    podil_diff = and_(
+        SyncRecord.excel_podil_scd.isnot(None),
+        SyncRecord.csv_share.isnot(None),
+        SyncRecord.excel_podil_scd != SyncRecord.csv_share,
+    )
+
     base = db.query(SyncRecord).filter_by(session_id=session_id)
     # Partial match = owner matched (MATCH status) but some field differs
     total_partial = base.filter(SyncRecord.status == SyncStatus.MATCH, field_diff).count()
     # Full match = MATCH status and no field differences
     total_full_match = session.total_matches - total_partial
+    # Records where podíl specifically differs
+    total_podil_diff = base.filter(podil_diff).count()
+    # Sum of podíl values for differing records only
+    podil_diff_sums = db.query(
+        func.sum(SyncRecord.excel_podil_scd),
+        func.sum(SyncRecord.csv_share),
+    ).filter_by(session_id=session_id).filter(podil_diff).one()
+    podil_diff_excel = podil_diff_sums[0] or 0
+    podil_diff_csv = podil_diff_sums[1] or 0
+    # Sum of podíl values (total)
+    sums = db.query(
+        func.sum(SyncRecord.excel_podil_scd),
+        func.sum(SyncRecord.csv_share),
+    ).filter_by(session_id=session_id).one()
+    total_excel_podil = sums[0] or 0
+    total_csv_podil = sums[1] or 0
+
+    # Sum of podíl per filter category
+    def _podil_sums(flt):
+        r = db.query(
+            func.sum(SyncRecord.excel_podil_scd),
+            func.sum(SyncRecord.csv_share),
+        ).filter_by(session_id=session_id).filter(flt).one()
+        return r[0] or 0, r[1] or 0
+
+    match_excel, match_csv = _podil_sums(and_(SyncRecord.status == SyncStatus.MATCH, ~field_diff))
+    partial_excel, partial_csv = _podil_sums(and_(SyncRecord.status == SyncStatus.MATCH, field_diff))
+    name_order_excel, name_order_csv = _podil_sums(SyncRecord.status == SyncStatus.NAME_ORDER)
+    diff_excel, diff_csv = _podil_sums(SyncRecord.status == SyncStatus.DIFFERENCE)
+    missing_excel, missing_csv = _podil_sums(SyncRecord.status.in_([SyncStatus.MISSING_CSV, SyncStatus.MISSING_EXCEL]))
 
     query = base
     if filtr == "match":
@@ -190,6 +237,8 @@ async def sync_detail(
         query = query.filter(SyncRecord.status == SyncStatus.NAME_ORDER)
     elif filtr == "difference":
         query = query.filter(SyncRecord.status == SyncStatus.DIFFERENCE)
+    elif filtr == "podil_diff":
+        query = query.filter(podil_diff)
     elif filtr == "missing":
         query = query.filter(SyncRecord.status.in_([SyncStatus.MISSING_CSV, SyncStatus.MISSING_EXCEL]))
 
@@ -229,6 +278,21 @@ async def sync_detail(
         "order": order,
         "total_full_match": total_full_match,
         "total_partial": total_partial,
+        "total_podil_diff": total_podil_diff,
+        "podil_diff_excel": podil_diff_excel,
+        "podil_diff_csv": podil_diff_csv,
+        "total_excel_podil": total_excel_podil,
+        "total_csv_podil": total_csv_podil,
+        "match_excel": match_excel,
+        "match_csv": match_csv,
+        "partial_excel": partial_excel,
+        "partial_csv": partial_csv,
+        "name_order_excel": name_order_excel,
+        "name_order_csv": name_order_csv,
+        "diff_excel": diff_excel,
+        "diff_csv": diff_csv,
+        "missing_excel": missing_excel,
+        "missing_csv": missing_csv,
         "owner_map": owner_map,
         "unit_map": unit_map,
     })
