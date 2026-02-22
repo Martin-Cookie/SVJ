@@ -20,16 +20,22 @@
     </thead>
     <tbody class="divide-y divide-gray-100">
         {% for v in values %}
-        <tr id="row-{{ loop.index }}">
+        <tr id="row-{{ loop.index }}" class="cursor-pointer hover:bg-blue-50"
+            onclick="toggleDetail({{ loop.index }}, '{{ field_key }}', '{{ '__null__' if v.value is none else v.value|urlencode }}')">
             <td class="px-3 py-2 text-gray-800">
-                {% if v.value is none %}
-                <span class="text-gray-400 italic">Bez hodnoty</span>
-                {% else %}
-                <span class="font-mono">{{ v.value }}</span>
-                {% endif %}
+                <div class="flex items-center gap-2">
+                    <svg class="w-3 h-3 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                    </svg>
+                    {% if v.value is none %}
+                    <span class="text-gray-400 italic">Bez hodnoty</span>
+                    {% else %}
+                    <span class="font-mono">{{ v.value }}</span>
+                    {% endif %}
+                </div>
             </td>
             <td class="px-3 py-2 text-gray-600 text-right font-mono">{{ v.count }}</td>
-            <td class="px-3 py-2 text-right">
+            <td class="px-3 py-2 text-right" onclick="event.stopPropagation()">
                 <!-- View mode -->
                 <div id="view-{{ loop.index }}">
                     <button onclick="document.getElementById('view-{{ loop.index }}').classList.add('hidden'); document.getElementById('edit-{{ loop.index }}').classList.remove('hidden'); document.getElementById('input-{{ loop.index }}').focus();"
@@ -56,7 +62,29 @@
                 </div>
             </td>
         </tr>
+        <!-- Detail records row (loaded via HTMX) -->
+        <tr id="detail-{{ loop.index }}" class="bg-gray-50 hidden"></tr>
         {% endfor %}
     </tbody>
 </table>
+
+<script>
+function toggleDetail(idx, field, value) {
+    var el = document.getElementById('detail-' + idx);
+    if (!el.classList.contains('hidden')) {
+        el.classList.add('hidden');
+        return;
+    }
+    if (el.children.length) {
+        el.classList.remove('hidden');
+        return;
+    }
+    fetch('/sprava/hromadne-upravy/zaznamy?pole=' + field + '&hodnota=' + value)
+        .then(function(r) { return r.text(); })
+        .then(function(html) {
+            el.innerHTML = html;
+            el.classList.remove('hidden');
+        });
+}
+</script>
 {% endif %}

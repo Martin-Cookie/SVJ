@@ -9,7 +9,7 @@ from sqlalchemy import case
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
-from app.models import SvjInfo, SvjAddress, BoardMember, Unit, OwnerUnit
+from app.models import SvjInfo, SvjAddress, BoardMember, Unit, OwnerUnit, Owner
 from app.services.backup_service import create_backup, restore_backup
 
 # Field mapping for bulk edit
@@ -289,6 +289,45 @@ async def bulk_edit_values(request: Request, pole: str, db: Session = Depends(ge
         "field_label": field_info["label"],
         "suggestions": suggestions,
     })
+
+
+@router.get("/hromadne-upravy/zaznamy")
+async def bulk_edit_records(
+    request: Request, pole: str, hodnota: str = "", db: Session = Depends(get_db),
+):
+    field_info = _BULK_FIELDS.get(pole)
+    if not field_info:
+        return templates.TemplateResponse("administration/bulk_edit_records.html", {
+            "request": request, "records": [], "model_type": "",
+        })
+
+    is_null = hodnota == "__null__"
+    model = Unit if field_info["model"] == "unit" else OwnerUnit
+    col = getattr(model, field_info["column"])
+
+    if model == Unit:
+        q = db.query(Unit).options(joinedload(Unit.owners).joinedload(OwnerUnit.owner))
+        if is_null:
+            q = q.filter(col.is_(None))
+        else:
+            q = q.filter(col == hodnota)
+        records = q.order_by(Unit.unit_number).all()
+        return templates.TemplateResponse("administration/bulk_edit_records.html", {
+            "request": request, "records": records, "model_type": "unit",
+        })
+    else:
+        q = (
+            db.query(OwnerUnit)
+            .options(joinedload(OwnerUnit.owner), joinedload(OwnerUnit.unit))
+        )
+        if is_null:
+            q = q.filter(col.is_(None))
+        else:
+            q = q.filter(col == hodnota)
+        records = q.order_by(OwnerUnit.unit_id).all()
+        return templates.TemplateResponse("administration/bulk_edit_records.html", {
+            "request": request, "records": records, "model_type": "owner_unit",
+        })
 
 
 @router.post("/hromadne-upravy/opravit")

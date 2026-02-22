@@ -1,0 +1,78 @@
+{% if not records %}
+<tr><td colspan="99" class="px-3 py-2 text-sm text-gray-400 italic">Žádné záznamy.</td></tr>
+{% elif model_type == "unit" %}
+<tr>
+    <td colspan="99" class="p-0">
+        <table class="w-full text-xs bg-gray-50">
+            <thead>
+                <tr class="text-gray-500 border-b border-gray-200">
+                    <th class="text-left px-2 py-1.5 font-medium">Č. jednotky</th>
+                    <th class="text-left px-2 py-1.5 font-medium">Budova</th>
+                    <th class="text-left px-2 py-1.5 font-medium">Typ prostoru</th>
+                    <th class="text-left px-2 py-1.5 font-medium">Sekce</th>
+                    <th class="text-left px-2 py-1.5 font-medium">Adresa</th>
+                    <th class="text-right px-2 py-1.5 font-medium">Or. č.</th>
+                    <th class="text-left px-2 py-1.5 font-medium">Místnosti</th>
+                    <th class="text-right px-2 py-1.5 font-medium">Plocha</th>
+                    <th class="text-right px-2 py-1.5 font-medium">Podíl SČD</th>
+                    <th class="text-left px-2 py-1.5 font-medium">LV</th>
+                    <th class="text-left px-2 py-1.5 font-medium">Vlastníci</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for u in records %}
+                <tr class="hover:bg-gray-100">
+                    <td class="px-2 py-1 font-mono font-medium text-gray-800">{{ u.unit_number }}</td>
+                    <td class="px-2 py-1 text-gray-600">{{ u.building_number or '—' }}</td>
+                    <td class="px-2 py-1 text-gray-600">{{ u.space_type or '—' }}</td>
+                    <td class="px-2 py-1 text-gray-600">{{ u.section or '—' }}</td>
+                    <td class="px-2 py-1 text-gray-600">{{ u.address or '—' }}</td>
+                    <td class="px-2 py-1 text-gray-600 text-right">{{ u.orientation_number or '—' }}</td>
+                    <td class="px-2 py-1 text-gray-600">{{ u.room_count or '—' }}</td>
+                    <td class="px-2 py-1 text-gray-600 text-right font-mono">{% if u.floor_area %}{{ "%.1f"|format(u.floor_area) }}{% else %}—{% endif %}</td>
+                    <td class="px-2 py-1 text-gray-600 text-right font-mono">{% if u.podil_scd %}{{ "{:,}".format(u.podil_scd).replace(",", " ") }}{% else %}—{% endif %}</td>
+                    <td class="px-2 py-1 text-gray-600">{{ u.lv_number or '—' }}</td>
+                    <td class="px-2 py-1 text-gray-600 truncate max-w-[200px]" title="{% for ou in u.owners %}{{ ou.owner.name_with_titles }}{% if not loop.last %}, {% endif %}{% endfor %}">
+                        {% for ou in u.owners %}{{ ou.owner.first_name }} {{ ou.owner.last_name or '' }}{% if not loop.last %}, {% endif %}{% endfor %}
+                        {% if not u.owners %}—{% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </td>
+</tr>
+{% elif model_type == "owner_unit" %}
+<tr>
+    <td colspan="99" class="p-0">
+        <table class="w-full text-xs bg-gray-50">
+            <thead>
+                <tr class="text-gray-500 border-b border-gray-200">
+                    <th class="text-left px-2 py-1.5 font-medium">Č. jednotky</th>
+                    <th class="text-left px-2 py-1.5 font-medium">Budova</th>
+                    <th class="text-left px-2 py-1.5 font-medium">Typ prostoru</th>
+                    <th class="text-left px-2 py-1.5 font-medium">Sekce</th>
+                    <th class="text-left px-2 py-1.5 font-medium">Vlastník</th>
+                    <th class="text-left px-2 py-1.5 font-medium">Vlastnictví</th>
+                    <th class="text-right px-2 py-1.5 font-medium">Podíl</th>
+                    <th class="text-right px-2 py-1.5 font-medium">Hlasy</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for ou in records %}
+                <tr class="hover:bg-gray-100">
+                    <td class="px-2 py-1 font-mono font-medium text-gray-800">{{ ou.unit.unit_number }}</td>
+                    <td class="px-2 py-1 text-gray-600">{{ ou.unit.building_number or '—' }}</td>
+                    <td class="px-2 py-1 text-gray-600">{{ ou.unit.space_type or '—' }}</td>
+                    <td class="px-2 py-1 text-gray-600">{{ ou.unit.section or '—' }}</td>
+                    <td class="px-2 py-1 text-gray-600">{{ ou.owner.name_with_titles }}</td>
+                    <td class="px-2 py-1 text-gray-600">{{ ou.ownership_type or '—' }}</td>
+                    <td class="px-2 py-1 text-gray-600 text-right font-mono">{{ ou.share }}</td>
+                    <td class="px-2 py-1 text-gray-600 text-right font-mono">{{ ou.votes }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </td>
+</tr>
+{% endif %}
