@@ -1,26 +1,26 @@
 <div class="overflow-x-auto">
-    <table class="min-w-full divide-y divide-gray-200">
+    <table class="min-w-full divide-y divide-gray-200 text-sm">
         <thead>
             <tr>
-                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Jednotka KN</th>
-                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Prostor</th>
-                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Typ</th>
-                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Podíl SČD</th>
-                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Plocha</th>
-                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Vlastnictví</th>
-                <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase"></th>
+                <th class="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase">Jedn.</th>
+                <th class="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase">Prostor</th>
+                <th class="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase">Typ</th>
+                <th class="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Podíl SČD</th>
+                <th class="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase">Plocha</th>
+                <th class="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase">Vlastnictví</th>
+                <th class="px-2 py-2"></th>
             </tr>
         </thead>
         <tbody class="divide-y divide-gray-200">
             {% for ou in owner.units %}
             <tr>
-                <td class="px-3 py-2 text-sm font-medium"><a href="/jednotky/{{ ou.unit.id }}?back=/vlastnici/{{ owner.id }}" class="text-blue-600 hover:text-blue-800 hover:underline">{{ ou.unit.unit_number }}</a></td>
-                <td class="px-3 py-2 text-sm text-gray-500">{{ ou.unit.building_number or '—' }}</td>
-                <td class="px-3 py-2 text-sm text-gray-500">{{ ou.unit.space_type or '—' }}</td>
-                <td class="px-3 py-2 text-sm text-gray-500">{{ "{:,}".format(ou.unit.podil_scd or 0).replace(",", " ") }}</td>
-                <td class="px-3 py-2 text-sm text-gray-500">{% if ou.unit.floor_area %}{{ ou.unit.floor_area }} m²{% else %}—{% endif %}</td>
-                <td class="px-3 py-2 text-sm text-gray-500">{{ ou.ownership_type or '—' }}</td>
-                <td class="px-3 py-2 text-right">
+                <td class="px-2 py-1.5 font-medium"><a href="/jednotky/{{ ou.unit.id }}?back=/vlastnici/{{ owner.id }}" class="text-blue-600 hover:text-blue-800 hover:underline">{{ ou.unit.unit_number }}</a></td>
+                <td class="px-2 py-1.5 text-gray-500">{{ ou.unit.building_number or '—' }}</td>
+                <td class="px-2 py-1.5 text-gray-500">{{ ou.unit.space_type or '—' }}</td>
+                <td class="px-2 py-1.5 text-gray-500 text-right font-mono whitespace-nowrap">{{ "{:,}".format(ou.unit.podil_scd or 0).replace(",", " ") }}</td>
+                <td class="px-2 py-1.5 text-gray-500 text-right whitespace-nowrap">{% if ou.unit.floor_area %}{{ ou.unit.floor_area }}&nbsp;m²{% else %}—{% endif %}</td>
+                <td class="px-2 py-1.5 text-gray-500">{{ ou.ownership_type or '—' }}</td>
+                <td class="px-2 py-1.5 text-right">
                     <button hx-post="/vlastnici/{{ owner.id }}/jednotky/{{ ou.id }}/odebrat"
                             hx-target="#owner-units-section"
                             hx-confirm="Opravdu odebrat jednotku {{ ou.unit.unit_number }} od tohoto vlastníka?"

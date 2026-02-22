@@ -1,0 +1,309 @@
+{% extends "base.html" %}
+{% block title %}Administrace - SVJ Správa{% endblock %}
+
+{% block content %}
+{# ---- Macro for member cards (Výbor / Kontrolní orgán) ---- #}
+{% macro member_card(group, title, members, datalist_id) %}
+<div class="bg-white rounded-lg shadow p-6">
+    <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-semibold text-gray-700">{{ title }}</h2>
+        <button onclick="adminShowAdd('{{ group }}')" id="{{ group }}-add-btn"
+                class="text-sm text-blue-600 hover:text-blue-800 font-medium">+ Přidat</button>
+    </div>
+
+    {% if members %}
+    <ul class="space-y-0 divide-y divide-gray-100">
+        {% for m in members %}
+        <li class="py-2.5">
+            <!-- Read-only row -->
+            <div class="flex items-start justify-between" id="{{ group }}-view-{{ m.id }}">
+                <div class="min-w-0 flex-1">
+                    <p class="text-sm font-medium text-gray-800">{{ m.name }}</p>
+                    {% if m.role %}
+                    <p class="text-xs text-gray-500">{{ m.role }}</p>
+                    {% endif %}
+                    {% if m.email or m.phone %}
+                    <div class="flex items-center gap-3 mt-0.5 text-xs text-gray-400">
+                        {% if m.email %}<span>{{ m.email }}</span>{% endif %}
+                        {% if m.phone %}<span>{{ m.phone }}</span>{% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="flex items-center gap-1 flex-shrink-0 ml-2">
+                    <button onclick="adminEditMember('{{ group }}', {{ m.id }})" title="Upravit"
+                            class="p-1 text-gray-400 hover:text-blue-600 rounded">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+                        </svg>
+                    </button>
+                    <form action="/sprava/clen/{{ m.id }}/smazat" method="post" hx-boost="false" class="inline">
+                        <button type="submit" onclick="return confirm('Opravdu odebrat {{ m.name }}?')" title="Smazat"
+                                class="p-1 text-gray-400 hover:text-red-600 rounded">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                            </svg>
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Inline edit form (hidden) -->
+            <form action="/sprava/clen/{{ m.id }}/upravit" method="post" hx-boost="false"
+                  id="{{ group }}-edit-{{ m.id }}" class="hidden space-y-2 pt-1">
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">Jméno</label>
+                        <input type="text" name="name" value="{{ m.name }}" required
+                               class="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">Role</label>
+                        <input type="text" name="role" value="{{ m.role or '' }}" list="{{ datalist_id }}"
+                               class="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">Email</label>
+                        <input type="email" name="email" value="{{ m.email or '' }}"
+                               class="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">Telefon</label>
+                        <input type="text" name="phone" value="{{ m.phone or '' }}"
+                               class="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button type="submit" class="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">Uložit</button>
+                    <button type="button" onclick="adminCancelEdit('{{ group }}', {{ m.id }})"
+                            class="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm font-medium">Zrušit</button>
+                </div>
+            </form>
+        </li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <p class="text-sm text-gray-400">Zatím nejsou zadáni žádní členové.</p>
+    {% endif %}
+
+    <!-- Add form (hidden) -->
+    <div id="{{ group }}-add-form" class="hidden mt-4 pt-4 border-t border-gray-200">
+        <form action="/sprava/clen/pridat" method="post" hx-boost="false" class="space-y-2">
+            <input type="hidden" name="group" value="{{ group }}">
+            <div class="grid grid-cols-2 gap-2">
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">Jméno</label>
+                    <input type="text" name="name" required
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">Role</label>
+                    <input type="text" name="role" list="{{ datalist_id }}"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">Email</label>
+                    <input type="email" name="email"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">Telefon</label>
+                    <input type="text" name="phone"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+            </div>
+            <div class="flex items-center gap-2 pt-1">
+                <button type="submit" class="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">Uložit</button>
+                <button type="button" onclick="adminHideAdd('{{ group }}')"
+                        class="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm font-medium">Zrušit</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endmacro %}
+
+{# ---- Datalists for autocomplete ---- #}
+<datalist id="dl-roles-board">
+    <option value="Předseda statutárního orgánu">
+    <option value="Místopředseda statutárního orgánu">
+    <option value="Člen statutárního orgánu">
+</datalist>
+<datalist id="dl-roles-control">
+    <option value="Předseda kontrolního orgánu">
+    <option value="Místopředseda kontrolního orgánu">
+    <option value="Člen kontrolního orgánu">
+</datalist>
+
+<h1 class="text-2xl font-bold text-gray-800 mb-6">Administrace SVJ</h1>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <!-- Left column: SVJ info -->
+    <div class="space-y-6">
+        <!-- SVJ basic info -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-semibold text-gray-700">Informace o SVJ</h2>
+                <button onclick="adminToggleEdit('svj-info')" id="svj-info-edit-btn"
+                        class="text-sm text-blue-600 hover:text-blue-800 font-medium">Upravit</button>
+            </div>
+
+            <!-- Read-only view -->
+            <div id="svj-info-view">
+                <div class="space-y-2 text-sm">
+                    <div class="flex justify-between py-1">
+                        <span class="text-gray-500">Název SVJ</span>
+                        <span class="text-gray-800 text-right">{{ info.name or '—' }}</span>
+                    </div>
+                    <div class="flex justify-between py-1">
+                        <span class="text-gray-500">Typ budovy</span>
+                        <span class="text-gray-800 text-right">{{ info.building_type or '—' }}</span>
+                    </div>
+                    <div class="flex justify-between py-1">
+                        <span class="text-gray-500">Celkový počet podílů</span>
+                        <span class="text-gray-800 font-mono">{{ "{:,}".format(info.total_shares or 0).replace(",", " ") }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Edit form (hidden) -->
+            <div id="svj-info-form" class="hidden">
+                <form action="/sprava/info" method="post" hx-boost="false">
+                    <div class="space-y-3">
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">Název SVJ</label>
+                            <input type="text" name="name" value="{{ info.name or '' }}"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">Typ budovy</label>
+                            <input type="text" name="building_type" value="{{ info.building_type or '' }}"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">Celkový počet podílů</label>
+                            <input type="number" name="total_shares" value="{{ info.total_shares or '' }}"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                    </div>
+                    <div class="mt-4 flex items-center gap-2">
+                        <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">Uložit</button>
+                        <button type="button" onclick="adminToggleEdit('svj-info')"
+                                class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm font-medium">Zrušit</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Addresses -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-semibold text-gray-700">Adresy SVJ</h2>
+                <button onclick="adminShowAdd('addr')" id="addr-add-btn"
+                        class="text-sm text-blue-600 hover:text-blue-800 font-medium">+ Přidat</button>
+            </div>
+
+            {% if info.addresses %}
+            <ul class="space-y-0 divide-y divide-gray-100">
+                {% for addr in info.addresses %}
+                <li class="py-2">
+                    <!-- Read-only row -->
+                    <div class="flex items-center justify-between" id="addr-view-{{ addr.id }}">
+                        <span class="text-sm text-gray-700">{{ addr.address }}</span>
+                        <div class="flex items-center gap-1 flex-shrink-0 ml-2">
+                            <button onclick="adminEditMember('addr', {{ addr.id }})" title="Upravit"
+                                    class="p-1 text-gray-400 hover:text-blue-600 rounded">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+                                </svg>
+                            </button>
+                            <form action="/sprava/adresa/{{ addr.id }}/smazat" method="post" hx-boost="false" class="inline">
+                                <button type="submit" onclick="return confirm('Opravdu smazat adresu?')" title="Smazat"
+                                        class="p-1 text-gray-400 hover:text-red-600 rounded">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                    </svg>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Inline edit form (hidden) -->
+                    <form action="/sprava/adresa/{{ addr.id }}/upravit" method="post" hx-boost="false"
+                          id="addr-edit-{{ addr.id }}" class="hidden pt-1">
+                        <div class="flex items-end gap-2">
+                            <div class="flex-1">
+                                <label class="block text-xs text-gray-500 mb-1">Adresa</label>
+                                <input type="text" name="address" value="{{ addr.address }}" required
+                                       class="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            </div>
+                            <button type="submit" class="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">Uložit</button>
+                            <button type="button" onclick="adminCancelEdit('addr', {{ addr.id }})"
+                                    class="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm font-medium">Zrušit</button>
+                        </div>
+                    </form>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="text-sm text-gray-400">Zatím nejsou zadány žádné adresy.</p>
+            {% endif %}
+
+            <!-- Add form (hidden) -->
+            <div id="addr-add-form" class="hidden mt-4 pt-4 border-t border-gray-200">
+                <form action="/sprava/adresa/pridat" method="post" hx-boost="false" class="flex items-end gap-2">
+                    <div class="flex-1">
+                        <label class="block text-xs text-gray-500 mb-1">Nová adresa</label>
+                        <input type="text" name="address" required
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <button type="submit" class="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium whitespace-nowrap">Uložit</button>
+                    <button type="button" onclick="adminHideAdd('addr')"
+                            class="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm font-medium">Zrušit</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right column: Board members -->
+    <div class="space-y-6">
+        {{ member_card("board", "Výbor", board_members, "dl-roles-board") }}
+        {{ member_card("control", "Kontrolní orgán", control_members, "dl-roles-control") }}
+    </div>
+</div>
+
+<script>
+function adminToggleEdit(section) {
+    var view = document.getElementById(section + '-view');
+    var form = document.getElementById(section + '-form');
+    var btn = document.getElementById(section + '-edit-btn');
+    if (form.classList.contains('hidden')) {
+        view.classList.add('hidden');
+        form.classList.remove('hidden');
+        btn.classList.add('hidden');
+    } else {
+        form.classList.add('hidden');
+        view.classList.remove('hidden');
+        btn.classList.remove('hidden');
+    }
+}
+function adminShowAdd(group) {
+    document.getElementById(group + '-add-form').classList.remove('hidden');
+    document.getElementById(group + '-add-btn').classList.add('hidden');
+}
+function adminHideAdd(group) {
+    document.getElementById(group + '-add-form').classList.add('hidden');
+    document.getElementById(group + '-add-btn').classList.remove('hidden');
+}
+function adminEditMember(group, id) {
+    document.getElementById(group + '-view-' + id).classList.add('hidden');
+    document.getElementById(group + '-edit-' + id).classList.remove('hidden');
+}
+function adminCancelEdit(group, id) {
+    document.getElementById(group + '-edit-' + id).classList.add('hidden');
+    document.getElementById(group + '-view-' + id).classList.remove('hidden');
+}
+</script>
+{% endblock %}

@@ -110,7 +110,7 @@ app = FastAPI(title=settings.app_name, lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
 
 # Register routers
-from app.routers import dashboard, owners, units, voting, tax, sync, settings_page  # noqa: E402
+from app.routers import dashboard, owners, units, voting, tax, sync, settings_page, administration  # noqa: E402
 
 app.include_router(dashboard.router)
 app.include_router(owners.router, prefix="/vlastnici", tags=["Vlastníci"])
@@ -118,4 +118,5 @@ app.include_router(units.router, prefix="/jednotky", tags=["Jednotky"])
 app.include_router(voting.router, prefix="/hlasovani", tags=["Hlasování"])
 app.include_router(tax.router, prefix="/dane", tags=["Daně"])
 app.include_router(sync.router, prefix="/synchronizace", tags=["Synchronizace"])
+app.include_router(administration.router, prefix="/sprava", tags=["Administrace"])
 app.include_router(settings_page.router, prefix="/nastaveni", tags=["Nastavení"])
