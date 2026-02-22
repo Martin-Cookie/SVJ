@@ -22,22 +22,24 @@
         </div>
     </div>
     <div class="flex gap-2">
-        {% if voting.status.value in ('draft', 'active') %}
+        {% if voting.status.value == 'draft' %}
         <form action="/hlasovani/{{ voting.id }}/generovat" method="post">
             <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium">
                 Generovat lístky
             </button>
         </form>
         {% endif %}
-        <a href="/hlasovani/{{ voting.id }}/listky" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">
-            Hlasovací lístky
-        </a>
+        {% if voting.status.value != 'draft' %}
         <a href="/hlasovani/{{ voting.id }}/zpracovani" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">
             Zpracovat výsledky
         </a>
+        {% endif %}
     </div>
 </div>
 
+{% set _back = "&back=" ~ (back_url|urlencode) if back_url else "" %}
+
+{% if voting.status.value != 'draft' %}
 <!-- Status overview -->
 <div class="flex gap-4 mb-4">
     <a href="/hlasovani/{{ voting.id }}/listky"
@@ -60,6 +62,11 @@
         <p class="text-2xl font-bold text-green-600">{{ status_counts.get('processed', 0) }}</p>
         <p class="text-xs text-gray-500 mt-1">Zpracováno</p>
     </a>
+    <a href="/hlasovani/{{ voting.id }}/neodevzdane"
+       class="flex-1 bg-white rounded-lg shadow p-4 text-center hover:shadow-md transition-shadow">
+        <p class="text-2xl font-bold text-orange-600">{{ total_ballots - status_counts.get('processed', 0) }}</p>
+        <p class="text-xs text-gray-500 mt-1">Neodevzdané</p>
+    </a>
     <div class="flex-1 bg-white rounded-lg shadow p-4 text-center">
         {% set quorum_pct = (total_processed_votes / voting.total_votes_possible * 100)|round(1) if voting.total_votes_possible else 0 %}
         <p class="text-2xl font-bold {% if quorum_reached %}text-green-600{% else %}text-red-600{% endif %}">
@@ -73,7 +80,6 @@
 </div>
 
 <!-- Search -->
-{% set _back = "&back=" ~ (back_url|urlencode) if back_url else "" %}
 <div class="mb-4">
     <input type="text" name="q" value="{{ q }}" placeholder="Hledat v bodech hlasování..."
            hx-get="/hlasovani/{{ voting.id }}"
@@ -86,6 +92,7 @@
     <input type="hidden" name="order" value="{{ order }}">
     <input type="hidden" name="back" value="{{ back_url }}">
 </div>
+{% endif %}
 
 <!-- Voting items & results -->
 {% set _all = "q=" ~ (q|urlencode) ~ "&sort=" ~ sort ~ "&order=" ~ order ~ _back %}
@@ -118,7 +125,7 @@
                         </a>
                     </th>
                     {% endfor %}
-                    <th class="px-6 py-3"></th>
+                    {% if voting.status.value == 'draft' %}<th class="px-6 py-3"></th>{% endif %}
                 </tr>
             </thead>
             <tbody id="detail-table-body" class="divide-y divide-gray-200">
@@ -133,6 +140,7 @@
     {% endif %}
 </div>
 
+{% if voting.status.value == 'draft' %}
 <!-- Add voting item -->
 <div class="bg-white rounded-lg shadow p-6 mb-8">
     <h2 class="text-lg font-semibold text-gray-700 mb-4">Přidat bod hlasování</h2>
@@ -149,22 +157,18 @@
         </div>
     </form>
 </div>
+{% endif %}
 
+{% if voting.status.value == 'active' %}
 <!-- Actions -->
 <div class="bg-white rounded-lg shadow p-6">
     <h2 class="text-lg font-semibold text-gray-700 mb-4">Správa hlasování</h2>
-    <div class="flex gap-3">
-        {% if voting.status.value == 'active' %}
-        <form action="/hlasovani/{{ voting.id }}/stav" method="post">
-            <input type="hidden" name="status" value="closed">
-            <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
-                Uzavřít hlasování
-            </button>
-        </form>
-        {% endif %}
-        <a href="/hlasovani/{{ voting.id }}/neodevzdane" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">
-            Neodevzdané lístky
-        </a>
-    </div>
+    <form action="/hlasovani/{{ voting.id }}/stav" method="post">
+        <input type="hidden" name="status" value="closed">
+        <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
+            Uzavřít hlasování
+        </button>
+    </form>
 </div>
+{% endif %}
 {% endblock %}

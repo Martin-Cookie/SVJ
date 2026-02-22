@@ -12,12 +12,14 @@
         {{ "{:,}".format(r.votes_missing).replace(",", " ") }}
         ({{ r.pct_missing }}%)
     </td>
+    {% if voting.status.value == 'draft' %}
     <td class="px-6 py-4 text-right">
         <form action="/hlasovani/{{ voting.id }}/smazat-bod/{{ r.item.id }}" method="post" style="display:inline"
               onsubmit="return confirm('Smazat bod {{ r.item.order }}. {{ r.item.title }}?')">
             <button type="submit" class="text-red-500 hover:text-red-700 text-xs font-medium">Smazat</button>
         </form>
     </td>
+    {% endif %}
 </tr>
 {% endfor %}
 {% if not results and q %}

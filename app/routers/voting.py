@@ -417,7 +417,12 @@ async def ballot_detail(
 
 
 @router.get("/{voting_id}/zpracovani")
-async def process_page(voting_id: int, request: Request, db: Session = Depends(get_db)):
+async def process_page(
+    voting_id: int,
+    request: Request,
+    q: str = Query(""),
+    db: Session = Depends(get_db),
+):
     voting = db.query(Voting).options(
         joinedload(Voting.items),
         joinedload(Voting.ballots).joinedload(Ballot.owner),
@@ -432,12 +437,27 @@ async def process_page(voting_id: int, request: Request, db: Session = Depends(g
         if b.status in (BallotStatus.GENERATED, BallotStatus.SENT, BallotStatus.RECEIVED)
     ]
 
-    return templates.TemplateResponse("voting/process.html", {
+    # Search filter
+    if q:
+        q_lower = q.lower()
+        unprocessed = [
+            b for b in unprocessed
+            if q_lower in (b.owner.name_with_titles or "").lower()
+            or q_lower in (b.units_text or "").lower()
+        ]
+
+    ctx = {
         "request": request,
         "active_nav": "voting",
         "voting": voting,
         "unprocessed": unprocessed,
-    })
+        "q": q,
+    }
+
+    if request.headers.get("HX-Request") and not request.headers.get("HX-Boosted"):
+        return templates.TemplateResponse("voting/process_cards.html", ctx)
+
+    return templates.TemplateResponse("voting/process.html", ctx)
 
 
 @router.post("/{voting_id}/zpracovat/{ballot_id}")
