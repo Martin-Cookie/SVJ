@@ -137,7 +137,17 @@
     <option value="Člen kontrolního orgánu">
 </datalist>
 
-<h1 class="text-2xl font-bold text-gray-800 mb-6">Administrace SVJ</h1>
+<h1 class="text-2xl font-bold text-gray-800 mb-6">Administrace</h1>
+
+<!-- Administrace SVJ -->
+<details class="mb-6 group">
+    <summary class="flex items-center gap-2 cursor-pointer select-none bg-white rounded-lg shadow px-5 py-3">
+        <svg class="w-4 h-4 text-gray-400 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+        </svg>
+        <span class="text-lg font-semibold text-gray-700">Administrace SVJ</span>
+    </summary>
+    <div class="mt-4"></div>
 
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
     <!-- Left column: SVJ info -->
@@ -273,6 +283,94 @@
         {{ member_card("control", "Kontrolní orgán", control_members, "dl-roles-control") }}
     </div>
 </div>
+</details>
+
+<!-- Zálohování a obnova -->
+<details class="mb-6 group">
+    <summary class="flex items-center gap-2 cursor-pointer select-none bg-white rounded-lg shadow px-5 py-3">
+        <svg class="w-4 h-4 text-gray-400 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+        </svg>
+        <span class="text-lg font-semibold text-gray-700">Zálohování a obnova</span>
+    </summary>
+    <div class="mt-4">
+        <div class="bg-white rounded-lg shadow p-6">
+
+            <!-- Create backup -->
+            <form action="/sprava/zaloha/vytvorit" method="post" hx-boost="false" class="mb-6">
+                <button type="submit"
+                        class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
+                    Vytvořit zálohu
+                </button>
+            </form>
+
+            <!-- Existing backups -->
+            {% if backups %}
+            <div class="mb-6">
+                <h3 class="text-sm font-medium text-gray-600 mb-2">Existující zálohy</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="text-left px-3 py-2 text-gray-500 font-medium">Soubor</th>
+                                <th class="text-left px-3 py-2 text-gray-500 font-medium">Datum vytvoření</th>
+                                <th class="text-right px-3 py-2 text-gray-500 font-medium">Velikost</th>
+                                <th class="text-right px-3 py-2 text-gray-500 font-medium">Akce</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            {% for b in backups %}
+                            <tr>
+                                <td class="px-3 py-2 text-gray-800 font-mono text-xs">{{ b.filename }}</td>
+                                <td class="px-3 py-2 text-gray-600">{{ b.created.strftime('%d.%m.%Y %H:%M') }}</td>
+                                <td class="px-3 py-2 text-gray-600 text-right font-mono">
+                                    {% if b.size >= 1048576 %}
+                                        {{ "%.1f"|format(b.size / 1048576) }} MB
+                                    {% else %}
+                                        {{ "%.0f"|format(b.size / 1024) }} kB
+                                    {% endif %}
+                                </td>
+                                <td class="px-3 py-2 text-right">
+                                    <div class="flex items-center justify-end gap-2">
+                                        <a href="/sprava/zaloha/{{ b.filename }}/stahnout" hx-boost="false"
+                                           class="text-blue-600 hover:text-blue-800 text-xs font-medium">Stáhnout</a>
+                                        <form action="/sprava/zaloha/{{ b.filename }}/smazat" method="post" hx-boost="false" class="inline">
+                                            <button type="submit" onclick="return confirm('Opravdu smazat zálohu {{ b.filename }}?')"
+                                                    class="text-red-600 hover:text-red-800 text-xs font-medium">Smazat</button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% else %}
+            <p class="text-sm text-gray-400 mb-6">Zatím nejsou vytvořeny žádné zálohy.</p>
+            {% endif %}
+
+            <!-- Restore from backup -->
+            <div class="pt-4 border-t border-gray-200">
+                <h3 class="text-sm font-medium text-gray-600 mb-2">Obnovit ze zálohy</h3>
+                <form action="/sprava/zaloha/obnovit" method="post" enctype="multipart/form-data" hx-boost="false"
+                      onsubmit="return confirm('POZOR: Tímto se přepíšou aktuální data (databáze, nahrané soubory i generované soubory). Před obnovou se automaticky vytvoří pojistná záloha.\n\nOpravdu pokračovat?')">
+                    <div class="flex items-end gap-3">
+                        <div class="flex-1">
+                            <label class="block text-xs text-gray-500 mb-1">ZIP soubor se zálohou</label>
+                            <input type="file" name="file" accept=".zip" required
+                                   class="w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200">
+                        </div>
+                        <button type="submit"
+                                class="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 text-sm font-medium whitespace-nowrap">
+                            Obnovit
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</details>
 
 <script>
 function adminToggleEdit(section) {
