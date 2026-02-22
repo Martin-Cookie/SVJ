@@ -125,7 +125,12 @@ Aplikace běží na http://localhost:8000
   - Vytvoření zálohy (ZIP: databáze + uploads + generované soubory)
   - Seznam existujících záloh s datem, velikostí, stažením a smazáním
   - Obnova ze zálohy (upload ZIP) — před obnovou se automaticky vytvoří pojistná záloha
-- Obě sekce (SVJ info + zálohování) zabaleny do skládacích `<details>` bloků
+- Hromadné úpravy (`/sprava/hromadne-upravy`):
+  - Výběr pole (typ prostoru, sekce, počet místností, vlastnictví, adresa, orientační číslo)
+  - Tabulka unikátních hodnot s počtem výskytů
+  - Rozkliknutí hodnoty zobrazí všechny záznamy (jednotky nebo vlastnictví) s detailními údaji
+  - Inline oprava s datalist napovídáním — hromadné přepsání všech záznamů se shodnou hodnotou
+- Všechny sekce zabaleny do skládacích `<details>` bloků
 - Modely: `SvjInfo`, `SvjAddress`, `BoardMember`
 
 ### G. Nastavení (`/nastaveni`)
@@ -194,7 +199,10 @@ app/
 │   │   ├── index.html         #     Nahrání CSV + historie kontrol
 │   │   └── compare.html       #     Porovnání s filtry a bublinami
 │   ├── administration/        #   Stránky administrace
-│   │   └── index.html         #     Info SVJ, adresy, výbor, kontrolní orgán
+│   │   ├── index.html         #     Info SVJ, adresy, výbor, kontrolní orgán
+│   │   ├── bulk_edit.html     #     Hromadné úpravy — výběr pole
+│   │   ├── bulk_edit_values.html #  HTMX: tabulka unikátních hodnot
+│   │   └── bulk_edit_records.html # HTMX: záznamy pro danou hodnotu
 │   └── partials/              #   HTMX komponenty
 │       ├── owner_row.html
 │       ├── owner_table_body.html
@@ -314,6 +322,10 @@ data/
 | GET | `/sprava/zaloha/{filename}/stahnout` | Stažení zálohy |
 | POST | `/sprava/zaloha/{filename}/smazat` | Smazání zálohy |
 | POST | `/sprava/zaloha/obnovit` | Obnova dat ze zálohy (upload ZIP) |
+| GET | `/sprava/hromadne-upravy` | Stránka hromadných úprav |
+| GET | `/sprava/hromadne-upravy/hodnoty` | HTMX: tabulka unikátních hodnot pole |
+| GET | `/sprava/hromadne-upravy/zaznamy` | HTMX: záznamy pro danou hodnotu |
+| POST | `/sprava/hromadne-upravy/opravit` | Hromadná oprava hodnoty |
 
 ## Konfigurace (.env)
 
