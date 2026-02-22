@@ -191,9 +191,9 @@ app/
 │   │   ├── index.html         #     Seznam hlasování
 │   │   ├── create.html        #     Vytvoření hlasování
 │   │   ├── detail.html        #     Detail hlasování
-│   │   ├── ballots.html       #     Seznam lístků (bubliny + search)
-│   │   ├── ballots_table.html #     HTMX: tabulka lístků (sort + filtr)
-│   │   ├── detail_results.html#     HTMX: tabulka výsledků (sort)
+│   │   ├── ballots.html       #     Seznam lístků (bubliny + search + sort)
+│   │   ├── ballots_table.html #     HTMX: tbody řádky lístků
+│   │   ├── detail_results.html#     HTMX: tbody řádky výsledků
 │   │   ├── ballot_detail.html #     Detail hlasovacího lístku
 │   │   ├── process.html       #     Zpracování lístků
 │   │   └── not_submitted.html #     Neodevzdané lístky
