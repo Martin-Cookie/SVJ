@@ -44,6 +44,7 @@ class Voting(Base):
     total_votes_possible = Column(Integer, default=0)
     quorum_threshold = Column(Float, default=0.5)
     partial_owner_mode = Column(String(20), default="shared")  # shared / separate
+    import_column_mapping = Column(Text, nullable=True)  # JSON string
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

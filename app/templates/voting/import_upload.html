@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Import výsledků - {{ voting.title }} - SVJ Správa{% endblock %}
+
+{% block content %}
+<div class="flex flex-col" style="height:calc(100vh - 3rem)">
+<div class="shrink-0">
+{% include "voting/_voting_header.html" %}
+</div>
+
+<div class="flex-1 overflow-y-auto min-h-0">
+<div class="max-w-2xl">
+    <h2 class="text-lg font-bold text-gray-800 mb-4">Import výsledků hlasování z Excelu</h2>
+
+    <div class="bg-white rounded-lg shadow p-6 mb-4">
+        <form action="/hlasovani/{{ voting.id }}/import" method="post" enctype="multipart/form-data">
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Soubor Excel (.xlsx)</label>
+                <input type="file" name="file" accept=".xlsx,.xls" required
+                       class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+            </div>
+            <p class="text-xs text-gray-500 mb-4">
+                Excel by měl obsahovat sloupce s vlastníky, čísly jednotek a hlasy (ANO/NE nebo hodnoty) pro každý bod hlasování.
+            </p>
+            <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
+                Nahrát soubor
+            </button>
+        </form>
+    </div>
+
+    {% if saved_mapping %}
+    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <p class="text-sm text-blue-700">
+            <span class="font-medium">Uložené mapování:</span>
+            Při nahrání nového souboru se předvyplní mapování sloupců z posledního importu.
+        </p>
+    </div>
+    {% endif %}
+</div>
+</div>
+</div>
+{% endblock %}

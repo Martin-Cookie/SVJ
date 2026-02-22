@@ -1,3 +1,4 @@
+import json
 import shutil
 import zipfile
 from datetime import datetime, date
@@ -17,6 +18,9 @@ from app.models import (
     VotingItem, VotingStatus, VoteValue,
 )
 from app.services.word_parser import extract_voting_items
+from app.services.voting_import import (
+    read_excel_headers, preview_voting_import, execute_voting_import,
+)
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -587,3 +591,168 @@ async def not_submitted(
         return templates.TemplateResponse("voting/not_submitted_table.html", ctx)
 
     return templates.TemplateResponse("voting/not_submitted.html", ctx)
+
+
+# --- Import voting results from Excel ---
+
+
+@router.get("/{voting_id}/import")
+async def import_upload_page(
+    voting_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    voting = db.query(Voting).options(
+        joinedload(Voting.items),
+        joinedload(Voting.ballots),
+    ).get(voting_id)
+    if not voting:
+        return RedirectResponse("/hlasovani", status_code=302)
+
+    saved_mapping = None
+    if voting.import_column_mapping:
+        try:
+            saved_mapping = json.loads(voting.import_column_mapping)
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    return templates.TemplateResponse("voting/import_upload.html", {
+        "request": request,
+        "active_nav": "voting",
+        "voting": voting,
+        "saved_mapping": saved_mapping,
+        "active_bubble": "",
+        **_ballot_stats(voting),
+    })
+
+
+@router.post("/{voting_id}/import")
+async def import_upload(
+    voting_id: int,
+    request: Request,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    voting = db.query(Voting).options(
+        joinedload(Voting.items),
+        joinedload(Voting.ballots),
+    ).get(voting_id)
+    if not voting:
+        return RedirectResponse("/hlasovani", status_code=302)
+
+    if not file.filename or not file.filename.endswith((".xlsx", ".xls")):
+        return templates.TemplateResponse("voting/import_upload.html", {
+            "request": request,
+            "active_nav": "voting",
+            "voting": voting,
+            "saved_mapping": None,
+            "active_bubble": "",
+            "flash_message": "Nahrajte soubor ve formátu .xlsx",
+            "flash_type": "error",
+            **_ballot_stats(voting),
+        })
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    dest = settings.upload_dir / "excel" / f"{timestamp}_{file.filename}"
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    with open(dest, "wb") as f:
+        shutil.copyfileobj(file.file, f)
+
+    headers = read_excel_headers(str(dest))
+
+    # Load saved mapping if available
+    saved_mapping = None
+    if voting.import_column_mapping:
+        try:
+            saved_mapping = json.loads(voting.import_column_mapping)
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    return templates.TemplateResponse("voting/import_mapping.html", {
+        "request": request,
+        "active_nav": "voting",
+        "voting": voting,
+        "headers": headers,
+        "file_path": str(dest),
+        "filename": file.filename,
+        "saved_mapping": saved_mapping,
+        "active_bubble": "",
+        **_ballot_stats(voting),
+    })
+
+
+@router.post("/{voting_id}/import/nahled")
+async def import_preview(
+    voting_id: int,
+    request: Request,
+    file_path: str = Form(...),
+    mapping_json: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    voting = db.query(Voting).options(
+        joinedload(Voting.items),
+        joinedload(Voting.ballots).joinedload(Ballot.owner).joinedload(Owner.units).joinedload(OwnerUnit.unit),
+        joinedload(Voting.ballots).joinedload(Ballot.votes),
+    ).get(voting_id)
+    if not voting:
+        return RedirectResponse("/hlasovani", status_code=302)
+
+    try:
+        mapping = json.loads(mapping_json)
+    except (json.JSONDecodeError, TypeError):
+        return RedirectResponse(f"/hlasovani/{voting_id}/import", status_code=302)
+
+    # Save mapping for next time (already at preview step)
+    voting.import_column_mapping = mapping_json
+    db.commit()
+
+    preview = preview_voting_import(file_path, mapping, voting, db)
+
+    # Build item lookup for template
+    item_lookup = {item.id: item for item in voting.items}
+
+    return templates.TemplateResponse("voting/import_preview.html", {
+        "request": request,
+        "active_nav": "voting",
+        "voting": voting,
+        "preview": preview,
+        "mapping": mapping,
+        "mapping_json": mapping_json,
+        "file_path": file_path,
+        "item_lookup": item_lookup,
+        "active_bubble": "",
+        **_ballot_stats(voting),
+    })
+
+
+@router.post("/{voting_id}/import/potvrdit")
+async def import_confirm(
+    voting_id: int,
+    request: Request,
+    file_path: str = Form(...),
+    mapping_json: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    voting = db.query(Voting).options(
+        joinedload(Voting.items),
+        joinedload(Voting.ballots).joinedload(Ballot.owner).joinedload(Owner.units).joinedload(OwnerUnit.unit),
+        joinedload(Voting.ballots).joinedload(Ballot.votes),
+    ).get(voting_id)
+    if not voting:
+        return RedirectResponse("/hlasovani", status_code=302)
+
+    try:
+        mapping = json.loads(mapping_json)
+    except (json.JSONDecodeError, TypeError):
+        return RedirectResponse(f"/hlasovani/{voting_id}/import", status_code=302)
+
+    result = execute_voting_import(file_path, mapping, voting, db)
+
+    return templates.TemplateResponse("voting/import_result.html", {
+        "request": request,
+        "active_nav": "voting",
+        "voting": voting,
+        "result": result,
+        "active_bubble": "",
+        **_ballot_stats(voting),
+    })
