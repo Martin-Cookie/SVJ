@@ -121,6 +121,11 @@ Aplikace běží na http://localhost:8000
 - Členové kontrolního orgánu — stejná funkcionalita
 - Autocomplete rolí přes `<datalist>` (Předseda/Místopředseda/Člen)
 - Řazení členů: předsedové → místopředsedové → ostatní, v rámci role abecedně
+- Zálohování a obnova dat:
+  - Vytvoření zálohy (ZIP: databáze + uploads + generované soubory)
+  - Seznam existujících záloh s datem, velikostí, stažením a smazáním
+  - Obnova ze zálohy (upload ZIP) — před obnovou se automaticky vytvoří pojistná záloha
+- Obě sekce (SVJ info + zálohování) zabaleny do skládacích `<details>` bloků
 - Modely: `SvjInfo`, `SvjAddress`, `BoardMember`
 
 ### G. Nastavení (`/nastaveni`)
@@ -158,6 +163,7 @@ app/
 │   ├── pdf_extractor.py       #   Extrakce textu z PDF
 │   ├── owner_matcher.py       #   Fuzzy párování jmen
 │   ├── csv_comparator.py      #   Porovnání CSV vs Excel
+│   ├── backup_service.py      #   Zálohování a obnova dat (ZIP)
 │   └── email_service.py       #   SMTP odesílání emailů
 ├── templates/                 # Jinja2 šablony
 │   ├── base.html              #   Layout se sidebar navigací
@@ -211,7 +217,8 @@ app/
 data/
 ├── svj.db                     # SQLite databáze
 ├── uploads/                   # Nahrané soubory (Excel, CSV, PDF)
-└── generated/                 # Generované dokumenty (PDF lístky)
+├── generated/                 # Generované dokumenty (PDF lístky)
+└── backups/                   # ZIP zálohy (DB + uploads + generated)
 ```
 
 ## API endpointy
@@ -303,6 +310,10 @@ data/
 | POST | `/sprava/clen/pridat` | Přidání člena (výbor/kontrolní orgán) |
 | POST | `/sprava/clen/{id}/upravit` | Editace člena |
 | POST | `/sprava/clen/{id}/smazat` | Smazání člena |
+| POST | `/sprava/zaloha/vytvorit` | Vytvoření zálohy (ZIP) |
+| GET | `/sprava/zaloha/{filename}/stahnout` | Stažení zálohy |
+| POST | `/sprava/zaloha/{filename}/smazat` | Smazání zálohy |
+| POST | `/sprava/zaloha/obnovit` | Obnova dat ze zálohy (upload ZIP) |
 
 ## Konfigurace (.env)
 
