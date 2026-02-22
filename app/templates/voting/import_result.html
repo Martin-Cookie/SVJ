@@ -5,41 +5,54 @@
 <div class="flex flex-col" style="height:calc(100vh - 3rem)">
 <div class="shrink-0">
 {% include "voting/_voting_header.html" %}
+
+<h2 class="text-lg font-bold text-gray-800 mb-3">Import výsledků dokončen</h2>
+
+<!-- Result bubbles -->
+<div class="flex gap-2 mb-3">
+    <a href="/hlasovani/{{ voting.id }}/listky?stav=processed"
+       class="flex-1 bg-green-50 rounded-lg shadow p-4 text-center border border-green-200 hover:ring-2 hover:ring-green-400">
+        <p class="text-2xl font-bold text-green-600">{{ result.processed_count }}</p>
+        <p class="text-xs text-green-600 mt-1">Zpracováno</p>
+    </a>
+    <a href="/hlasovani/{{ voting.id }}/neodevzdane"
+       class="flex-1 bg-orange-50 rounded-lg shadow p-4 text-center border border-orange-200 hover:ring-2 hover:ring-orange-400">
+        <p class="text-2xl font-bold text-orange-600">{{ total_ballots - status_counts.get('processed', 0) }}</p>
+        <p class="text-xs text-orange-600 mt-1">Nezpracováno</p>
+    </a>
+    {% if result.skipped_count %}
+    <div class="flex-1 bg-gray-50 rounded-lg shadow p-4 text-center border border-gray-200">
+        <p class="text-2xl font-bold text-gray-500">{{ result.skipped_count }}</p>
+        <p class="text-xs text-gray-500 mt-1">Přeskočeno</p>
+    </div>
+    {% endif %}
+    {% if result.unmatched_count %}
+    <div class="flex-1 bg-yellow-50 rounded-lg shadow p-4 text-center border border-yellow-200">
+        <p class="text-2xl font-bold text-yellow-600">{{ result.unmatched_count }}</p>
+        <p class="text-xs text-yellow-600 mt-1">Nepřiřazeno</p>
+    </div>
+    {% endif %}
+    {% if result.cleared_count %}
+    <div class="flex-1 bg-red-50 rounded-lg shadow p-4 text-center border border-red-200">
+        <p class="text-2xl font-bold text-red-600">{{ result.cleared_count }}</p>
+        <p class="text-xs text-red-600 mt-1">Vyčištěno</p>
+    </div>
+    {% endif %}
+</div>
 </div>
 
 <div class="flex-1 overflow-y-auto min-h-0">
-<h2 class="text-lg font-bold text-gray-800 mb-4">Import výsledků dokončen</h2>
-
 <div class="max-w-2xl space-y-4">
-    <div class="bg-green-50 border border-green-200 rounded-lg p-6">
+    <div class="bg-green-50 border border-green-200 rounded-lg p-4">
         <p class="text-sm text-green-700">
-            Zpracováno <strong>{{ result.processed_count }}</strong> lístků
-            {% if result.skipped_count %}
-            ({{ result.skipped_count }} přeskočeno)
+            Import dokončen.
+            {% if result.clear_existing %}
+            Režim: vyčistit a přepsat.
+            {% else %}
+            Režim: doplnit data.
             {% endif %}
         </p>
-        {% if result.clear_existing %}
-        <p class="text-xs text-green-600 mt-1">Režim: vyčistit a přepsat</p>
-        {% else %}
-        <p class="text-xs text-green-600 mt-1">Režim: doplnit data</p>
-        {% endif %}
     </div>
-
-    {% if result.cleared_count %}
-    <div class="bg-orange-50 border border-orange-200 rounded-lg p-6">
-        <p class="text-sm text-orange-700">
-            <strong>{{ result.cleared_count }}</strong> dříve zpracovaných lístků bylo vyčištěno (nebyly v importu)
-        </p>
-    </div>
-    {% endif %}
-
-    {% if result.unmatched_count %}
-    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
-        <p class="text-sm text-yellow-700">
-            <strong>{{ result.unmatched_count }}</strong> řádků nebylo přiřazeno k lístkům
-        </p>
-    </div>
-    {% endif %}
 
     {% if result.errors %}
     <div class="bg-red-50 border border-red-200 rounded-lg p-4">
@@ -51,21 +64,6 @@
         </ul>
     </div>
     {% endif %}
-
-    <div class="flex gap-3 pt-2">
-        <a href="/hlasovani/{{ voting.id }}/listky?stav=processed"
-           class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
-            Zobrazit zpracované
-        </a>
-        <a href="/hlasovani/{{ voting.id }}/neodevzdane"
-           class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">
-            Zobrazit nezpracované
-        </a>
-        <a href="/hlasovani/{{ voting.id }}"
-           class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">
-            Zpět na hlasování
-        </a>
-    </div>
 </div>
 </div>
 </div>
