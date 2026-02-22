@@ -8,21 +8,21 @@
             <button type="button" onclick="bulkCheck(this, false)" class="text-xs text-gray-500 hover:text-gray-700 font-medium">Zrušit vše</button>
             <span class="text-xs text-gray-400 ml-auto bulk-counter" data-total="{{ records|length }}">0 / {{ records|length }}</span>
         </div>
-        <table class="w-full text-xs bg-gray-50">
+        <table class="w-full text-xs bg-gray-50 bulk-sortable">
             <thead>
                 <tr class="text-gray-500 border-b border-gray-200">
                     <th class="px-2 py-1.5 w-8"></th>
-                    <th class="text-left px-2 py-1.5 font-medium">Č. jednotky</th>
-                    <th class="text-left px-2 py-1.5 font-medium">Budova</th>
-                    <th class="text-left px-2 py-1.5 font-medium">Typ prostoru</th>
-                    <th class="text-left px-2 py-1.5 font-medium">Sekce</th>
-                    <th class="text-left px-2 py-1.5 font-medium">Adresa</th>
-                    <th class="text-right px-2 py-1.5 font-medium">Or. č.</th>
-                    <th class="text-left px-2 py-1.5 font-medium">Místnosti</th>
-                    <th class="text-right px-2 py-1.5 font-medium">Plocha</th>
-                    <th class="text-right px-2 py-1.5 font-medium">Podíl SČD</th>
-                    <th class="text-left px-2 py-1.5 font-medium">LV</th>
-                    <th class="text-left px-2 py-1.5 font-medium">Vlastníci</th>
+                    <th class="text-left px-2 py-1.5 font-medium cursor-pointer hover:text-gray-800 select-none" data-col="1" data-type="num" onclick="sortBulkCol(this)">Č. jednotky <span class="sort-arrow"></span></th>
+                    <th class="text-left px-2 py-1.5 font-medium cursor-pointer hover:text-gray-800 select-none" data-col="2" data-type="text" onclick="sortBulkCol(this)">Budova <span class="sort-arrow"></span></th>
+                    <th class="text-left px-2 py-1.5 font-medium cursor-pointer hover:text-gray-800 select-none" data-col="3" data-type="text" onclick="sortBulkCol(this)">Typ prostoru <span class="sort-arrow"></span></th>
+                    <th class="text-left px-2 py-1.5 font-medium cursor-pointer hover:text-gray-800 select-none" data-col="4" data-type="text" onclick="sortBulkCol(this)">Sekce <span class="sort-arrow"></span></th>
+                    <th class="text-left px-2 py-1.5 font-medium cursor-pointer hover:text-gray-800 select-none" data-col="5" data-type="text" onclick="sortBulkCol(this)">Adresa <span class="sort-arrow"></span></th>
+                    <th class="text-right px-2 py-1.5 font-medium cursor-pointer hover:text-gray-800 select-none" data-col="6" data-type="num" onclick="sortBulkCol(this)">Or. č. <span class="sort-arrow"></span></th>
+                    <th class="text-left px-2 py-1.5 font-medium cursor-pointer hover:text-gray-800 select-none" data-col="7" data-type="text" onclick="sortBulkCol(this)">Místnosti <span class="sort-arrow"></span></th>
+                    <th class="text-right px-2 py-1.5 font-medium cursor-pointer hover:text-gray-800 select-none" data-col="8" data-type="num" onclick="sortBulkCol(this)">Plocha <span class="sort-arrow"></span></th>
+                    <th class="text-right px-2 py-1.5 font-medium cursor-pointer hover:text-gray-800 select-none" data-col="9" data-type="num" onclick="sortBulkCol(this)">Podíl SČD <span class="sort-arrow"></span></th>
+                    <th class="text-left px-2 py-1.5 font-medium cursor-pointer hover:text-gray-800 select-none" data-col="10" data-type="num" onclick="sortBulkCol(this)">LV <span class="sort-arrow"></span></th>
+                    <th class="text-left px-2 py-1.5 font-medium cursor-pointer hover:text-gray-800 select-none" data-col="11" data-type="text" onclick="sortBulkCol(this)">Vlastníci <span class="sort-arrow"></span></th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
@@ -32,18 +32,18 @@
                         <input type="checkbox" class="bulk-cb" value="{{ u.id }}"
                                onchange="updateCounter(this)">
                     </td>
-                    <td class="px-2 py-1 font-mono font-medium text-gray-800">{{ u.unit_number }}</td>
+                    <td class="px-2 py-1 font-mono font-medium text-gray-800" data-v="{{ u.unit_number }}"><a href="/jednotky/{{ u.id }}?back={{ back_url|urlencode }}" class="text-blue-600 hover:text-blue-800 hover:underline">{{ u.unit_number }}</a></td>
                     <td class="px-2 py-1 text-gray-600">{{ u.building_number or '—' }}</td>
                     <td class="px-2 py-1 text-gray-600">{{ u.space_type or '—' }}</td>
                     <td class="px-2 py-1 text-gray-600">{{ u.section or '—' }}</td>
                     <td class="px-2 py-1 text-gray-600">{{ u.address or '—' }}</td>
-                    <td class="px-2 py-1 text-gray-600 text-right">{{ u.orientation_number or '—' }}</td>
+                    <td class="px-2 py-1 text-gray-600 text-right" data-v="{{ u.orientation_number or '' }}">{{ u.orientation_number or '—' }}</td>
                     <td class="px-2 py-1 text-gray-600">{{ u.room_count or '—' }}</td>
-                    <td class="px-2 py-1 text-gray-600 text-right font-mono">{% if u.floor_area %}{{ "%.1f"|format(u.floor_area) }}{% else %}—{% endif %}</td>
-                    <td class="px-2 py-1 text-gray-600 text-right font-mono">{% if u.podil_scd %}{{ "{:,}".format(u.podil_scd).replace(",", " ") }}{% else %}—{% endif %}</td>
-                    <td class="px-2 py-1 text-gray-600">{{ u.lv_number or '—' }}</td>
+                    <td class="px-2 py-1 text-gray-600 text-right font-mono" data-v="{{ u.floor_area or '' }}">{% if u.floor_area %}{{ "%.1f"|format(u.floor_area) }}{% else %}—{% endif %}</td>
+                    <td class="px-2 py-1 text-gray-600 text-right font-mono" data-v="{{ u.podil_scd or '' }}">{% if u.podil_scd %}{{ "{:,}".format(u.podil_scd).replace(",", " ") }}{% else %}—{% endif %}</td>
+                    <td class="px-2 py-1 text-gray-600" data-v="{{ u.lv_number or '' }}">{{ u.lv_number or '—' }}</td>
                     <td class="px-2 py-1 text-gray-600 truncate max-w-[200px]" title="{% for ou in u.owners %}{{ ou.owner.display_name }}{% if not loop.last %}, {% endif %}{% endfor %}">
-                        {% for ou in u.owners %}{{ ou.owner.first_name }} {{ ou.owner.last_name or '' }}{% if not loop.last %}, {% endif %}{% endfor %}
+                        {% for ou in u.owners %}<a href="/vlastnici/{{ ou.owner.id }}?back={{ back_url|urlencode }}" class="text-blue-600 hover:text-blue-800 hover:underline">{{ ou.owner.first_name }} {{ ou.owner.last_name or '' }}</a>{% if not loop.last %}, {% endif %}{% endfor %}
                         {% if not u.owners %}—{% endif %}
                     </td>
                 </tr>
@@ -60,18 +60,18 @@
             <button type="button" onclick="bulkCheck(this, false)" class="text-xs text-gray-500 hover:text-gray-700 font-medium">Zrušit vše</button>
             <span class="text-xs text-gray-400 ml-auto bulk-counter" data-total="{{ records|length }}">0 / {{ records|length }}</span>
         </div>
-        <table class="w-full text-xs bg-gray-50">
+        <table class="w-full text-xs bg-gray-50 bulk-sortable">
             <thead>
                 <tr class="text-gray-500 border-b border-gray-200">
                     <th class="px-2 py-1.5 w-8"></th>
-                    <th class="text-left px-2 py-1.5 font-medium">Č. jednotky</th>
-                    <th class="text-left px-2 py-1.5 font-medium">Budova</th>
-                    <th class="text-left px-2 py-1.5 font-medium">Typ prostoru</th>
-                    <th class="text-left px-2 py-1.5 font-medium">Sekce</th>
-                    <th class="text-left px-2 py-1.5 font-medium">Vlastník</th>
-                    <th class="text-left px-2 py-1.5 font-medium">Vlastnictví</th>
-                    <th class="text-right px-2 py-1.5 font-medium">Podíl</th>
-                    <th class="text-right px-2 py-1.5 font-medium">Hlasy</th>
+                    <th class="text-left px-2 py-1.5 font-medium cursor-pointer hover:text-gray-800 select-none" data-col="1" data-type="num" onclick="sortBulkCol(this)">Č. jednotky <span class="sort-arrow"></span></th>
+                    <th class="text-left px-2 py-1.5 font-medium cursor-pointer hover:text-gray-800 select-none" data-col="2" data-type="text" onclick="sortBulkCol(this)">Budova <span class="sort-arrow"></span></th>
+                    <th class="text-left px-2 py-1.5 font-medium cursor-pointer hover:text-gray-800 select-none" data-col="3" data-type="text" onclick="sortBulkCol(this)">Typ prostoru <span class="sort-arrow"></span></th>
+                    <th class="text-left px-2 py-1.5 font-medium cursor-pointer hover:text-gray-800 select-none" data-col="4" data-type="text" onclick="sortBulkCol(this)">Sekce <span class="sort-arrow"></span></th>
+                    <th class="text-left px-2 py-1.5 font-medium cursor-pointer hover:text-gray-800 select-none" data-col="5" data-type="text" onclick="sortBulkCol(this)">Vlastník <span class="sort-arrow"></span></th>
+                    <th class="text-left px-2 py-1.5 font-medium cursor-pointer hover:text-gray-800 select-none" data-col="6" data-type="text" onclick="sortBulkCol(this)">Vlastnictví <span class="sort-arrow"></span></th>
+                    <th class="text-right px-2 py-1.5 font-medium cursor-pointer hover:text-gray-800 select-none" data-col="7" data-type="num" onclick="sortBulkCol(this)">Podíl <span class="sort-arrow"></span></th>
+                    <th class="text-right px-2 py-1.5 font-medium cursor-pointer hover:text-gray-800 select-none" data-col="8" data-type="num" onclick="sortBulkCol(this)">Hlasy <span class="sort-arrow"></span></th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
@@ -81,14 +81,14 @@
                         <input type="checkbox" class="bulk-cb" value="{{ ou.id }}"
                                onchange="updateCounter(this)">
                     </td>
-                    <td class="px-2 py-1 font-mono font-medium text-gray-800">{{ ou.unit.unit_number }}</td>
+                    <td class="px-2 py-1 font-mono font-medium text-gray-800" data-v="{{ ou.unit.unit_number }}"><a href="/jednotky/{{ ou.unit.id }}?back={{ back_url|urlencode }}" class="text-blue-600 hover:text-blue-800 hover:underline">{{ ou.unit.unit_number }}</a></td>
                     <td class="px-2 py-1 text-gray-600">{{ ou.unit.building_number or '—' }}</td>
                     <td class="px-2 py-1 text-gray-600">{{ ou.unit.space_type or '—' }}</td>
                     <td class="px-2 py-1 text-gray-600">{{ ou.unit.section or '—' }}</td>
-                    <td class="px-2 py-1 text-gray-600">{{ ou.owner.display_name }}</td>
+                    <td class="px-2 py-1 text-gray-600"><a href="/vlastnici/{{ ou.owner.id }}?back={{ back_url|urlencode }}" class="text-blue-600 hover:text-blue-800 hover:underline">{{ ou.owner.display_name }}</a></td>
                     <td class="px-2 py-1 text-gray-600">{{ ou.ownership_type or '—' }}</td>
-                    <td class="px-2 py-1 text-gray-600 text-right font-mono">{{ ou.share }}</td>
-                    <td class="px-2 py-1 text-gray-600 text-right font-mono">{{ ou.votes }}</td>
+                    <td class="px-2 py-1 text-gray-600 text-right font-mono" data-v="{{ ou.share }}">{{ ou.share }}</td>
+                    <td class="px-2 py-1 text-gray-600 text-right font-mono" data-v="{{ ou.votes }}">{{ ou.votes }}</td>
                 </tr>
                 {% endfor %}
             </tbody>

@@ -25,7 +25,7 @@ class SvjAddress(Base):
     __tablename__ = "svj_addresses"
 
     id = Column(Integer, primary_key=True)
-    svj_info_id = Column(Integer, ForeignKey("svj_info.id"), nullable=False)
+    svj_info_id = Column(Integer, ForeignKey("svj_info.id"), nullable=False, index=True)
     address = Column(String(300), nullable=False)
     order = Column(Integer, default=0)
 
@@ -40,6 +40,6 @@ class BoardMember(Base):
     role = Column(String(200), nullable=True)
     email = Column(String(200), nullable=True)
     phone = Column(String(50), nullable=True)
-    group = Column(String(50), nullable=False, default="board")
+    group = Column(String(50), nullable=False, default="board", index=True)
     order = Column(Integer, default=0)
     created_at = Column(DateTime, default=datetime.utcnow)

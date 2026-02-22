@@ -37,7 +37,7 @@ class Voting(Base):
     id = Column(Integer, primary_key=True)
     title = Column(String(300), nullable=False)
     description = Column(Text, nullable=True)
-    status = Column(Enum(VotingStatus), default=VotingStatus.DRAFT)
+    status = Column(Enum(VotingStatus), default=VotingStatus.DRAFT, index=True)
     template_path = Column(String(500), nullable=True)
     start_date = Column(Date, nullable=True)
     end_date = Column(Date, nullable=True)
@@ -59,7 +59,7 @@ class VotingItem(Base):
     __tablename__ = "voting_items"
 
     id = Column(Integer, primary_key=True)
-    voting_id = Column(Integer, ForeignKey("votings.id"), nullable=False)
+    voting_id = Column(Integer, ForeignKey("votings.id"), nullable=False, index=True)
     order = Column(Integer, nullable=False)
     title = Column(String(500), nullable=False)
     description = Column(Text, nullable=True)
@@ -72,9 +72,9 @@ class Ballot(Base):
     __tablename__ = "ballots"
 
     id = Column(Integer, primary_key=True)
-    voting_id = Column(Integer, ForeignKey("votings.id"), nullable=False)
-    owner_id = Column(Integer, ForeignKey("owners.id"), nullable=False)
-    status = Column(Enum(BallotStatus), default=BallotStatus.GENERATED)
+    voting_id = Column(Integer, ForeignKey("votings.id"), nullable=False, index=True)
+    owner_id = Column(Integer, ForeignKey("owners.id"), nullable=False, index=True)
+    status = Column(Enum(BallotStatus), default=BallotStatus.GENERATED, index=True)
     pdf_path = Column(String(500), nullable=True)
     scan_path = Column(String(500), nullable=True)
     voted_by_proxy = Column(Boolean, default=False)
@@ -95,8 +95,8 @@ class BallotVote(Base):
     __tablename__ = "ballot_votes"
 
     id = Column(Integer, primary_key=True)
-    ballot_id = Column(Integer, ForeignKey("ballots.id"), nullable=False)
-    voting_item_id = Column(Integer, ForeignKey("voting_items.id"), nullable=False)
+    ballot_id = Column(Integer, ForeignKey("ballots.id"), nullable=False, index=True)
+    voting_item_id = Column(Integer, ForeignKey("voting_items.id"), nullable=False, index=True)
     vote = Column(Enum(VoteValue), nullable=True)
     votes_count = Column(Integer, default=0)
     manually_verified = Column(Boolean, default=False)

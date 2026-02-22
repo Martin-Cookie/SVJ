@@ -341,7 +341,8 @@ async def owner_detail(
         "declared_shares": declared_shares,
         "back_url": back or "/vlastnici",
         "back_label": (
-            "Zpět na detail jednotky" if "/jednotky/" in back
+            "Zpět na hromadné úpravy" if "/sprava/hromadne" in back
+            else "Zpět na detail jednotky" if "/jednotky/" in back
             else "Zpět na seznam jednotek" if back.startswith("/jednotky")
             else "Zpět na porovnání" if "/synchronizace/" in back
             else "Zpět na hlasovací lístek" if "/hlasovani/" in back

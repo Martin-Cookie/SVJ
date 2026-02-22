@@ -80,6 +80,47 @@ def _migrate_units_table():
         logger.info("Units table migration complete")
 
 
+def _ensure_indexes():
+    """Create indexes defined in models that may be missing on existing tables."""
+    _INDEXES = [
+        # voting.py
+        ("ix_votings_status", "votings", "status"),
+        ("ix_voting_items_voting_id", "voting_items", "voting_id"),
+        ("ix_ballots_voting_id", "ballots", "voting_id"),
+        ("ix_ballots_owner_id", "ballots", "owner_id"),
+        ("ix_ballots_status", "ballots", "status"),
+        ("ix_ballot_votes_ballot_id", "ballot_votes", "ballot_id"),
+        ("ix_ballot_votes_voting_item_id", "ballot_votes", "voting_item_id"),
+        # administration.py
+        ("ix_svj_addresses_svj_info_id", "svj_addresses", "svj_info_id"),
+        ("ix_board_members_group", "board_members", "\"group\""),
+        # tax.py
+        ("ix_tax_documents_session_id", "tax_documents", "session_id"),
+        ("ix_tax_distributions_document_id", "tax_distributions", "document_id"),
+        ("ix_tax_distributions_owner_id", "tax_distributions", "owner_id"),
+        ("ix_tax_distributions_match_status", "tax_distributions", "match_status"),
+        # sync.py
+        ("ix_sync_records_session_id", "sync_records", "session_id"),
+        ("ix_sync_records_status", "sync_records", "status"),
+        ("ix_sync_records_resolution", "sync_records", "resolution"),
+        # common.py
+        ("ix_email_logs_status", "email_logs", "status"),
+        ("ix_email_logs_module", "email_logs", "module"),
+        ("ix_email_logs_reference_id", "email_logs", "reference_id"),
+        ("ix_import_logs_import_type", "import_logs", "import_type"),
+    ]
+    with engine.connect() as conn:
+        for idx_name, table, column in _INDEXES:
+            try:
+                conn.execute(text(
+                    f"CREATE INDEX IF NOT EXISTS {idx_name} ON {table} ({column})"
+                ))
+            except Exception:
+                pass
+        conn.commit()
+    logger.info("Database indexes ensured")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Import models so they register with Base
@@ -92,6 +133,12 @@ async def lifespan(app: FastAPI):
         _migrate_units_table()
     except Exception:
         logger.warning("units migration skipped (table may not exist yet)")
+
+    # Ensure indexes on existing tables
+    try:
+        _ensure_indexes()
+    except Exception:
+        logger.warning("index creation skipped")
 
     # Ensure data directories exist
     for d in [settings.upload_dir, settings.generated_dir, settings.temp_dir]:

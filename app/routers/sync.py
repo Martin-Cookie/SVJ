@@ -18,7 +18,6 @@ from app.models import (
 )
 from app.services.csv_comparator import compare_owners, parse_sousede_csv
 from app.services.owner_matcher import normalize_for_matching
-from app.services.excel_export import export_owners_to_excel
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -373,15 +372,136 @@ async def manual_edit(
 
 
 @router.post("/{session_id}/exportovat")
-async def export_excel(session_id: int, db: Session = Depends(get_db)):
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_path = settings.generated_dir / "exports" / f"vlastnici_{timestamp}.xlsx"
-    output_path.parent.mkdir(parents=True, exist_ok=True)
+async def export_excel(
+    session_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    form_data = await request.form()
+    filtr = form_data.get("filtr", "")
 
-    export_owners_to_excel(db, str(output_path))
+    session = db.query(SyncSession).get(session_id)
+    if not session:
+        return RedirectResponse("/synchronizace", status_code=302)
+
+    # Apply same filter logic as sync_detail
+    field_diff = or_(
+        func.coalesce(SyncRecord.csv_owner_name, '') != func.coalesce(SyncRecord.excel_owner_name, ''),
+        func.coalesce(SyncRecord.csv_space_type, '') != func.coalesce(SyncRecord.excel_space_type, ''),
+        func.coalesce(SyncRecord.csv_ownership_type, '') != func.coalesce(SyncRecord.excel_ownership_type, ''),
+        func.coalesce(SyncRecord.excel_podil_scd, 0) != func.coalesce(SyncRecord.csv_share, 0),
+    )
+    podil_diff = (
+        func.coalesce(SyncRecord.excel_podil_scd, 0) != func.coalesce(SyncRecord.csv_share, 0)
+    )
+
+    query = db.query(SyncRecord).filter_by(session_id=session_id)
+    if filtr == "match":
+        query = query.filter(SyncRecord.status == SyncStatus.MATCH, ~field_diff)
+    elif filtr == "partial":
+        query = query.filter(SyncRecord.status == SyncStatus.MATCH, field_diff)
+    elif filtr == "name_order":
+        query = query.filter(SyncRecord.status == SyncStatus.NAME_ORDER)
+    elif filtr == "difference":
+        query = query.filter(SyncRecord.status == SyncStatus.DIFFERENCE)
+    elif filtr == "podil_diff":
+        query = query.filter(podil_diff)
+    elif filtr == "missing":
+        query = query.filter(SyncRecord.status.in_([SyncStatus.MISSING_CSV, SyncStatus.MISSING_EXCEL]))
+
+    records = query.order_by(SyncRecord.unit_number.asc()).all()
+
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Porovnání"
+
+    headers = [
+        "Jednotka", "Vlastník (Evidence)", "Vlastník (CSV)",
+        "Typ prostoru (Ev)", "Typ prostoru (CSV)",
+        "Vlastnictví (Ev)", "Vlastnictví (CSV)",
+        "Podíl (Ev)", "Podíl (CSV)",
+        "Shoda", "Stav", "Akce",
+    ]
+    ws.append(headers)
+    bold = Font(bold=True)
+    for cell in ws[1]:
+        cell.font = bold
+
+    _STATUS_LABELS = {
+        "match": "Shoda",
+        "name_order": "Přeházená jména",
+        "difference": "Rozdíl",
+        "missing_csv": "Chybí v CSV",
+        "missing_excel": "Chybí v evidenci",
+    }
+    _RESOLUTION_LABELS = {
+        "pending": "Čeká",
+        "accepted": "OK",
+        "rejected": "Zamítnuto",
+        "manual_edit": "Upraveno",
+    }
+
+    diff_fill = PatternFill(start_color="FFF3CD", end_color="FFF3CD", fill_type="solid")
+
+    for r in records:
+        match_pct = (r.match_details.split("|")[0].strip() if r.match_details else "")
+        row = [
+            r.unit_number,
+            r.excel_owner_name or "",
+            r.csv_owner_name or "",
+            r.excel_space_type or "",
+            r.csv_space_type or "",
+            r.excel_ownership_type or "",
+            r.csv_ownership_type or "",
+            r.excel_podil_scd,
+            r.csv_share,
+            match_pct,
+            _STATUS_LABELS.get(r.status.value, r.status.value),
+            _RESOLUTION_LABELS.get(r.resolution.value, r.resolution.value),
+        ]
+        ws.append(row)
+
+        # Highlight differing cells
+        row_num = ws.max_row
+        if (r.excel_owner_name or "") != (r.csv_owner_name or ""):
+            ws.cell(row=row_num, column=2).fill = diff_fill
+            ws.cell(row=row_num, column=3).fill = diff_fill
+        if (r.excel_space_type or "") != (r.csv_space_type or ""):
+            ws.cell(row=row_num, column=4).fill = diff_fill
+            ws.cell(row=row_num, column=5).fill = diff_fill
+        if (r.excel_ownership_type or "") != (r.csv_ownership_type or ""):
+            ws.cell(row=row_num, column=6).fill = diff_fill
+            ws.cell(row=row_num, column=7).fill = diff_fill
+        if (r.excel_podil_scd or 0) != (r.csv_share or 0):
+            ws.cell(row=row_num, column=8).fill = diff_fill
+            ws.cell(row=row_num, column=9).fill = diff_fill
+
+    # Auto-adjust column widths
+    for col in ws.columns:
+        max_len = 0
+        for cell in col:
+            if cell.value:
+                max_len = max(max_len, len(str(cell.value)))
+        ws.column_dimensions[col[0].column_letter].width = min(max_len + 2, 45)
+
+    _FILTR_LABELS = {
+        "": "vse", "match": "shoda", "partial": "castecna",
+        "name_order": "jmena", "difference": "rozdily",
+        "podil_diff": "podily", "missing": "chybi",
+    }
+    suffix = _FILTR_LABELS.get(filtr, filtr or "vse")
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"porovnani_{suffix}_{timestamp}.xlsx"
+    output_path = settings.generated_dir / "exports" / filename
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    wb.save(str(output_path))
+
     return FileResponse(
         str(output_path),
-        filename=f"vlastnici_{timestamp}.xlsx",
+        filename=filename,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
 

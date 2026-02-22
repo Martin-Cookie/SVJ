@@ -47,7 +47,7 @@ class SyncRecord(Base):
     __tablename__ = "sync_records"
 
     id = Column(Integer, primary_key=True)
-    session_id = Column(Integer, ForeignKey("sync_sessions.id"), nullable=False)
+    session_id = Column(Integer, ForeignKey("sync_sessions.id"), nullable=False, index=True)
     unit_number = Column(String(20), nullable=True)
     csv_owner_name = Column(String(300), nullable=True)
     excel_owner_name = Column(String(300), nullable=True)
@@ -59,8 +59,8 @@ class SyncRecord(Base):
     csv_space_type = Column(String(50), nullable=True)
     excel_podil_scd = Column(Integer, nullable=True)
     csv_share = Column(Integer, nullable=True)
-    status = Column(Enum(SyncStatus), nullable=False)
-    resolution = Column(Enum(SyncResolution), default=SyncResolution.PENDING)
+    status = Column(Enum(SyncStatus), nullable=False, index=True)
+    resolution = Column(Enum(SyncResolution), default=SyncResolution.PENDING, index=True)
     admin_corrected_name = Column(String(300), nullable=True)
     admin_note = Column(Text, nullable=True)
     match_details = Column(Text, nullable=True)

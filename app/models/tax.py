@@ -35,7 +35,7 @@ class TaxDocument(Base):
     __tablename__ = "tax_documents"
 
     id = Column(Integer, primary_key=True)
-    session_id = Column(Integer, ForeignKey("tax_sessions.id"), nullable=False)
+    session_id = Column(Integer, ForeignKey("tax_sessions.id"), nullable=False, index=True)
     filename = Column(String(300), nullable=False)
     unit_number = Column(String(20), nullable=True)
     unit_letter = Column(String(5), nullable=True)
@@ -53,9 +53,9 @@ class TaxDistribution(Base):
     __tablename__ = "tax_distributions"
 
     id = Column(Integer, primary_key=True)
-    document_id = Column(Integer, ForeignKey("tax_documents.id"), nullable=False)
-    owner_id = Column(Integer, ForeignKey("owners.id"), nullable=True)
-    match_status = Column(Enum(MatchStatus), default=MatchStatus.UNMATCHED)
+    document_id = Column(Integer, ForeignKey("tax_documents.id"), nullable=False, index=True)
+    owner_id = Column(Integer, ForeignKey("owners.id"), nullable=True, index=True)
+    match_status = Column(Enum(MatchStatus), default=MatchStatus.UNMATCHED, index=True)
     match_confidence = Column(Float, nullable=True)
     admin_note = Column(Text, nullable=True)
     email_sent = Column(Boolean, default=False)

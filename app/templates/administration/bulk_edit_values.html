@@ -21,6 +21,7 @@
     <tbody class="divide-y divide-gray-100">
         {% for v in values %}
         <tr id="row-{{ loop.index }}" class="cursor-pointer hover:bg-blue-50"
+            data-hodnota="{{ '__null__' if v.value is none else v.value }}"
             onclick="toggleDetail({{ loop.index }}, '{{ field_key }}', '{{ '__null__' if v.value is none else v.value|urlencode }}')">
             <td class="px-3 py-2 text-gray-800">
                 <div class="flex items-center gap-2">
@@ -134,5 +135,51 @@ function submitBulkEdit(form, idx) {
         return false;
     }
 }
+
+function sortBulkCol(th) {
+    var table = th.closest('table');
+    var tbody = table.querySelector('tbody');
+    var col = parseInt(th.dataset.col);
+    var type = th.dataset.type;
+    var asc = th.dataset.dir !== 'asc';
+    th.dataset.dir = asc ? 'asc' : 'desc';
+
+    // Reset arrows in sibling headers
+    th.closest('tr').querySelectorAll('.sort-arrow').forEach(function(s) { s.textContent = ''; });
+    th.querySelector('.sort-arrow').textContent = asc ? ' \u25B2' : ' \u25BC';
+
+    var rows = Array.from(tbody.querySelectorAll('tr'));
+    rows.sort(function(a, b) {
+        var cellA = a.children[col];
+        var cellB = b.children[col];
+        var va, vb;
+        if (type === 'num') {
+            va = parseFloat((cellA.dataset.v || cellA.textContent).replace(/\s/g, '').replace(',', '.')) || 0;
+            vb = parseFloat((cellB.dataset.v || cellB.textContent).replace(/\s/g, '').replace(',', '.')) || 0;
+            return asc ? va - vb : vb - va;
+        }
+        va = (cellA.textContent || '').trim().toLowerCase();
+        vb = (cellB.textContent || '').trim().toLowerCase();
+        if (va === vb) return 0;
+        if (va === '\u2014' || va === '') return 1;
+        if (vb === '\u2014' || vb === '') return -1;
+        return asc ? va.localeCompare(vb, 'cs') : vb.localeCompare(va, 'cs');
+    });
+    rows.forEach(function(r) { tbody.appendChild(r); });
+}
+
+// Auto-expand row if hodnota is in URL (back navigation)
+(function() {
+    var params = new URLSearchParams(window.location.search);
+    var hodnota = params.get('hodnota');
+    if (!hodnota) return;
+    var rows = document.querySelectorAll('[data-hodnota]');
+    for (var i = 0; i < rows.length; i++) {
+        if (rows[i].dataset.hodnota === hodnota) {
+            rows[i].click();
+            break;
+        }
+    }
+})();
 </script>
 {% endif %}

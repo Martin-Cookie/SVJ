@@ -291,7 +291,9 @@ async def unit_detail(
     if not unit:
         return RedirectResponse("/jednotky", status_code=302)
 
-    if "/vlastnici/" in back:
+    if "/sprava/hromadne" in back:
+        back_label = "Zpět na hromadné úpravy"
+    elif "/vlastnici/" in back:
         back_label = "Zpět na detail vlastníka"
     elif back.startswith("/vlastnici"):
         back_label = "Zpět na seznam vlastníků"

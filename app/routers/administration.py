@@ -610,6 +610,8 @@ async def bulk_edit_records(
     model = Unit if field_info["model"] == "unit" else OwnerUnit
     col = getattr(model, field_info["column"])
 
+    back_url = f"/sprava/hromadne-upravy?pole={pole}&hodnota={hodnota}"
+
     if model == Unit:
         q = db.query(Unit).options(joinedload(Unit.owners).joinedload(OwnerUnit.owner))
         if is_null:
@@ -619,6 +621,7 @@ async def bulk_edit_records(
         records = q.order_by(Unit.unit_number).all()
         return templates.TemplateResponse("administration/bulk_edit_records.html", {
             "request": request, "records": records, "model_type": "unit",
+            "back_url": back_url,
         })
     else:
         q = (
@@ -632,6 +635,7 @@ async def bulk_edit_records(
         records = q.order_by(OwnerUnit.unit_id).all()
         return templates.TemplateResponse("administration/bulk_edit_records.html", {
             "request": request, "records": records, "model_type": "owner_unit",
+            "back_url": back_url,
         })
 
 
