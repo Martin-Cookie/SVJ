@@ -77,16 +77,18 @@ Aplikace běží na http://localhost:8000
 - Generování personalizovaných PDF lístků pro každého vlastníka
 - Seznam hlasování s výsledky po bodech (PRO/PROTI/Zdržel se s procenty)
 - Filtrační bubliny dle stavu hlasování (vše, koncept, aktivní, uzavřeno, zrušeno)
-- Detail hlasování: vyhledávání v bodech + řazení sloupců (HTMX partial)
-- Status bubliny s prokliky (celkem, zbývá zpracovat, odesláno, zpracováno, neodevzdané, kvórum)
+- Sdílený header na všech stránkách hlasování (partial `_voting_header.html`)
+- Status bubliny fixně nahoře (celkem, zbývá zpracovat, odesláno, zpracováno, neodevzdané, kvórum) — nescrollují se
+- Aktivní bublina zvýrazněna ring-2 dle aktuální stránky/filtru
 - Viditelnost UI dle stavu: koncept zobrazuje správu bodů + generování, po generování výsledky + zpracování
-- Seznam lístků s filtračními bublinami (stav), vyhledáváním vlastníka a řazením sloupců
+- Detail hlasování: vyhledávání v bodech + řazení sloupců (HTMX partial)
+- Seznam lístků s vyhledáváním vlastníka a řazením sloupců
 - Detail hlasovacího lístku s prokliky na vlastníka
 - Zpracování lístků: zadání hlasů (PRO/PROTI/Zdržel se) s vyhledáváním vlastníka
+- Neodevzdané lístky s vyhledáváním vlastníka
 - Sčítání hlasů a výpočet kvóra
 - Podpora hlasování v zastoupení (plné moci)
 - Stavy hlasování: koncept → aktivní → uzavřené / zrušené
-- Přehled neodevzdaných lístků (bublina v detailu hlasování)
 
 ### D. Rozúčtování příjmů (`/dane`)
 
@@ -189,16 +191,18 @@ app/
 │   │   ├── list.html          #     Seznam jednotek
 │   │   └── detail.html        #     Detail jednotky
 │   ├── voting/                #   Stránky hlasování
+│   │   ├── _voting_header.html#     Sdílený header (title, bubliny) — fixní
 │   │   ├── index.html         #     Seznam hlasování
 │   │   ├── create.html        #     Vytvoření hlasování
-│   │   ├── detail.html        #     Detail hlasování
-│   │   ├── ballots.html       #     Seznam lístků (bubliny + search + sort)
-│   │   ├── ballots_table.html #     HTMX: tbody řádky lístků
+│   │   ├── detail.html        #     Detail hlasování (výsledky po bodech)
 │   │   ├── detail_results.html#     HTMX: tbody řádky výsledků
+│   │   ├── ballots.html       #     Seznam lístků (search + sort)
+│   │   ├── ballots_table.html #     HTMX: tbody řádky lístků
 │   │   ├── ballot_detail.html #     Detail hlasovacího lístku
 │   │   ├── process.html       #     Zpracování lístků (search)
 │   │   ├── process_cards.html #     HTMX: karty lístků ke zpracování
-│   │   └── not_submitted.html #     Neodevzdané lístky
+│   │   ├── not_submitted.html #     Neodevzdané lístky (search)
+│   │   └── not_submitted_table.html # HTMX: tbody řádky neodevzdaných
 │   ├── tax/                   #   Stránky daní
 │   │   ├── index.html         #     Seznam rozúčtování
 │   │   ├── upload.html        #     Nahrání PDF
