@@ -334,9 +334,10 @@ LIBREOFFICE_PATH=/Applications/LibreOffice.app/Contents/MacOS/soffice
 
 ## UI vzory
 
+- **Dashboard** — přehled s klikacími bublinami (vlastníci, jednotky, hlasování) a modulovými kartami, vše dynamicky roztažené na šířku; bublina hlasování zobrazuje seznam aktivních/konceptových hlasování se stavem a názvem (truncate + tooltip)
 - **Sidebar navigace** — fixní levý panel (w-44) s ikonami a sekcemi
 - **Filtrační bubliny** — klikací filtry nad tabulkou s počty záznamů, dynamicky roztažené na celou šířku, rozdělené bubliny (s/bez emailu, s/bez telefonu)
-- **Back URL řetěz** — zachování filtrů při navigaci mezi seznamem, detailem vlastníka a detailem jednotky (víceúrovňový back parametr)
+- **Back URL řetěz** — zachování filtrů a šipky "Zpět na přehled" při navigaci dashboard → seznam → detail → zpět přes celý řetěz (parametr `back` propagován přes bubliny, hledání, řazení, HTMX a detailové odkazy)
 - **Sticky hlavičky** — záhlaví tabulek zůstává viditelné při scrollu
 - **HTMX inline editace** — formuláře pro kontakty, adresy a údaje jednotek se přepínají bez reloadu
 - **Dvousloupcový layout** — formulář vlevo + historie vpravo (import, kontrola)
