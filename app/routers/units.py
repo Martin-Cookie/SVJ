@@ -222,6 +222,11 @@ async def unit_list(
             query = query.order_by(sort_col.asc().nulls_last())
         units = query.all()
 
+    # Current list URL for back navigation
+    list_url = str(request.url.path)
+    if request.url.query:
+        list_url += "?" + str(request.url.query)
+
     # HTMX partial
     is_htmx = request.headers.get("HX-Request")
     is_boosted = request.headers.get("HX-Boosted")
@@ -229,6 +234,7 @@ async def unit_list(
         return templates.TemplateResponse("partials/unit_table_body.html", {
             "request": request,
             "units": units,
+            "list_url": list_url,
         })
 
     # Stats
@@ -254,6 +260,7 @@ async def unit_list(
         "request": request,
         "active_nav": "units",
         "units": units,
+        "list_url": list_url,
         "q": q,
         "typ": typ,
         "sekce": sekce,
@@ -284,6 +291,8 @@ async def unit_detail(
 
     if "/vlastnici/" in back:
         back_label = "Zpět na detail vlastníka"
+    elif back.startswith("/vlastnici"):
+        back_label = "Zpět na seznam vlastníků"
     elif "/synchronizace/" in back:
         back_label = "Zpět na porovnání"
     elif back:

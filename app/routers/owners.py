@@ -32,6 +32,8 @@ async def owner_list(
     request: Request,
     q: str = Query("", alias="q"),
     owner_type: str = Query("", alias="typ"),
+    vlastnictvi: str = Query("", alias="vlastnictvi"),
+    kontakt: str = Query("", alias="kontakt"),
     sekce: str = Query("", alias="sekce"),
     sort: str = Query("name", alias="sort"),
     order: str = Query("asc", alias="order"),
@@ -56,6 +58,24 @@ async def owner_list(
         )
     if owner_type:
         query = query.filter(Owner.owner_type == owner_type)
+    if vlastnictvi == "_empty":
+        query = query.filter(
+            Owner.units.any(
+                (OwnerUnit.ownership_type.is_(None)) | (OwnerUnit.ownership_type == "")
+            )
+        )
+    elif vlastnictvi:
+        query = query.filter(
+            Owner.units.any(OwnerUnit.ownership_type == vlastnictvi)
+        )
+    if kontakt == "s_emailem":
+        query = query.filter(Owner.email.isnot(None), Owner.email != "")
+    elif kontakt == "bez_emailu":
+        query = query.filter((Owner.email.is_(None)) | (Owner.email == ""))
+    elif kontakt == "s_telefonem":
+        query = query.filter(Owner.phone.isnot(None), Owner.phone != "")
+    elif kontakt == "bez_telefonu":
+        query = query.filter((Owner.phone.is_(None)) | (Owner.phone == ""))
     if sekce:
         query = query.filter(
             Owner.units.any(OwnerUnit.unit.has(Unit.section == sekce))
@@ -90,6 +110,11 @@ async def owner_list(
     else:
         owners = query.order_by(Owner.name_normalized).all()
 
+    # Current list URL for back navigation
+    list_url = str(request.url.path)
+    if request.url.query:
+        list_url += "?" + str(request.url.query)
+
     # Return partial only for targeted HTMX requests (search/filter), not boosted navigation
     is_htmx = request.headers.get("HX-Request")
     is_boosted = request.headers.get("HX-Boosted")
@@ -97,6 +122,7 @@ async def owner_list(
         return templates.TemplateResponse("partials/owner_table_body.html", {
             "request": request,
             "owners": owners,
+            "list_url": list_url,
         })
 
     # Stats for header
@@ -118,17 +144,36 @@ async def owner_list(
         Owner.email.isnot(None),
         Owner.email != "",
     ).count()
+    phones_count = db.query(Owner).filter(
+        Owner.is_active == True,
+        Owner.phone.isnot(None),
+        Owner.phone != "",
+    ).count()
 
     total_scd = db.query(func.sum(OwnerUnit.votes)).scalar() or 0
     svj_info = db.query(SvjInfo).first()
     declared_shares = svj_info.total_shares if svj_info and svj_info.total_shares else 0
 
+    # Ownership type counts
+    ownership_counts_raw = (
+        db.query(
+            func.coalesce(OwnerUnit.ownership_type, ""),
+            func.count(func.distinct(OwnerUnit.owner_id)),
+        )
+        .group_by(func.coalesce(OwnerUnit.ownership_type, ""))
+        .all()
+    )
+    ownership_counts = {ot or "": cnt for ot, cnt in ownership_counts_raw}
+
     return templates.TemplateResponse("owners/list.html", {
         "request": request,
         "active_nav": "owners",
         "owners": owners,
+        "list_url": list_url,
         "q": q,
         "owner_type": owner_type,
+        "vlastnictvi": vlastnictvi,
+        "kontakt": kontakt,
         "sekce": sekce,
         "sort": sort,
         "order": order,
@@ -139,8 +184,10 @@ async def owner_list(
             "type_counts": type_counts,
             "sections": sections,
             "emails_count": emails_count,
+            "phones_count": phones_count,
             "total_scd": total_scd,
             "declared_shares": declared_shares,
+            "ownership_counts": ownership_counts,
         },
     })
 
@@ -293,6 +340,7 @@ async def owner_detail(
         "back_url": back or "/vlastnici",
         "back_label": (
             "Zpět na detail jednotky" if "/jednotky/" in back
+            else "Zpět na seznam jednotek" if back.startswith("/jednotky")
             else "Zpět na porovnání" if "/synchronizace/" in back
             else "Zpět na hlasovací lístek" if "/hlasovani/" in back
             else "Zpět na seznam vlastníků"
