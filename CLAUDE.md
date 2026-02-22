@@ -1,5 +1,11 @@
 # SVJ Projekt — pravidla pro vývoj
 
+## URL konvence
+
+- Všechny URL cesty používají **české slugy bez diakritiky**: `/vlastnici`, `/jednotky`, `/hlasovani`, `/dane`, `/synchronizace`, `/sprava`, `/nastaveni`
+- Sub-endpointy: `/nova` (create), `/smazat` (delete), `/upravit` (edit), `/pridat` (add), `/potvrdit` (confirm), `/odebrat` (remove), `/exportovat` (export), `/aktualizovat` (update)
+- Nikdy nepoužívat angličtinu v URL cestách
+
 ## Navigace a back URL
 
 - Každý odkaz z dashboardu na seznam/modul musí obsahovat `?back=/`
@@ -17,7 +23,16 @@
   - `_back` helper proměnná v šabloně: `{% set _back = "&back=" ~ (back_url|default('')|urlencode) if back_url else "" %}`
 - Detailová stránka vždy přijímá `back` query parametr a zobrazuje šipku zpět
 - Při vícenásobném zanoření (seznam → detail → detail) se back URL řetězí: `?back={{ ('/aktualni/url?back=' ~ (back_url|urlencode))|urlencode }}`
-- Back label se nastavuje dynamicky podle cílové URL (např. "Zpět na přehled", "Zpět na seznam vlastníků", "Zpět na detail vlastníka")
+- Back label se nastavuje dynamicky podle cílové URL pomocí řetězených `if/elif` s `in` nebo `.startswith()`:
+  ```python
+  back_label = (
+      "Zpět na hromadné úpravy" if "/sprava/hromadne" in back
+      else "Zpět na detail jednotky" if "/jednotky/" in back
+      else "Zpět na seznam jednotek" if back.startswith("/jednotky")
+      else "Zpět na seznam vlastníků"
+  )
+  ```
+- `list_url` = URL aktuální stránky s query parametry (pro odkazy na detail, teče dopředu). `back_url` = příchozí `back` parametr (pro šipku zpět, teče dozadu). Nikdy nezaměňovat
 - Pokud stránka má expandovatelné řádky (např. hromadné úpravy), back URL musí obsahovat i identifikátor rozbalené položky (např. `&hodnota=SJM`)
 - Cílová stránka pak automaticky rozbalí odpovídající řádek pomocí skriptu:
   ```javascript
@@ -59,6 +74,13 @@
 - Souhrnný řádek (`<tfoot>`) pod tabulkami kde to dává smysl (celkový podíl, plocha, procenta)
 - `table-layout: fixed` s `<colgroup>` pro přesné šířky sloupců
 
+## Detail stránka — layout
+
+- (1) Šipka zpět: `<a href="{{ back_url }}" class="text-sm text-gray-500 hover:text-gray-700">&larr; {{ back_label }}</a>`
+- (2) Titulek: `<h1 class="text-2xl font-bold text-gray-800">`
+- (3) Badge pod titulem: `<div class="mt-1 flex items-center gap-2">` s `rounded-full` badge
+- (4) Obsah v grid layoutu pod tím
+
 ## Formátování čísel a dat
 
 - Tisíce se oddělují mezerou: `"{:,}".format(x).replace(",", " ")`
@@ -67,6 +89,25 @@
 - Barevné kódování rozdílů: červená (`text-red-600`) pro záporné, modrá (`text-blue-600`) pro kladné, zelená (`text-green-600`) pro nulu
 - Datum ve formátu `dd.mm.YYYY`: `strftime('%d.%m.%Y')`
 - Pomlčka `—` pro chybějící hodnoty (ne prázdný řetězec)
+
+## Status badge barvy
+
+- Tvar: `<span class="px-2 py-1 text-xs font-medium bg-{color}-100 text-{color}-800 rounded-full">`
+- Barevná mapa: šedá = draft/neutrální, zelená = active/success, modrá = closed/info, červená = error/cancelled, žlutá = pending/warning
+- Vždy `rounded-full`, nikdy `rounded`
+
+## Prázdné stavy
+
+- Kontejner: `text-center text-gray-500 text-sm` s paddingem
+- Vždy obsahuje akční odkaz (`text-blue-600 hover:underline`) navádějící uživatele k naplnění sekce
+- Pro inline prázdné stavy (uvnitř karet): `text-sm text-gray-400`
+
+## Formulářové styly
+
+- Inputy: `border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500`
+- Primary button: `bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium`
+- Cancel button: `bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm font-medium`
+- Danger button: `bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium`
 
 ## Statistiky podílů
 
@@ -137,7 +178,7 @@ Vzor se skládá ze dvou partials (info + form) a tří endpointů:
 - `hx-push-url="true"` na vyhledávání a filtrech — aby se URL aktualizovala v prohlížeči
 - `hx-confirm` pro destruktivní akce (smazání, odebrání)
 - Hidden inputy pro přenos stavu filtrů při HTMX požadavcích
-- `hx-boost="false"` je **POVINNÉ** na: formuláře stahující soubory (Excel, ZIP, PDF), formuláře s file uploadem, a POST formuláře které vracejí binární data
+- `hx-boost="false"` je **POVINNÉ** na: formuláře stahující soubory (Excel, ZIP, PDF), formuláře s file uploadem, POST formuláře které vracejí binární data, a formuláře s `onsubmit="return confirm(...)"`
 - Bez `hx-boost="false"` HTMX zachytí odpověď a pokusí se ji swapnout jako HTML — binární data tiše selžou
 
 ### Co používá HTMX partial (hx-get + hx-target) a co plain href (hx-boost)
@@ -190,11 +231,21 @@ Vzor se skládá ze dvou partials (info + form) a tří endpointů:
 
 ## SQLAlchemy vzory
 
+- Projekt používá **SQLite** (`data/svj.db`) s `check_same_thread=False`
+- `DeclarativeBase` z SQLAlchemy 2.0 pro modely, ale **legacy query API** (`db.query()`) pro všechny dotazy — nepřecházet na `select()` style
+- `db.query(Model).get(id)` pro PK lookup, `.filter_by(...).first()` pro složitější dotazy
 - `case()` se importuje přímo ze `sqlalchemy`, ne přes `func.case()`
 - `func.coalesce(field, "")` pro seskupování NULL a prázdných řetězců (např. ownership_type)
 - `func.distinct()` v agregacích pro počítání unikátních záznamů
 - `joinedload()` pro eager loading relací (předchází N+1 queries)
 - Číslo jednotky (`unit_number`) je INTEGER (ne string)
+
+### Modely — konvence
+
+- Enumy dědí z `(str, enum.Enum)`, členové UPPERCASE, hodnoty lowercase anglicky: `DRAFT = "draft"`
+- Timestamp sloupce: editovatelné entity mají `created_at` + `updated_at` s `onupdate=datetime.utcnow`. Logy mají pouze `created_at`. Vždy `datetime.utcnow`
+- Cascade: parent→child relace `cascade="all, delete-orphan"`, child→parent plain `back_populates`
+- Každý nový model/enum přidat do importů i `__all__` v `app/models/__init__.py`. Routery importují z `app.models`, nikdy z `app.models.specific_file`
 
 ### Databázové indexy
 
@@ -203,6 +254,39 @@ Vzor se skládá ze dvou partials (info + form) a tří endpointů:
 - **SQLAlchemy `create_all()` NEPŘIDÁ indexy na existující tabulky** — pouze na nově vytvořené
 - Pro přidání indexů na existující tabulky: `CREATE INDEX IF NOT EXISTS` v `_ensure_indexes()` funkci v `main.py`
 - Při přidání nového `index=True` do modelu VŽDY přidat i odpovídající `CREATE INDEX IF NOT EXISTS` do `_ensure_indexes()`
+
+## Router vzory
+
+### Boilerplate
+- Každý router: `router = APIRouter()` + `templates = Jinja2Templates(directory="app/templates")`
+- Žádné prefixy na `APIRouter()` — všechny prefixy v `main.py` přes `include_router(prefix=...)`
+- Každý `TemplateResponse` musí obsahovat `"active_nav": "module_key"` pro zvýraznění sidebaru
+
+### POST-Redirect-GET (PRG)
+- Všechny POST endpointy po mutaci: `RedirectResponse(url, status_code=302)` pro non-HTMX requesty
+- Pro HTMX requesty: vrací partial šablonu místo redirectu
+- Vždy `status_code=302`, nikdy 303 nebo 301
+
+### Entity not found → redirect
+- Když `db.query(Model).get(id)` vrátí `None`: `RedirectResponse("/seznam", status_code=302)`
+- Nikdy `HTTPException(404)` — uživatel je tiše přesměrován na seznam
+
+### Flash zprávy
+- Předávají se jako `flash_message` + `flash_type` (`"error"`, `"warning"`, nebo default zelená) v kontextu šablony
+- Pro zprávy přes redirect: query parametry (např. `?chyba=prazdna`)
+- Projekt NEPOUŽÍVÁ session-based flash messaging
+
+### Řazení — `SORT_COLUMNS` dictionary
+- Modul-level `SORT_COLUMNS` dict mapující sort parametry na SQLAlchemy sloupce (nebo `None` pro Python-side sort)
+- SQL sorty vždy s `.nulls_last()`
+- Python-side sort: `items.sort(key=lambda x: ..., reverse=(order == "desc"))`
+
+### Helper funkce v routerech
+- Interní helper funkce mají prefix `_` (např. `_ballot_stats`, `_purge_counts`)
+- Vrací dict, který se rozbalí do template kontextu: `**_ballot_stats(voting)`
+
+### Dynamické formuláře
+- `Form(...)` pro fixní pole. `await request.form()` + `.get()`/`.getlist()` pro dynamické názvy polí (např. `vote_5`, `update__12__field`)
 
 ## Nové moduly / entity
 
@@ -223,6 +307,7 @@ Vzor se skládá ze dvou partials (info + form) a tří endpointů:
 - Export modelů v `app/models/__init__.py`
 - Odkaz v sidebar (`base.html`) s `active_nav` kontrolou
 - Přidání do README.md (popis modulu + API endpointy)
+- Odkaz v sidebaru (`base.html`): sekce Data (nahoře), Moduly (doménové funkce), Systém (admin/config). Ikona `w-4 h-4 mr-2` SVG + text label
 
 ## Akce v tabulkách — ikony místo textu
 
@@ -239,14 +324,37 @@ Vzor se skládá ze dvou partials (info + form) a tří endpointů:
 - Export musí vždy odrážet **aktuální filtrovaný pohled** — ne všechna data
 - Filtr se přenáší přes hidden input ve formuláři: `<input type="hidden" name="filtr" value="{{ filtr }}">`
 - Export endpoint aplikuje **stejnou logiku filtrování** jako zobrazovací endpoint
-- Rozdíly/nesrovnalosti se zvýrazňují žlutou výplní (`PatternFill(fgColor="FFFF00")`)
+- Generování přes `openpyxl` (ne pandas): bold hlavička (`Font(bold=True)`), auto-width sloupců (max 45 znaků), žlutá `PatternFill` pro zvýraznění rozdílů
 - Formulář exportu musí mít `hx-boost="false"` (viz HTMX vzory)
+- Response: `media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"`
 
 ## Mazání dat (purge)
 
 - Kategorie nejsou jen DB modely — mohou být i souborové (zálohy = ZIP soubory, historie obnovení = JSON soubor)
 - Pro souborové kategorie: `_purge_counts()` počítá soubory na disku, `purge_data()` maže soubory/složky
 - Pořadí mazání (`_PURGE_ORDER`) respektuje závislosti — FK reference se mažou první
+
+## Upload souborů
+
+- Ukládání: `{YYYYMMDD_HHMMSS}_{original_filename}` do podadresáře `settings.upload_dir`
+- Podadresáře: `excel/`, `word_templates/`, `scanned_ballots/`, `tax_pdfs/`, `csv/`
+- Zápis přes `shutil.copyfileobj(file.file, f)` + `dest.parent.mkdir(parents=True, exist_ok=True)`
+- Multi-step import workflow: Upload → Preview → Confirm. Cesta k souboru se předává jako hidden field, ne přes session
+
+## Mazání entit se soubory
+
+- Při smazání entity s `*_path` sloupci: `try: Path(path).unlink() except Exception: pass`
+- Selhání file cleanup nikdy neblokuje DB delete
+
+## Potvrzení destruktivních akcí
+
+- Standardní: `onsubmit="return confirm('Česká otázka?')"` na formuláři
+- Kritické operace (purge): textový input s klíčovým slovem (`DELETE`) + disabled tlačítko, které se aktivuje až po zadání
+
+## Kolapsovatelné sekce
+
+- `<details class="mb-6 group">` s `<summary>` obsahující chevron SVG rotovaný přes `group-open:rotate-90`
+- Otevření z redirectu: query parametr + podmíněný `open` atribut: `{% if sekce == 'zalohy' %}open{% endif %}`
 
 ## Hromadný výběr (checkbox "Vybrat/Zrušit vše")
 
@@ -259,6 +367,31 @@ Vzor se skládá ze dvou partials (info + form) a tří endpointů:
   - Uložit: při každé změně checkboxu (`saveBulkChecks`)
   - Obnovit: po načtení nového HTML (`restoreBulkChecks`)
   - Select-all checkbox: synchronizovat `checked` / `indeterminate` stav po obnovení
+
+## Service layer
+
+- Služby jsou **plain funkce** (ne třídy), přijímají `db: Session` jako parametr od routeru
+- Vrací plain dict/list (žádné custom result třídy)
+- Nikdy nevytvářejí DB session — vždy přijímají z volajícího
+
+## JavaScript
+
+- Stránkový JS jde do `<script>` na konci `{% block content %}` — ne do separátních `.js` souborů
+- Vanilla JS only (žádný jQuery, žádné external knihovny kromě HTMX)
+- `/static/js/app.js` pouze pro HTMX globální handlery
+- Jinja2 macro je OK pro opakující se UI struktury v rámci jedné šablony, pokud všechna data přijdou jako parametry macro
+
+## Technologie
+
+- Tailwind CSS z CDN (`cdn.tailwindcss.com`) — žádný build pipeline
+- HTMX z CDN (`unpkg.com`)
+- Custom CSS pouze pro HTMX animace (`custom.css`, ~17 řádků)
+- Vše stylováno přes Tailwind utility classes
+
+## Startup (lifespan)
+
+- `main.py` lifespan: (1) import modelů, (2) `create_all`, (3) migrace, (4) `_ensure_indexes()`, (5) vytvoření upload/generated adresářů
+- Nové funkce vyžadující adresáře: přidat do lifespan. Nové indexy: přidat do `_ensure_indexes()`
 
 ## Workflow
 
