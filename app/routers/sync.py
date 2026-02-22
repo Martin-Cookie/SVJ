@@ -105,7 +105,7 @@ async def sync_create(
             unit_num = str(ou.unit.unit_number)
             excel_data.append({
                 "unit_number": unit_num,
-                "owner_name": owner.name_with_titles,
+                "owner_name": owner.display_name,
                 "name_normalized": owner.name_normalized,
                 "owner_type": owner.owner_type.value,
                 "space_type": ou.unit.space_type or "",

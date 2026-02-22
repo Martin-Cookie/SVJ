@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{{ owner.name_with_titles }} - SVJ Správa{% endblock %}
+{% block title %}{{ owner.display_name }} - SVJ Správa{% endblock %}
 
 {% block content %}
 <div class="mb-6">
@@ -8,7 +8,7 @@
 
 <div class="flex items-start justify-between mb-6">
     <div>
-        <h1 class="text-2xl font-bold text-gray-800">{{ owner.name_with_titles }}</h1>
+        <h1 class="text-2xl font-bold text-gray-800">{{ owner.display_name }}</h1>
         <div class="mt-1 flex items-center gap-2">
             {% if owner.owner_type.value == 'legal' %}
             <span class="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">Právnická osoba</span>

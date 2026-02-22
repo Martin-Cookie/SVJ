@@ -157,14 +157,14 @@ def _normalize_ownership_type(raw: str | None) -> str | None:
 
 
 def _build_name_with_titles(title: str | None, first_name: str, last_name: str | None) -> str:
-    """Build display name with titles."""
+    """Build display name: title + příjmení + jméno."""
     parts = []
     if title:
         parts.append(title)
-    if first_name:
-        parts.append(first_name)
     if last_name:
         parts.append(last_name)
+    if first_name:
+        parts.append(first_name)
     return " ".join(parts)
 
 

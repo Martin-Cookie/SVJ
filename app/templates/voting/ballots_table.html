@@ -6,7 +6,7 @@
 <tr class="hover:bg-gray-50">
     <td class="px-4 py-2">
         <a href="/hlasovani/{{ voting.id }}/listek/{{ ballot.id }}" class="font-medium text-blue-600 hover:text-blue-800 hover:underline">
-            {{ ballot.owner.name_with_titles }}
+            {{ ballot.owner.display_name }}
         </a>
     </td>
     <td class="px-4 py-2 text-gray-500">{{ ballot.units_text }}</td>

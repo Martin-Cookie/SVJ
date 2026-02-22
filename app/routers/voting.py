@@ -362,7 +362,7 @@ async def ballot_list(
         q_lower = q.lower()
         ballots = [
             b for b in ballots
-            if q_lower in (b.owner.name_with_titles or "").lower()
+            if q_lower in (b.owner.display_name or "").lower()
             or q_lower in (b.units_text or "").lower()
         ]
 
@@ -424,6 +424,8 @@ async def process_page(
     voting_id: int,
     request: Request,
     q: str = Query(""),
+    sort: str = Query("owner"),
+    order: str = Query("asc"),
     db: Session = Depends(get_db),
 ):
     voting = db.query(Voting).options(
@@ -434,10 +436,31 @@ async def process_page(
     if not voting:
         return RedirectResponse("/hlasovani", status_code=302)
 
-    # Get ballots that need processing (generated or sent)
+    # Direct DB query: ballot IDs that already have any vote recorded
+    ballots_with_votes = set(
+        row[0] for row in db.query(BallotVote.ballot_id)
+        .filter(BallotVote.vote.isnot(None))
+        .filter(BallotVote.ballot_id.in_([b.id for b in voting.ballots]))
+        .all()
+    )
+
+    # Auto-fix: mark ballots with votes but wrong status as PROCESSED
+    fixed = False
+    for b in voting.ballots:
+        if b.id in ballots_with_votes and b.status in (
+            BallotStatus.GENERATED, BallotStatus.SENT, BallotStatus.RECEIVED,
+        ):
+            b.status = BallotStatus.PROCESSED
+            b.processed_at = b.processed_at or datetime.utcnow()
+            fixed = True
+    if fixed:
+        db.commit()
+
+    # Get ballots that need processing (not processed, no votes)
     unprocessed = [
         b for b in voting.ballots
         if b.status in (BallotStatus.GENERATED, BallotStatus.SENT, BallotStatus.RECEIVED)
+        and b.id not in ballots_with_votes
     ]
 
     # Search filter
@@ -445,9 +468,18 @@ async def process_page(
         q_lower = q.lower()
         unprocessed = [
             b for b in unprocessed
-            if q_lower in (b.owner.name_with_titles or "").lower()
+            if q_lower in (b.owner.display_name or "").lower()
             or q_lower in (b.units_text or "").lower()
         ]
+
+    # Sort
+    sort_keys = {
+        "owner": lambda b: (b.owner.name_normalized or "").lower(),
+        "units": lambda b: b.units_text or "",
+        "votes": lambda b: b.total_votes,
+    }
+    key_fn = sort_keys.get(sort, sort_keys["owner"])
+    unprocessed.sort(key=key_fn, reverse=(order == "desc"))
 
     ctx = {
         "request": request,
@@ -456,6 +488,8 @@ async def process_page(
         "unprocessed": unprocessed,
         "active_bubble": "",
         "q": q,
+        "sort": sort,
+        "order": order,
         **_ballot_stats(voting),
     }
 
@@ -497,6 +531,46 @@ async def process_ballot(
     referer = request.headers.get("referer", "")
     if f"/listek/{ballot_id}" in referer:
         return RedirectResponse(f"/hlasovani/{voting_id}/listek/{ballot_id}", status_code=302)
+    return RedirectResponse(f"/hlasovani/{voting_id}/zpracovani", status_code=302)
+
+
+@router.post("/{voting_id}/zpracovat-hromadne")
+async def process_ballots_bulk(
+    voting_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Batch process multiple ballots with the same votes."""
+    form_data = await request.form()
+    ballot_ids_raw = form_data.get("ballot_ids", "")
+    ballot_ids = [int(x) for x in ballot_ids_raw.split(",") if x.strip()]
+
+    if not ballot_ids:
+        return RedirectResponse(f"/hlasovani/{voting_id}/zpracovani", status_code=302)
+
+    voting = db.query(Voting).options(joinedload(Voting.items)).get(voting_id)
+    if not voting:
+        return RedirectResponse("/hlasovani", status_code=302)
+
+    ballots = (
+        db.query(Ballot).options(joinedload(Ballot.votes))
+        .filter(Ballot.id.in_(ballot_ids), Ballot.voting_id == voting_id)
+        .all()
+    )
+
+    count = 0
+    for ballot in ballots:
+        for bv in ballot.votes:
+            vote_key = f"vote_{bv.voting_item_id}"
+            vote_value = form_data.get(vote_key)
+            if vote_value:
+                bv.vote = VoteValue(vote_value)
+                bv.manually_verified = True
+        ballot.status = BallotStatus.PROCESSED
+        ballot.processed_at = datetime.utcnow()
+        count += 1
+
+    db.commit()
     return RedirectResponse(f"/hlasovani/{voting_id}/zpracovani", status_code=302)
 
 
@@ -573,7 +647,7 @@ async def not_submitted(
         q_lower = q.lower()
         missing = [
             b for b in missing
-            if q_lower in (b.owner.name_with_titles or "").lower()
+            if q_lower in (b.owner.display_name or "").lower()
             or q_lower in (b.units_text or "").lower()
         ]
 

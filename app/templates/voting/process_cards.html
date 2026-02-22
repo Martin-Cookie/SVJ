@@ -1,24 +1,22 @@
 {% for ballot in unprocessed %}
-<div id="ballot-{{ ballot.id }}" class="bg-white rounded-lg shadow p-6">
-    <div class="flex items-center justify-between mb-4">
-        <div>
-            <h3 class="font-semibold text-gray-800">{{ ballot.owner.name_with_titles }}</h3>
+<div id="ballot-{{ ballot.id }}" class="bg-white rounded-lg shadow p-4">
+    <div class="flex items-center gap-3 mb-3">
+        <input type="checkbox" class="ballot-cb rounded text-blue-600 focus:ring-blue-500"
+               value="{{ ballot.id }}" onchange="toggleBallot(this)">
+        <div class="flex-1">
+            <h3 class="font-semibold text-gray-800">{{ ballot.owner.display_name }}</h3>
             <p class="text-sm text-gray-500">
                 Jednotky: {{ ballot.units_text }} | Hlasů: {{ "{:,}".format(ballot.total_votes).replace(",", " ") }}
                 {% if ballot.voted_by_proxy %} | Plná moc: {{ ballot.proxy_holder_name }}{% endif %}
             </p>
         </div>
-        {% if ballot.status.value == 'processed' %}
-        <span class="px-3 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">Zpracováno</span>
-        {% endif %}
     </div>
 
-    {% if ballot.status.value != 'processed' %}
     <form hx-post="/hlasovani/{{ voting.id }}/zpracovat/{{ ballot.id }}"
           hx-target="#ballot-{{ ballot.id }}" hx-swap="outerHTML">
-        <div class="space-y-3">
+        <div class="space-y-2">
             {% for item in voting.items %}
-            <div class="flex items-center justify-between py-2 border-b border-gray-100">
+            <div class="flex items-center justify-between py-1.5 border-b border-gray-100">
                 <span class="text-sm text-gray-700">
                     <strong>{{ item.order }}.</strong> {{ item.title }}
                 </span>
@@ -42,17 +40,12 @@
             </div>
             {% endfor %}
         </div>
-        <div class="mt-4">
-            <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium">
+        <div class="mt-3">
+            <button type="submit" class="px-4 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium">
                 Potvrdit zpracování
             </button>
         </div>
     </form>
-    {% else %}
-    <div class="text-sm text-green-600">
-        Zpracováno {{ ballot.processed_at.strftime('%d.%m.%Y %H:%M') if ballot.processed_at else '' }}
-    </div>
-    {% endif %}
 </div>
 {% endfor %}
 {% if not unprocessed %}

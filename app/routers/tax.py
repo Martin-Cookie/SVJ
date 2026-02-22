@@ -75,7 +75,7 @@ async def tax_create(
     # Get all owners for matching
     owners = db.query(Owner).filter_by(is_active=True).all()
     owner_dicts = [
-        {"id": o.id, "name": o.name_with_titles, "name_normalized": o.name_normalized}
+        {"id": o.id, "name": o.display_name, "name_normalized": o.name_normalized}
         for o in owners
     ]
 

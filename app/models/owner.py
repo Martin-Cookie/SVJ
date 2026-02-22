@@ -60,6 +60,18 @@ class Owner(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+    @property
+    def display_name(self) -> str:
+        """Name in 'příjmení jméno' format with optional title prefix."""
+        parts = []
+        if self.title:
+            parts.append(self.title)
+        if self.last_name:
+            parts.append(self.last_name)
+        if self.first_name:
+            parts.append(self.first_name)
+        return " ".join(parts) if parts else (self.name_with_titles or "")
+
     units = relationship("OwnerUnit", back_populates="owner", cascade="all, delete-orphan")
     ballots = relationship("Ballot", back_populates="owner")
     tax_distributions = relationship("TaxDistribution", back_populates="owner")

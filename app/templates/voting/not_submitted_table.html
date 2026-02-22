@@ -1,6 +1,6 @@
 {% for ballot in missing | sort(attribute='owner.name_normalized') %}
 <tr class="hover:bg-gray-50">
-    <td class="px-6 py-4 text-sm font-medium text-gray-900">{{ ballot.owner.name_with_titles }}</td>
+    <td class="px-6 py-4 text-sm font-medium text-gray-900">{{ ballot.owner.display_name }}</td>
     <td class="px-6 py-4 text-sm text-gray-500">{{ ballot.units_text }}</td>
     <td class="px-6 py-4 text-sm text-gray-500">{{ ballot.owner.email or '—' }}</td>
     <td class="px-6 py-4 text-sm text-gray-500">{{ "{:,}".format(ballot.total_votes).replace(",", " ") }}</td>

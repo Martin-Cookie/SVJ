@@ -11,18 +11,114 @@
 </p>
 
 <!-- Search -->
-<div class="mb-4">
+<div class="mb-3">
     <input type="text" name="q" value="{{ q }}" placeholder="Hledat vlastníka..."
            hx-get="/hlasovani/{{ voting.id }}/zpracovani"
            hx-trigger="keyup changed delay:300ms"
            hx-target="#process-cards"
+           hx-include="[name='sort'],[name='order']"
            hx-push-url="true"
            class="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+    <input type="hidden" name="sort" value="{{ sort }}">
+    <input type="hidden" name="order" value="{{ order }}">
+</div>
+
+<!-- Sort + bulk toolbar -->
+{% set _q = "q=" ~ (q|urlencode) %}
+{% set _svg_up = '<svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L10 6.414l-3.293 3.293a1 1 0 01-1.414 0z"/></svg>' %}
+{% set _svg_down = '<svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path d="M14.707 10.293a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L10 13.586l3.293-3.293a1 1 0 011.414 0z"/></svg>' %}
+<div class="flex items-center gap-4 mb-3 text-xs">
+    <span class="text-gray-400 uppercase font-medium">Řadit dle:</span>
+    {% for label, col in [("Vlastník", "owner"), ("Jednotky", "units"), ("Hlasy", "votes")] %}
+    {% set next_order = "desc" if sort == col and order == "asc" else "asc" %}
+    <a href="/hlasovani/{{ voting.id }}/zpracovani?sort={{ col }}&order={{ next_order }}&{{ _q }}"
+       class="inline-flex items-center gap-0.5 font-medium hover:text-blue-600 select-none {% if sort == col %}text-blue-600{% else %}text-gray-500{% endif %}">
+        {{ label }}
+        {% if sort == col %}{{ (_svg_up if order == "asc" else _svg_down)|safe }}{% endif %}
+    </a>
+    {% endfor %}
+    <span class="ml-auto text-gray-400" id="bulk-counter">{{ unprocessed|length }} lístků</span>
+</div>
+
+<!-- Bulk actions bar (hidden until selection) -->
+<div id="bulk-bar" class="hidden bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
+    <form action="/hlasovani/{{ voting.id }}/zpracovat-hromadne" method="post" id="bulk-form">
+        <input type="hidden" name="ballot_ids" id="bulk-ballot-ids" value="">
+        <div class="flex items-center gap-4 flex-wrap">
+            <span class="text-sm font-medium text-blue-800" id="bulk-selected-count">0 vybráno</span>
+            <button type="button" onclick="bulkSelectAll()" class="text-xs text-blue-600 hover:text-blue-800 font-medium">Označit vše</button>
+            <button type="button" onclick="bulkDeselectAll()" class="text-xs text-gray-500 hover:text-gray-700 font-medium">Zrušit vše</button>
+            <div class="h-4 w-px bg-blue-200"></div>
+            {% for item in voting.items %}
+            <div class="flex items-center gap-2">
+                <span class="text-xs text-gray-600 font-medium">{{ item.order }}.</span>
+                <label class="flex items-center gap-1 cursor-pointer">
+                    <input type="radio" name="vote_{{ item.id }}" value="for" class="text-green-600 focus:ring-green-500">
+                    <span class="text-xs text-green-700">PRO</span>
+                </label>
+                <label class="flex items-center gap-1 cursor-pointer">
+                    <input type="radio" name="vote_{{ item.id }}" value="against" class="text-red-600 focus:ring-red-500">
+                    <span class="text-xs text-red-700">PROTI</span>
+                </label>
+                <label class="flex items-center gap-1 cursor-pointer">
+                    <input type="radio" name="vote_{{ item.id }}" value="abstain" class="text-gray-600 focus:ring-gray-500">
+                    <span class="text-xs text-gray-500">Zdržel</span>
+                </label>
+            </div>
+            {% endfor %}
+            <button type="submit" class="ml-auto px-4 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-xs font-medium">
+                Zpracovat vybrané
+            </button>
+        </div>
+    </form>
 </div>
 </div>
 
-<div id="process-cards" class="flex-1 overflow-y-auto min-h-0 space-y-6">
+<div id="process-cards" class="flex-1 overflow-y-auto min-h-0 space-y-4">
     {% include "voting/process_cards.html" %}
 </div>
 </div>
+
+<script>
+var selectedBallots = new Set();
+
+function updateBulkBar() {
+    var bar = document.getElementById('bulk-bar');
+    var counter = document.getElementById('bulk-selected-count');
+    var ids = document.getElementById('bulk-ballot-ids');
+    if (selectedBallots.size > 0) {
+        bar.classList.remove('hidden');
+        counter.textContent = selectedBallots.size + ' vybráno';
+        ids.value = Array.from(selectedBallots).join(',');
+    } else {
+        bar.classList.add('hidden');
+    }
+}
+
+function toggleBallot(cb) {
+    var id = cb.value;
+    if (cb.checked) {
+        selectedBallots.add(id);
+    } else {
+        selectedBallots.delete(id);
+    }
+    updateBulkBar();
+}
+
+function bulkSelectAll() {
+    document.querySelectorAll('.ballot-cb').forEach(function(cb) {
+        cb.checked = true;
+        selectedBallots.add(cb.value);
+    });
+    updateBulkBar();
+}
+
+function bulkDeselectAll() {
+    document.querySelectorAll('.ballot-cb').forEach(function(cb) {
+        cb.checked = false;
+    });
+    selectedBallots.clear();
+    updateBulkBar();
+}
+</script>
 {% endblock %}

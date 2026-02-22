@@ -1,7 +1,7 @@
 <tr class="hover:bg-gray-50">
     <td class="px-2 py-1.5">
         <div class="overflow-hidden" style="text-overflow:ellipsis;white-space:nowrap">
-            <a href="/vlastnici/{{ owner.id }}?back={{ (list_url or '/vlastnici')|urlencode }}" class="font-medium text-blue-600 hover:text-blue-800 hover:underline" title="{{ owner.name_with_titles }}">{{ owner.name_with_titles }}</a>
+            <a href="/vlastnici/{{ owner.id }}?back={{ (list_url or '/vlastnici')|urlencode }}" class="font-medium text-blue-600 hover:text-blue-800 hover:underline" title="{{ owner.display_name }}">{{ owner.display_name }}</a>
         </div>
         {% if owner.birth_number %}
         <div class="text-gray-400" style="font-size:10px">RČ: {{ owner.birth_number }}</div>

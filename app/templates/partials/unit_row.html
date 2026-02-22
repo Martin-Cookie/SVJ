@@ -12,7 +12,7 @@
     <td class="px-2 py-1.5 text-gray-700 text-right font-mono">{{ "{:,}".format(unit.podil_scd or 0).replace(",", " ") }}</td>
     <td class="px-2 py-1.5 overflow-hidden" style="text-overflow:ellipsis;white-space:nowrap">
         {% for ou in unit.owners %}
-        <a href="/vlastnici/{{ ou.owner.id }}?back={{ (list_url or '/jednotky')|urlencode }}" class="text-blue-600 hover:text-blue-800 hover:underline">{{ ou.owner.name_with_titles }}</a>{% if not loop.last %}, {% endif %}
+        <a href="/vlastnici/{{ ou.owner.id }}?back={{ (list_url or '/jednotky')|urlencode }}" class="text-blue-600 hover:text-blue-800 hover:underline">{{ ou.owner.display_name }}</a>{% if not loop.last %}, {% endif %}
         {% endfor %}
         {% if not unit.owners %}<span class="text-gray-300">—</span>{% endif %}
     </td>

@@ -5,7 +5,7 @@
     <td class="px-6 py-4 text-sm text-gray-500">{{ doc.extracted_owner_name or '—' }}</td>
     <td class="px-6 py-4 text-sm">
         {% if dist and dist.owner %}
-        <span class="font-medium text-gray-900">{{ dist.owner.name_with_titles }}</span>
+        <span class="font-medium text-gray-900">{{ dist.owner.display_name }}</span>
         {% else %}
         <span class="text-red-500">Nepřiřazeno</span>
         {% endif %}

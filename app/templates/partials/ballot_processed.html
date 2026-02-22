@@ -1,7 +1,7 @@
 <div id="ballot-{{ ballot.id }}" class="bg-green-50 rounded-lg shadow p-6 border border-green-200">
     <div class="flex items-center justify-between">
         <div>
-            <h3 class="font-semibold text-gray-800">{{ ballot.owner.name_with_titles }}</h3>
+            <h3 class="font-semibold text-gray-800">{{ ballot.owner.display_name }}</h3>
             <p class="text-sm text-gray-500">
                 Jednotky: {{ ballot.units_text }} | Hlasů: {{ "{:,}".format(ballot.total_votes).replace(",", " ") }}
             </p>

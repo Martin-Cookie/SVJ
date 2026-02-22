@@ -168,10 +168,8 @@ def preview_voting_import(file_path: str, mapping: dict, voting: Voting, db: Ses
             })
             continue
 
-        ballot = ballots_for_unit[0]
-
-        # Parse votes for each item
-        votes = {}
+        # Parse vote choices for each item (ballot-independent)
+        vote_choices = {}
         for im in item_mappings:
             item_id = im["item_id"]
             for_col = im.get("for_col")
@@ -183,36 +181,43 @@ def preview_voting_import(file_path: str, mapping: dict, voting: Voting, db: Ses
                 num = _cell_numeric(row, for_col)
                 result = _match_vote(raw, num, for_values, against_values)
                 if result:
-                    votes[item_id] = {"vote": result, "count": ballot.total_votes}
+                    vote_choices[item_id] = result
 
             # Secondary column (PROTI zvlášť) — only if primary didn't match
-            if against_col is not None and item_id not in votes:
+            if against_col is not None and item_id not in vote_choices:
                 raw = _cell(row, against_col)
                 num = _cell_numeric(row, against_col)
                 # In against column, for_values → PROTI, against_values → PRO (inverted)
                 result = _match_vote(raw, num, for_values, against_values)
                 if result == "for":
-                    votes[item_id] = {"vote": "against", "count": ballot.total_votes}
+                    vote_choices[item_id] = "against"
                 elif result == "against":
-                    votes[item_id] = {"vote": "for", "count": ballot.total_votes}
+                    vote_choices[item_id] = "for"
 
-        # Merge with previously seen rows for same ballot
-        if ballot.id in seen_ballots:
-            existing = seen_ballots[ballot.id]
-            # Merge votes — later rows update existing entries
-            for item_id, vote_data in votes.items():
-                existing["votes"][item_id] = vote_data
-            continue
+        # Primary ballot = direct unit match; co-owners only if there are votes
+        targets = ballots_for_unit if vote_choices else [ballots_for_unit[0]]
+        for ballot in targets:
+            votes = {
+                item_id: {"vote": vote, "count": ballot.total_votes}
+                for item_id, vote in vote_choices.items()
+            }
 
-        entry = {
-            "row": row_idx,
-            "owner_name": ballot.owner.name_with_titles or owner_name,
-            "unit_number": unit_number,
-            "ballot_id": ballot.id,
-            "votes": votes,
-        }
-        seen_ballots[ballot.id] = entry
-        matched.append(entry)
+            # Merge with previously seen rows for same ballot
+            if ballot.id in seen_ballots:
+                existing = seen_ballots[ballot.id]
+                for item_id, vote_data in votes.items():
+                    existing["votes"][item_id] = vote_data
+                continue
+
+            entry = {
+                "row": row_idx,
+                "owner_name": ballot.owner.display_name or owner_name,
+                "unit_number": unit_number,
+                "ballot_id": ballot.id,
+                "votes": votes,
+            }
+            seen_ballots[ballot.id] = entry
+            matched.append(entry)
 
     wb.close()
 
@@ -248,8 +253,11 @@ def execute_voting_import(file_path: str, mapping: dict, voting: Voting, db: Ses
                     # Keep votes_count (the weight) as is
                 cleared_count += 1
 
+    # Use already-loaded ballot objects (avoids potential ORM identity issues)
+    ballot_by_id = {b.id: b for b in voting.ballots}
+
     for entry in preview["matched"]:
-        ballot = db.query(Ballot).get(entry["ballot_id"])
+        ballot = ballot_by_id.get(entry["ballot_id"])
         if not ballot:
             skipped_count += 1
             continue
@@ -270,7 +278,7 @@ def execute_voting_import(file_path: str, mapping: dict, voting: Voting, db: Ses
                 bv.vote = None
                 has_votes = True
 
-        if has_votes:
+        if has_votes or entry["votes"]:
             ballot.status = BallotStatus.PROCESSED
             ballot.processed_at = datetime.utcnow()
             processed_count += 1

@@ -42,7 +42,7 @@
                     <td class="px-2 py-1 text-gray-600 text-right font-mono">{% if u.floor_area %}{{ "%.1f"|format(u.floor_area) }}{% else %}—{% endif %}</td>
                     <td class="px-2 py-1 text-gray-600 text-right font-mono">{% if u.podil_scd %}{{ "{:,}".format(u.podil_scd).replace(",", " ") }}{% else %}—{% endif %}</td>
                     <td class="px-2 py-1 text-gray-600">{{ u.lv_number or '—' }}</td>
-                    <td class="px-2 py-1 text-gray-600 truncate max-w-[200px]" title="{% for ou in u.owners %}{{ ou.owner.name_with_titles }}{% if not loop.last %}, {% endif %}{% endfor %}">
+                    <td class="px-2 py-1 text-gray-600 truncate max-w-[200px]" title="{% for ou in u.owners %}{{ ou.owner.display_name }}{% if not loop.last %}, {% endif %}{% endfor %}">
                         {% for ou in u.owners %}{{ ou.owner.first_name }} {{ ou.owner.last_name or '' }}{% if not loop.last %}, {% endif %}{% endfor %}
                         {% if not u.owners %}—{% endif %}
                     </td>
@@ -85,7 +85,7 @@
                     <td class="px-2 py-1 text-gray-600">{{ ou.unit.building_number or '—' }}</td>
                     <td class="px-2 py-1 text-gray-600">{{ ou.unit.space_type or '—' }}</td>
                     <td class="px-2 py-1 text-gray-600">{{ ou.unit.section or '—' }}</td>
-                    <td class="px-2 py-1 text-gray-600">{{ ou.owner.name_with_titles }}</td>
+                    <td class="px-2 py-1 text-gray-600">{{ ou.owner.display_name }}</td>
                     <td class="px-2 py-1 text-gray-600">{{ ou.ownership_type or '—' }}</td>
                     <td class="px-2 py-1 text-gray-600 text-right font-mono">{{ ou.share }}</td>
                     <td class="px-2 py-1 text-gray-600 text-right font-mono">{{ ou.votes }}</td>
