@@ -140,9 +140,17 @@ Aplikace běží na http://localhost:8000
 - Autocomplete rolí přes `<datalist>` (Předseda/Místopředseda/Člen)
 - Řazení členů: předsedové → místopředsedové → ostatní, v rámci role abecedně
 - Zálohování a obnova dat:
-  - Vytvoření zálohy (ZIP: databáze + uploads + generované soubory)
+  - Vytvoření zálohy (ZIP: databáze + uploads + generované soubory) s vlastním názvem
+  - Ochrana proti prázdným zálohám (varování pokud nejsou žádná data)
   - Seznam existujících záloh s datem, velikostí, stažením a smazáním
-  - Obnova ze zálohy (upload ZIP) — před obnovou se automaticky vytvoří pojistná záloha
+  - Obnova ze zálohy — tři způsoby:
+    - Upload ZIP souboru
+    - Upload složky rozbalené zálohy z Finderu (webkitdirectory) — obnoví DB + uploads + generated
+    - Upload souboru svj.db
+  - Před každou obnovou se automaticky vytvoří pojistná záloha
+  - Sekce zůstává otevřená po všech akcích (query param `sekce=zalohy`)
+  - Side-by-side layout: vytvořit zálohu vlevo, obnovit vpravo
+  - `application/octet-stream` pro stahování — Safari nerozbaluje automaticky
 - Smazání dat:
   - Výběr kategorií ke smazání (vlastníci, hlasování, daně, synchronizace, logy, administrace)
   - Checkbox „Vybrat/Zrušit vše" pro hromadné označení
@@ -370,6 +378,9 @@ data/
 | GET | `/sprava/zaloha/{filename}/stahnout` | Stažení zálohy |
 | POST | `/sprava/zaloha/{filename}/smazat` | Smazání zálohy |
 | POST | `/sprava/zaloha/obnovit` | Obnova dat ze zálohy (upload ZIP) |
+| POST | `/sprava/zaloha/obnovit-slozku` | Obnova z rozbalené složky zálohy (webkitdirectory) |
+| POST | `/sprava/zaloha/obnovit-soubor` | Obnova z nahraného svj.db souboru |
+| POST | `/sprava/zaloha/obnovit-adresar` | Obnova z lokální cesty k adresáři |
 | POST | `/sprava/smazat-data` | Smazání vybraných kategorií dat (potvrzení DELETE) |
 | GET | `/sprava/export/{category}/{fmt}` | Export jedné kategorie (xlsx/csv) |
 | POST | `/sprava/export/hromadny` | Hromadný export vybraných kategorií (soubor nebo ZIP) |
