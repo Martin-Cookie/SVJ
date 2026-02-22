@@ -44,7 +44,8 @@
                 <!-- Edit mode (hidden) -->
                 <div id="edit-{{ loop.index }}" class="hidden">
                     <form action="/sprava/hromadne-upravy/opravit" method="post" hx-boost="false"
-                          class="flex items-center gap-2 justify-end">
+                          class="flex items-center gap-2 justify-end"
+                          onsubmit="return submitBulkEdit(this, {{ loop.index }})">
                         <input type="hidden" name="pole" value="{{ field_key }}">
                         <input type="hidden" name="old_value" value="{{ v.value if v.value is not none else '' }}">
                         <input type="hidden" name="is_null" value="{{ '1' if v.value is none else '0' }}">
@@ -53,7 +54,6 @@
                                list="dl-suggestions" placeholder="Nová hodnota"
                                class="w-44 px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                         <button type="submit"
-                                onclick="return confirm('Opravit {{ v.count }} záznamů?')"
                                 class="px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs font-medium">Uložit</button>
                         <button type="button"
                                 onclick="document.getElementById('edit-{{ loop.index }}').classList.add('hidden'); document.getElementById('view-{{ loop.index }}').classList.remove('hidden');"
@@ -85,6 +85,54 @@ function toggleDetail(idx, field, value) {
             el.innerHTML = html;
             el.classList.remove('hidden');
         });
+}
+
+function bulkCheck(btn, checked) {
+    var container = btn.closest('td');
+    var cbs = container.querySelectorAll('.bulk-cb');
+    cbs.forEach(function(cb) { cb.checked = checked; });
+    var counter = container.querySelector('.bulk-counter');
+    if (counter) {
+        var total = counter.dataset.total;
+        counter.textContent = (checked ? total : '0') + ' / ' + total;
+    }
+}
+
+function updateCounter(cb) {
+    var container = cb.closest('td');
+    var cbs = container.querySelectorAll('.bulk-cb');
+    var checked = container.querySelectorAll('.bulk-cb:checked').length;
+    var counter = container.querySelector('.bulk-counter');
+    if (counter) {
+        counter.textContent = checked + ' / ' + counter.dataset.total;
+    }
+}
+
+function submitBulkEdit(form, idx) {
+    var detail = document.getElementById('detail-' + idx);
+    var cbs = detail.querySelectorAll('.bulk-cb:checked');
+
+    // Remove old hidden ids inputs
+    form.querySelectorAll('input[name="ids"]').forEach(function(el) { el.remove(); });
+
+    if (cbs.length > 0) {
+        // Add selected IDs
+        cbs.forEach(function(cb) {
+            var input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'ids';
+            input.value = cb.value;
+            form.appendChild(input);
+        });
+        return confirm('Opravit ' + cbs.length + ' záznamů?');
+    } else if (detail.children.length === 0 || detail.classList.contains('hidden')) {
+        // Detail not expanded — apply to all (old behavior)
+        var count = document.getElementById('row-' + idx).querySelector('.font-mono:last-of-type');
+        return confirm('Opravit všechny záznamy s touto hodnotou?');
+    } else {
+        alert('Nejsou vybrány žádné záznamy.');
+        return false;
+    }
 }
 </script>
 {% endif %}

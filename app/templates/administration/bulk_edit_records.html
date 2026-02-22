@@ -3,9 +3,15 @@
 {% elif model_type == "unit" %}
 <tr>
     <td colspan="99" class="p-0">
+        <div class="flex items-center gap-3 px-2 py-1.5 bg-gray-100 border-b border-gray-200">
+            <button type="button" onclick="bulkCheck(this, true)" class="text-xs text-blue-600 hover:text-blue-800 font-medium">Označit vše</button>
+            <button type="button" onclick="bulkCheck(this, false)" class="text-xs text-gray-500 hover:text-gray-700 font-medium">Zrušit vše</button>
+            <span class="text-xs text-gray-400 ml-auto bulk-counter" data-total="{{ records|length }}">0 / {{ records|length }}</span>
+        </div>
         <table class="w-full text-xs bg-gray-50">
             <thead>
                 <tr class="text-gray-500 border-b border-gray-200">
+                    <th class="px-2 py-1.5 w-8"></th>
                     <th class="text-left px-2 py-1.5 font-medium">Č. jednotky</th>
                     <th class="text-left px-2 py-1.5 font-medium">Budova</th>
                     <th class="text-left px-2 py-1.5 font-medium">Typ prostoru</th>
@@ -22,6 +28,10 @@
             <tbody class="divide-y divide-gray-100">
                 {% for u in records %}
                 <tr class="hover:bg-gray-100">
+                    <td class="px-2 py-1 text-center">
+                        <input type="checkbox" class="bulk-cb" value="{{ u.id }}"
+                               onchange="updateCounter(this)">
+                    </td>
                     <td class="px-2 py-1 font-mono font-medium text-gray-800">{{ u.unit_number }}</td>
                     <td class="px-2 py-1 text-gray-600">{{ u.building_number or '—' }}</td>
                     <td class="px-2 py-1 text-gray-600">{{ u.space_type or '—' }}</td>
@@ -45,9 +55,15 @@
 {% elif model_type == "owner_unit" %}
 <tr>
     <td colspan="99" class="p-0">
+        <div class="flex items-center gap-3 px-2 py-1.5 bg-gray-100 border-b border-gray-200">
+            <button type="button" onclick="bulkCheck(this, true)" class="text-xs text-blue-600 hover:text-blue-800 font-medium">Označit vše</button>
+            <button type="button" onclick="bulkCheck(this, false)" class="text-xs text-gray-500 hover:text-gray-700 font-medium">Zrušit vše</button>
+            <span class="text-xs text-gray-400 ml-auto bulk-counter" data-total="{{ records|length }}">0 / {{ records|length }}</span>
+        </div>
         <table class="w-full text-xs bg-gray-50">
             <thead>
                 <tr class="text-gray-500 border-b border-gray-200">
+                    <th class="px-2 py-1.5 w-8"></th>
                     <th class="text-left px-2 py-1.5 font-medium">Č. jednotky</th>
                     <th class="text-left px-2 py-1.5 font-medium">Budova</th>
                     <th class="text-left px-2 py-1.5 font-medium">Typ prostoru</th>
@@ -61,6 +77,10 @@
             <tbody class="divide-y divide-gray-100">
                 {% for ou in records %}
                 <tr class="hover:bg-gray-100">
+                    <td class="px-2 py-1 text-center">
+                        <input type="checkbox" class="bulk-cb" value="{{ ou.id }}"
+                               onchange="updateCounter(this)">
+                    </td>
                     <td class="px-2 py-1 font-mono font-medium text-gray-800">{{ ou.unit.unit_number }}</td>
                     <td class="px-2 py-1 text-gray-600">{{ ou.unit.building_number or '—' }}</td>
                     <td class="px-2 py-1 text-gray-600">{{ ou.unit.space_type or '—' }}</td>

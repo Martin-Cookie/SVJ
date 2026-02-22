@@ -17,7 +17,8 @@ _BULK_FIELDS = {
     "space_type": {"label": "Typ prostoru", "model": "unit", "column": "space_type"},
     "section": {"label": "Sekce", "model": "unit", "column": "section"},
     "room_count": {"label": "Počet místností", "model": "unit", "column": "room_count"},
-    "ownership_type": {"label": "Vlastnictví", "model": "owner_unit", "column": "ownership_type"},
+    "ownership_type": {"label": "Vlastnictví druh", "model": "owner_unit", "column": "ownership_type"},
+    "share": {"label": "Vlastnictví/Podíl", "model": "owner_unit", "column": "share"},
     "address": {"label": "Adresa", "model": "unit", "column": "address"},
     "orientation_number": {"label": "Orientační číslo", "model": "unit", "column": "orientation_number"},
 }
@@ -333,12 +334,15 @@ async def bulk_edit_records(
 @router.post("/hromadne-upravy/opravit")
 async def bulk_edit_apply(
     request: Request,
-    pole: str = Form(...),
-    old_value: str = Form(""),
-    new_value: str = Form(""),
-    is_null: str = Form(""),
     db: Session = Depends(get_db),
 ):
+    form_data = await request.form()
+    pole = form_data.get("pole", "")
+    old_value = form_data.get("old_value", "")
+    new_value = form_data.get("new_value", "")
+    is_null = form_data.get("is_null", "")
+    ids = form_data.getlist("ids")
+
     field_info = _BULK_FIELDS.get(pole)
     if not field_info:
         return RedirectResponse("/sprava/hromadne-upravy", status_code=302)
@@ -346,19 +350,42 @@ async def bulk_edit_apply(
     model = Unit if field_info["model"] == "unit" else OwnerUnit
     col = getattr(model, field_info["column"])
 
-    # Build filter for old value
-    if is_null == "1":
+    # Build filter
+    if ids:
+        # Filter by selected record IDs
+        record_ids = [int(i) for i in ids]
+        q = db.query(model).filter(model.id.in_(record_ids))
+    elif is_null == "1":
         q = db.query(model).filter(col.is_(None))
     else:
-        q = db.query(model).filter(col == old_value)
+        # Convert old_value for numeric columns
+        filter_value = old_value
+        if pole == "orientation_number":
+            try:
+                filter_value = int(old_value)
+            except ValueError:
+                pass
+        elif pole == "share":
+            try:
+                filter_value = float(old_value)
+            except ValueError:
+                pass
+        q = db.query(model).filter(col == filter_value)
 
     # Set new value (empty string → None)
     final_value = new_value.strip() if new_value.strip() else None
 
-    # For orientation_number, convert to int
+    # Type conversions for numeric fields
     if pole == "orientation_number" and final_value is not None:
         try:
             final_value = int(final_value)
+        except ValueError:
+            return RedirectResponse(
+                f"/sprava/hromadne-upravy?pole={pole}", status_code=302
+            )
+    if pole == "share" and final_value is not None:
+        try:
+            final_value = float(final_value)
         except ValueError:
             return RedirectResponse(
                 f"/sprava/hromadne-upravy?pole={pole}", status_code=302
@@ -367,7 +394,6 @@ async def bulk_edit_apply(
     q.update({col: final_value}, synchronize_session="fetch")
     db.commit()
 
-    # Return updated values table via HTMX
     return RedirectResponse(
         f"/sprava/hromadne-upravy?pole={pole}", status_code=302
     )
