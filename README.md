@@ -104,7 +104,17 @@ Aplikace běží na http://localhost:8000
 - Proklik jména vlastníka do detailní karty s návratem zpět na porovnání
 - Přenos kontaktů (email, telefon) z CSV do databáze
 
-### F. Nastavení (`/nastaveni`)
+### F. Administrace SVJ (`/sprava`)
+
+- Informace o SVJ (název, typ budovy, celkový počet podílů) — read-only pohled + inline editace
+- Správa adres SVJ — přidání, editace, smazání s řazením abecedně
+- Členové výboru — přidání, inline editace, smazání (jméno, role, email, telefon)
+- Členové kontrolního orgánu — stejná funkcionalita
+- Autocomplete rolí přes `<datalist>` (Předseda/Místopředseda/Člen)
+- Řazení členů: předsedové → místopředsedové → ostatní, v rámci role abecedně
+- Modely: `SvjInfo`, `SvjAddress`, `BoardMember`
+
+### G. Nastavení (`/nastaveni`)
 
 - Přehled odeslaných emailů (posledních 50)
 
@@ -120,7 +130,8 @@ app/
 │   ├── voting.py              #   Voting, VotingItem, Ballot, BallotVote
 │   ├── tax.py                 #   TaxSession, TaxDocument, TaxDistribution
 │   ├── sync.py                #   SyncSession, SyncRecord
-│   └── common.py              #   EmailLog, ImportLog
+│   ├── common.py              #   EmailLog, ImportLog
+│   └── administration.py      #   SvjInfo, SvjAddress, BoardMember
 ├── routers/                   # HTTP endpointy
 │   ├── dashboard.py           #   GET /
 │   ├── owners.py              #   /vlastnici (+ /vlastnici/import)
@@ -128,6 +139,7 @@ app/
 │   ├── voting.py              #   /hlasovani
 │   ├── tax.py                 #   /dane
 │   ├── sync.py                #   /synchronizace
+│   ├── administration.py      #   /sprava
 │   └── settings_page.py       #   /nastaveni
 ├── services/                  # Business logika
 │   ├── excel_import.py        #   Import z 31-sloupcového Excelu
@@ -166,6 +178,8 @@ app/
 │   ├── sync/                  #   Stránky synchronizace
 │   │   ├── index.html         #     Nahrání CSV + historie kontrol
 │   │   └── compare.html       #     Porovnání s filtry a bublinami
+│   ├── administration/        #   Stránky administrace
+│   │   └── index.html         #     Info SVJ, adresy, výbor, kontrolní orgán
 │   └── partials/              #   HTMX komponenty
 │       ├── owner_row.html
 │       ├── owner_table_body.html
@@ -268,6 +282,19 @@ data/
 | POST | `/synchronizace/{id}/odmitnout/{rec_id}` | Odmítnutí změny |
 | POST | `/synchronizace/{id}/upravit/{rec_id}` | Ruční úprava jména |
 
+### Administrace (`/sprava`)
+
+| Metoda | Cesta | Popis |
+|--------|-------|-------|
+| GET | `/sprava` | Stránka administrace SVJ |
+| POST | `/sprava/info` | Uložení info o SVJ (název, typ, podíly) |
+| POST | `/sprava/adresa/pridat` | Přidání adresy SVJ |
+| POST | `/sprava/adresa/{id}/upravit` | Editace adresy |
+| POST | `/sprava/adresa/{id}/smazat` | Smazání adresy |
+| POST | `/sprava/clen/pridat` | Přidání člena (výbor/kontrolní orgán) |
+| POST | `/sprava/clen/{id}/upravit` | Editace člena |
+| POST | `/sprava/clen/{id}/smazat` | Smazání člena |
+
 ## Konfigurace (.env)
 
 ```env
@@ -292,6 +319,8 @@ LIBREOFFICE_PATH=/Applications/LibreOffice.app/Contents/MacOS/soffice
 - **Voting** → VotingItem → Ballot → BallotVote
 - **TaxSession** → TaxDocument → TaxDistribution
 - **SyncSession** → SyncRecord (cascade delete)
+- **SvjInfo** → SvjAddress — informace o SVJ a adresy
+- **BoardMember** — členové výboru a kontrolního orgánu (group: board/control)
 - **EmailLog**, **ImportLog** — systémové logy
 
 ## UI vzory
