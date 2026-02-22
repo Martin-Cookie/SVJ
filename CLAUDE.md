@@ -64,12 +64,56 @@
 - Vše dynamicky roztažené přes `flex` + `flex-1`
 - Žádný text "Otevřít modul" — celá karta je klikací
 
+## Inline editace (Upravit / Uložit / Zrušit)
+
+Vzor se skládá ze dvou partials (info + form) a tří endpointů:
+
+### Šablony
+- **Info partial** (`partials/*_info.html`) — read-only zobrazení dat + tlačítko "Upravit":
+  ```html
+  <button hx-get="/entita/{id}/upravit-formular"
+          hx-target="#section-id" hx-swap="innerHTML">Upravit</button>
+  ```
+  Po úspěšném uložení zobrazí `{% if saved %}<span class="text-green-600">Uloženo</span>{% endif %}`
+- **Form partial** (`partials/*_form.html`) — editační formulář + "Uložit" a "Zrušit":
+  ```html
+  <form hx-post="/entita/{id}/upravit" hx-target="#section-id" hx-swap="innerHTML">
+      <!-- inputy -->
+      <button type="submit">Uložit</button>
+      <button type="button" hx-get="/entita/{id}/info"
+              hx-target="#section-id" hx-swap="innerHTML">Zrušit</button>
+  </form>
+  ```
+
+### Detail stránka
+- Wrapper `<div id="section-id">` obsahuje pouze `{% include %}` partials — žádný extra markup
+- Nadpis sekce (`<h2>`) je VNĚ wrapperu, aby se neměnil při přepínání
+
+### Backend endpointy (3 pro každou sekci)
+| Endpoint | Účel | Vrací |
+|----------|------|-------|
+| `GET /{id}/upravit-formular` | Načtení formuláře | Form partial |
+| `POST /{id}/upravit` | Uložení změn | Info partial s `saved=True` |
+| `GET /{id}/info` | Zobrazení (cancel) | Info partial |
+
+- POST endpoint: pro HTMX vrací partial, pro běžný request dělá `RedirectResponse`
+- Pro vnořené sekce s prefixem (např. adresa trvalá/korespondenční): `/{id}/adresa/{prefix}/upravit`
+
+### Alternativní vzor (administrace — seznam položek)
+- View i form jsou na stránce oba, přepínání přes CSS `hidden` class + JS:
+  ```javascript
+  function toggleEdit(id) {
+      document.getElementById('view-' + id).classList.toggle('hidden');
+      document.getElementById('edit-' + id).classList.toggle('hidden');
+  }
+  ```
+- Formuláře používají standardní POST (`hx-boost="false"`) s redirect po uložení
+
 ## HTMX vzory
 
 - Partial odpovědi: router vrací partial šablonu pro HTMX requesty (`HX-Request` hlavička), plnou stránku pro běžné requesty
 - Rozlišovat `HX-Request` vs `HX-Boosted` — boosted navigace dostává plnou stránku
 - `hx-push-url="true"` na vyhledávání a filtrech — aby se URL aktualizovala v prohlížeči
-- Inline editace: přepínání mezi zobrazením (info) a formulářem (form) přes `hx-get`/`hx-post` s `hx-target` na wrapper div
 - `hx-confirm` pro destruktivní akce (smazání, odebrání)
 - Hidden inputy pro přenos stavu filtrů při HTMX požadavcích
 
