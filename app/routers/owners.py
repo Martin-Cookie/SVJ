@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.config import settings
 from app.database import get_db
-from app.models import ImportLog, Owner, OwnerType, OwnerUnit, Unit
+from app.models import ImportLog, Owner, OwnerType, OwnerUnit, SvjInfo, Unit
 from app.services.excel_import import import_owners_from_excel, preview_owners_from_excel
 
 router = APIRouter()
@@ -119,6 +119,10 @@ async def owner_list(
         Owner.email != "",
     ).count()
 
+    total_scd = db.query(func.sum(OwnerUnit.votes)).scalar() or 0
+    svj_info = db.query(SvjInfo).first()
+    declared_shares = svj_info.total_shares if svj_info and svj_info.total_shares else 0
+
     return templates.TemplateResponse("owners/list.html", {
         "request": request,
         "active_nav": "owners",
@@ -135,6 +139,8 @@ async def owner_list(
             "type_counts": type_counts,
             "sections": sections,
             "emails_count": emails_count,
+            "total_scd": total_scd,
+            "declared_shares": declared_shares,
         },
     })
 
@@ -275,11 +281,15 @@ async def owner_detail(
     else:
         available_units = db.query(Unit).order_by(Unit.unit_number).all()
 
+    svj_info = db.query(SvjInfo).first()
+    declared_shares = svj_info.total_shares if svj_info and svj_info.total_shares else 0
+
     return templates.TemplateResponse("owners/detail.html", {
         "request": request,
         "active_nav": "owners",
         "owner": owner,
         "available_units": available_units,
+        "declared_shares": declared_shares,
         "back_url": back or "/vlastnici",
         "back_label": (
             "Zpět na detail jednotky" if "/jednotky/" in back
@@ -443,7 +453,9 @@ def _owner_units_context(owner, db):
         ).order_by(Unit.unit_number).all()
     else:
         available_units = db.query(Unit).order_by(Unit.unit_number).all()
-    return available_units
+    svj_info = db.query(SvjInfo).first()
+    declared_shares = svj_info.total_shares if svj_info and svj_info.total_shares else 0
+    return available_units, declared_shares
 
 
 @router.post("/{owner_id}/jednotky/pridat")
@@ -481,11 +493,12 @@ async def owner_add_unit(
         db.refresh(owner)
 
     if request.headers.get("HX-Request"):
-        available_units = _owner_units_context(owner, db)
+        available_units, declared_shares = _owner_units_context(owner, db)
         return templates.TemplateResponse("partials/owner_units_section.html", {
             "request": request,
             "owner": owner,
             "available_units": available_units,
+            "declared_shares": declared_shares,
         })
     return RedirectResponse(f"/vlastnici/{owner_id}", status_code=302)
 
@@ -507,10 +520,11 @@ async def owner_remove_unit(
     ).get(owner_id)
 
     if request.headers.get("HX-Request"):
-        available_units = _owner_units_context(owner, db)
+        available_units, declared_shares = _owner_units_context(owner, db)
         return templates.TemplateResponse("partials/owner_units_section.html", {
             "request": request,
             "owner": owner,
             "available_units": available_units,
+            "declared_shares": declared_shares,
         })
     return RedirectResponse(f"/vlastnici/{owner_id}", status_code=302)

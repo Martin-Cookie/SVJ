@@ -6,6 +6,7 @@
                 <th class="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase">Prostor</th>
                 <th class="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase">Typ</th>
                 <th class="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Podíl SČD</th>
+                {% if declared_shares %}<th class="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Podíl %</th>{% endif %}
                 <th class="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase">Plocha</th>
                 <th class="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase">Vlastnictví</th>
                 <th class="px-2 py-2"></th>
@@ -18,6 +19,7 @@
                 <td class="px-2 py-1.5 text-gray-500">{{ ou.unit.building_number or '—' }}</td>
                 <td class="px-2 py-1.5 text-gray-500">{{ ou.unit.space_type or '—' }}</td>
                 <td class="px-2 py-1.5 text-gray-500 text-right font-mono whitespace-nowrap">{{ "{:,}".format(ou.unit.podil_scd or 0).replace(",", " ") }}</td>
+                {% if declared_shares %}<td class="px-2 py-1.5 text-gray-500 text-right font-mono whitespace-nowrap">{{ "%.4f" | format(((ou.unit.podil_scd or 0) / declared_shares * 100)) }}&nbsp;%</td>{% endif %}
                 <td class="px-2 py-1.5 text-gray-500 text-right whitespace-nowrap">{% if ou.unit.floor_area %}{{ ou.unit.floor_area }}&nbsp;m²{% else %}—{% endif %}</td>
                 <td class="px-2 py-1.5 text-gray-500">{{ ou.ownership_type or '—' }}</td>
                 <td class="px-2 py-1.5 text-right">
@@ -29,11 +31,19 @@
             </tr>
             {% endfor %}
         </tbody>
+        <tfoot class="border-t-2 border-gray-300 bg-gray-50">
+            {% set total_scd = owner.units | map(attribute='unit') | map(attribute='podil_scd') | map('default', 0) | sum %}
+            {% set total_area = owner.units | map(attribute='unit') | selectattr('floor_area') | map(attribute='floor_area') | sum %}
+            <tr class="font-semibold text-gray-700 text-sm">
+                <td class="px-2 py-2" colspan="3">Celkem</td>
+                <td class="px-2 py-2 text-right font-mono whitespace-nowrap">{{ "{:,}".format(total_scd | int).replace(",", " ") }}</td>
+                {% if declared_shares %}<td class="px-2 py-2 text-right font-mono whitespace-nowrap">{{ "%.4f" | format((total_scd / declared_shares * 100)) }}&nbsp;%</td>{% endif %}
+                <td class="px-2 py-2 text-right whitespace-nowrap">{{ "%.1f" | format(total_area) }}&nbsp;m²</td>
+                <td class="px-2 py-2"></td>
+                <td class="px-2 py-2"></td>
+            </tr>
+        </tfoot>
     </table>
-</div>
-<div class="mt-3 pt-3 border-t border-gray-200 text-sm text-gray-600">
-    {% set total_votes = owner.units | map(attribute='votes') | sum %}
-    Celkem hlasů (podíl SČD): <strong>{{ "{:,}".format(total_votes).replace(",", " ") }}</strong>
 </div>
 
 <!-- Add unit form -->

@@ -7,7 +7,7 @@ from sqlalchemy import cast, func, String
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
-from app.models import Owner, OwnerUnit, Unit
+from app.models import Owner, OwnerUnit, SvjInfo, Unit
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -234,6 +234,8 @@ async def unit_list(
     # Stats
     total_units = db.query(Unit).count()
     total_scd = db.query(func.sum(Unit.podil_scd)).scalar() or 0
+    svj_info = db.query(SvjInfo).first()
+    declared_shares = svj_info.total_shares if svj_info and svj_info.total_shares else 0
 
     type_counts_raw = (
         db.query(Unit.space_type, func.count(Unit.id))
@@ -260,6 +262,7 @@ async def unit_list(
         "stats": {
             "total_units": total_units,
             "total_scd": total_scd,
+            "declared_shares": declared_shares,
             "type_counts": type_counts,
             "sections": sections,
         },

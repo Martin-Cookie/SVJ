@@ -18,6 +18,27 @@
                 <p class="text-2xl font-bold text-gray-800">{{ owners_count }}</p>
             </div>
         </div>
+        {% if declared_shares %}
+        {% set diff = owners_scd - declared_shares %}
+        {% set diff_pct = ((diff / declared_shares) * 100) | round(2) if declared_shares else 0 %}
+        <table class="text-xs text-gray-500 mt-3 w-full" style="border-spacing:0">
+            <tr>
+                <td class="pr-2">Podíly dle prohlášení:</td>
+                <td class="text-right font-mono text-gray-700">{{ "{:,}".format(declared_shares).replace(",", " ") }}</td>
+                <td></td>
+            </tr>
+            <tr>
+                <td class="pr-2">Podíly v evidenci vlastníků:</td>
+                <td class="text-right font-mono text-gray-700">{{ "{:,}".format(owners_scd).replace(",", " ") }}</td>
+                <td></td>
+            </tr>
+            <tr>
+                <td class="pr-2">Rozdíl podílů:</td>
+                <td class="text-right font-mono {% if diff < 0 %}text-red-600{% elif diff > 0 %}text-blue-600{% else %}text-green-600{% endif %} font-medium">{{ "{:,}".format(diff).replace(",", " ") }}</td>
+                <td class="pl-2 font-mono {% if diff < 0 %}text-red-600{% elif diff > 0 %}text-blue-600{% else %}text-green-600{% endif %}">{% if diff != 0 %}({{ "{:+.2f}".format(diff_pct) }} %){% endif %}</td>
+            </tr>
+        </table>
+        {% endif %}
     </div>
     <div class="bg-white rounded-lg shadow p-6">
         <div class="flex items-center">
@@ -31,6 +52,27 @@
                 <p class="text-2xl font-bold text-gray-800">{{ units_count }}</p>
             </div>
         </div>
+        {% if declared_shares %}
+        {% set diff = units_scd - declared_shares %}
+        {% set diff_pct = ((diff / declared_shares) * 100) | round(2) if declared_shares else 0 %}
+        <table class="text-xs text-gray-500 mt-3 w-full" style="border-spacing:0">
+            <tr>
+                <td class="pr-2">Podíly dle prohlášení:</td>
+                <td class="text-right font-mono text-gray-700">{{ "{:,}".format(declared_shares).replace(",", " ") }}</td>
+                <td></td>
+            </tr>
+            <tr>
+                <td class="pr-2">Podíly v evidenci jednotek:</td>
+                <td class="text-right font-mono text-gray-700">{{ "{:,}".format(units_scd).replace(",", " ") }}</td>
+                <td></td>
+            </tr>
+            <tr>
+                <td class="pr-2">Rozdíl podílů:</td>
+                <td class="text-right font-mono {% if diff < 0 %}text-red-600{% elif diff > 0 %}text-blue-600{% else %}text-green-600{% endif %} font-medium">{{ "{:,}".format(diff).replace(",", " ") }}</td>
+                <td class="pl-2 font-mono {% if diff < 0 %}text-red-600{% elif diff > 0 %}text-blue-600{% else %}text-green-600{% endif %}">{% if diff != 0 %}({{ "{:+.2f}".format(diff_pct) }} %){% endif %}</td>
+            </tr>
+        </table>
+        {% endif %}
     </div>
     <div class="bg-white rounded-lg shadow p-6">
         <div class="flex items-center">

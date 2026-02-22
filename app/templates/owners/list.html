@@ -5,7 +5,34 @@
 <div class="flex items-center justify-between mb-3">
     <div>
         <h1 class="text-xl font-bold text-gray-800">Evidence vlastníků</h1>
-        <p class="text-xs text-gray-500 mt-0.5">{{ owners|length }} vlastníků | {{ stats.total_units }} jednotek | Podíl SČD: {% set total_scd = [] %}{% for owner in owners %}{% for ou in owner.units %}{% if total_scd.append(ou.votes) %}{% endif %}{% endfor %}{% endfor %}{{ "{:,}".format(total_scd|sum).replace(",", " ") }}</p>
+        <div class="text-xs text-gray-500 mt-0.5">
+            <span>{{ owners|length }} vlastníků | {{ stats.total_units }} jednotek</span>
+        </div>
+        {% if stats.declared_shares %}
+        {% set diff = stats.total_scd - stats.declared_shares %}
+        {% set diff_pct = ((diff / stats.declared_shares) * 100) | round(2) if stats.declared_shares else 0 %}
+        <table class="text-xs text-gray-500 mt-1" style="border-spacing:0">
+            <tr>
+                <td class="pr-2">Podíly dle prohlášení vlastníka:</td>
+                <td class="text-right font-mono text-gray-700">{{ "{:,}".format(stats.declared_shares).replace(",", " ") }}</td>
+                <td></td>
+            </tr>
+            <tr>
+                <td class="pr-2">Podíly v evidenci vlastníků:</td>
+                <td class="text-right font-mono text-gray-700">{{ "{:,}".format(stats.total_scd).replace(",", " ") }}</td>
+                <td></td>
+            </tr>
+            <tr>
+                <td class="pr-2">Rozdíl podílů:</td>
+                <td class="text-right font-mono {% if diff < 0 %}text-red-600{% elif diff > 0 %}text-blue-600{% else %}text-green-600{% endif %} font-medium">{{ "{:,}".format(diff).replace(",", " ") }}</td>
+                <td class="pl-2 font-mono {% if diff < 0 %}text-red-600{% elif diff > 0 %}text-blue-600{% else %}text-green-600{% endif %}">{% if diff != 0 %}({{ "{:+.2f}".format(diff_pct) }} %){% endif %}</td>
+            </tr>
+        </table>
+        {% else %}
+        <div class="text-xs text-gray-500 mt-0.5">
+            Podíl SČD: <span class="font-mono text-gray-700">{{ "{:,}".format(stats.total_scd).replace(",", " ") }}</span>
+        </div>
+        {% endif %}
     </div>
     <a href="/vlastnici/import" class="px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs font-medium">Importovat z Excelu</a>
 </div>

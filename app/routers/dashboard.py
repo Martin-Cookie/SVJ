@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, Request
 from fastapi.templating import Jinja2Templates
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import EmailLog, Owner, Unit, Voting, VotingStatus
+from app.models import EmailLog, Owner, OwnerUnit, SvjInfo, Unit, Voting, VotingStatus
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -20,6 +21,13 @@ async def home(request: Request, db: Session = Depends(get_db)):
         .limit(10)
         .all()
     )
+
+    # Share statistics
+    svj_info = db.query(SvjInfo).first()
+    declared_shares = svj_info.total_shares if svj_info and svj_info.total_shares else 0
+    owners_scd = db.query(func.sum(OwnerUnit.votes)).scalar() or 0
+    units_scd = db.query(func.sum(Unit.podil_scd)).scalar() or 0
+
     return templates.TemplateResponse("dashboard.html", {
         "request": request,
         "active_nav": "dashboard",
@@ -27,4 +35,7 @@ async def home(request: Request, db: Session = Depends(get_db)):
         "units_count": units_count,
         "active_votings": active_votings,
         "recent_emails": recent_emails,
+        "declared_shares": declared_shares,
+        "owners_scd": owners_scd,
+        "units_scd": units_scd,
     })
