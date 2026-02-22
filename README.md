@@ -75,6 +75,7 @@ Aplikace běží na http://localhost:8000
 - Automatická extrakce bodů hlasování z šablony
 - Přidání a smazání jednotlivých bodů hlasování (pouze ve stavu koncept)
 - Generování personalizovaných PDF lístků pro každého vlastníka
+- Smazání hlasování z přehledu (cascade smaže body, lístky, hlasy + soubory) s potvrzovacím dialogem
 - Seznam hlasování s výsledky po bodech (PRO/PROTI/Zdržel se s procenty)
 - Filtrační bubliny dle stavu hlasování (vše, koncept, aktivní, uzavřeno, zrušeno)
 - Sdílený header na všech stránkách hlasování (partial `_voting_header.html`)
@@ -142,6 +143,18 @@ Aplikace běží na http://localhost:8000
   - Vytvoření zálohy (ZIP: databáze + uploads + generované soubory)
   - Seznam existujících záloh s datem, velikostí, stažením a smazáním
   - Obnova ze zálohy (upload ZIP) — před obnovou se automaticky vytvoří pojistná záloha
+- Smazání dat:
+  - Výběr kategorií ke smazání (vlastníci, hlasování, daně, synchronizace, logy, administrace)
+  - Checkbox „Vybrat/Zrušit vše" pro hromadné označení
+  - Počet záznamů a popis u každé kategorie
+  - Potvrzení zadáním slova DELETE — tlačítko disabled dokud není zadáno
+  - Cascade smazání v bezpečném pořadí (děti před rodiči)
+- Export dat:
+  - Výběr kategorií k exportu s checkboxy a „Vybrat/Zrušit vše"
+  - Počet záznamů a popis u každé kategorie
+  - Stažení ve formátu Excel (xlsx) nebo CSV (UTF-8 s BOM)
+  - Hromadný export: jedna kategorie = přímý soubor, více kategorií = ZIP archiv
+  - 6 kategorií: vlastníci a jednotky, hlasování, daňové podklady, synchronizace, logy, administrace
 - Hromadné úpravy (`/sprava/hromadne-upravy`):
   - Výběr pole (typ prostoru, sekce, počet místností, vlastnictví druh, vlastnictví/podíl, adresa, orientační číslo)
   - Tabulka unikátních hodnot s počtem výskytů
@@ -188,6 +201,7 @@ app/
 │   ├── voting_import.py       #   Import výsledků hlasování z Excelu
 │   ├── csv_comparator.py      #   Porovnání CSV vs Excel
 │   ├── backup_service.py      #   Zálohování a obnova dat (ZIP)
+│   ├── data_export.py         #   Export dat do Excel/CSV (6 kategorií)
 │   └── email_service.py       #   SMTP odesílání emailů
 ├── templates/                 # Jinja2 šablony
 │   ├── base.html              #   Layout se sidebar navigací
@@ -298,6 +312,7 @@ data/
 | GET | `/hlasovani/nova` | Formulář nového hlasování |
 | POST | `/hlasovani/nova` | Vytvoření hlasování + šablona .docx |
 | GET | `/hlasovani/{id}` | Detail hlasování s výsledky (search, sort, HTMX partial) |
+| POST | `/hlasovani/{id}/smazat` | Smazání hlasování (cascade + soubory) |
 | POST | `/hlasovani/{id}/stav` | Změna stavu hlasování |
 | POST | `/hlasovani/{id}/pridat-bod` | Přidání bodu hlasování |
 | POST | `/hlasovani/{id}/smazat-bod/{item_id}` | Smazání bodu hlasování |
@@ -355,6 +370,9 @@ data/
 | GET | `/sprava/zaloha/{filename}/stahnout` | Stažení zálohy |
 | POST | `/sprava/zaloha/{filename}/smazat` | Smazání zálohy |
 | POST | `/sprava/zaloha/obnovit` | Obnova dat ze zálohy (upload ZIP) |
+| POST | `/sprava/smazat-data` | Smazání vybraných kategorií dat (potvrzení DELETE) |
+| GET | `/sprava/export/{category}/{fmt}` | Export jedné kategorie (xlsx/csv) |
+| POST | `/sprava/export/hromadny` | Hromadný export vybraných kategorií (soubor nebo ZIP) |
 | GET | `/sprava/hromadne-upravy` | Stránka hromadných úprav |
 | GET | `/sprava/hromadne-upravy/hodnoty` | HTMX: tabulka unikátních hodnot pole |
 | GET | `/sprava/hromadne-upravy/zaznamy` | HTMX: záznamy pro danou hodnotu |
