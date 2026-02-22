@@ -18,6 +18,12 @@
 - Detailová stránka vždy přijímá `back` query parametr a zobrazuje šipku zpět
 - Při vícenásobném zanoření (seznam → detail → detail) se back URL řetězí: `?back={{ ('/aktualni/url?back=' ~ (back_url|urlencode))|urlencode }}`
 - Back label se nastavuje dynamicky podle cílové URL (např. "Zpět na přehled", "Zpět na seznam vlastníků", "Zpět na detail vlastníka")
+- Pokud stránka má expandovatelné řádky (např. hromadné úpravy), back URL musí obsahovat i identifikátor rozbalené položky (např. `&hodnota=SJM`)
+- Cílová stránka pak automaticky rozbalí odpovídající řádek pomocí skriptu:
+  ```javascript
+  var hodnota = new URLSearchParams(window.location.search).get('hodnota');
+  if (hodnota) { /* najít a kliknout na řádek s data-hodnota == hodnota */ }
+  ```
 
 ## Filtrační bubliny
 
@@ -131,7 +137,8 @@ Vzor se skládá ze dvou partials (info + form) a tří endpointů:
 - `hx-push-url="true"` na vyhledávání a filtrech — aby se URL aktualizovala v prohlížeči
 - `hx-confirm` pro destruktivní akce (smazání, odebrání)
 - Hidden inputy pro přenos stavu filtrů při HTMX požadavcích
-- `hx-boost="false"` POUZE na: stahování souborů (ZIP, PDF) a formuláře s file uploadem
+- `hx-boost="false"` je **POVINNÉ** na: formuláře stahující soubory (Excel, ZIP, PDF), formuláře s file uploadem, a POST formuláře které vracejí binární data
+- Bez `hx-boost="false"` HTMX zachytí odpověď a pokusí se ji swapnout jako HTML — binární data tiše selžou
 
 ### Co používá HTMX partial (hx-get + hx-target) a co plain href (hx-boost)
 
@@ -174,6 +181,13 @@ Vzor se skládá ze dvou partials (info + form) a tří endpointů:
 - Každý spoluvlastník dostane hlasy se svým vlastním `total_votes`
 - Deduplikace přes `seen_ballots` — stejný lístek se nezpracuje dvakrát
 
+## fetch() + innerHTML vs HTMX
+
+- **`<script>` tagy v HTML vloženém přes `innerHTML` se NESPUSTÍ** — prohlížeč je ignoruje
+- Pokud se obsah načítá přes `fetch()` + `el.innerHTML = html`, všechny JS funkce musí být definovány v nadřazené šabloně (té, která volá fetch)
+- HTMX (`hx-get` + `hx-swap`) naopak skripty VYHODNOTÍ — proto preferovat HTMX kde to jde
+- Pokud je nutné použít fetch + innerHTML (např. expandovatelné řádky v tabulce), definovat funkce v HTMX-loadované nadřazené šabloně
+
 ## SQLAlchemy vzory
 
 - `case()` se importuje přímo ze `sqlalchemy`, ne přes `func.case()`
@@ -181,6 +195,14 @@ Vzor se skládá ze dvou partials (info + form) a tří endpointů:
 - `func.distinct()` v agregacích pro počítání unikátních záznamů
 - `joinedload()` pro eager loading relací (předchází N+1 queries)
 - Číslo jednotky (`unit_number`) je INTEGER (ne string)
+
+### Databázové indexy
+
+- Každý FK sloupec (`*_id`) musí mít `index=True` v modelu
+- Sloupce používané ve filtrech (`status`, `group`, `module`, `import_type`) musí mít `index=True`
+- **SQLAlchemy `create_all()` NEPŘIDÁ indexy na existující tabulky** — pouze na nově vytvořené
+- Pro přidání indexů na existující tabulky: `CREATE INDEX IF NOT EXISTS` v `_ensure_indexes()` funkci v `main.py`
+- Při přidání nového `index=True` do modelu VŽDY přidat i odpovídající `CREATE INDEX IF NOT EXISTS` do `_ensure_indexes()`
 
 ## Nové moduly / entity
 
@@ -212,12 +234,31 @@ Vzor se skládá ze dvou partials (info + form) a tří endpointů:
 - Vždy `title` atribut pro tooltip (např. `title="Stáhnout"`, `title="Smazat"`)
 - Dlouhé názvy souborů: `truncate` + `title` tooltip s plným názvem
 
+## Export dat (Excel)
+
+- Export musí vždy odrážet **aktuální filtrovaný pohled** — ne všechna data
+- Filtr se přenáší přes hidden input ve formuláři: `<input type="hidden" name="filtr" value="{{ filtr }}">`
+- Export endpoint aplikuje **stejnou logiku filtrování** jako zobrazovací endpoint
+- Rozdíly/nesrovnalosti se zvýrazňují žlutou výplní (`PatternFill(fgColor="FFFF00")`)
+- Formulář exportu musí mít `hx-boost="false"` (viz HTMX vzory)
+
+## Mazání dat (purge)
+
+- Kategorie nejsou jen DB modely — mohou být i souborové (zálohy = ZIP soubory, historie obnovení = JSON soubor)
+- Pro souborové kategorie: `_purge_counts()` počítá soubory na disku, `purge_data()` maže soubory/složky
+- Pořadí mazání (`_PURGE_ORDER`) respektuje závislosti — FK reference se mažou první
+
 ## Hromadný výběr (checkbox "Vybrat/Zrušit vše")
 
 - Checkbox pro hromadné označení/odznačení se vždy jmenuje **„Vybrat/Zrušit vše"**
 - Vizuálně odlišený: `bg-gray-50 border border-gray-200` (oproti běžným řádkům bez borderu)
 - JS vzor: `toggleAll(checked)` nastaví všechny checkboxy, `updateSelectAll()` na každém jednotlivém checkboxu synchronizuje stav hlavního checkboxu
 - Akční tlačítka (export, smazání) jsou `disabled` dokud není zaškrtnutý alespoň jeden checkbox
+- Pokud se obsah (řádky s checkboxy) načítá dynamicky přes fetch/HTMX, **stav checkboxů se musí persistovat v sessionStorage**:
+  - Klíč: `bulk_{field}_{value}` — unikátní pro každý kontext
+  - Uložit: při každé změně checkboxu (`saveBulkChecks`)
+  - Obnovit: po načtení nového HTML (`restoreBulkChecks`)
+  - Select-all checkbox: synchronizovat `checked` / `indeterminate` stav po obnovení
 
 ## Workflow
 
