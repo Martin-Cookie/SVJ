@@ -192,6 +192,44 @@ def _owner_group_key(first_name: str | None, last_name: str | None, birth_or_ic:
     return f"name:{ln}|{fn}"
 
 
+def _describe_skip_error(row: tuple, row_idx: int) -> str:
+    """Build a detailed error message for a skipped row showing what data is present/missing."""
+    unit_kn = _cell(row, COL_UNIT_KN)
+    first_name = _cell(row, COL_FIRST_NAME)
+    last_name = _cell(row, COL_LAST_NAME)
+
+    missing = []
+    if not unit_kn:
+        missing.append("číslo jednotky")
+    if not first_name:
+        missing.append("jméno")
+
+    present = []
+    if unit_kn:
+        present.append(f"jednotka={unit_kn}")
+    if first_name:
+        present.append(f"jméno={first_name}")
+    if last_name:
+        present.append(f"příjmení={last_name}")
+    title = _cell(row, COL_TITLE)
+    if title:
+        present.append(f"titul={title}")
+    birth_ic = _cell(row, COL_BIRTH_OR_IC)
+    if birth_ic:
+        present.append(f"RČ/IČ={birth_ic}")
+    ownership = _cell(row, COL_OWNERSHIP_TYPE)
+    if ownership:
+        present.append(f"vlastnictví={ownership}")
+    space_type = _cell(row, COL_SPACE_TYPE)
+    if space_type:
+        present.append(f"typ={space_type}")
+
+    msg = f"Řádek {row_idx}: chybí {', '.join(missing)}"
+    if present:
+        msg += f" (nalezeno: {', '.join(present)})"
+    return msg
+
+
 def _get_worksheet(file_path: str):
     """Open workbook and return the correct worksheet."""
     wb = load_workbook(file_path, read_only=True, data_only=True)
@@ -274,7 +312,7 @@ def preview_owners_from_excel(file_path: str) -> dict:
         parsed = _parse_row(row, row_idx)
         if parsed is None:
             if row and any(c is not None for c in row[:15]):
-                errors.append(f"Řádek {row_idx}: chybí číslo jednotky nebo jméno vlastníka")
+                errors.append(_describe_skip_error(row, row_idx))
             continue
 
         rows_processed += 1
@@ -325,7 +363,7 @@ def import_owners_from_excel(db: Session, file_path: str) -> dict:
         parsed = _parse_row(row, row_idx)
         if parsed is None:
             if row and any(c is not None for c in row[:15]):
-                errors.append(f"Řádek {row_idx}: chybí číslo jednotky nebo jméno vlastníka")
+                errors.append(_describe_skip_error(row, row_idx))
             continue
 
         rows_processed += 1
