@@ -153,10 +153,9 @@ Vzor se skládá ze dvou partials (info + form) a tří endpointů:
 
 ## Komunikace s uživatelem
 
-- NEPTÁT SE na věci, které jsou definovány v tomto souboru — prostě je udělat
-- NEPTÁT SE "Chceš commitnout?", "Chceš něco upravit?" apod. — prostě dokončit úkol
 - NEPTÁT SE na přístup/implementaci, pokud je vzor již zavedený v projektu — použít existující vzor
 - Pokud uživatel řekne "commit this and push" — udělat commit a push bez dalších otázek
 - Pokud uživatel řekne "dokumentaci" — aktualizovat README.md bez ptaní se co přidat
 - Být proaktivní: když vytvářím novou stránku/entitu, rovnou aplikovat VŠECHNA pravidla z tohoto souboru (back URL, dynamické bubliny, sticky hlavičky, formátování čísel atd.) bez čekání na připomínku
 - Komunikovat stručně — co jsem udělal, ne co bych mohl udělat
+- Na potvrzení se PTÁT — "Chceš commitnout?", "Chceš něco upravit?" atd. jsou v pořádku
