@@ -76,7 +76,10 @@ Aplikace běží na http://localhost:8000
 - Přidání a smazání jednotlivých bodů hlasování
 - Generování personalizovaných PDF lístků pro každého vlastníka
 - Seznam hlasování s výsledky po bodech (PRO/PROTI/Zdržel se s procenty)
-- Seznam lístků s dynamickými sloupci hlasování pro každý bod
+- Filtrační bubliny dle stavu hlasování (vše, koncept, aktivní, uzavřeno, zrušeno)
+- Detail hlasování: vyhledávání v bodech + řazení sloupců (HTMX partial)
+- Prokliky z detailu na filtrované lístky (celkem, zbývá zpracovat, odesláno, zpracováno)
+- Seznam lístků s filtračními bublinami (stav), vyhledáváním vlastníka a řazením sloupců
 - Detail hlasovacího lístku s prokliky na vlastníka
 - Zpracování lístků: zadání hlasů (PRO/PROTI/Zdržel se) pro každý bod
 - Sčítání hlasů a výpočet kvóra
@@ -188,7 +191,9 @@ app/
 │   │   ├── index.html         #     Seznam hlasování
 │   │   ├── create.html        #     Vytvoření hlasování
 │   │   ├── detail.html        #     Detail hlasování
-│   │   ├── ballots.html       #     Seznam lístků
+│   │   ├── ballots.html       #     Seznam lístků (bubliny + search)
+│   │   ├── ballots_table.html #     HTMX: tabulka lístků (sort + filtr)
+│   │   ├── detail_results.html#     HTMX: tabulka výsledků (sort)
 │   │   ├── ballot_detail.html #     Detail hlasovacího lístku
 │   │   ├── process.html       #     Zpracování lístků
 │   │   └── not_submitted.html #     Neodevzdané lístky
@@ -267,15 +272,15 @@ data/
 
 | Metoda | Cesta | Popis |
 |--------|-------|-------|
-| GET | `/hlasovani` | Seznam hlasování |
+| GET | `/hlasovani` | Seznam hlasování (filtr dle stavu, bubliny) |
 | GET | `/hlasovani/nova` | Formulář nového hlasování |
 | POST | `/hlasovani/nova` | Vytvoření hlasování + šablona .docx |
-| GET | `/hlasovani/{id}` | Detail hlasování s výsledky |
+| GET | `/hlasovani/{id}` | Detail hlasování s výsledky (search, sort, HTMX partial) |
 | POST | `/hlasovani/{id}/stav` | Změna stavu hlasování |
 | POST | `/hlasovani/{id}/pridat-bod` | Přidání bodu hlasování |
 | POST | `/hlasovani/{id}/smazat-bod/{item_id}` | Smazání bodu hlasování |
 | POST | `/hlasovani/{id}/generovat` | Generování PDF lístků |
-| GET | `/hlasovani/{id}/listky` | Seznam lístků s hlasy po bodech |
+| GET | `/hlasovani/{id}/listky` | Seznam lístků (filtr stavu, search, sort, HTMX partial) |
 | GET | `/hlasovani/{id}/listek/{ballot_id}` | Detail hlasovacího lístku |
 | GET | `/hlasovani/{id}/zpracovani` | Stránka zpracování lístků |
 | POST | `/hlasovani/{id}/zpracovat/{ballot_id}` | Zpracování jednoho lístku |
