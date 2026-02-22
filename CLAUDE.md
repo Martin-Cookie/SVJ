@@ -38,6 +38,16 @@
 
 - Hlavičky tabulek jsou vždy sticky: `sticky top-0 z-10` na `<thead>`
 - Tabulky mají omezenou výšku s vertikálním scrollem: `max-height:calc(100vh - Xpx); overflow-y:auto`
+- **Fixní header nad scrollovatelným obsahem** — pokud stránka má bubliny/filtry/search nahoře, použít flex column layout:
+  ```html
+  <div class="flex flex-col" style="height:calc(100vh - 3rem)">
+      <div class="shrink-0"><!-- header, bubliny, search --></div>
+      <div class="flex-1 overflow-y-auto min-h-0"><!-- scrollovatelný obsah --></div>
+  </div>
+  ```
+  - `3rem` = top+bottom padding z `<main class="p-6">`
+  - `min-h-0` je nutné aby flex child mohl být menší než obsah
+  - Bubliny/search se NESMÍ scrollovat — musí být vždy viditelné
 - Řazení kliknutím na hlavičky sloupců s indikátorem směru (šipka SVG nahoru/dolů)
 - Řadící hlavičky se implementují přes Jinja2 macro `sort_th(label, col, align)` pro konzistenci
 - Souhrnný řádek (`<tfoot>`) pod tabulkami kde to dává smysl (celkový podíl, plocha, procenta)
@@ -165,6 +175,12 @@ Vzor se skládá ze dvou partials (info + form) a tří endpointů:
   - Plně klikací karty (ne vnořené odkazy)
   - Formátování čísel s mezerovým oddělovačem
   - HTMX partial odpovědi
+  - Fixní header s flex column layoutem (bubliny/search se nescrollují)
+- **Modul s více stránkami** (např. hlasování: detail, lístky, zpracování, neodevzdané):
+  - Sdílený header jako partial (`_modul_header.html`) — stejný nadpis, bubliny, tlačítka na VŠECH stránkách
+  - Aktivní bublina zvýrazněna `ring-2 ring-{color}-400`
+  - Router: sdílená helper funkce pro výpočet dat bublin (volat ve všech endpointech)
+  - Šablona předává `active_bubble` do partialu pro zvýraznění
 - Registrace v `app/main.py` (`include_router`)
 - Export modelů v `app/models/__init__.py`
 - Odkaz v sidebar (`base.html`) s `active_nav` kontrolou
