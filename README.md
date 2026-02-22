@@ -37,6 +37,10 @@ Aplikace běží na http://localhost:8000
 - Historie importů s možností smazání (smaže vlastníky, jednotky i přiřazení)
 - Seznam s vyhledáváním (jméno, email, telefon, RČ, IČ, č. jednotky)
 - Filtrační bubliny podle typu vlastníka (fyzická/právnická osoba) a sekce domu
+- Filtrační bubliny podle typu vlastnictví (SJM, VL, SJVL, Výhradní, Podílové, Neuvedeno)
+- Filtrační bubliny kontaktů: s/bez emailu, s/bez telefonu (rozdělené bubliny)
+- Všechny bubliny dynamicky roztažené na celou šířku (flex-1)
+- Zachování filtrů při navigaci seznam → detail → detail → zpět (back URL řetěz)
 - Řazení kliknutím na hlavičky sloupců (jméno, typ, email, telefon, podíl, jednotky, sekce)
 - Sticky hlavička tabulky
 - RČ/IČ viditelné v seznamu i detailu
@@ -53,7 +57,8 @@ Aplikace běží na http://localhost:8000
 ### B. Evidence jednotek (`/jednotky`)
 
 - Seznam jednotek s vyhledáváním (číslo, budova, typ, sekce, adresa, vlastník)
-- Filtrační bubliny podle typu prostoru a sekce domu
+- Filtrační bubliny podle typu prostoru a sekce domu (dynamicky roztažené na celou šířku)
+- Zachování filtrů při navigaci seznam → detail → zpět (back URL řetěz)
 - Řazení kliknutím na hlavičky sloupců
 - Porovnání podílů: prohlášení vlastníka vs evidence s barevným rozdílem a %
 - Vytvoření nové jednotky (inline HTMX formulář)
@@ -330,7 +335,8 @@ LIBREOFFICE_PATH=/Applications/LibreOffice.app/Contents/MacOS/soffice
 ## UI vzory
 
 - **Sidebar navigace** — fixní levý panel (w-44) s ikonami a sekcemi
-- **Filtrační bubliny** — klikací filtry nad tabulkou s počty záznamů
+- **Filtrační bubliny** — klikací filtry nad tabulkou s počty záznamů, dynamicky roztažené na celou šířku, rozdělené bubliny (s/bez emailu, s/bez telefonu)
+- **Back URL řetěz** — zachování filtrů při navigaci mezi seznamem, detailem vlastníka a detailem jednotky (víceúrovňový back parametr)
 - **Sticky hlavičky** — záhlaví tabulek zůstává viditelné při scrollu
 - **HTMX inline editace** — formuláře pro kontakty, adresy a údaje jednotek se přepínají bez reloadu
 - **Dvousloupcový layout** — formulář vlevo + historie vpravo (import, kontrola)
