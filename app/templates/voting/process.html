@@ -1,14 +1,12 @@
 {% extends "base.html" %}
-{% block title %}Zpracování výsledků - {{ voting.title }}{% endblock %}
+{% block title %}{{ voting.title }} - SVJ Správa{% endblock %}
 
 {% block content %}
-<div class="mb-6">
-    <a href="/hlasovani/{{ voting.id }}" class="text-sm text-gray-500 hover:text-gray-700">&larr; Zpět na hlasování</a>
-</div>
+<div class="flex flex-col" style="height:calc(100vh - 3rem)">
+<div class="shrink-0">
+{% include "voting/_voting_header.html" %}
 
-<h1 class="text-2xl font-bold text-gray-800 mb-6">Zpracování výsledků - {{ voting.title }}</h1>
-
-<p class="text-sm text-gray-600 mb-6">
+<p class="text-sm text-gray-600 mb-4">
     Zadejte výsledky hlasování pro každý odevzdaný lístek. U každého bodu vyberte PRO nebo PROTI.
 </p>
 
@@ -21,8 +19,10 @@
            hx-push-url="true"
            class="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
 </div>
+</div>
 
-<div id="process-cards" class="space-y-6">
+<div id="process-cards" class="flex-1 overflow-y-auto min-h-0 space-y-6">
     {% include "voting/process_cards.html" %}
+</div>
 </div>
 {% endblock %}

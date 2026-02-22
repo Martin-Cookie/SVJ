@@ -22,6 +22,28 @@ router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
 
 
+def _ballot_stats(voting):
+    """Compute ballot statistics for status bubbles."""
+    total_ballots = len(voting.ballots)
+    status_counts = {s.value: 0 for s in BallotStatus}
+    for b in voting.ballots:
+        status_counts[b.status.value] += 1
+    total_processed_votes = sum(
+        b.total_votes for b in voting.ballots if b.status == BallotStatus.PROCESSED
+    )
+    quorum_reached = (
+        total_processed_votes / voting.total_votes_possible >= voting.quorum_threshold
+        if voting.total_votes_possible
+        else False
+    )
+    return {
+        "total_ballots": total_ballots,
+        "status_counts": status_counts,
+        "total_processed_votes": total_processed_votes,
+        "quorum_reached": quorum_reached,
+    }
+
+
 @router.get("/")
 async def voting_list(
     request: Request,
@@ -227,22 +249,6 @@ async def voting_detail(
     key_fn = sort_keys.get(sort, sort_keys["order"])
     results.sort(key=key_fn, reverse=(order == "desc"))
 
-    # Status counts
-    total_ballots = len(voting.ballots)
-    status_counts = {s.value: 0 for s in BallotStatus}
-    for b in voting.ballots:
-        status_counts[b.status.value] += 1
-
-    # Quorum check
-    total_processed_votes = sum(
-        b.total_votes for b in voting.ballots if b.status == BallotStatus.PROCESSED
-    )
-    quorum_reached = (
-        total_processed_votes / voting.total_votes_possible >= voting.quorum_threshold
-        if voting.total_votes_possible
-        else False
-    )
-
     back_url = back or "/hlasovani"
     back_label = "Zpět na přehled" if back == "/" else "Zpět na hlasování"
 
@@ -251,15 +257,13 @@ async def voting_detail(
         "active_nav": "voting",
         "voting": voting,
         "results": results,
-        "total_ballots": total_ballots,
-        "status_counts": status_counts,
-        "total_processed_votes": total_processed_votes,
-        "quorum_reached": quorum_reached,
         "back_url": back_url,
         "back_label": back_label,
+        "active_bubble": "",
         "q": q,
         "sort": sort,
         "order": order,
+        **_ballot_stats(voting),
     }
 
     # HTMX partial: return only the results table
@@ -344,14 +348,8 @@ async def ballot_list(
     if not voting:
         return RedirectResponse("/hlasovani", status_code=302)
 
-    # Status counts (always from all ballots)
-    all_ballots = voting.ballots
-    status_counts = {"all": len(all_ballots)}
-    for b in all_ballots:
-        status_counts[b.status.value] = status_counts.get(b.status.value, 0) + 1
-
     # Filter by status
-    ballots = all_ballots
+    ballots = list(voting.ballots)
     if stav:
         ballots = [b for b in ballots if b.status.value == stav]
 
@@ -380,10 +378,11 @@ async def ballot_list(
         "voting": voting,
         "ballots": ballots,
         "current_stav": stav,
-        "status_counts": status_counts,
+        "active_bubble": stav or "all",
         "q": q,
         "sort": sort,
         "order": order,
+        **_ballot_stats(voting),
     }
 
     # HTMX partial: return only the table
@@ -451,7 +450,9 @@ async def process_page(
         "active_nav": "voting",
         "voting": voting,
         "unprocessed": unprocessed,
+        "active_bubble": "",
         "q": q,
+        **_ballot_stats(voting),
     }
 
     if request.headers.get("HX-Request") and not request.headers.get("HX-Boosted"):
@@ -546,7 +547,12 @@ async def add_voting_item(
 
 
 @router.get("/{voting_id}/neodevzdane")
-async def not_submitted(voting_id: int, request: Request, db: Session = Depends(get_db)):
+async def not_submitted(
+    voting_id: int,
+    request: Request,
+    q: str = Query(""),
+    db: Session = Depends(get_db),
+):
     voting = db.query(Voting).options(
         joinedload(Voting.ballots).joinedload(Ballot.owner),
     ).get(voting_id)
@@ -558,9 +564,26 @@ async def not_submitted(voting_id: int, request: Request, db: Session = Depends(
         if b.status not in (BallotStatus.PROCESSED,)
     ]
 
-    return templates.TemplateResponse("voting/not_submitted.html", {
+    # Search filter
+    if q:
+        q_lower = q.lower()
+        missing = [
+            b for b in missing
+            if q_lower in (b.owner.name_with_titles or "").lower()
+            or q_lower in (b.units_text or "").lower()
+        ]
+
+    ctx = {
         "request": request,
         "active_nav": "voting",
         "voting": voting,
         "missing": missing,
-    })
+        "active_bubble": "neodevzdane",
+        "q": q,
+        **_ballot_stats(voting),
+    }
+
+    if request.headers.get("HX-Request") and not request.headers.get("HX-Boosted"):
+        return templates.TemplateResponse("voting/not_submitted_table.html", ctx)
+
+    return templates.TemplateResponse("voting/not_submitted.html", ctx)

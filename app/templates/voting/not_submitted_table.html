@@ -1,0 +1,18 @@
+{% for ballot in missing | sort(attribute='owner.name_normalized') %}
+<tr class="hover:bg-gray-50">
+    <td class="px-6 py-4 text-sm font-medium text-gray-900">{{ ballot.owner.name_with_titles }}</td>
+    <td class="px-6 py-4 text-sm text-gray-500">{{ ballot.units_text }}</td>
+    <td class="px-6 py-4 text-sm text-gray-500">{{ ballot.owner.email or '—' }}</td>
+    <td class="px-6 py-4 text-sm text-gray-500">{{ "{:,}".format(ballot.total_votes).replace(",", " ") }}</td>
+    <td class="px-6 py-4">
+        {% if ballot.status.value == 'generated' %}
+        <span class="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">Vygenerován</span>
+        {% elif ballot.status.value == 'sent' %}
+        <span class="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">Odeslán</span>
+        {% endif %}
+    </td>
+</tr>
+{% endfor %}
+{% if not missing and q %}
+<tr><td colspan="5" class="px-6 py-4 text-center text-gray-500 text-sm">Žádní vlastníci neodpovídají hledání „{{ q }}".</td></tr>
+{% endif %}
