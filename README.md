@@ -40,10 +40,13 @@ Aplikace běží na http://localhost:8000
 - Řazení kliknutím na hlavičky sloupců (jméno, typ, email, telefon, podíl, jednotky, sekce)
 - Sticky hlavička tabulky
 - RČ/IČ viditelné v seznamu i detailu
+- Porovnání podílů: prohlášení vlastníka vs evidence s barevným rozdílem a %
 - Detail vlastníka:
   - Inline editace kontaktů (email, telefon) přes HTMX
   - Inline editace trvalé a korespondenční adresy přes HTMX
   - Správa přiřazených jednotek (přidat z dropdownu, odebrat)
+  - Sloupec Podíl % (podíl SČD / celkový počet podílů z administrace)
+  - Souhrnný řádek Celkem (podíl SČD, podíl %, plocha)
   - Proklik na detail jednotky
 - Export zpět do Excelu
 
@@ -52,6 +55,7 @@ Aplikace běží na http://localhost:8000
 - Seznam jednotek s vyhledáváním (číslo, budova, typ, sekce, adresa, vlastník)
 - Filtrační bubliny podle typu prostoru a sekce domu
 - Řazení kliknutím na hlavičky sloupců
+- Porovnání podílů: prohlášení vlastníka vs evidence s barevným rozdílem a %
 - Vytvoření nové jednotky (inline HTMX formulář)
 - Detail jednotky:
   - Inline editace všech polí přes HTMX (číslo, budova, typ, sekce, adresa, LV, místnosti, plocha, podíl)
@@ -152,7 +156,7 @@ app/
 │   └── email_service.py       #   SMTP odesílání emailů
 ├── templates/                 # Jinja2 šablony
 │   ├── base.html              #   Layout se sidebar navigací
-│   ├── dashboard.html         #   Přehled
+│   ├── dashboard.html         #   Přehled (statistiky vlastníků, jednotek, podílů)
 │   ├── settings.html          #   Nastavení
 │   ├── owners/                #   Stránky vlastníků
 │   │   ├── list.html          #     Seznam vlastníků
