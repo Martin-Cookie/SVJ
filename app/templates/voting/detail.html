@@ -38,25 +38,29 @@
     </div>
 </div>
 
-<!-- Status overview -->
-<div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-    <div class="bg-white rounded-lg shadow p-4 text-center">
+<!-- Status overview (static) -->
+<div class="flex gap-4 mb-4">
+    <a href="/hlasovani/{{ voting.id }}/listky" hx-boost="false"
+       class="flex-1 bg-white rounded-lg shadow p-4 text-center hover:shadow-md transition-shadow">
         <p class="text-2xl font-bold text-gray-800">{{ total_ballots }}</p>
         <p class="text-xs text-gray-500 mt-1">Celkem lístků</p>
-    </div>
-    <div class="bg-white rounded-lg shadow p-4 text-center">
+    </a>
+    <a href="/hlasovani/{{ voting.id }}/listky?stav=generated" hx-boost="false"
+       class="flex-1 bg-white rounded-lg shadow p-4 text-center hover:shadow-md transition-shadow">
         <p class="text-2xl font-bold text-blue-600">{{ status_counts.get('generated', 0) }}</p>
-        <p class="text-xs text-gray-500 mt-1">Vygenerováno</p>
-    </div>
-    <div class="bg-white rounded-lg shadow p-4 text-center">
+        <p class="text-xs text-gray-500 mt-1">Zbývá zpracovat</p>
+    </a>
+    <a href="/hlasovani/{{ voting.id }}/listky?stav=sent" hx-boost="false"
+       class="flex-1 bg-white rounded-lg shadow p-4 text-center hover:shadow-md transition-shadow">
         <p class="text-2xl font-bold text-yellow-600">{{ status_counts.get('sent', 0) }}</p>
         <p class="text-xs text-gray-500 mt-1">Odesláno</p>
-    </div>
-    <div class="bg-white rounded-lg shadow p-4 text-center">
+    </a>
+    <a href="/hlasovani/{{ voting.id }}/listky?stav=processed" hx-boost="false"
+       class="flex-1 bg-white rounded-lg shadow p-4 text-center hover:shadow-md transition-shadow">
         <p class="text-2xl font-bold text-green-600">{{ status_counts.get('processed', 0) }}</p>
         <p class="text-xs text-gray-500 mt-1">Zpracováno</p>
-    </div>
-    <div class="bg-white rounded-lg shadow p-4 text-center">
+    </a>
+    <div class="flex-1 bg-white rounded-lg shadow p-4 text-center">
         {% set quorum_pct = (total_processed_votes / voting.total_votes_possible * 100)|round(1) if voting.total_votes_possible else 0 %}
         <p class="text-2xl font-bold {% if quorum_reached %}text-green-600{% else %}text-red-600{% endif %}">
             {{ quorum_pct }}%
@@ -68,56 +72,21 @@
     </div>
 </div>
 
-<!-- Voting items & results -->
-<div class="bg-white rounded-lg shadow mb-8">
-    <div class="px-6 py-4 border-b border-gray-200">
-        <h2 class="text-lg font-semibold text-gray-700">Výsledky po bodech</h2>
-    </div>
-    {% if results %}
-    <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-50">
-                <tr>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Bod</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">PRO (hlasy)</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">PRO (%)</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">PROTI (hlasy)</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">PROTI (%)</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Neodevzdáno</th>
-                    <th class="px-6 py-3"></th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-200">
-                {% for r in results %}
-                <tr>
-                    <td class="px-6 py-4 text-sm">
-                        <span class="font-medium text-gray-900">{{ r.item.order }}.</span>
-                        {{ r.item.title }}
-                    </td>
-                    <td class="px-6 py-4 text-sm font-medium text-green-600">{{ "{:,}".format(r.votes_for).replace(",", " ") }}</td>
-                    <td class="px-6 py-4 text-sm text-green-600">{{ r.pct_for }}%</td>
-                    <td class="px-6 py-4 text-sm font-medium text-red-600">{{ "{:,}".format(r.votes_against).replace(",", " ") }}</td>
-                    <td class="px-6 py-4 text-sm text-red-600">{{ r.pct_against }}%</td>
-                    <td class="px-6 py-4 text-sm text-gray-500">
-                        {{ "{:,}".format(r.votes_missing).replace(",", " ") }}
-                        ({{ r.pct_missing }}%)
-                    </td>
-                    <td class="px-6 py-4 text-right">
-                        <form action="/hlasovani/{{ voting.id }}/smazat-bod/{{ r.item.id }}" method="post" style="display:inline"
-                              onsubmit="return confirm('Smazat bod {{ r.item.order }}. {{ r.item.title }}?')">
-                            <button type="submit" class="text-red-500 hover:text-red-700 text-xs font-medium">Smazat</button>
-                        </form>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-    {% else %}
-    <div class="p-6 text-center text-gray-500 text-sm">
-        Přidejte body hlasování nebo nahrajte Word šablonu.
-    </div>
-    {% endif %}
+<!-- Search (static) -->
+<div class="mb-4">
+    <input type="text" name="q" value="{{ q }}" placeholder="Hledat v bodech hlasování..."
+           hx-get="/hlasovani/{{ voting.id }}"
+           hx-trigger="keyup changed delay:300ms"
+           hx-target="#results-area"
+           hx-swap="innerHTML"
+           hx-include="#results-area [name='sort'], #results-area [name='order'], #results-area [name='back']"
+           hx-push-url="true"
+           class="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+</div>
+
+<!-- Results area (dynamic, HTMX-updated) -->
+<div id="results-area" class="mb-8">
+    {% include "voting/detail_results.html" %}
 </div>
 
 <!-- Add voting item -->

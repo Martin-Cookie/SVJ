@@ -1,0 +1,72 @@
+{% set _sort_base = "/hlasovani/" ~ voting.id ~ "?" ~ ("back=" ~ (back_url|urlencode) ~ "&" if back_url else "") ~ ("q=" ~ (q|urlencode) ~ "&" if q else "") %}
+{% set _svg_up = '<svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L10 6.414l-3.293 3.293a1 1 0 01-1.414 0z"/></svg>' %}
+{% set _svg_down = '<svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path d="M14.707 10.293a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L10 13.586l3.293-3.293a1 1 0 011.414 0z"/></svg>' %}
+{% set _cols = [
+    ("Bod", "order", "left"),
+    ("PRO (hlasy)", "votes_for", "left"),
+    ("PRO (%)", "pct_for", "left"),
+    ("PROTI (hlasy)", "votes_against", "left"),
+    ("PROTI (%)", "pct_against", "left"),
+    ("Neodevzdáno", "votes_missing", "left"),
+] %}
+<input type="hidden" name="sort" value="{{ sort }}">
+<input type="hidden" name="order" value="{{ order }}">
+<input type="hidden" name="back" value="{{ back_url }}">
+<div class="bg-white rounded-lg shadow">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <h2 class="text-lg font-semibold text-gray-700">Výsledky po bodech</h2>
+    </div>
+    {% if results %}
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50 sticky top-0 z-10">
+                <tr>
+                    {% for label, col, align in _cols %}
+                    {% set next_order = "desc" if sort == col and order == "asc" else "asc" %}
+                    {% set sort_url = _sort_base ~ "sort=" ~ col ~ "&order=" ~ next_order %}
+                    <th class="px-6 py-3 text-{{ align }} text-xs font-medium uppercase {% if sort == col %}text-blue-600{% else %}text-gray-500{% endif %}">
+                        <a href="{{ sort_url }}"
+                           hx-get="{{ sort_url }}"
+                           hx-target="#results-area" hx-swap="innerHTML" hx-push-url="true"
+                           class="inline-flex items-center gap-0.5 cursor-pointer hover:text-blue-600 select-none">
+                            {{ label }}
+                            {% if sort == col %}{{ (_svg_up if order == "asc" else _svg_down)|safe }}{% endif %}
+                        </a>
+                    </th>
+                    {% endfor %}
+                    <th class="px-6 py-3"></th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200">
+                {% for r in results %}
+                <tr>
+                    <td class="px-6 py-4 text-sm">
+                        <span class="font-medium text-gray-900">{{ r.item.order }}.</span>
+                        {{ r.item.title }}
+                    </td>
+                    <td class="px-6 py-4 text-sm font-medium text-green-600">{{ "{:,}".format(r.votes_for).replace(",", " ") }}</td>
+                    <td class="px-6 py-4 text-sm text-green-600">{{ r.pct_for }}%</td>
+                    <td class="px-6 py-4 text-sm font-medium text-red-600">{{ "{:,}".format(r.votes_against).replace(",", " ") }}</td>
+                    <td class="px-6 py-4 text-sm text-red-600">{{ r.pct_against }}%</td>
+                    <td class="px-6 py-4 text-sm text-gray-500">
+                        {{ "{:,}".format(r.votes_missing).replace(",", " ") }}
+                        ({{ r.pct_missing }}%)
+                    </td>
+                    <td class="px-6 py-4 text-right">
+                        <form action="/hlasovani/{{ voting.id }}/smazat-bod/{{ r.item.id }}" method="post" style="display:inline"
+                              hx-boost="false"
+                              onsubmit="return confirm('Smazat bod {{ r.item.order }}. {{ r.item.title }}?')">
+                            <button type="submit" class="text-red-500 hover:text-red-700 text-xs font-medium">Smazat</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="p-6 text-center text-gray-500 text-sm">
+        {% if q %}Žádné body neodpovídají hledání „{{ q }}".{% else %}Přidejte body hlasování nebo nahrajte Word šablonu.{% endif %}
+    </div>
+    {% endif %}
+</div>

@@ -23,11 +23,25 @@ templates = Jinja2Templates(directory="app/templates")
 
 
 @router.get("/")
-async def voting_list(request: Request, back: str = Query("", alias="back"), db: Session = Depends(get_db)):
-    votings = db.query(Voting).options(
+async def voting_list(
+    request: Request,
+    back: str = Query("", alias="back"),
+    stav: str = Query("", alias="stav"),
+    db: Session = Depends(get_db),
+):
+    q = db.query(Voting).options(
         joinedload(Voting.items),
         joinedload(Voting.ballots).joinedload(Ballot.votes),
-    ).order_by(Voting.created_at.desc()).all()
+    )
+    if stav:
+        q = q.filter(Voting.status == stav)
+    votings = q.order_by(Voting.created_at.desc()).all()
+
+    # Count per status (always from all votings, not filtered)
+    all_votings = db.query(Voting).all()
+    status_counts = {"all": len(all_votings)}
+    for v in all_votings:
+        status_counts[v.status.value] = status_counts.get(v.status.value, 0) + 1
 
     # Compute stats per voting
     voting_stats = {}
@@ -77,6 +91,8 @@ async def voting_list(request: Request, back: str = Query("", alias="back"), db:
         "active_nav": "voting",
         "votings": votings,
         "voting_stats": voting_stats,
+        "status_counts": status_counts,
+        "current_stav": stav,
         "back_url": back,
         "list_url": list_url,
     })
@@ -151,7 +167,15 @@ async def voting_create(
 
 
 @router.get("/{voting_id}")
-async def voting_detail(voting_id: int, request: Request, back: str = Query("", alias="back"), db: Session = Depends(get_db)):
+async def voting_detail(
+    voting_id: int,
+    request: Request,
+    back: str = Query(""),
+    q: str = Query(""),
+    sort: str = Query("order"),
+    order: str = Query("asc"),
+    db: Session = Depends(get_db),
+):
     voting = db.query(Voting).options(
         joinedload(Voting.items),
         joinedload(Voting.ballots).joinedload(Ballot.owner),
@@ -186,6 +210,23 @@ async def voting_detail(voting_id: int, request: Request, back: str = Query("", 
             "pct_missing": round((total - votes_for - votes_against) / total * 100, 1) if total else 0,
         })
 
+    # Search filter
+    if q:
+        q_lower = q.lower()
+        results = [r for r in results if q_lower in r["item"].title.lower()]
+
+    # Sort results
+    sort_keys = {
+        "order": lambda r: r["item"].order,
+        "votes_for": lambda r: r["votes_for"],
+        "pct_for": lambda r: r["pct_for"],
+        "votes_against": lambda r: r["votes_against"],
+        "pct_against": lambda r: r["pct_against"],
+        "votes_missing": lambda r: r["votes_missing"],
+    }
+    key_fn = sort_keys.get(sort, sort_keys["order"])
+    results.sort(key=key_fn, reverse=(order == "desc"))
+
     # Status counts
     total_ballots = len(voting.ballots)
     status_counts = {s.value: 0 for s in BallotStatus}
@@ -205,7 +246,7 @@ async def voting_detail(voting_id: int, request: Request, back: str = Query("", 
     back_url = back or "/hlasovani"
     back_label = "Zpět na přehled" if back == "/" else "Zpět na hlasování"
 
-    return templates.TemplateResponse("voting/detail.html", {
+    ctx = {
         "request": request,
         "active_nav": "voting",
         "voting": voting,
@@ -216,7 +257,16 @@ async def voting_detail(voting_id: int, request: Request, back: str = Query("", 
         "quorum_reached": quorum_reached,
         "back_url": back_url,
         "back_label": back_label,
-    })
+        "q": q,
+        "sort": sort,
+        "order": order,
+    }
+
+    # HTMX partial: return only the results table
+    if request.headers.get("HX-Request") and not request.headers.get("HX-Boosted"):
+        return templates.TemplateResponse("voting/detail_results.html", ctx)
+
+    return templates.TemplateResponse("voting/detail.html", ctx)
 
 
 @router.post("/{voting_id}/generovat")
@@ -277,7 +327,15 @@ async def generate_ballots(
 
 
 @router.get("/{voting_id}/listky")
-async def ballot_list(voting_id: int, request: Request, db: Session = Depends(get_db)):
+async def ballot_list(
+    voting_id: int,
+    request: Request,
+    stav: str = Query(""),
+    q: str = Query(""),
+    sort: str = Query("owner"),
+    order: str = Query("asc"),
+    db: Session = Depends(get_db),
+):
     voting = db.query(Voting).options(
         joinedload(Voting.items),
         joinedload(Voting.ballots).joinedload(Ballot.owner),
@@ -286,11 +344,53 @@ async def ballot_list(voting_id: int, request: Request, db: Session = Depends(ge
     if not voting:
         return RedirectResponse("/hlasovani", status_code=302)
 
-    return templates.TemplateResponse("voting/ballots.html", {
+    # Status counts (always from all ballots)
+    all_ballots = voting.ballots
+    status_counts = {"all": len(all_ballots)}
+    for b in all_ballots:
+        status_counts[b.status.value] = status_counts.get(b.status.value, 0) + 1
+
+    # Filter by status
+    ballots = all_ballots
+    if stav:
+        ballots = [b for b in ballots if b.status.value == stav]
+
+    # Search filter
+    if q:
+        q_lower = q.lower()
+        ballots = [
+            b for b in ballots
+            if q_lower in (b.owner.name_with_titles or "").lower()
+            or q_lower in (b.units_text or "").lower()
+        ]
+
+    # Sort
+    sort_keys = {
+        "owner": lambda b: (b.owner.name_normalized or "").lower(),
+        "units": lambda b: b.units_text or "",
+        "votes": lambda b: b.total_votes,
+        "status": lambda b: b.status.value,
+    }
+    key_fn = sort_keys.get(sort, sort_keys["owner"])
+    ballots = sorted(ballots, key=key_fn, reverse=(order == "desc"))
+
+    ctx = {
         "request": request,
         "active_nav": "voting",
         "voting": voting,
-    })
+        "ballots": ballots,
+        "current_stav": stav,
+        "status_counts": status_counts,
+        "q": q,
+        "sort": sort,
+        "order": order,
+    }
+
+    # HTMX partial: return only the table
+    if request.headers.get("HX-Request") and not request.headers.get("HX-Boosted"):
+        return templates.TemplateResponse("voting/ballots_table.html", ctx)
+
+    return templates.TemplateResponse("voting/ballots.html", ctx)
 
 
 @router.get("/{voting_id}/listek/{ballot_id}")

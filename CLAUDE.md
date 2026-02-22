@@ -29,6 +29,10 @@
 - Rozdělené bubliny (s/bez emailu, s/bez telefonu) jsou uvnitř jednoho `flex-1` wrapperu s `<div class="w-px bg-gray-200">` oddělovačem
 - Aktivní bublina má `ring-2 ring-{color}-400`
 - Bubliny zobrazují počet záznamů (velký, bold) a popis (malý text pod číslem)
+- **Pod každou sekcí s bublinami** vždy přidat:
+  - **Vyhledávání** — textový input s HTMX debounce (`keyup changed delay:300ms`) nebo query parametrem `q`
+  - **Řazení sloupců** — klikací hlavičky tabulek přes macro `sort_th` s parametry `sort` a `order`
+  - Hledání a řazení se kombinují (oba parametry se zachovávají v URL)
 
 ## Tabulky a layout
 

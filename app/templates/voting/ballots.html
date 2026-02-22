@@ -8,75 +8,57 @@
 
 <h1 class="text-2xl font-bold text-gray-800 mb-6">Hlasovací lístky - {{ voting.title }}</h1>
 
-<div class="bg-white rounded-lg shadow overflow-x-auto">
-    <table class="min-w-full divide-y divide-gray-200 text-sm">
-        <thead class="bg-gray-50">
-            <tr>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Vlastník</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Jednotky</th>
-                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Hlasy</th>
-                {% for item in voting.items %}
-                <th class="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase" style="min-width:70px" title="{{ item.title }}">
-                    Bod {{ item.order }}
-                </th>
-                {% endfor %}
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Plná moc</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stav</th>
-            </tr>
-        </thead>
-        <tbody class="divide-y divide-gray-200">
-            {% for ballot in voting.ballots | sort(attribute='owner.name_normalized') %}
-            {% set vote_map = {} %}
-            {% for bv in ballot.votes %}
-                {% if vote_map.update({bv.voting_item_id: bv}) %}{% endif %}
-            {% endfor %}
-            <tr class="hover:bg-gray-50">
-                <td class="px-4 py-2">
-                    <a href="/hlasovani/{{ voting.id }}/listek/{{ ballot.id }}" class="font-medium text-blue-600 hover:text-blue-800 hover:underline">
-                        {{ ballot.owner.name_with_titles }}
-                    </a>
-                </td>
-                <td class="px-4 py-2 text-gray-500">{{ ballot.units_text }}</td>
-                <td class="px-4 py-2 text-gray-500 text-right font-mono">{{ "{:,}".format(ballot.total_votes).replace(",", " ") }}</td>
-                {% for item in voting.items %}
-                {% set bv = vote_map.get(item.id) %}
-                <td class="px-3 py-2 text-center">
-                    {% if bv and bv.vote %}
-                        {% if bv.vote.value == 'for' %}
-                        <span class="px-2 py-0.5 text-xs font-medium bg-green-100 text-green-700 rounded-full">PRO</span>
-                        {% elif bv.vote.value == 'against' %}
-                        <span class="px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700 rounded-full">PROTI</span>
-                        {% elif bv.vote.value == 'abstain' %}
-                        <span class="px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-500 rounded-full">Zdržel</span>
-                        {% endif %}
-                    {% else %}
-                    <span class="text-gray-300">—</span>
-                    {% endif %}
-                </td>
-                {% endfor %}
-                <td class="px-4 py-2 text-gray-500">
-                    {% if ballot.voted_by_proxy %}
-                    <span class="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded">{{ ballot.proxy_holder_name }}</span>
-                    {% else %}—{% endif %}
-                </td>
-                <td class="px-4 py-2">
-                    {% if ballot.status.value == 'generated' %}
-                    <span class="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">Vygenerován</span>
-                    {% elif ballot.status.value == 'sent' %}
-                    <span class="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">Odeslán</span>
-                    {% elif ballot.status.value == 'received' %}
-                    <span class="px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full">Přijat</span>
-                    {% elif ballot.status.value == 'processed' %}
-                    <span class="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">Zpracován</span>
-                    {% endif %}
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+<!-- Status filter bubbles (static) -->
+{% set _bbase = "/hlasovani/" ~ voting.id ~ "/listky?" %}
+<div class="flex gap-4 mb-4">
+    <a href="{{ _bbase }}stav="
+       hx-get="{{ _bbase }}stav="
+       hx-target="#ballots-area" hx-swap="innerHTML" hx-push-url="true"
+       class="flex-1 flex flex-col items-center py-2 px-3 rounded-lg text-center transition-colors
+              {% if not current_stav %}bg-purple-100 ring-2 ring-purple-400 text-purple-800{% else %}bg-white shadow text-gray-600 hover:bg-gray-50{% endif %}">
+        <span class="text-lg font-bold">{{ status_counts.all }}</span>
+        <span class="text-xs">Vše</span>
+    </a>
+    <a href="{{ _bbase }}stav=generated"
+       hx-get="{{ _bbase }}stav=generated"
+       hx-target="#ballots-area" hx-swap="innerHTML" hx-push-url="true"
+       class="flex-1 flex flex-col items-center py-2 px-3 rounded-lg text-center transition-colors
+              {% if current_stav == 'generated' %}bg-blue-100 ring-2 ring-blue-400 text-blue-800{% else %}bg-white shadow text-gray-600 hover:bg-gray-50{% endif %}">
+        <span class="text-lg font-bold">{{ status_counts.get('generated', 0) }}</span>
+        <span class="text-xs">Zbývá zpracovat</span>
+    </a>
+    <a href="{{ _bbase }}stav=sent"
+       hx-get="{{ _bbase }}stav=sent"
+       hx-target="#ballots-area" hx-swap="innerHTML" hx-push-url="true"
+       class="flex-1 flex flex-col items-center py-2 px-3 rounded-lg text-center transition-colors
+              {% if current_stav == 'sent' %}bg-yellow-100 ring-2 ring-yellow-400 text-yellow-800{% else %}bg-white shadow text-gray-600 hover:bg-gray-50{% endif %}">
+        <span class="text-lg font-bold">{{ status_counts.get('sent', 0) }}</span>
+        <span class="text-xs">Odesláno</span>
+    </a>
+    <a href="{{ _bbase }}stav=processed"
+       hx-get="{{ _bbase }}stav=processed"
+       hx-target="#ballots-area" hx-swap="innerHTML" hx-push-url="true"
+       class="flex-1 flex flex-col items-center py-2 px-3 rounded-lg text-center transition-colors
+              {% if current_stav == 'processed' %}bg-green-100 ring-2 ring-green-400 text-green-800{% else %}bg-white shadow text-gray-600 hover:bg-gray-50{% endif %}">
+        <span class="text-lg font-bold">{{ status_counts.get('processed', 0) }}</span>
+        <span class="text-xs">Zpracováno</span>
+    </a>
 </div>
 
-<div class="mt-4 text-sm text-gray-500">
-    Celkem: {{ voting.ballots|length }} lístků
+<!-- Search (static) -->
+<div class="mb-4">
+    <input type="text" name="q" value="{{ q }}" placeholder="Hledat vlastníka..."
+           hx-get="/hlasovani/{{ voting.id }}/listky"
+           hx-trigger="keyup changed delay:300ms"
+           hx-target="#ballots-area"
+           hx-swap="innerHTML"
+           hx-include="#ballots-area [name='sort'], #ballots-area [name='order'], #ballots-area [name='stav']"
+           hx-push-url="true"
+           class="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+</div>
+
+<!-- Ballots area (dynamic, HTMX-updated) -->
+<div id="ballots-area">
+    {% include "voting/ballots_table.html" %}
 </div>
 {% endblock %}
