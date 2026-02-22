@@ -3,14 +3,24 @@ from datetime import datetime
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, Form, Request, UploadFile, File
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import case
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
-from app.models import SvjInfo, SvjAddress, BoardMember, Unit, OwnerUnit, Owner
+from app.models import (
+    SvjInfo, SvjAddress, BoardMember, Unit, OwnerUnit, Owner, Proxy,
+    Voting, VotingItem, Ballot, BallotVote,
+    TaxSession, TaxDocument, TaxDistribution,
+    SyncSession, SyncRecord,
+    EmailLog, ImportLog,
+)
 from app.services.backup_service import create_backup, restore_backup
+from app.services.data_export import (
+    EXPORT_ORDER, _EXPORTS as EXPORT_CATEGORIES,
+    export_category_xlsx, export_category_csv,
+)
 
 # Field mapping for bulk edit
 _BULK_FIELDS = {
@@ -78,6 +88,8 @@ async def administration_page(request: Request, db: Session = Depends(get_db)):
                     "created": datetime.fromtimestamp(stat.st_mtime),
                 })
 
+    purge_counts = _purge_counts(db)
+
     return templates.TemplateResponse("administration/index.html", {
         "request": request,
         "active_nav": "administration",
@@ -85,6 +97,11 @@ async def administration_page(request: Request, db: Session = Depends(get_db)):
         "board_members": board_members,
         "control_members": control_members,
         "backups": backups,
+        "purge_categories": _PURGE_CATEGORIES,
+        "purge_order": _PURGE_ORDER,
+        "purge_counts": purge_counts,
+        "export_categories": EXPORT_CATEGORIES,
+        "export_order": EXPORT_ORDER,
     })
 
 
@@ -243,6 +260,164 @@ async def backup_restore(file: UploadFile = File(...)):
         if temp_path.is_file():
             temp_path.unlink()
 
+    return RedirectResponse("/sprava", status_code=302)
+
+
+# ---- Export data ----
+
+
+@router.get("/export/{category}/{fmt}")
+async def export_data(category: str, fmt: str, db: Session = Depends(get_db)):
+    """Download a data export in xlsx or csv format."""
+    if category not in EXPORT_CATEGORIES or fmt not in ("xlsx", "csv"):
+        return RedirectResponse("/sprava", status_code=302)
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"{category}_{timestamp}.{fmt}"
+
+    if fmt == "xlsx":
+        content = export_category_xlsx(db, category)
+        media = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    else:
+        content = export_category_csv(db, category)
+        media = "text/csv; charset=utf-8"
+
+    return Response(
+        content=content,
+        media_type=media,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.post("/export/hromadny")
+async def export_bulk(request: Request, db: Session = Depends(get_db)):
+    """Download a ZIP with exports for selected categories."""
+    import io
+    import zipfile
+
+    form_data = await request.form()
+    categories = form_data.getlist("categories")
+    fmt = form_data.get("fmt", "xlsx")
+    if fmt not in ("xlsx", "csv"):
+        fmt = "xlsx"
+
+    categories = [c for c in categories if c in EXPORT_CATEGORIES]
+    if not categories:
+        return RedirectResponse("/sprava", status_code=302)
+
+    # Single category — download directly
+    if len(categories) == 1:
+        cat = categories[0]
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"{cat}_{timestamp}.{fmt}"
+        if fmt == "xlsx":
+            content = export_category_xlsx(db, cat)
+            media = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        else:
+            content = export_category_csv(db, cat)
+            media = "text/csv; charset=utf-8"
+        return Response(
+            content=content, media_type=media,
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+
+    # Multiple categories — pack into ZIP
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for cat in categories:
+            if fmt == "xlsx":
+                data = export_category_xlsx(db, cat)
+            else:
+                data = export_category_csv(db, cat)
+            zf.writestr(f"{cat}.{fmt}", data)
+
+    return Response(
+        content=buf.getvalue(),
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="export_{timestamp}.zip"'},
+    )
+
+
+# ---- Purge data ----
+
+# Categories available for deletion, in display order.
+# Each value lists the models to delete (order matters for FK constraints).
+_PURGE_CATEGORIES = {
+    "owners": {
+        "label": "Vlastníci a jednotky",
+        "description": "Vlastníci, jednotky, vazby vlastník-jednotka, plné moci",
+        "models": [Proxy, OwnerUnit, Owner, Unit],
+    },
+    "votings": {
+        "label": "Hlasování",
+        "description": "Hlasování, body hlasování, hlasovací lístky, hlasy",
+        "models": [BallotVote, Ballot, VotingItem, Voting],
+    },
+    "tax": {
+        "label": "Daňové podklady",
+        "description": "Daňové relace, dokumenty, distribuce",
+        "models": [TaxDistribution, TaxDocument, TaxSession],
+    },
+    "sync": {
+        "label": "Synchronizace",
+        "description": "Synchronizační relace a záznamy",
+        "models": [SyncRecord, SyncSession],
+    },
+    "logs": {
+        "label": "Logy",
+        "description": "E-mailové logy, importní logy",
+        "models": [EmailLog, ImportLog],
+    },
+    "administration": {
+        "label": "Administrace SVJ",
+        "description": "Informace o SVJ, adresy, členové výboru",
+        "models": [SvjAddress, BoardMember, SvjInfo],
+    },
+}
+
+_PURGE_ORDER = ["owners", "votings", "tax", "sync", "logs", "administration"]
+
+
+def _purge_counts(db: Session) -> dict:
+    """Return {category_key: total_row_count} for each purge category."""
+    counts = {}
+    for key in _PURGE_ORDER:
+        cat = _PURGE_CATEGORIES[key]
+        total = sum(db.query(m).count() for m in cat["models"])
+        counts[key] = total
+    return counts
+
+
+@router.post("/smazat-data")
+async def purge_data(request: Request, db: Session = Depends(get_db)):
+    """Delete selected data categories after DELETE confirmation."""
+    form_data = await request.form()
+    confirmation = form_data.get("confirmation", "").strip()
+    categories = form_data.getlist("categories")
+
+    if confirmation != "DELETE" or not categories:
+        return RedirectResponse("/sprava", status_code=302)
+
+    # Delete in safe order — children before parents
+    for key in _PURGE_ORDER:
+        if key not in categories:
+            continue
+        cat = _PURGE_CATEGORIES.get(key)
+        if not cat:
+            continue
+        for model in cat["models"]:
+            db.query(model).delete()
+
+    # Clean uploaded / generated files if owners or votings are wiped
+    if "owners" in categories or "votings" in categories:
+        for dirname in (UPLOADS_DIR, GENERATED_DIR):
+            if dirname.is_dir():
+                import shutil
+                shutil.rmtree(dirname, ignore_errors=True)
+                dirname.mkdir(parents=True, exist_ok=True)
+
+    db.commit()
     return RedirectResponse("/sprava", status_code=302)
 
 

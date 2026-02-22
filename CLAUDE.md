@@ -202,6 +202,13 @@ Vzor se skládá ze dvou partials (info + form) a tří endpointů:
 - Odkaz v sidebar (`base.html`) s `active_nav` kontrolou
 - Přidání do README.md (popis modulu + API endpointy)
 
+## Hromadný výběr (checkbox "Vybrat/Zrušit vše")
+
+- Checkbox pro hromadné označení/odznačení se vždy jmenuje **„Vybrat/Zrušit vše"**
+- Vizuálně odlišený: `bg-gray-50 border border-gray-200` (oproti běžným řádkům bez borderu)
+- JS vzor: `toggleAll(checked)` nastaví všechny checkboxy, `updateSelectAll()` na každém jednotlivém checkboxu synchronizuje stav hlavního checkboxu
+- Akční tlačítka (export, smazání) jsou `disabled` dokud není zaškrtnutý alespoň jeden checkbox
+
 ## Workflow
 
 - Po dokončení změn: commit + push (pokud uživatel požádá)

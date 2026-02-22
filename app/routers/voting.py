@@ -588,6 +588,36 @@ async def update_voting_status(
     return RedirectResponse(f"/hlasovani/{voting_id}", status_code=302)
 
 
+@router.post("/{voting_id}/smazat")
+async def voting_delete(voting_id: int, db: Session = Depends(get_db)):
+    """Delete a voting, its items, ballots, and associated files."""
+    voting = db.query(Voting).options(joinedload(Voting.ballots)).get(voting_id)
+    if voting:
+        # Remove template file
+        if voting.template_path:
+            try:
+                p = Path(voting.template_path)
+                if p.exists():
+                    p.unlink()
+            except Exception:
+                pass
+        # Remove ballot PDF/scan files
+        for ballot in voting.ballots:
+            for attr in ("pdf_path", "scan_path"):
+                fpath = getattr(ballot, attr, None)
+                if fpath:
+                    try:
+                        p = Path(fpath)
+                        if p.exists():
+                            p.unlink()
+                    except Exception:
+                        pass
+        # Cascade deletes VotingItem, Ballot, BallotVote
+        db.delete(voting)
+        db.commit()
+    return RedirectResponse("/hlasovani", status_code=302)
+
+
 @router.post("/{voting_id}/smazat-bod/{item_id}")
 async def delete_voting_item(
     voting_id: int,
