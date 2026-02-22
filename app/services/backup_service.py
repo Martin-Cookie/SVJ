@@ -10,12 +10,21 @@ def create_backup(
     uploads_dir: str,
     generated_dir: str,
     backup_dir: str,
+    custom_name: str = None,
 ) -> Path:
     """Create a ZIP backup of database + uploads + generated files."""
     os.makedirs(backup_dir, exist_ok=True)
 
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
-    zip_name = f"svj_backup_{timestamp}.zip"
+    if custom_name:
+        # Sanitize: keep only safe chars, ensure .zip
+        safe = "".join(c for c in custom_name if c.isalnum() or c in "-_.")
+        safe = safe.strip().rstrip(".")
+        if not safe:
+            safe = f"svj_backup_{datetime.now().strftime('%Y-%m-%d_%H%M%S')}"
+        zip_name = safe if safe.endswith(".zip") else f"{safe}.zip"
+    else:
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+        zip_name = f"svj_backup_{timestamp}.zip"
     zip_path = Path(backup_dir) / zip_name
 
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
@@ -65,6 +74,53 @@ def restore_backup(
 
         # Restore generated
         _restore_directory_from_zip(zf, "generated", generated_dir)
+
+
+def restore_from_directory(
+    src_dir: str,
+    db_path: str,
+    uploads_dir: str,
+    generated_dir: str,
+    backup_dir: str,
+) -> None:
+    """Restore data from an unzipped backup directory. Creates a safety backup first."""
+    src = Path(src_dir)
+
+    # Find svj.db — either directly in src or one level deeper
+    db_file = src / "svj.db"
+    if not db_file.is_file():
+        # Try one level deeper (e.g. Safari unzips into a subfolder)
+        for child in src.iterdir():
+            if child.is_dir() and (child / "svj.db").is_file():
+                src = child
+                db_file = child / "svj.db"
+                break
+    if not db_file.is_file():
+        raise ValueError("Adresář neobsahuje soubor svj.db.")
+
+    # Safety backup before restore
+    create_backup(db_path, uploads_dir, generated_dir, backup_dir)
+
+    # Restore database
+    shutil.copy2(str(db_file), db_path)
+
+    # Restore uploads
+    src_uploads = src / "uploads"
+    if src_uploads.is_dir():
+        if os.path.isdir(uploads_dir):
+            shutil.rmtree(uploads_dir)
+        shutil.copytree(str(src_uploads), uploads_dir)
+    else:
+        os.makedirs(uploads_dir, exist_ok=True)
+
+    # Restore generated
+    src_generated = src / "generated"
+    if src_generated.is_dir():
+        if os.path.isdir(generated_dir):
+            shutil.rmtree(generated_dir)
+        shutil.copytree(str(src_generated), generated_dir)
+    else:
+        os.makedirs(generated_dir, exist_ok=True)
 
 
 def _add_directory_to_zip(

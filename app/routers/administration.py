@@ -1,8 +1,11 @@
 import os
+import shutil
+import tempfile
 from datetime import datetime
 from pathlib import Path
+from typing import List
 
-from fastapi import APIRouter, Depends, Form, Request, UploadFile, File
+from fastapi import APIRouter, Depends, Form, Query, Request, UploadFile, File
 from fastapi.responses import FileResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import case
@@ -16,7 +19,7 @@ from app.models import (
     SyncSession, SyncRecord,
     EmailLog, ImportLog,
 )
-from app.services.backup_service import create_backup, restore_backup
+from app.services.backup_service import create_backup, restore_backup, restore_from_directory
 from app.services.data_export import (
     EXPORT_ORDER, _EXPORTS as EXPORT_CATEGORIES,
     export_category_xlsx, export_category_csv,
@@ -65,7 +68,7 @@ def _get_or_create_svj_info(db: Session) -> SvjInfo:
 
 
 @router.get("/")
-async def administration_page(request: Request, db: Session = Depends(get_db)):
+async def administration_page(request: Request, sekce: str = Query(""), chyba: str = Query(""), db: Session = Depends(get_db)):
     info = db.query(SvjInfo).options(joinedload(SvjInfo.addresses)).first()
     if not info:
         info = SvjInfo()
@@ -89,6 +92,7 @@ async def administration_page(request: Request, db: Session = Depends(get_db)):
                 })
 
     purge_counts = _purge_counts(db)
+    default_backup_name = f"svj_backup_{datetime.now().strftime('%Y-%m-%d_%H%M%S')}"
 
     return templates.TemplateResponse("administration/index.html", {
         "request": request,
@@ -102,6 +106,9 @@ async def administration_page(request: Request, db: Session = Depends(get_db)):
         "purge_counts": purge_counts,
         "export_categories": EXPORT_CATEGORIES,
         "export_order": EXPORT_ORDER,
+        "sekce": sekce,
+        "chyba": chyba,
+        "default_backup_name": default_backup_name,
     })
 
 
@@ -218,9 +225,18 @@ async def delete_member(member_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/zaloha/vytvorit")
-async def backup_create():
-    create_backup(str(DB_PATH), str(UPLOADS_DIR), str(GENERATED_DIR), str(BACKUP_DIR))
-    return RedirectResponse("/sprava", status_code=302)
+async def backup_create(filename: str = Form(""), db: Session = Depends(get_db)):
+    # Check if there is any data to backup
+    total = sum(
+        db.query(m).count()
+        for m in (Owner, Unit, Voting, TaxSession, SyncSession, EmailLog, ImportLog, BoardMember)
+    )
+    if total == 0:
+        return RedirectResponse("/sprava?sekce=zalohy&chyba=prazdna", status_code=302)
+
+    name = filename.strip() or None
+    create_backup(str(DB_PATH), str(UPLOADS_DIR), str(GENERATED_DIR), str(BACKUP_DIR), custom_name=name)
+    return RedirectResponse("/sprava?sekce=zalohy", status_code=302)
 
 
 @router.get("/zaloha/{filename}/stahnout")
@@ -231,7 +247,7 @@ async def backup_download(filename: str):
     return FileResponse(
         path=str(file_path),
         filename=filename,
-        media_type="application/zip",
+        media_type="application/octet-stream",
     )
 
 
@@ -240,7 +256,7 @@ async def backup_delete(filename: str):
     file_path = BACKUP_DIR / filename
     if file_path.is_file() and filename.endswith(".zip"):
         file_path.unlink()
-    return RedirectResponse("/sprava", status_code=302)
+    return RedirectResponse("/sprava?sekce=zalohy", status_code=302)
 
 
 @router.post("/zaloha/obnovit")
@@ -260,7 +276,96 @@ async def backup_restore(file: UploadFile = File(...)):
         if temp_path.is_file():
             temp_path.unlink()
 
-    return RedirectResponse("/sprava", status_code=302)
+    return RedirectResponse("/sprava?sekce=zalohy", status_code=302)
+
+
+@router.post("/zaloha/obnovit-adresar")
+async def backup_restore_directory(dir_path: str = Form(...)):
+    """Restore from an unzipped backup directory on local disk."""
+    dir_path = dir_path.strip()
+    if not dir_path or not Path(dir_path).is_dir():
+        return RedirectResponse("/sprava?sekce=zalohy", status_code=302)
+
+    restore_from_directory(
+        dir_path, str(DB_PATH), str(UPLOADS_DIR),
+        str(GENERATED_DIR), str(BACKUP_DIR),
+    )
+    return RedirectResponse("/sprava?sekce=zalohy", status_code=302)
+
+
+@router.post("/zaloha/obnovit-soubor")
+async def backup_restore_db_file(file: UploadFile = File(...)):
+    """Restore from an uploaded svj.db file (from an unzipped backup)."""
+    if not file.filename or not file.filename.endswith(".db"):
+        return RedirectResponse("/sprava?sekce=zalohy", status_code=302)
+
+    # Safety backup before restore
+    create_backup(str(DB_PATH), str(UPLOADS_DIR), str(GENERATED_DIR), str(BACKUP_DIR))
+
+    # Overwrite database
+    with open(str(DB_PATH), "wb") as f:
+        f.write(await file.read())
+
+    return RedirectResponse("/sprava?sekce=zalohy", status_code=302)
+
+
+@router.post("/zaloha/obnovit-slozku")
+async def backup_restore_folder(files: List[UploadFile] = File(...)):
+    """Restore from an uploaded backup folder (webkitdirectory).
+
+    The browser sends all files from the selected folder. We look for svj.db
+    and optionally uploads/ and generated/ subdirectories.
+    """
+    # Create a temp directory to receive the folder contents
+    tmp = tempfile.mkdtemp(prefix="svj_restore_")
+    try:
+        db_found = False
+        for f in files:
+            if not f.filename:
+                continue
+            # webkitRelativePath gives e.g. "folder_name/svj.db" or "folder_name/uploads/doc.pdf"
+            # The first path component is the folder name — strip it
+            parts = f.filename.replace("\\", "/").split("/")
+            if len(parts) > 1:
+                rel = "/".join(parts[1:])  # strip top-level folder name
+            else:
+                rel = parts[0]
+
+            target = Path(tmp) / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            with open(str(target), "wb") as dst:
+                dst.write(await f.read())
+
+            if rel == "svj.db":
+                db_found = True
+
+        if not db_found:
+            return RedirectResponse("/sprava?sekce=zalohy", status_code=302)
+
+        # Safety backup before restore
+        create_backup(str(DB_PATH), str(UPLOADS_DIR), str(GENERATED_DIR), str(BACKUP_DIR))
+
+        # Restore database
+        shutil.copy2(str(Path(tmp) / "svj.db"), str(DB_PATH))
+
+        # Restore uploads if present
+        src_uploads = Path(tmp) / "uploads"
+        if src_uploads.is_dir():
+            if UPLOADS_DIR.is_dir():
+                shutil.rmtree(str(UPLOADS_DIR))
+            shutil.copytree(str(src_uploads), str(UPLOADS_DIR))
+
+        # Restore generated if present
+        src_generated = Path(tmp) / "generated"
+        if src_generated.is_dir():
+            if GENERATED_DIR.is_dir():
+                shutil.rmtree(str(GENERATED_DIR))
+            shutil.copytree(str(src_generated), str(GENERATED_DIR))
+
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    return RedirectResponse("/sprava?sekce=zalohy", status_code=302)
 
 
 # ---- Export data ----
@@ -413,7 +518,6 @@ async def purge_data(request: Request, db: Session = Depends(get_db)):
     if "owners" in categories or "votings" in categories:
         for dirname in (UPLOADS_DIR, GENERATED_DIR):
             if dirname.is_dir():
-                import shutil
                 shutil.rmtree(dirname, ignore_errors=True)
                 dirname.mkdir(parents=True, exist_ok=True)
 

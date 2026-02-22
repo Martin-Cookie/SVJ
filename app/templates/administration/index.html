@@ -286,7 +286,7 @@
 </details>
 
 <!-- Zálohování a obnova -->
-<details class="mb-6 group">
+<details class="mb-6 group" {% if sekce == 'zalohy' %}open{% endif %}>
     <summary class="flex items-center gap-2 cursor-pointer select-none bg-white rounded-lg shadow px-5 py-3">
         <svg class="w-4 h-4 text-gray-400 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
@@ -296,17 +296,76 @@
     <div class="mt-4">
         <div class="bg-white rounded-lg shadow p-6">
 
-            <!-- Create backup -->
-            <form action="/sprava/zaloha/vytvorit" method="post" hx-boost="false" class="mb-6">
-                <button type="submit"
-                        class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
-                    Vytvořit zálohu
-                </button>
-            </form>
+            {% if chyba == 'prazdna' %}
+            <div class="mb-4 px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+                V systému nejsou žádná data k zálohování.
+            </div>
+            {% endif %}
+
+            <!-- Create + Restore side by side -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                <!-- Create backup -->
+                <div>
+                    <h3 class="text-sm font-medium text-gray-600 mb-2">Vytvořit zálohu</h3>
+                    <form action="/sprava/zaloha/vytvorit" method="post" hx-boost="false">
+                        <div class="space-y-2">
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">Název zálohy</label>
+                                <input type="text" name="filename" value="{{ default_backup_name }}"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            </div>
+                            <button type="submit"
+                                    class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
+                                Vytvořit zálohu
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Restore from backup -->
+                <div>
+                    <h3 class="text-sm font-medium text-gray-600 mb-2">Obnovit ze zálohy</h3>
+
+                    <!-- From ZIP -->
+                    <form action="/sprava/zaloha/obnovit" method="post" enctype="multipart/form-data" hx-boost="false"
+                          onsubmit="return confirm('POZOR: Tímto se přepíšou aktuální data. Před obnovou se automaticky vytvoří pojistná záloha.\n\nOpravdu pokračovat?')"
+                          class="mb-3">
+                        <div class="flex items-end gap-2">
+                            <div class="flex-1">
+                                <label class="block text-xs text-gray-500 mb-1">ZIP soubor</label>
+                                <input type="file" name="file" accept=".zip" required
+                                       class="w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200">
+                            </div>
+                            <button type="submit"
+                                    class="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 text-sm font-medium whitespace-nowrap">
+                                Obnovit
+                            </button>
+                        </div>
+                    </form>
+
+                    <!-- From unzipped backup folder via Finder -->
+                    <form action="/sprava/zaloha/obnovit-slozku" method="post" enctype="multipart/form-data" hx-boost="false"
+                          onsubmit="return restoreFolderValidate(this)">
+                        <div class="flex items-end gap-2">
+                            <div class="flex-1">
+                                <label class="block text-xs text-gray-500 mb-1">Složka rozbalené zálohy (z Finderu)</label>
+                                <input type="file" name="files" webkitdirectory required
+                                       onchange="restoreFolderCheck(this)"
+                                       class="w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200">
+                                <p id="restore-folder-info" class="text-xs text-gray-400 mt-1 hidden"></p>
+                            </div>
+                            <button type="submit" id="restore-folder-btn" disabled
+                                    class="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 text-sm font-medium whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed">
+                                Obnovit
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
 
             <!-- Existing backups -->
             {% if backups %}
-            <div class="mb-6">
+            <div>
                 <h3 class="text-sm font-medium text-gray-600 mb-2">Existující zálohy</h3>
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm">
@@ -347,27 +406,8 @@
                 </div>
             </div>
             {% else %}
-            <p class="text-sm text-gray-400 mb-6">Zatím nejsou vytvořeny žádné zálohy.</p>
+            <p class="text-sm text-gray-400">Zatím nejsou vytvořeny žádné zálohy.</p>
             {% endif %}
-
-            <!-- Restore from backup -->
-            <div class="pt-4 border-t border-gray-200">
-                <h3 class="text-sm font-medium text-gray-600 mb-2">Obnovit ze zálohy</h3>
-                <form action="/sprava/zaloha/obnovit" method="post" enctype="multipart/form-data" hx-boost="false"
-                      onsubmit="return confirm('POZOR: Tímto se přepíšou aktuální data (databáze, nahrané soubory i generované soubory). Před obnovou se automaticky vytvoří pojistná záloha.\n\nOpravdu pokračovat?')">
-                    <div class="flex items-end gap-3">
-                        <div class="flex-1">
-                            <label class="block text-xs text-gray-500 mb-1">ZIP soubor se zálohou</label>
-                            <input type="file" name="file" accept=".zip" required
-                                   class="w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200">
-                        </div>
-                        <button type="submit"
-                                class="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 text-sm font-medium whitespace-nowrap">
-                            Obnovit
-                        </button>
-                    </div>
-                </form>
-            </div>
         </div>
     </div>
 </details>
@@ -594,5 +634,32 @@ function purgeValidate() {
     var inp = document.getElementById('purge-confirm-input');
     if (inp) inp.addEventListener('input', purgeUpdateButton);
 })();
+
+/* ---- Restore from folder ---- */
+function restoreFolderCheck(input) {
+    var info = document.getElementById('restore-folder-info');
+    var btn = document.getElementById('restore-folder-btn');
+    var files = Array.from(input.files || []);
+    var dbFile = files.find(function(f) { return f.name === 'svj.db'; });
+    if (dbFile) {
+        var sizeMB = (dbFile.size / 1048576).toFixed(1);
+        info.textContent = 'Nalezen svj.db (' + sizeMB + ' MB), celkem ' + files.length + ' souborů';
+        info.className = 'text-xs text-green-600 mt-1';
+        btn.disabled = false;
+    } else {
+        info.textContent = 'Složka neobsahuje soubor svj.db — vyberte správnou složku zálohy';
+        info.className = 'text-xs text-red-600 mt-1';
+        btn.disabled = true;
+    }
+}
+function restoreFolderValidate(form) {
+    var files = form.querySelector('input[type="file"]').files;
+    var dbFile = Array.from(files).find(function(f) { return f.name === 'svj.db'; });
+    if (!dbFile) {
+        alert('Složka neobsahuje soubor svj.db.');
+        return false;
+    }
+    return confirm('POZOR: Tímto se přepíšou aktuální data. Před obnovou se automaticky vytvoří pojistná záloha.\n\nOpravdu pokračovat?');
+}
 </script>
 {% endblock %}
