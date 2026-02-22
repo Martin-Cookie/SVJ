@@ -38,24 +38,24 @@
     </div>
 </div>
 
-<!-- Status overview (static) -->
+<!-- Status overview -->
 <div class="flex gap-4 mb-4">
-    <a href="/hlasovani/{{ voting.id }}/listky" hx-boost="false"
+    <a href="/hlasovani/{{ voting.id }}/listky"
        class="flex-1 bg-white rounded-lg shadow p-4 text-center hover:shadow-md transition-shadow">
         <p class="text-2xl font-bold text-gray-800">{{ total_ballots }}</p>
         <p class="text-xs text-gray-500 mt-1">Celkem lístků</p>
     </a>
-    <a href="/hlasovani/{{ voting.id }}/listky?stav=generated" hx-boost="false"
+    <a href="/hlasovani/{{ voting.id }}/listky?stav=generated"
        class="flex-1 bg-white rounded-lg shadow p-4 text-center hover:shadow-md transition-shadow">
         <p class="text-2xl font-bold text-blue-600">{{ status_counts.get('generated', 0) }}</p>
         <p class="text-xs text-gray-500 mt-1">Zbývá zpracovat</p>
     </a>
-    <a href="/hlasovani/{{ voting.id }}/listky?stav=sent" hx-boost="false"
+    <a href="/hlasovani/{{ voting.id }}/listky?stav=sent"
        class="flex-1 bg-white rounded-lg shadow p-4 text-center hover:shadow-md transition-shadow">
         <p class="text-2xl font-bold text-yellow-600">{{ status_counts.get('sent', 0) }}</p>
         <p class="text-xs text-gray-500 mt-1">Odesláno</p>
     </a>
-    <a href="/hlasovani/{{ voting.id }}/listky?stav=processed" hx-boost="false"
+    <a href="/hlasovani/{{ voting.id }}/listky?stav=processed"
        class="flex-1 bg-white rounded-lg shadow p-4 text-center hover:shadow-md transition-shadow">
         <p class="text-2xl font-bold text-green-600">{{ status_counts.get('processed', 0) }}</p>
         <p class="text-xs text-gray-500 mt-1">Zpracováno</p>
@@ -72,21 +72,65 @@
     </div>
 </div>
 
-<!-- Search (static) -->
+<!-- Search -->
+{% set _back = "&back=" ~ (back_url|urlencode) if back_url else "" %}
 <div class="mb-4">
     <input type="text" name="q" value="{{ q }}" placeholder="Hledat v bodech hlasování..."
            hx-get="/hlasovani/{{ voting.id }}"
            hx-trigger="keyup changed delay:300ms"
-           hx-target="#results-area"
-           hx-swap="innerHTML"
-           hx-include="#results-area [name='sort'], #results-area [name='order'], #results-area [name='back']"
+           hx-target="#detail-table-body"
+           hx-include="[name='sort'],[name='order'],[name='back']"
            hx-push-url="true"
            class="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+    <input type="hidden" name="sort" value="{{ sort }}">
+    <input type="hidden" name="order" value="{{ order }}">
+    <input type="hidden" name="back" value="{{ back_url }}">
 </div>
 
-<!-- Results area (dynamic, HTMX-updated) -->
-<div id="results-area" class="mb-8">
-    {% include "voting/detail_results.html" %}
+<!-- Voting items & results -->
+{% set _all = "q=" ~ (q|urlencode) ~ "&sort=" ~ sort ~ "&order=" ~ order ~ _back %}
+{% set _svg_up = '<svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L10 6.414l-3.293 3.293a1 1 0 01-1.414 0z"/></svg>' %}
+{% set _svg_down = '<svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path d="M14.707 10.293a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L10 13.586l3.293-3.293a1 1 0 011.414 0z"/></svg>' %}
+{% set _cols = [
+    ("Bod", "order", "left"),
+    ("PRO (hlasy)", "votes_for", "left"),
+    ("PRO (%)", "pct_for", "left"),
+    ("PROTI (hlasy)", "votes_against", "left"),
+    ("PROTI (%)", "pct_against", "left"),
+    ("Neodevzdáno", "votes_missing", "left"),
+] %}
+<div class="bg-white rounded-lg shadow mb-8">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <h2 class="text-lg font-semibold text-gray-700">Výsledky po bodech</h2>
+    </div>
+    {% if results %}
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50 sticky top-0 z-10">
+                <tr>
+                    {% for label, col, align in _cols %}
+                    {% set next_order = "desc" if sort == col and order == "asc" else "asc" %}
+                    <th class="px-6 py-3 text-{{ align }} text-xs font-medium uppercase {% if sort == col %}text-blue-600{% else %}text-gray-500{% endif %}">
+                        <a href="/hlasovani/{{ voting.id }}?sort={{ col }}&order={{ next_order }}&{{ _all }}"
+                           class="inline-flex items-center gap-0.5 cursor-pointer hover:text-blue-600 select-none">
+                            {{ label }}
+                            {% if sort == col %}{{ (_svg_up if order == "asc" else _svg_down)|safe }}{% endif %}
+                        </a>
+                    </th>
+                    {% endfor %}
+                    <th class="px-6 py-3"></th>
+                </tr>
+            </thead>
+            <tbody id="detail-table-body" class="divide-y divide-gray-200">
+                {% include "voting/detail_results.html" %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="p-6 text-center text-gray-500 text-sm">
+        {% if q %}Žádné body neodpovídají hledání „{{ q }}".{% else %}Přidejte body hlasování nebo nahrajte Word šablonu.{% endif %}
+    </div>
+    {% endif %}
 </div>
 
 <!-- Add voting item -->
