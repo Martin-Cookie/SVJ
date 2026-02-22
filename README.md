@@ -73,19 +73,20 @@ Aplikace běží na http://localhost:8000
 - Vytvoření hlasování (název, termíny, kvórum)
 - Nahrání šablony hlasovacího lístku (.docx)
 - Automatická extrakce bodů hlasování z šablony
-- Přidání a smazání jednotlivých bodů hlasování
+- Přidání a smazání jednotlivých bodů hlasování (pouze ve stavu koncept)
 - Generování personalizovaných PDF lístků pro každého vlastníka
 - Seznam hlasování s výsledky po bodech (PRO/PROTI/Zdržel se s procenty)
 - Filtrační bubliny dle stavu hlasování (vše, koncept, aktivní, uzavřeno, zrušeno)
 - Detail hlasování: vyhledávání v bodech + řazení sloupců (HTMX partial)
-- Prokliky z detailu na filtrované lístky (celkem, zbývá zpracovat, odesláno, zpracováno)
+- Status bubliny s prokliky (celkem, zbývá zpracovat, odesláno, zpracováno, neodevzdané, kvórum)
+- Viditelnost UI dle stavu: koncept zobrazuje správu bodů + generování, po generování výsledky + zpracování
 - Seznam lístků s filtračními bublinami (stav), vyhledáváním vlastníka a řazením sloupců
 - Detail hlasovacího lístku s prokliky na vlastníka
-- Zpracování lístků: zadání hlasů (PRO/PROTI/Zdržel se) pro každý bod
+- Zpracování lístků: zadání hlasů (PRO/PROTI/Zdržel se) s vyhledáváním vlastníka
 - Sčítání hlasů a výpočet kvóra
 - Podpora hlasování v zastoupení (plné moci)
-- Stavy hlasování: návrh → aktivní → uzavřené / zrušené
-- Přehled neodevzdaných lístků
+- Stavy hlasování: koncept → aktivní → uzavřené / zrušené
+- Přehled neodevzdaných lístků (bublina v detailu hlasování)
 
 ### D. Rozúčtování příjmů (`/dane`)
 
@@ -195,7 +196,8 @@ app/
 │   │   ├── ballots_table.html #     HTMX: tbody řádky lístků
 │   │   ├── detail_results.html#     HTMX: tbody řádky výsledků
 │   │   ├── ballot_detail.html #     Detail hlasovacího lístku
-│   │   ├── process.html       #     Zpracování lístků
+│   │   ├── process.html       #     Zpracování lístků (search)
+│   │   ├── process_cards.html #     HTMX: karty lístků ke zpracování
 │   │   └── not_submitted.html #     Neodevzdané lístky
 │   ├── tax/                   #   Stránky daní
 │   │   ├── index.html         #     Seznam rozúčtování
@@ -282,7 +284,7 @@ data/
 | POST | `/hlasovani/{id}/generovat` | Generování PDF lístků |
 | GET | `/hlasovani/{id}/listky` | Seznam lístků (filtr stavu, search, sort, HTMX partial) |
 | GET | `/hlasovani/{id}/listek/{ballot_id}` | Detail hlasovacího lístku |
-| GET | `/hlasovani/{id}/zpracovani` | Stránka zpracování lístků |
+| GET | `/hlasovani/{id}/zpracovani` | Stránka zpracování lístků (search, HTMX partial) |
 | POST | `/hlasovani/{id}/zpracovat/{ballot_id}` | Zpracování jednoho lístku |
 | GET | `/hlasovani/{id}/neodevzdane` | Neodevzdané lístky |
 
