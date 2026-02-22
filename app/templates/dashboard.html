@@ -5,8 +5,8 @@
 <h1 class="text-2xl font-bold text-gray-800 mb-6">Přehled</h1>
 
 <!-- Stats cards -->
-<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-    <div class="bg-white rounded-lg shadow p-6">
+<div class="flex flex-col md:flex-row gap-6 mb-8">
+    <a href="/vlastnici?back=/" class="flex-1 block bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow">
         <div class="flex items-center">
             <div class="p-3 bg-blue-100 rounded-lg">
                 <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -39,8 +39,8 @@
             </tr>
         </table>
         {% endif %}
-    </div>
-    <div class="bg-white rounded-lg shadow p-6">
+    </a>
+    <a href="/jednotky?back=/" class="flex-1 block bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow">
         <div class="flex items-center">
             <div class="p-3 bg-green-100 rounded-lg">
                 <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -73,8 +73,8 @@
             </tr>
         </table>
         {% endif %}
-    </div>
-    <div class="bg-white rounded-lg shadow p-6">
+    </a>
+    <a href="/hlasovani?back=/" class="flex-1 block bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow">
         <div class="flex items-center">
             <div class="p-3 bg-purple-100 rounded-lg">
                 <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -82,78 +82,68 @@
                 </svg>
             </div>
             <div class="ml-4">
-                <p class="text-sm text-gray-500">Aktivní hlasování</p>
+                <p class="text-sm text-gray-500">Hlasování</p>
                 <p class="text-2xl font-bold text-gray-800">{{ active_votings }}</p>
             </div>
         </div>
-    </div>
+        {% if active_votings_list %}
+        <div class="mt-3 space-y-1.5">
+            {% for v in active_votings_list %}
+            <div class="flex items-center gap-2 text-xs">
+                {% if v.status.value == 'active' %}
+                <span class="shrink-0 px-1.5 py-0.5 font-medium bg-green-100 text-green-800 rounded-full">Aktivní</span>
+                {% elif v.status.value == 'draft' %}
+                <span class="shrink-0 px-1.5 py-0.5 font-medium bg-gray-100 text-gray-700 rounded-full">Koncept</span>
+                {% endif %}
+                <span class="text-gray-700 truncate" title="{{ v.title }}">{{ v.title }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </a>
 </div>
 
 <!-- Module cards -->
 <h2 class="text-lg font-semibold text-gray-700 mb-4">Moduly</h2>
-<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<div class="flex flex-col md:flex-row gap-6">
     <!-- Module A -->
-    <div class="bg-white rounded-lg shadow hover:shadow-md transition-shadow">
-        <div class="p-6">
-            <div class="flex items-center mb-4">
-                <div class="p-2 bg-indigo-100 rounded-lg">
-                    <svg class="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
-                    </svg>
-                </div>
-                <h3 class="ml-3 text-lg font-semibold text-gray-800">Hlasování per rollam</h3>
-            </div>
-            <p class="text-sm text-gray-600 mb-4">Generování hlasovacích lístků, distribuce, zpracování výsledků a dashboard.</p>
-            <a href="/hlasovani" class="inline-flex items-center text-sm font-medium text-indigo-600 hover:text-indigo-500">
-                Otevřít modul
-                <svg class="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+    <a href="/hlasovani?back=/" class="flex-1 block bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow">
+        <div class="flex items-center mb-4">
+            <div class="p-2 bg-indigo-100 rounded-lg">
+                <svg class="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
                 </svg>
-            </a>
+            </div>
+            <h3 class="ml-3 text-lg font-semibold text-gray-800">Hlasování per rollam</h3>
         </div>
-    </div>
+        <p class="text-sm text-gray-600">Generování hlasovacích lístků, distribuce, zpracování výsledků a dashboard.</p>
+    </a>
 
     <!-- Module B -->
-    <div class="bg-white rounded-lg shadow hover:shadow-md transition-shadow">
-        <div class="p-6">
-            <div class="flex items-center mb-4">
-                <div class="p-2 bg-emerald-100 rounded-lg">
-                    <svg class="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z"/>
-                    </svg>
-                </div>
-                <h3 class="ml-3 text-lg font-semibold text-gray-800">Rozúčtování příjmů</h3>
-            </div>
-            <p class="text-sm text-gray-600 mb-4">Přiřazení PDF s daňovými příjmy k vlastníkům a rozeslání emailem.</p>
-            <a href="/dane" class="inline-flex items-center text-sm font-medium text-emerald-600 hover:text-emerald-500">
-                Otevřít modul
-                <svg class="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+    <a href="/dane?back=/" class="flex-1 block bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow">
+        <div class="flex items-center mb-4">
+            <div class="p-2 bg-emerald-100 rounded-lg">
+                <svg class="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z"/>
                 </svg>
-            </a>
+            </div>
+            <h3 class="ml-3 text-lg font-semibold text-gray-800">Rozúčtování příjmů</h3>
         </div>
-    </div>
+        <p class="text-sm text-gray-600">Přiřazení PDF s daňovými příjmy k vlastníkům a rozeslání emailem.</p>
+    </a>
 
     <!-- Module C -->
-    <div class="bg-white rounded-lg shadow hover:shadow-md transition-shadow">
-        <div class="p-6">
-            <div class="flex items-center mb-4">
-                <div class="p-2 bg-amber-100 rounded-lg">
-                    <svg class="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-                    </svg>
-                </div>
-                <h3 class="ml-3 text-lg font-semibold text-gray-800">Kontrola vlastníků</h3>
-            </div>
-            <p class="text-sm text-gray-600 mb-4">Porovnání vlastníků z CSV exportu se seznamem v Excelu, synchronizace změn.</p>
-            <a href="/synchronizace" class="inline-flex items-center text-sm font-medium text-amber-600 hover:text-amber-500">
-                Otevřít modul
-                <svg class="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+    <a href="/synchronizace?back=/" class="flex-1 block bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow">
+        <div class="flex items-center mb-4">
+            <div class="p-2 bg-amber-100 rounded-lg">
+                <svg class="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
                 </svg>
-            </a>
+            </div>
+            <h3 class="ml-3 text-lg font-semibold text-gray-800">Kontrola vlastníků</h3>
         </div>
-    </div>
+        <p class="text-sm text-gray-600">Porovnání vlastníků z CSV exportu se seznamem v Excelu, synchronizace změn.</p>
+    </a>
 </div>
 
 <!-- Recent activity -->

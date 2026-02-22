@@ -23,7 +23,7 @@ templates = Jinja2Templates(directory="app/templates")
 
 
 @router.get("/")
-async def voting_list(request: Request, db: Session = Depends(get_db)):
+async def voting_list(request: Request, back: str = Query("", alias="back"), db: Session = Depends(get_db)):
     votings = db.query(Voting).options(
         joinedload(Voting.items),
         joinedload(Voting.ballots).joinedload(Ballot.votes),
@@ -68,11 +68,17 @@ async def voting_list(request: Request, db: Session = Depends(get_db)):
             "item_results": item_results,
         }
 
+    list_url = str(request.url.path)
+    if request.url.query:
+        list_url += "?" + str(request.url.query)
+
     return templates.TemplateResponse("voting/index.html", {
         "request": request,
         "active_nav": "voting",
         "votings": votings,
         "voting_stats": voting_stats,
+        "back_url": back,
+        "list_url": list_url,
     })
 
 
@@ -145,7 +151,7 @@ async def voting_create(
 
 
 @router.get("/{voting_id}")
-async def voting_detail(voting_id: int, request: Request, db: Session = Depends(get_db)):
+async def voting_detail(voting_id: int, request: Request, back: str = Query("", alias="back"), db: Session = Depends(get_db)):
     voting = db.query(Voting).options(
         joinedload(Voting.items),
         joinedload(Voting.ballots).joinedload(Ballot.owner),
@@ -196,6 +202,9 @@ async def voting_detail(voting_id: int, request: Request, db: Session = Depends(
         else False
     )
 
+    back_url = back or "/hlasovani"
+    back_label = "Zpět na přehled" if back == "/" else "Zpět na hlasování"
+
     return templates.TemplateResponse("voting/detail.html", {
         "request": request,
         "active_nav": "voting",
@@ -205,6 +214,8 @@ async def voting_detail(voting_id: int, request: Request, db: Session = Depends(
         "status_counts": status_counts,
         "total_processed_votes": total_processed_votes,
         "quorum_reached": quorum_reached,
+        "back_url": back_url,
+        "back_label": back_label,
     })
 
 

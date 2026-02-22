@@ -25,12 +25,18 @@ templates = Jinja2Templates(directory="app/templates")
 
 
 @router.get("/")
-async def tax_list(request: Request, db: Session = Depends(get_db)):
+async def tax_list(request: Request, back: str = Query("", alias="back"), db: Session = Depends(get_db)):
     sessions = db.query(TaxSession).order_by(TaxSession.created_at.desc()).all()
+    list_url = str(request.url.path)
+    if request.url.query:
+        list_url += "?" + str(request.url.query)
+
     return templates.TemplateResponse("tax/index.html", {
         "request": request,
         "active_nav": "tax",
         "sessions": sessions,
+        "back_url": back,
+        "list_url": list_url,
     })
 
 
@@ -145,7 +151,7 @@ async def tax_create(
 
 
 @router.get("/{session_id}")
-async def tax_detail(session_id: int, request: Request, db: Session = Depends(get_db)):
+async def tax_detail(session_id: int, request: Request, back: str = Query("", alias="back"), db: Session = Depends(get_db)):
     session = db.query(TaxSession).get(session_id)
     if not session:
         return RedirectResponse("/dane", status_code=302)
@@ -163,6 +169,9 @@ async def tax_detail(session_id: int, request: Request, db: Session = Depends(ge
     matched = sum(1 for d in documents if d.distributions and d.distributions[0].match_status != MatchStatus.UNMATCHED)
     unmatched = len(documents) - matched
 
+    back_url = back or "/dane"
+    back_label = "Zpět na přehled" if back == "/" else "Zpět na rozúčtování"
+
     return templates.TemplateResponse("tax/matching.html", {
         "request": request,
         "active_nav": "tax",
@@ -171,6 +180,8 @@ async def tax_detail(session_id: int, request: Request, db: Session = Depends(ge
         "owners": owners,
         "matched_count": matched,
         "unmatched_count": unmatched,
+        "back_url": back_url,
+        "back_label": back_label,
     })
 
 

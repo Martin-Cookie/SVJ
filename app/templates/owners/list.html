@@ -2,6 +2,11 @@
 {% block title %}Vlastníci - SVJ Správa{% endblock %}
 
 {% block content %}
+{% if back_url %}
+<div class="mb-3">
+    <a href="{{ back_url }}" class="text-sm text-gray-500 hover:text-gray-700">&larr; Zpět na přehled</a>
+</div>
+{% endif %}
 <div class="flex items-center justify-between mb-3">
     <div>
         <h1 class="text-xl font-bold text-gray-800">Evidence vlastníků</h1>
@@ -37,8 +42,9 @@
     <a href="/vlastnici/import" class="px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs font-medium">Importovat z Excelu</a>
 </div>
 
-{% set _base = "q=" ~ q ~ "&sekce=" ~ sekce ~ "&sort=" ~ sort ~ "&order=" ~ order %}
-{% set _base2 = "q=" ~ q ~ "&sekce=" ~ sekce ~ "&sort=" ~ sort ~ "&order=" ~ order %}
+{% set _back = "&back=" ~ (back_url|default('')|urlencode) if back_url else "" %}
+{% set _base = "q=" ~ q ~ "&sekce=" ~ sekce ~ "&sort=" ~ sort ~ "&order=" ~ order ~ _back %}
+{% set _base2 = "q=" ~ q ~ "&sekce=" ~ sekce ~ "&sort=" ~ sort ~ "&order=" ~ order ~ _back %}
 {% if stats %}
 <!-- Type filter bubbles -->
 <div class="flex gap-2 mb-2">
@@ -110,17 +116,18 @@
     <input type="hidden" name="typ" value="{{ owner_type }}">
     <input type="hidden" name="vlastnictvi" value="{{ vlastnictvi }}">
     <input type="hidden" name="kontakt" value="{{ kontakt }}">
+    <input type="hidden" name="back" value="{{ back_url|default('') }}">
     <div class="flex-1">
         <input type="text" name="q" value="{{ q }}" placeholder="Hledat jméno, email, telefon, č. jednotky, RČ, IČ..."
                hx-get="/vlastnici" hx-trigger="keyup changed delay:300ms"
-               hx-target="#owner-table-body" hx-include="[name='typ'],[name='vlastnictvi'],[name='kontakt'],[name='sekce'],[name='sort'],[name='order']"
+               hx-target="#owner-table-body" hx-include="[name='typ'],[name='vlastnictvi'],[name='kontakt'],[name='sekce'],[name='sort'],[name='order'],[name='back']"
                hx-push-url="true"
                class="w-full px-3 py-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs">
     </div>
     {% if stats and stats.sections %}
     <select name="sekce"
             hx-get="/vlastnici" hx-trigger="change"
-            hx-target="#owner-table-body" hx-include="[name='q'],[name='typ'],[name='vlastnictvi'],[name='kontakt'],[name='sort'],[name='order']"
+            hx-target="#owner-table-body" hx-include="[name='q'],[name='typ'],[name='vlastnictvi'],[name='kontakt'],[name='sort'],[name='order'],[name='back']"
             hx-push-url="true"
             class="px-3 py-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 text-xs">
         <option value="">Všechny sekce</option>
@@ -148,7 +155,7 @@
                 {% macro sort_th(label, col, align="left") %}
                 {% set next_order = "desc" if sort == col and order == "asc" else "asc" %}
                 <th class="px-2 py-1.5 text-{{ align }} font-medium {% if sort == col %}text-blue-600{% else %}text-gray-500{% endif %}">
-                    {% set _all = "q=" ~ q ~ "&typ=" ~ owner_type ~ "&vlastnictvi=" ~ vlastnictvi ~ "&kontakt=" ~ kontakt ~ "&sekce=" ~ sekce %}
+                    {% set _all = "q=" ~ q ~ "&typ=" ~ owner_type ~ "&vlastnictvi=" ~ vlastnictvi ~ "&kontakt=" ~ kontakt ~ "&sekce=" ~ sekce ~ _back %}
                     <a href="/vlastnici?sort={{ col }}&order={{ next_order }}&{{ _all }}"
                        class="inline-flex items-center gap-0.5 cursor-pointer hover:text-blue-600 select-none">
                         {{ label }}

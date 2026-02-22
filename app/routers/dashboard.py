@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Request
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import func
+from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -14,7 +14,18 @@ templates = Jinja2Templates(directory="app/templates")
 async def home(request: Request, db: Session = Depends(get_db)):
     owners_count = db.query(Owner).filter_by(is_active=True).count()
     units_count = db.query(Unit).count()
-    active_votings = db.query(Voting).filter_by(status=VotingStatus.ACTIVE).count()
+    active_votings_list = (
+        db.query(Voting)
+        .filter(Voting.status.in_([VotingStatus.ACTIVE, VotingStatus.DRAFT]))
+        .order_by(
+            case(
+                (Voting.status == VotingStatus.ACTIVE, 0),
+                (Voting.status == VotingStatus.DRAFT, 1),
+            ),
+            Voting.updated_at.desc(),
+        )
+        .all()
+    )
     recent_emails = (
         db.query(EmailLog)
         .order_by(EmailLog.created_at.desc())
@@ -33,7 +44,8 @@ async def home(request: Request, db: Session = Depends(get_db)):
         "active_nav": "dashboard",
         "owners_count": owners_count,
         "units_count": units_count,
-        "active_votings": active_votings,
+        "active_votings": len(active_votings_list),
+        "active_votings_list": active_votings_list,
         "recent_emails": recent_emails,
         "declared_shares": declared_shares,
         "owners_scd": owners_scd,

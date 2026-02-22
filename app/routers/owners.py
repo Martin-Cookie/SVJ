@@ -37,6 +37,7 @@ async def owner_list(
     sekce: str = Query("", alias="sekce"),
     sort: str = Query("name", alias="sort"),
     order: str = Query("asc", alias="order"),
+    back: str = Query("", alias="back"),
     db: Session = Depends(get_db),
 ):
     query = db.query(Owner).filter_by(is_active=True).options(
@@ -170,6 +171,7 @@ async def owner_list(
         "active_nav": "owners",
         "owners": owners,
         "list_url": list_url,
+        "back_url": back,
         "q": q,
         "owner_type": owner_type,
         "vlastnictvi": vlastnictvi,

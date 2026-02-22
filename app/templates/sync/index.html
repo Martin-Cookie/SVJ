@@ -4,7 +4,11 @@
 {% block content %}
 <div class="flex flex-col" style="height:calc(100vh - 48px)">
     <div class="mb-3 flex-none">
+        {% if back_url %}
+        <a href="{{ back_url }}" class="text-sm text-gray-500 hover:text-gray-700">&larr; Zpět na přehled</a>
+        {% else %}
         <a href="/vlastnici" class="text-sm text-gray-500 hover:text-gray-700">&larr; Zpět na seznam vlastníků</a>
+        {% endif %}
     </div>
     <h1 class="text-xl font-bold text-gray-800 mb-4 flex-none">Kontrola vlastníků</h1>
 
@@ -62,7 +66,7 @@
                         {% for session in sessions %}
                         <tr class="hover:bg-gray-50">
                             <td class="px-3 py-1.5">
-                                <a href="/synchronizace/{{ session.id }}" class="text-blue-600 hover:text-blue-800 hover:underline font-medium">{{ session.csv_filename }}</a>
+                                <a href="/synchronizace/{{ session.id }}?back={{ (list_url or '/synchronizace')|urlencode }}" class="text-blue-600 hover:text-blue-800 hover:underline font-medium">{{ session.csv_filename }}</a>
                             </td>
                             <td class="px-3 py-1.5 text-gray-500 text-xs" style="white-space:nowrap">{{ session.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
                             <td class="px-3 py-1.5 text-green-600 text-right">{{ session.total_matches }}</td>

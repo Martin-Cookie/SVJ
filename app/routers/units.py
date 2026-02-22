@@ -186,6 +186,7 @@ async def unit_list(
     sekce: str = Query("", alias="sekce"),
     sort: str = Query("unit_number", alias="sort"),
     order: str = Query("asc", alias="order"),
+    back: str = Query("", alias="back"),
     db: Session = Depends(get_db),
 ):
     query = db.query(Unit).options(
@@ -261,6 +262,7 @@ async def unit_list(
         "active_nav": "units",
         "units": units,
         "list_url": list_url,
+        "back_url": back,
         "q": q,
         "typ": typ,
         "sekce": sekce,

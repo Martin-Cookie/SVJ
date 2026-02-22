@@ -25,12 +25,18 @@ templates = Jinja2Templates(directory="app/templates")
 
 
 @router.get("/")
-async def sync_list(request: Request, db: Session = Depends(get_db)):
+async def sync_list(request: Request, back: str = Query("", alias="back"), db: Session = Depends(get_db)):
     sessions = db.query(SyncSession).order_by(SyncSession.created_at.desc()).all()
+    list_url = str(request.url.path)
+    if request.url.query:
+        list_url += "?" + str(request.url.query)
+
     return templates.TemplateResponse("sync/index.html", {
         "request": request,
         "active_nav": "sync",
         "sessions": sessions,
+        "back_url": back,
+        "list_url": list_url,
     })
 
 
@@ -172,6 +178,7 @@ async def sync_detail(
     filtr: str = Query("", alias="filtr"),
     sort: str = Query("unit", alias="sort"),
     order: str = Query("asc", alias="order"),
+    back: str = Query("", alias="back"),
     db: Session = Depends(get_db),
 ):
     session = db.query(SyncSession).get(session_id)
@@ -268,6 +275,9 @@ async def sync_detail(
         owner_map.setdefault(short, []).append((oid, oname))
         unit_map[short] = unit_id
 
+    back_url = back or "/synchronizace"
+    back_label = "Zpět na přehled" if back == "/" else "Zpět"
+
     return templates.TemplateResponse("sync/compare.html", {
         "request": request,
         "active_nav": "sync",
@@ -276,6 +286,8 @@ async def sync_detail(
         "filtr": filtr,
         "sort": sort,
         "order": order,
+        "back_url": back_url,
+        "back_label": back_label,
         "total_full_match": total_full_match,
         "total_partial": total_partial,
         "total_podil_diff": total_podil_diff,
