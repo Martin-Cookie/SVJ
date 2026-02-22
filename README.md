@@ -89,6 +89,14 @@ Aplikace běží na http://localhost:8000
 - Sčítání hlasů a výpočet kvóra
 - Podpora hlasování v zastoupení (plné moci)
 - Stavy hlasování: koncept → aktivní → uzavřené / zrušené
+- Import výsledků hlasování z Excelu:
+  - 4-krokový flow: upload → mapování sloupců → náhled → potvrzení
+  - Mapování sloupců na role (vlastník, jednotka, bod hlasování) s předvyplněním z uloženého mapování
+  - Konfigurovatelné hodnoty PRO/PROTI (výchozí 1,ANO / 0,NE)
+  - Nastavitelný počáteční řádek dat
+  - Režim importu: doplnit (ponechat existující) nebo vyčistit a přepsat
+  - Náhled s filtračními bublinami (přiřazeno/nepřiřazeno/chyby)
+  - Výsledek s prokliky na zpracované/nezpracované lístky
 
 ### D. Rozúčtování příjmů (`/dane`)
 
@@ -174,6 +182,7 @@ app/
 │   ├── pdf_generator.py       #   Generování PDF lístků
 │   ├── pdf_extractor.py       #   Extrakce textu z PDF
 │   ├── owner_matcher.py       #   Fuzzy párování jmen
+│   ├── voting_import.py       #   Import výsledků hlasování z Excelu
 │   ├── csv_comparator.py      #   Porovnání CSV vs Excel
 │   ├── backup_service.py      #   Zálohování a obnova dat (ZIP)
 │   └── email_service.py       #   SMTP odesílání emailů
@@ -202,7 +211,11 @@ app/
 │   │   ├── process.html       #     Zpracování lístků (search)
 │   │   ├── process_cards.html #     HTMX: karty lístků ke zpracování
 │   │   ├── not_submitted.html #     Neodevzdané lístky (search)
-│   │   └── not_submitted_table.html # HTMX: tbody řádky neodevzdaných
+│   │   ├── not_submitted_table.html # HTMX: tbody řádky neodevzdaných
+│   │   ├── import_upload.html #     Import výsledků: upload souboru
+│   │   ├── import_mapping.html#     Import: mapování sloupců
+│   │   ├── import_preview.html#     Import: náhled přiřazení
+│   │   └── import_result.html #     Import: výsledek importu
 │   ├── tax/                   #   Stránky daní
 │   │   ├── index.html         #     Seznam rozúčtování
 │   │   ├── upload.html        #     Nahrání PDF
@@ -291,6 +304,10 @@ data/
 | GET | `/hlasovani/{id}/zpracovani` | Stránka zpracování lístků (search, HTMX partial) |
 | POST | `/hlasovani/{id}/zpracovat/{ballot_id}` | Zpracování jednoho lístku |
 | GET | `/hlasovani/{id}/neodevzdane` | Neodevzdané lístky |
+| GET | `/hlasovani/{id}/import` | Stránka importu výsledků z Excelu |
+| POST | `/hlasovani/{id}/import` | Nahrání Excel souboru → mapování sloupců |
+| POST | `/hlasovani/{id}/import/nahled` | Náhled importu (přiřazení + statistika) |
+| POST | `/hlasovani/{id}/import/potvrdit` | Potvrzení a provedení importu |
 
 ### Rozúčtování (`/dane`)
 
