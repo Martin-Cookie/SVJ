@@ -70,6 +70,38 @@
 </table>
 
 <script>
+function _bulkKey(el) {
+    var detail = el.closest('[data-bulk-field]');
+    return detail ? 'bulk_' + detail.dataset.bulkField + '_' + detail.dataset.bulkValue : null;
+}
+
+function saveBulkChecks(el) {
+    var key = _bulkKey(el);
+    if (!key) return;
+    var detail = el.closest('[data-bulk-field]');
+    var ids = Array.from(detail.querySelectorAll('.bulk-cb:checked')).map(function(cb) { return cb.value; });
+    if (ids.length) {
+        sessionStorage.setItem(key, JSON.stringify(ids));
+    } else {
+        sessionStorage.removeItem(key);
+    }
+}
+
+function restoreBulkChecks(el) {
+    var key = 'bulk_' + el.dataset.bulkField + '_' + el.dataset.bulkValue;
+    var stored = sessionStorage.getItem(key);
+    if (!stored) return;
+    var idSet = new Set(JSON.parse(stored));
+    el.querySelectorAll('.bulk-cb').forEach(function(cb) { cb.checked = idSet.has(cb.value); });
+    var all = el.querySelectorAll('.bulk-cb');
+    var checked = el.querySelectorAll('.bulk-cb:checked').length;
+    var selectAll = el.querySelector('.bulk-select-all');
+    if (selectAll) {
+        selectAll.checked = checked === all.length && all.length > 0;
+        selectAll.indeterminate = checked > 0 && checked < all.length;
+    }
+}
+
 function toggleDetail(idx, field, value) {
     var el = document.getElementById('detail-' + idx);
     if (!el.classList.contains('hidden')) {
@@ -80,33 +112,33 @@ function toggleDetail(idx, field, value) {
         el.classList.remove('hidden');
         return;
     }
+    el.dataset.bulkField = field;
+    el.dataset.bulkValue = value;
     fetch('/sprava/hromadne-upravy/zaznamy?pole=' + field + '&hodnota=' + value)
         .then(function(r) { return r.text(); })
         .then(function(html) {
             el.innerHTML = html;
             el.classList.remove('hidden');
+            restoreBulkChecks(el);
         });
 }
 
-function bulkCheck(btn, checked) {
-    var container = btn.closest('td');
-    var cbs = container.querySelectorAll('.bulk-cb');
-    cbs.forEach(function(cb) { cb.checked = checked; });
-    var counter = container.querySelector('.bulk-counter');
-    if (counter) {
-        var total = counter.dataset.total;
-        counter.textContent = (checked ? total : '0') + ' / ' + total;
-    }
+function bulkCheck(selectAllCb, checked) {
+    var table = selectAllCb.closest('table');
+    table.querySelectorAll('.bulk-cb').forEach(function(cb) { cb.checked = checked; });
+    saveBulkChecks(selectAllCb);
 }
 
 function updateCounter(cb) {
-    var container = cb.closest('td');
-    var cbs = container.querySelectorAll('.bulk-cb');
-    var checked = container.querySelectorAll('.bulk-cb:checked').length;
-    var counter = container.querySelector('.bulk-counter');
-    if (counter) {
-        counter.textContent = checked + ' / ' + counter.dataset.total;
+    var table = cb.closest('table');
+    var all = table.querySelectorAll('.bulk-cb');
+    var checked = table.querySelectorAll('.bulk-cb:checked').length;
+    var selectAll = table.querySelector('.bulk-select-all');
+    if (selectAll) {
+        selectAll.checked = checked === all.length;
+        selectAll.indeterminate = checked > 0 && checked < all.length;
     }
+    saveBulkChecks(cb);
 }
 
 function submitBulkEdit(form, idx) {
@@ -128,7 +160,6 @@ function submitBulkEdit(form, idx) {
         return confirm('Opravit ' + cbs.length + ' záznamů?');
     } else if (detail.children.length === 0 || detail.classList.contains('hidden')) {
         // Detail not expanded — apply to all (old behavior)
-        var count = document.getElementById('row-' + idx).querySelector('.font-mono:last-of-type');
         return confirm('Opravit všechny záznamy s touto hodnotou?');
     } else {
         alert('Nejsou vybrány žádné záznamy.');

@@ -3,15 +3,12 @@
 {% elif model_type == "unit" %}
 <tr>
     <td colspan="99" class="p-0">
-        <div class="flex items-center gap-3 px-2 py-1.5 bg-gray-100 border-b border-gray-200">
-            <button type="button" onclick="bulkCheck(this, true)" class="text-xs text-blue-600 hover:text-blue-800 font-medium">Označit vše</button>
-            <button type="button" onclick="bulkCheck(this, false)" class="text-xs text-gray-500 hover:text-gray-700 font-medium">Zrušit vše</button>
-            <span class="text-xs text-gray-400 ml-auto bulk-counter" data-total="{{ records|length }}">0 / {{ records|length }}</span>
-        </div>
         <table class="w-full text-xs bg-gray-50 bulk-sortable">
             <thead>
-                <tr class="text-gray-500 border-b border-gray-200">
-                    <th class="px-2 py-1.5 w-8"></th>
+                <tr class="bg-gray-50 border-b border-gray-200">
+                    <th class="px-2 py-1.5 w-8">
+                        <input type="checkbox" class="bulk-select-all" onchange="bulkCheck(this, this.checked)">
+                    </th>
                     <th class="text-left px-2 py-1.5 font-medium cursor-pointer hover:text-gray-800 select-none" data-col="1" data-type="num" onclick="sortBulkCol(this)">Č. jednotky <span class="sort-arrow"></span></th>
                     <th class="text-left px-2 py-1.5 font-medium cursor-pointer hover:text-gray-800 select-none" data-col="2" data-type="text" onclick="sortBulkCol(this)">Budova <span class="sort-arrow"></span></th>
                     <th class="text-left px-2 py-1.5 font-medium cursor-pointer hover:text-gray-800 select-none" data-col="3" data-type="text" onclick="sortBulkCol(this)">Typ prostoru <span class="sort-arrow"></span></th>
@@ -55,15 +52,12 @@
 {% elif model_type == "owner_unit" %}
 <tr>
     <td colspan="99" class="p-0">
-        <div class="flex items-center gap-3 px-2 py-1.5 bg-gray-100 border-b border-gray-200">
-            <button type="button" onclick="bulkCheck(this, true)" class="text-xs text-blue-600 hover:text-blue-800 font-medium">Označit vše</button>
-            <button type="button" onclick="bulkCheck(this, false)" class="text-xs text-gray-500 hover:text-gray-700 font-medium">Zrušit vše</button>
-            <span class="text-xs text-gray-400 ml-auto bulk-counter" data-total="{{ records|length }}">0 / {{ records|length }}</span>
-        </div>
         <table class="w-full text-xs bg-gray-50 bulk-sortable">
             <thead>
-                <tr class="text-gray-500 border-b border-gray-200">
-                    <th class="px-2 py-1.5 w-8"></th>
+                <tr class="bg-gray-50 border-b border-gray-200">
+                    <th class="px-2 py-1.5 w-8">
+                        <input type="checkbox" class="bulk-select-all" onchange="bulkCheck(this, this.checked)">
+                    </th>
                     <th class="text-left px-2 py-1.5 font-medium cursor-pointer hover:text-gray-800 select-none" data-col="1" data-type="num" onclick="sortBulkCol(this)">Č. jednotky <span class="sort-arrow"></span></th>
                     <th class="text-left px-2 py-1.5 font-medium cursor-pointer hover:text-gray-800 select-none" data-col="2" data-type="text" onclick="sortBulkCol(this)">Budova <span class="sort-arrow"></span></th>
                     <th class="text-left px-2 py-1.5 font-medium cursor-pointer hover:text-gray-800 select-none" data-col="3" data-type="text" onclick="sortBulkCol(this)">Typ prostoru <span class="sort-arrow"></span></th>

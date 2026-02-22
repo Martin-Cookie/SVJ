@@ -504,9 +504,19 @@ _PURGE_CATEGORIES = {
         "description": "Informace o SVJ, adresy, členové výboru",
         "models": [SvjAddress, BoardMember, SvjInfo],
     },
+    "backups": {
+        "label": "Existující zálohy",
+        "description": "ZIP soubory záloh v adresáři data/backups",
+        "models": [],
+    },
+    "restore_log": {
+        "label": "Historie obnovení",
+        "description": "Záznam o provedených obnoveních ze záloh",
+        "models": [],
+    },
 }
 
-_PURGE_ORDER = ["owners", "votings", "tax", "sync", "logs", "administration"]
+_PURGE_ORDER = ["owners", "votings", "tax", "sync", "logs", "administration", "backups", "restore_log"]
 
 
 def _purge_counts(db: Session) -> dict:
@@ -514,8 +524,12 @@ def _purge_counts(db: Session) -> dict:
     counts = {}
     for key in _PURGE_ORDER:
         cat = _PURGE_CATEGORIES[key]
-        total = sum(db.query(m).count() for m in cat["models"])
-        counts[key] = total
+        if key == "backups":
+            counts[key] = len(list(BACKUP_DIR.glob("*.zip"))) if BACKUP_DIR.is_dir() else 0
+        elif key == "restore_log":
+            counts[key] = len(read_restore_log(str(BACKUP_DIR)))
+        else:
+            counts[key] = sum(db.query(m).count() for m in cat["models"])
     return counts
 
 
@@ -545,6 +559,17 @@ async def purge_data(request: Request, db: Session = Depends(get_db)):
             if dirname.is_dir():
                 shutil.rmtree(dirname, ignore_errors=True)
                 dirname.mkdir(parents=True, exist_ok=True)
+
+    # Delete backup ZIP files
+    if "backups" in categories and BACKUP_DIR.is_dir():
+        for f in BACKUP_DIR.glob("*.zip"):
+            f.unlink(missing_ok=True)
+
+    # Delete restore log
+    if "restore_log" in categories:
+        log_path = BACKUP_DIR / "restore_log.json"
+        if log_path.is_file():
+            log_path.unlink()
 
     db.commit()
     return RedirectResponse("/sprava", status_code=302)
