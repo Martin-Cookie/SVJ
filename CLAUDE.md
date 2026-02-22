@@ -115,17 +115,38 @@ Vzor se skládá ze dvou partials (info + form) a tří endpointů:
 
 ## HTMX vzory
 
+- Na `<body>` je `hx-boost="true"` — VŠECHNY `<a href>` a `<form>` se automaticky přepínají na AJAX swap celého body
 - Partial odpovědi: router vrací partial šablonu pro HTMX requesty (`HX-Request` hlavička), plnou stránku pro běžné requesty
 - Rozlišovat `HX-Request` vs `HX-Boosted` — boosted navigace dostává plnou stránku
 - `hx-push-url="true"` na vyhledávání a filtrech — aby se URL aktualizovala v prohlížeči
 - `hx-confirm` pro destruktivní akce (smazání, odebrání)
 - Hidden inputy pro přenos stavu filtrů při HTMX požadavcích
+- `hx-boost="false"` POUZE na: stahování souborů (ZIP, PDF) a formuláře s file uploadem
+
+### Co používá HTMX partial (hx-get + hx-target) a co plain href (hx-boost)
+
+| Prvek | Vzor | Důvod |
+|-------|------|-------|
+| **Filtrační bubliny** | Plain `<a href="...">` | hx-boost swapne celou stránku — bubliny se správně překreslí s aktivním stavem |
+| **Řazení sloupců** | Plain `<a href="...">` | hx-boost swapne celou stránku — hlavičky se správně překreslí se šipkou |
+| **Vyhledávání** | `hx-get` + `hx-target="#tbody-id"` | Jen tbody se aktualizuje, zbytek stránky zůstane |
+| **Inline editace** | `hx-get`/`hx-post` + `hx-target="#section-id"` | Formulář/info se přepne bez reloadu |
+
+### Pravidla pro partial šablony
+- Partial pro hledání = **jen `<tr>` řádky** (tbody-only), NE celá tabulka
+- Partial se ukládá vedle hlavní šablony (např. `voting/ballots_table.html`) nebo do `partials/`
+- Hlavní šablona dělá `{% include "partial.html" %}` uvnitř `<tbody id="...">`
+- Router: `if request.headers.get("HX-Request") and not request.headers.get("HX-Boosted"):` → vrátí partial
+- **NEPOUŽÍVAT** Jinja2 `{% macro %}` pro sort hlavičky — macro nemá přístup k proměnným z kontextu šablony
+- Sort hlavičky se implementují přes `{% for %}` cyklus s definicí sloupců v `{% set _cols = [...] %}`
+- `<a>` element MUSÍ mít `href` atribut — bez něj není klikatelný
 
 ## Vyhledávání
 
 - Hledání probíhá přes HTMX s debounce: `hx-trigger="keyup changed delay:300ms"`
 - Prohledávají se všechna relevantní pole (jméno, email, telefon, RČ, IČ, číslo jednotky, adresa)
 - Hledání se kombinuje s filtry (typ, sekce, vlastnictví, kontakt) — filtry se přenáší přes hidden inputy a `hx-include`
+- Hidden inputy (`sort`, `order`, `stav`, `back`) jsou VEDLE search inputu, NE uvnitř tbody partial
 
 ## SQLAlchemy vzory
 
