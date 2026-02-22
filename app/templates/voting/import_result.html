@@ -5,47 +5,13 @@
 <div class="flex flex-col" style="height:calc(100vh - 3rem)">
 <div class="shrink-0">
 {% include "voting/_voting_header.html" %}
-
-<h2 class="text-lg font-bold text-gray-800 mb-3">Import výsledků dokončen</h2>
-
-<!-- Result bubbles -->
-<div class="flex gap-2 mb-3">
-    <a href="/hlasovani/{{ voting.id }}/listky?stav=processed"
-       class="flex-1 bg-green-50 rounded-lg shadow p-4 text-center border border-green-200 hover:ring-2 hover:ring-green-400">
-        <p class="text-2xl font-bold text-green-600">{{ result.processed_count }}</p>
-        <p class="text-xs text-green-600 mt-1">Zpracováno</p>
-    </a>
-    <a href="/hlasovani/{{ voting.id }}/neodevzdane"
-       class="flex-1 bg-orange-50 rounded-lg shadow p-4 text-center border border-orange-200 hover:ring-2 hover:ring-orange-400">
-        <p class="text-2xl font-bold text-orange-600">{{ total_ballots - status_counts.get('processed', 0) }}</p>
-        <p class="text-xs text-orange-600 mt-1">Nezpracováno</p>
-    </a>
-    {% if result.skipped_count %}
-    <div class="flex-1 bg-gray-50 rounded-lg shadow p-4 text-center border border-gray-200">
-        <p class="text-2xl font-bold text-gray-500">{{ result.skipped_count }}</p>
-        <p class="text-xs text-gray-500 mt-1">Přeskočeno</p>
-    </div>
-    {% endif %}
-    {% if result.unmatched_count %}
-    <div class="flex-1 bg-yellow-50 rounded-lg shadow p-4 text-center border border-yellow-200">
-        <p class="text-2xl font-bold text-yellow-600">{{ result.unmatched_count }}</p>
-        <p class="text-xs text-yellow-600 mt-1">Nepřiřazeno</p>
-    </div>
-    {% endif %}
-    {% if result.cleared_count %}
-    <div class="flex-1 bg-red-50 rounded-lg shadow p-4 text-center border border-red-200">
-        <p class="text-2xl font-bold text-red-600">{{ result.cleared_count }}</p>
-        <p class="text-xs text-red-600 mt-1">Vyčištěno</p>
-    </div>
-    {% endif %}
-</div>
 </div>
 
 <div class="flex-1 overflow-y-auto min-h-0">
-<div class="max-w-2xl space-y-4">
-    <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+<div class="max-w-2xl mt-4">
+    <div class="bg-green-50 border border-green-200 rounded-lg p-6">
         <p class="text-sm text-green-700">
-            Import dokončen.
+            Import výsledků dokončen.
             {% if result.clear_existing %}
             Režim: vyčistit a přepsat.
             {% else %}
@@ -55,7 +21,7 @@
     </div>
 
     {% if result.errors %}
-    <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+    <div class="bg-red-50 border border-red-200 rounded-lg p-4 mt-4">
         <h4 class="text-sm font-semibold text-red-800 mb-1">Chyby:</h4>
         <ul class="text-sm text-red-700 list-disc list-inside">
             {% for error in result.errors %}
