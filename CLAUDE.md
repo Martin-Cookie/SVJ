@@ -202,6 +202,16 @@ Vzor se skládá ze dvou partials (info + form) a tří endpointů:
 - Odkaz v sidebar (`base.html`) s `active_nav` kontrolou
 - Přidání do README.md (popis modulu + API endpointy)
 
+## Akce v tabulkách — ikony místo textu
+
+- Akční sloupce v tabulkách (stáhnout, smazat, upravit) používají **SVG ikony** místo textových odkazů
+- Ikona stáhnout: modrá (`text-blue-600`), hover `hover:bg-blue-50`
+- Ikona smazat: šedá → červená hover (`text-gray-400 hover:text-red-600`), `hover:bg-red-50`
+- Ikona upravit: šedá → modrá hover (`text-gray-400 hover:text-blue-600`)
+- Velikost ikon: `w-4 h-4`, padding `p-1`, kulaté rohy `rounded`
+- Vždy `title` atribut pro tooltip (např. `title="Stáhnout"`, `title="Smazat"`)
+- Dlouhé názvy souborů: `truncate` + `title` tooltip s plným názvem
+
 ## Hromadný výběr (checkbox "Vybrat/Zrušit vše")
 
 - Checkbox pro hromadné označení/odznačení se vždy jmenuje **„Vybrat/Zrušit vše"**

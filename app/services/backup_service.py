@@ -1,3 +1,4 @@
+import json
 import os
 import shutil
 import zipfile
@@ -154,3 +155,37 @@ def _restore_directory_from_zip(
             os.makedirs(os.path.dirname(target_path), exist_ok=True)
             with zf.open(name) as src, open(target_path, "wb") as dst:
                 dst.write(src.read())
+
+
+# ---- Restore log (JSON file, survives DB restores) ----
+
+_RESTORE_LOG = "restore_log.json"
+
+
+def log_restore(backup_dir: str, source: str, method: str, safety_backup: str = "") -> None:
+    """Append an entry to the restore log."""
+    log_path = Path(backup_dir) / _RESTORE_LOG
+    entries = read_restore_log(backup_dir)
+    entry = {
+        "timestamp": datetime.now().isoformat(),
+        "source": source,
+        "method": method,
+    }
+    if safety_backup:
+        entry["safety_backup"] = safety_backup
+    entries.insert(0, entry)
+    os.makedirs(backup_dir, exist_ok=True)
+    with open(log_path, "w", encoding="utf-8") as f:
+        json.dump(entries, f, ensure_ascii=False, indent=2)
+
+
+def read_restore_log(backup_dir: str) -> list:
+    """Read restore log entries (newest first)."""
+    log_path = Path(backup_dir) / _RESTORE_LOG
+    if not log_path.is_file():
+        return []
+    try:
+        with open(log_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return []

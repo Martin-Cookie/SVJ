@@ -19,7 +19,10 @@ from app.models import (
     SyncSession, SyncRecord,
     EmailLog, ImportLog,
 )
-from app.services.backup_service import create_backup, restore_backup, restore_from_directory
+from app.services.backup_service import (
+    create_backup, restore_backup, restore_from_directory,
+    log_restore, read_restore_log,
+)
 from app.services.data_export import (
     EXPORT_ORDER, _EXPORTS as EXPORT_CATEGORIES,
     export_category_xlsx, export_category_csv,
@@ -93,6 +96,7 @@ async def administration_page(request: Request, sekce: str = Query(""), chyba: s
 
     purge_counts = _purge_counts(db)
     default_backup_name = f"svj_backup_{datetime.now().strftime('%Y-%m-%d_%H%M%S')}"
+    restore_log = read_restore_log(str(BACKUP_DIR))
 
     return templates.TemplateResponse("administration/index.html", {
         "request": request,
@@ -101,6 +105,7 @@ async def administration_page(request: Request, sekce: str = Query(""), chyba: s
         "board_members": board_members,
         "control_members": control_members,
         "backups": backups,
+        "restore_log": restore_log,
         "purge_categories": _PURGE_CATEGORIES,
         "purge_order": _PURGE_ORDER,
         "purge_counts": purge_counts,
@@ -224,6 +229,12 @@ async def delete_member(member_id: int, db: Session = Depends(get_db)):
 # ---- Backup endpoints ----
 
 
+def _safety_backup() -> str:
+    """Create a safety backup and return its filename."""
+    zip_path = create_backup(str(DB_PATH), str(UPLOADS_DIR), str(GENERATED_DIR), str(BACKUP_DIR))
+    return zip_path.name
+
+
 @router.post("/zaloha/vytvorit")
 async def backup_create(filename: str = Form(""), db: Session = Depends(get_db)):
     # Check if there is any data to backup
@@ -267,11 +278,18 @@ async def backup_restore(file: UploadFile = File(...)):
     with open(temp_path, "wb") as f:
         f.write(await file.read())
 
+    # Track which backups exist before restore (to find the safety backup name)
+    existing = set(p.name for p in BACKUP_DIR.glob("*.zip")) if BACKUP_DIR.is_dir() else set()
+
     try:
         restore_backup(
             str(temp_path), str(DB_PATH), str(UPLOADS_DIR),
             str(GENERATED_DIR), str(BACKUP_DIR),
         )
+        # Find safety backup created by restore_backup
+        new_backups = set(p.name for p in BACKUP_DIR.glob("*.zip")) - existing
+        safety = next(iter(new_backups), "")
+        log_restore(str(BACKUP_DIR), file.filename or "upload.zip", "ZIP soubor", safety_backup=safety)
     finally:
         if temp_path.is_file():
             temp_path.unlink()
@@ -286,10 +304,14 @@ async def backup_restore_directory(dir_path: str = Form(...)):
     if not dir_path or not Path(dir_path).is_dir():
         return RedirectResponse("/sprava?sekce=zalohy", status_code=302)
 
+    existing = set(p.name for p in BACKUP_DIR.glob("*.zip")) if BACKUP_DIR.is_dir() else set()
     restore_from_directory(
         dir_path, str(DB_PATH), str(UPLOADS_DIR),
         str(GENERATED_DIR), str(BACKUP_DIR),
     )
+    new_backups = set(p.name for p in BACKUP_DIR.glob("*.zip")) - existing
+    safety = next(iter(new_backups), "")
+    log_restore(str(BACKUP_DIR), dir_path, "Adresář", safety_backup=safety)
     return RedirectResponse("/sprava?sekce=zalohy", status_code=302)
 
 
@@ -299,13 +321,13 @@ async def backup_restore_db_file(file: UploadFile = File(...)):
     if not file.filename or not file.filename.endswith(".db"):
         return RedirectResponse("/sprava?sekce=zalohy", status_code=302)
 
-    # Safety backup before restore
-    create_backup(str(DB_PATH), str(UPLOADS_DIR), str(GENERATED_DIR), str(BACKUP_DIR))
+    safety = _safety_backup()
 
     # Overwrite database
     with open(str(DB_PATH), "wb") as f:
         f.write(await file.read())
 
+    log_restore(str(BACKUP_DIR), file.filename or "svj.db", "DB soubor", safety_backup=safety)
     return RedirectResponse("/sprava?sekce=zalohy", status_code=302)
 
 
@@ -318,6 +340,7 @@ async def backup_restore_folder(files: List[UploadFile] = File(...)):
     """
     # Create a temp directory to receive the folder contents
     tmp = tempfile.mkdtemp(prefix="svj_restore_")
+    folder_name = ""
     try:
         db_found = False
         for f in files:
@@ -327,6 +350,8 @@ async def backup_restore_folder(files: List[UploadFile] = File(...)):
             # The first path component is the folder name — strip it
             parts = f.filename.replace("\\", "/").split("/")
             if len(parts) > 1:
+                if not folder_name:
+                    folder_name = parts[0]
                 rel = "/".join(parts[1:])  # strip top-level folder name
             else:
                 rel = parts[0]
@@ -342,8 +367,7 @@ async def backup_restore_folder(files: List[UploadFile] = File(...)):
         if not db_found:
             return RedirectResponse("/sprava?sekce=zalohy", status_code=302)
 
-        # Safety backup before restore
-        create_backup(str(DB_PATH), str(UPLOADS_DIR), str(GENERATED_DIR), str(BACKUP_DIR))
+        safety = _safety_backup()
 
         # Restore database
         shutil.copy2(str(Path(tmp) / "svj.db"), str(DB_PATH))
@@ -362,6 +386,7 @@ async def backup_restore_folder(files: List[UploadFile] = File(...)):
                 shutil.rmtree(str(GENERATED_DIR))
             shutil.copytree(str(src_generated), str(GENERATED_DIR))
 
+        log_restore(str(BACKUP_DIR), folder_name or "složka", "Složka (Finder)", safety_backup=safety)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 

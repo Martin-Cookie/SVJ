@@ -302,7 +302,7 @@
             </div>
             {% endif %}
 
-            <!-- Create + Restore side by side -->
+            <!-- Row 1: Create + Restore forms side by side -->
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                 <!-- Create backup -->
                 <div>
@@ -329,15 +329,16 @@
                     <!-- From ZIP -->
                     <form action="/sprava/zaloha/obnovit" method="post" enctype="multipart/form-data" hx-boost="false"
                           onsubmit="return confirm('POZOR: Tímto se přepíšou aktuální data. Před obnovou se automaticky vytvoří pojistná záloha.\n\nOpravdu pokračovat?')"
-                          class="mb-3">
+                          class="mb-3" id="restore-zip-form">
                         <div class="flex items-end gap-2">
                             <div class="flex-1">
                                 <label class="block text-xs text-gray-500 mb-1">ZIP soubor</label>
                                 <input type="file" name="file" accept=".zip" required
+                                       onchange="restoreZipCheck(this)"
                                        class="w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200">
                             </div>
-                            <button type="submit"
-                                    class="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 text-sm font-medium whitespace-nowrap">
+                            <button type="submit" id="restore-zip-btn" disabled
+                                    class="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 text-sm font-medium whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed">
                                 Obnovit
                             </button>
                         </div>
@@ -363,39 +364,54 @@
                 </div>
             </div>
 
-            <!-- Existing backups -->
-            {% if backups %}
-            <div>
-                <h3 class="text-sm font-medium text-gray-600 mb-2">Existující zálohy</h3>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-sm">
+            <!-- Row 2: Existing backups + Restore history side by side -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+                <!-- Existing backups -->
+                <div>
+                    <h3 class="text-sm font-medium text-gray-600 mb-2">Existující zálohy</h3>
+                    {% if backups %}
+                    <table class="w-full text-sm" style="table-layout:fixed">
+                        <colgroup>
+                            <col style="width:55%">
+                            <col style="width:20%">
+                            <col style="width:25%">
+                        </colgroup>
                         <thead class="bg-gray-50">
                             <tr>
-                                <th class="text-left px-3 py-2 text-gray-500 font-medium">Soubor</th>
-                                <th class="text-left px-3 py-2 text-gray-500 font-medium">Datum vytvoření</th>
-                                <th class="text-right px-3 py-2 text-gray-500 font-medium">Velikost</th>
-                                <th class="text-right px-3 py-2 text-gray-500 font-medium">Akce</th>
+                                <th class="text-left px-2 py-1.5 text-gray-500 font-medium text-xs">Záloha</th>
+                                <th class="text-right px-2 py-1.5 text-gray-500 font-medium text-xs">Velikost</th>
+                                <th class="text-right px-2 py-1.5 text-gray-500 font-medium text-xs"></th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100">
                             {% for b in backups %}
                             <tr>
-                                <td class="px-3 py-2 text-gray-800 font-mono text-xs">{{ b.filename }}</td>
-                                <td class="px-3 py-2 text-gray-600">{{ b.created.strftime('%d.%m.%Y %H:%M') }}</td>
-                                <td class="px-3 py-2 text-gray-600 text-right font-mono">
+                                <td class="px-2 py-1.5 min-w-0">
+                                    <div class="truncate text-xs font-mono text-gray-800" title="{{ b.filename }}">{{ b.filename }}</div>
+                                    <div class="text-xs text-gray-400">{{ b.created.strftime('%d.%m.%Y %H:%M') }}</div>
+                                </td>
+                                <td class="px-2 py-1.5 text-right text-xs text-gray-500 font-mono whitespace-nowrap">
                                     {% if b.size >= 1048576 %}
                                         {{ "%.1f"|format(b.size / 1048576) }} MB
                                     {% else %}
                                         {{ "%.0f"|format(b.size / 1024) }} kB
                                     {% endif %}
                                 </td>
-                                <td class="px-3 py-2 text-right">
-                                    <div class="flex items-center justify-end gap-2">
-                                        <a href="/sprava/zaloha/{{ b.filename }}/stahnout" hx-boost="false"
-                                           class="text-blue-600 hover:text-blue-800 text-xs font-medium">Stáhnout</a>
+                                <td class="px-2 py-1.5 text-right">
+                                    <div class="flex items-center justify-end gap-1">
+                                        <a href="/sprava/zaloha/{{ b.filename }}/stahnout" hx-boost="false" title="Stáhnout"
+                                           class="p-1 text-blue-600 hover:text-blue-800 rounded hover:bg-blue-50">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                            </svg>
+                                        </a>
                                         <form action="/sprava/zaloha/{{ b.filename }}/smazat" method="post" hx-boost="false" class="inline">
-                                            <button type="submit" onclick="return confirm('Opravdu smazat zálohu {{ b.filename }}?')"
-                                                    class="text-red-600 hover:text-red-800 text-xs font-medium">Smazat</button>
+                                            <button type="submit" onclick="return confirm('Opravdu smazat zálohu {{ b.filename }}?')" title="Smazat"
+                                                    class="p-1 text-gray-400 hover:text-red-600 rounded hover:bg-red-50">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                                </svg>
+                                            </button>
                                         </form>
                                     </div>
                                 </td>
@@ -403,11 +419,48 @@
                             {% endfor %}
                         </tbody>
                     </table>
+                    {% else %}
+                    <p class="text-sm text-gray-400">Zatím nejsou vytvořeny žádné zálohy.</p>
+                    {% endif %}
+                </div>
+
+                <!-- Restore history -->
+                <div>
+                    <h3 class="text-sm font-medium text-gray-600 mb-2">Historie obnovení</h3>
+                    {% if restore_log %}
+                    <table class="w-full text-sm" style="table-layout:fixed">
+                        <colgroup>
+                            <col style="width:50%">
+                            <col style="width:30%">
+                            <col style="width:20%">
+                        </colgroup>
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="text-left px-2 py-1.5 text-gray-500 font-medium text-xs">Obnoveno z</th>
+                                <th class="text-left px-2 py-1.5 text-gray-500 font-medium text-xs">Datum</th>
+                                <th class="text-left px-2 py-1.5 text-gray-500 font-medium text-xs">Způsob</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            {% for entry in restore_log[:10] %}
+                            <tr>
+                                <td class="px-2 py-1.5 min-w-0">
+                                    <div class="truncate text-xs font-mono text-gray-800" title="{{ entry.source }}">{{ entry.source }}</div>
+                                    {% if entry.safety_backup is defined and entry.safety_backup %}
+                                    <div class="truncate text-xs text-gray-400" title="Pojistná záloha: {{ entry.safety_backup }}">pojistná: {{ entry.safety_backup }}</div>
+                                    {% endif %}
+                                </td>
+                                <td class="px-2 py-1.5 text-xs text-gray-500 whitespace-nowrap">{{ entry.timestamp[:16].replace('T', ' ') }}</td>
+                                <td class="px-2 py-1.5 text-xs text-gray-500">{{ entry.method }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <p class="text-sm text-gray-400">Zatím nebyla provedena žádná obnova.</p>
+                    {% endif %}
                 </div>
             </div>
-            {% else %}
-            <p class="text-sm text-gray-400">Zatím nejsou vytvořeny žádné zálohy.</p>
-            {% endif %}
         </div>
     </div>
 </details>
@@ -634,6 +687,12 @@ function purgeValidate() {
     var inp = document.getElementById('purge-confirm-input');
     if (inp) inp.addEventListener('input', purgeUpdateButton);
 })();
+
+/* ---- Restore from ZIP ---- */
+function restoreZipCheck(input) {
+    var btn = document.getElementById('restore-zip-btn');
+    btn.disabled = !input.files || !input.files.length;
+}
 
 /* ---- Restore from folder ---- */
 function restoreFolderCheck(input) {
