@@ -158,6 +158,22 @@ Vzor se skládá ze dvou partials (info + form) a tří endpointů:
 - Hledání se kombinuje s filtry (typ, sekce, vlastnictví, kontakt) — filtry se přenáší přes hidden inputy a `hx-include`
 - Hidden inputy (`sort`, `order`, `stav`, `back`) jsou VEDLE search inputu, NE uvnitř tbody partial
 
+## Jména vlastníků
+
+- **Zobrazení**: vždy `owner.display_name` (property na modelu Owner) — formát „titul příjmení jméno"
+- **DB sloupec** `name_with_titles` zůstává pro SQL dotazy (`.ilike()`, index) — nepoužívat v šablonách
+- **Hledání** v Pythonu: `owner.display_name.lower()` (ne `name_with_titles`)
+- **Řazení**: `owner.name_normalized` (příjmení-first, bez diakritiky, lowercase)
+- **Budoucí importy**: `_build_name_with_titles()` v `excel_import.py` generuje příjmení-first formát
+
+## Import hlasování — spoluvlastnictví (SJM)
+
+- Párování Excel řádků na lístky probíhá přes číslo jednotky
+- Pokud Excel řádek **má hlasy** → párovat na VŠECHNY lístky, jejichž vlastník sdílí tu jednotku (SJM, spoluvlastnictví)
+- Pokud Excel řádek **nemá hlasy** → párovat jen na první nalezený lístek (bez rozšíření)
+- Každý spoluvlastník dostane hlasy se svým vlastním `total_votes`
+- Deduplikace přes `seen_ballots` — stejný lístek se nezpracuje dvakrát
+
 ## SQLAlchemy vzory
 
 - `case()` se importuje přímo ze `sqlalchemy`, ne přes `func.case()`

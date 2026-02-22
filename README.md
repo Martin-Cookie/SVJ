@@ -89,12 +89,15 @@ Aplikace běží na http://localhost:8000
 - Sčítání hlasů a výpočet kvóra
 - Podpora hlasování v zastoupení (plné moci)
 - Stavy hlasování: koncept → aktivní → uzavřené / zrušené
+- Zpracování lístků: řazení dle vlastníka/jednotek/hlasů
+- Hromadné zpracování: checkboxy, select all, batch zadání hlasů pro více lístků najednou
 - Import výsledků hlasování z Excelu:
   - 4-krokový flow: upload → mapování sloupců → náhled → potvrzení
   - Mapování sloupců na role (vlastník, jednotka, bod hlasování) s předvyplněním z uloženého mapování
   - Konfigurovatelné hodnoty PRO/PROTI (výchozí 1,ANO / 0,NE)
   - Nastavitelný počáteční řádek dat
   - Režim importu: doplnit (ponechat existující) nebo vyčistit a přepsat
+  - Automatické párování spoluvlastníků (SJM): pokud Excel řádek má hlasy, aplikují se na všechny vlastníky sdílející tutéž jednotku
   - Náhled s filtračními bublinami (přiřazeno/nepřiřazeno/chyby)
   - Výsledek s prokliky na zpracované/nezpracované lístky
 
@@ -301,8 +304,9 @@ data/
 | POST | `/hlasovani/{id}/generovat` | Generování PDF lístků |
 | GET | `/hlasovani/{id}/listky` | Seznam lístků (filtr stavu, search, sort, HTMX partial) |
 | GET | `/hlasovani/{id}/listek/{ballot_id}` | Detail hlasovacího lístku |
-| GET | `/hlasovani/{id}/zpracovani` | Stránka zpracování lístků (search, HTMX partial) |
+| GET | `/hlasovani/{id}/zpracovani` | Stránka zpracování lístků (search, sort, HTMX partial) |
 | POST | `/hlasovani/{id}/zpracovat/{ballot_id}` | Zpracování jednoho lístku |
+| POST | `/hlasovani/{id}/zpracovat-hromadne` | Hromadné zpracování vybraných lístků |
 | GET | `/hlasovani/{id}/neodevzdane` | Neodevzdané lístky |
 | GET | `/hlasovani/{id}/import` | Stránka importu výsledků z Excelu |
 | POST | `/hlasovani/{id}/import` | Nahrání Excel souboru → mapování sloupců |
@@ -373,7 +377,7 @@ LIBREOFFICE_PATH=/Applications/LibreOffice.app/Contents/MacOS/soffice
 
 ## Datový model
 
-- **Owner** — vlastník (jméno, tituly, RČ/IČ, adresy, kontakty, is_active)
+- **Owner** — vlastník (jméno, tituly, RČ/IČ, adresy, kontakty, is_active); `display_name` property: formát „příjmení jméno" s titulem
 - **Unit** — jednotka (číslo KN jako INTEGER, budova, sekce, plocha, podíl SČD)
 - **OwnerUnit** — vazba vlastník-jednotka (typ vlastnictví, podíl, hlasovací váha)
 - **Proxy** — plná moc pro hlasování
