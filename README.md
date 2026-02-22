@@ -126,10 +126,11 @@ Aplikace běží na http://localhost:8000
   - Seznam existujících záloh s datem, velikostí, stažením a smazáním
   - Obnova ze zálohy (upload ZIP) — před obnovou se automaticky vytvoří pojistná záloha
 - Hromadné úpravy (`/sprava/hromadne-upravy`):
-  - Výběr pole (typ prostoru, sekce, počet místností, vlastnictví, adresa, orientační číslo)
+  - Výběr pole (typ prostoru, sekce, počet místností, vlastnictví druh, vlastnictví/podíl, adresa, orientační číslo)
   - Tabulka unikátních hodnot s počtem výskytů
   - Rozkliknutí hodnoty zobrazí všechny záznamy (jednotky nebo vlastnictví) s detailními údaji
-  - Inline oprava s datalist napovídáním — hromadné přepsání všech záznamů se shodnou hodnotou
+  - Checkboxy pro selektivní opravu — označit vše / zrušit vše + počítadlo
+  - Inline oprava s datalist napovídáním — přepsání vybraných záznamů
 - Všechny sekce zabaleny do skládacích `<details>` bloků
 - Modely: `SvjInfo`, `SvjAddress`, `BoardMember`
 
