@@ -9,8 +9,18 @@ from sqlalchemy import case
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
-from app.models import SvjInfo, SvjAddress, BoardMember
+from app.models import SvjInfo, SvjAddress, BoardMember, Unit, OwnerUnit
 from app.services.backup_service import create_backup, restore_backup
+
+# Field mapping for bulk edit
+_BULK_FIELDS = {
+    "space_type": {"label": "Typ prostoru", "model": "unit", "column": "space_type"},
+    "section": {"label": "Sekce", "model": "unit", "column": "section"},
+    "room_count": {"label": "Počet místností", "model": "unit", "column": "room_count"},
+    "ownership_type": {"label": "Vlastnictví", "model": "owner_unit", "column": "ownership_type"},
+    "address": {"label": "Adresa", "model": "unit", "column": "address"},
+    "orientation_number": {"label": "Orientační číslo", "model": "unit", "column": "orientation_number"},
+}
 
 DATA_DIR = Path("data")
 DB_PATH = DATA_DIR / "svj.db"
@@ -233,3 +243,92 @@ async def backup_restore(file: UploadFile = File(...)):
             temp_path.unlink()
 
     return RedirectResponse("/sprava", status_code=302)
+
+
+# ---- Bulk edit endpoints ----
+
+
+@router.get("/hromadne-upravy")
+async def bulk_edit_page(request: Request):
+    return templates.TemplateResponse("administration/bulk_edit.html", {
+        "request": request,
+        "active_nav": "administration",
+        "fields": _BULK_FIELDS,
+    })
+
+
+@router.get("/hromadne-upravy/hodnoty")
+async def bulk_edit_values(request: Request, pole: str, db: Session = Depends(get_db)):
+    field_info = _BULK_FIELDS.get(pole)
+    if not field_info:
+        return templates.TemplateResponse("administration/bulk_edit_values.html", {
+            "request": request, "values": [], "field_key": pole, "field_label": "",
+        })
+
+    model = Unit if field_info["model"] == "unit" else OwnerUnit
+    col = getattr(model, field_info["column"])
+
+    rows = (
+        db.query(col, _sa_func.count().label("cnt"))
+        .group_by(col)
+        .order_by(_sa_func.count().desc())
+        .all()
+    )
+
+    values = [{"value": r[0], "count": r[1]} for r in rows]
+
+    # Collect all existing non-null values for datalist suggestions
+    suggestions = sorted(set(
+        str(r[0]) for r in rows if r[0] is not None
+    ))
+
+    return templates.TemplateResponse("administration/bulk_edit_values.html", {
+        "request": request,
+        "values": values,
+        "field_key": pole,
+        "field_label": field_info["label"],
+        "suggestions": suggestions,
+    })
+
+
+@router.post("/hromadne-upravy/opravit")
+async def bulk_edit_apply(
+    request: Request,
+    pole: str = Form(...),
+    old_value: str = Form(""),
+    new_value: str = Form(""),
+    is_null: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    field_info = _BULK_FIELDS.get(pole)
+    if not field_info:
+        return RedirectResponse("/sprava/hromadne-upravy", status_code=302)
+
+    model = Unit if field_info["model"] == "unit" else OwnerUnit
+    col = getattr(model, field_info["column"])
+
+    # Build filter for old value
+    if is_null == "1":
+        q = db.query(model).filter(col.is_(None))
+    else:
+        q = db.query(model).filter(col == old_value)
+
+    # Set new value (empty string → None)
+    final_value = new_value.strip() if new_value.strip() else None
+
+    # For orientation_number, convert to int
+    if pole == "orientation_number" and final_value is not None:
+        try:
+            final_value = int(final_value)
+        except ValueError:
+            return RedirectResponse(
+                f"/sprava/hromadne-upravy?pole={pole}", status_code=302
+            )
+
+    q.update({col: final_value}, synchronize_session="fetch")
+    db.commit()
+
+    # Return updated values table via HTMX
+    return RedirectResponse(
+        f"/sprava/hromadne-upravy?pole={pole}", status_code=302
+    )

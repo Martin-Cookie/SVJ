@@ -372,6 +372,25 @@
     </div>
 </details>
 
+<!-- Hromadné úpravy -->
+<details class="mb-6 group">
+    <summary class="flex items-center gap-2 cursor-pointer select-none bg-white rounded-lg shadow px-5 py-3">
+        <svg class="w-4 h-4 text-gray-400 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+        </svg>
+        <span class="text-lg font-semibold text-gray-700">Hromadné úpravy</span>
+    </summary>
+    <div class="mt-4">
+        <div class="bg-white rounded-lg shadow p-6">
+            <p class="text-sm text-gray-600 mb-4">Oprava hodnot v polích jednotek a vlastnictví — hromadná záměna nekonzistentních, chybějících nebo chybných hodnot.</p>
+            <a href="/sprava/hromadne-upravy" hx-boost="false"
+               class="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
+                Otevřít hromadné úpravy
+            </a>
+        </div>
+    </div>
+</details>
+
 <script>
 function adminToggleEdit(section) {
     var view = document.getElementById(section + '-view');

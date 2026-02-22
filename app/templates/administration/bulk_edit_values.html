@@ -1,0 +1,62 @@
+{% if not values %}
+<p class="text-sm text-gray-400">Žádná data.</p>
+{% else %}
+
+<datalist id="dl-suggestions">
+    {% for s in suggestions %}
+    <option value="{{ s }}">
+    {% endfor %}
+</datalist>
+
+<h3 class="text-sm font-medium text-gray-600 mb-3">{{ field_label }} — {{ values|length }} unikátních hodnot</h3>
+
+<table class="w-full text-sm">
+    <thead class="bg-gray-50">
+        <tr>
+            <th class="text-left px-3 py-2 text-gray-500 font-medium">Aktuální hodnota</th>
+            <th class="text-right px-3 py-2 text-gray-500 font-medium w-24">Počet</th>
+            <th class="text-right px-3 py-2 text-gray-500 font-medium w-64">Akce</th>
+        </tr>
+    </thead>
+    <tbody class="divide-y divide-gray-100">
+        {% for v in values %}
+        <tr id="row-{{ loop.index }}">
+            <td class="px-3 py-2 text-gray-800">
+                {% if v.value is none %}
+                <span class="text-gray-400 italic">Bez hodnoty</span>
+                {% else %}
+                <span class="font-mono">{{ v.value }}</span>
+                {% endif %}
+            </td>
+            <td class="px-3 py-2 text-gray-600 text-right font-mono">{{ v.count }}</td>
+            <td class="px-3 py-2 text-right">
+                <!-- View mode -->
+                <div id="view-{{ loop.index }}">
+                    <button onclick="document.getElementById('view-{{ loop.index }}').classList.add('hidden'); document.getElementById('edit-{{ loop.index }}').classList.remove('hidden'); document.getElementById('input-{{ loop.index }}').focus();"
+                            class="text-blue-600 hover:text-blue-800 text-xs font-medium">Opravit</button>
+                </div>
+                <!-- Edit mode (hidden) -->
+                <div id="edit-{{ loop.index }}" class="hidden">
+                    <form action="/sprava/hromadne-upravy/opravit" method="post" hx-boost="false"
+                          class="flex items-center gap-2 justify-end">
+                        <input type="hidden" name="pole" value="{{ field_key }}">
+                        <input type="hidden" name="old_value" value="{{ v.value if v.value is not none else '' }}">
+                        <input type="hidden" name="is_null" value="{{ '1' if v.value is none else '0' }}">
+                        <input type="text" name="new_value" id="input-{{ loop.index }}"
+                               value="{{ v.value if v.value is not none else '' }}"
+                               list="dl-suggestions" placeholder="Nová hodnota"
+                               class="w-44 px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <button type="submit"
+                                onclick="return confirm('Opravit {{ v.count }} záznamů?')"
+                                class="px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs font-medium">Uložit</button>
+                        <button type="button"
+                                onclick="document.getElementById('edit-{{ loop.index }}').classList.add('hidden'); document.getElementById('view-{{ loop.index }}').classList.remove('hidden');"
+                                class="px-2 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 text-xs font-medium">Zrušit</button>
+                    </form>
+                </div>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
