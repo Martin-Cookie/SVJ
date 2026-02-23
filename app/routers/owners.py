@@ -1,5 +1,5 @@
 import shutil
-from datetime import datetime
+from datetime import date, datetime
 
 from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
 from fastapi.responses import RedirectResponse
@@ -55,19 +55,19 @@ async def owner_list(
             | Owner.phone.ilike(search)
             | Owner.birth_number.ilike(search)
             | Owner.company_id.ilike(search)
-            | Owner.units.any(OwnerUnit.unit.has(cast(Unit.unit_number, String).ilike(search)))
+            | Owner.units.any((OwnerUnit.valid_to.is_(None)) & OwnerUnit.unit.has(cast(Unit.unit_number, String).ilike(search)))
         )
     if owner_type:
         query = query.filter(Owner.owner_type == owner_type)
     if vlastnictvi == "_empty":
         query = query.filter(
             Owner.units.any(
-                (OwnerUnit.ownership_type.is_(None)) | (OwnerUnit.ownership_type == "")
+                (OwnerUnit.valid_to.is_(None)) & ((OwnerUnit.ownership_type.is_(None)) | (OwnerUnit.ownership_type == ""))
             )
         )
     elif vlastnictvi:
         query = query.filter(
-            Owner.units.any(OwnerUnit.ownership_type == vlastnictvi)
+            Owner.units.any((OwnerUnit.valid_to.is_(None)) & (OwnerUnit.ownership_type == vlastnictvi))
         )
     if kontakt == "s_emailem":
         query = query.filter(Owner.email.isnot(None), Owner.email != "")
@@ -79,7 +79,7 @@ async def owner_list(
         query = query.filter((Owner.phone.is_(None)) | (Owner.phone == ""))
     if sekce:
         query = query.filter(
-            Owner.units.any(OwnerUnit.unit.has(Unit.section == sekce))
+            Owner.units.any((OwnerUnit.valid_to.is_(None)) & OwnerUnit.unit.has(Unit.section == sekce))
         )
 
     # Sorting
@@ -87,19 +87,19 @@ async def owner_list(
     if sort == "podil":
         owners = query.all()
         owners.sort(
-            key=lambda o: sum(ou.votes for ou in o.units),
+            key=lambda o: sum(ou.votes for ou in o.current_units),
             reverse=(order == "desc"),
         )
     elif sort == "jednotky":
         owners = query.all()
         owners.sort(
-            key=lambda o: (o.units[0].unit.unit_number if o.units else 0),
+            key=lambda o: (o.current_units[0].unit.unit_number if o.current_units else 0),
             reverse=(order == "desc"),
         )
     elif sort == "sekce":
         owners = query.all()
         owners.sort(
-            key=lambda o: (o.units[0].unit.section or "") if o.units else "",
+            key=lambda o: (o.current_units[0].unit.section or "") if o.current_units else "",
             reverse=(order == "desc"),
         )
     elif sort_col is not None:
@@ -151,7 +151,7 @@ async def owner_list(
         Owner.phone != "",
     ).count()
 
-    total_scd = db.query(func.sum(OwnerUnit.votes)).scalar() or 0
+    total_scd = db.query(func.sum(OwnerUnit.votes)).filter(OwnerUnit.valid_to.is_(None)).scalar() or 0
     svj_info = db.query(SvjInfo).first()
     declared_shares = svj_info.total_shares if svj_info and svj_info.total_shares else 0
 
@@ -161,6 +161,7 @@ async def owner_list(
             func.coalesce(OwnerUnit.ownership_type, ""),
             func.count(func.distinct(OwnerUnit.owner_id)),
         )
+        .filter(OwnerUnit.valid_to.is_(None))
         .group_by(func.coalesce(OwnerUnit.ownership_type, ""))
         .all()
     )
@@ -321,8 +322,8 @@ async def owner_detail(
     if not owner:
         return RedirectResponse("/vlastnici", status_code=302)
 
-    # Units not yet assigned to this owner
-    assigned_unit_ids = [ou.unit_id for ou in owner.units]
+    # Units not yet assigned to this owner (current only)
+    assigned_unit_ids = [ou.unit_id for ou in owner.current_units]
     if assigned_unit_ids:
         available_units = db.query(Unit).filter(
             Unit.id.notin_(assigned_unit_ids)
@@ -497,7 +498,7 @@ async def owner_update(
 
 def _owner_units_context(owner, db):
     """Helper to build context for owner_units_section partial."""
-    assigned_unit_ids = [ou.unit_id for ou in owner.units]
+    assigned_unit_ids = [ou.unit_id for ou in owner.current_units]
     if assigned_unit_ids:
         available_units = db.query(Unit).filter(
             Unit.id.notin_(assigned_unit_ids)
@@ -529,7 +530,7 @@ async def owner_add_unit(
     unit_id_int = int(unit_id)
     exists = db.query(OwnerUnit).filter_by(
         owner_id=owner_id, unit_id=unit_id_int
-    ).first()
+    ).filter(OwnerUnit.valid_to.is_(None)).first()
     if not exists:
         ou = OwnerUnit(
             owner_id=owner_id,
@@ -537,6 +538,7 @@ async def owner_add_unit(
             ownership_type=ownership_type or None,
             share=float(share) if share else 1.0,
             votes=int(votes) if votes else 0,
+            valid_from=date.today(),
         )
         db.add(ou)
         db.commit()
@@ -563,7 +565,7 @@ async def owner_remove_unit(
 ):
     ou = db.query(OwnerUnit).filter_by(id=ou_id, owner_id=owner_id).first()
     if ou:
-        db.delete(ou)
+        ou.valid_to = date.today()
         db.commit()
 
     owner = db.query(Owner).options(

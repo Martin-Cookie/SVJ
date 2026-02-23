@@ -15,7 +15,7 @@
             </tr>
         </thead>
         <tbody class="divide-y divide-gray-200">
-            {% for ou in owner.units %}
+            {% for ou in owner.current_units %}
             <tr>
                 <td class="px-2 py-1.5 font-medium"><a href="/jednotky/{{ ou.unit.id }}?back={{ ('/vlastnici/' ~ owner.id ~ '?back=' ~ (back_url|default('/vlastnici')|urlencode))|urlencode }}" class="text-blue-600 hover:text-blue-800 hover:underline">{{ ou.unit.unit_number }}</a></td>
                 <td class="px-2 py-1.5 text-gray-500">{{ ou.unit.building_number or '—' }}</td>
@@ -34,8 +34,8 @@
             {% endfor %}
         </tbody>
         <tfoot class="border-t-2 border-gray-300 bg-gray-50">
-            {% set total_scd = owner.units | map(attribute='unit') | map(attribute='podil_scd') | map('default', 0) | sum %}
-            {% set total_area = owner.units | map(attribute='unit') | selectattr('floor_area') | map(attribute='floor_area') | sum %}
+            {% set total_scd = owner.current_units | map(attribute='unit') | map(attribute='podil_scd') | map('default', 0) | sum %}
+            {% set total_area = owner.current_units | map(attribute='unit') | selectattr('floor_area') | map(attribute='floor_area') | sum %}
             <tr class="font-semibold text-gray-700 text-sm">
                 <td class="px-2 py-2" colspan="3">Celkem</td>
                 <td class="px-2 py-2 text-right font-mono whitespace-nowrap">{{ "{:,}".format(total_scd | int).replace(",", " ") }}</td>
@@ -83,4 +83,34 @@
         </button>
     </form>
 </div>
+{% endif %}
+
+{% if owner.historical_units %}
+<details class="mt-4 pt-4 border-t border-gray-200">
+    <summary class="text-sm font-medium text-gray-500 cursor-pointer hover:text-gray-700">
+        Historie vlastnictví ({{ owner.historical_units|length }})
+    </summary>
+    <table class="min-w-full divide-y divide-gray-200 text-sm mt-2">
+        <thead>
+            <tr>
+                <th class="px-2 py-1.5 text-left text-xs font-medium text-gray-400 uppercase">Jedn.</th>
+                <th class="px-2 py-1.5 text-left text-xs font-medium text-gray-400 uppercase">Typ</th>
+                <th class="px-2 py-1.5 text-right text-xs font-medium text-gray-400 uppercase">Podíl SČD</th>
+                <th class="px-2 py-1.5 text-left text-xs font-medium text-gray-400 uppercase">Od</th>
+                <th class="px-2 py-1.5 text-left text-xs font-medium text-gray-400 uppercase">Do</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+            {% for ou in owner.historical_units %}
+            <tr class="text-gray-400">
+                <td class="px-2 py-1.5"><a href="/jednotky/{{ ou.unit.id }}" class="text-gray-400 hover:text-gray-600 hover:underline">{{ ou.unit.unit_number }}</a></td>
+                <td class="px-2 py-1.5">{{ ou.ownership_type or '—' }}</td>
+                <td class="px-2 py-1.5 text-right font-mono whitespace-nowrap">{{ "{:,}".format(ou.unit.podil_scd or 0).replace(",", " ") }}</td>
+                <td class="px-2 py-1.5 whitespace-nowrap">{{ ou.valid_from.strftime('%d.%m.%Y') if ou.valid_from else '—' }}</td>
+                <td class="px-2 py-1.5 whitespace-nowrap">{{ ou.valid_to.strftime('%d.%m.%Y') if ou.valid_to else '—' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</details>
 {% endif %}

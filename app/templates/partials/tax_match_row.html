@@ -34,7 +34,7 @@
             <select name="owner_id" class="text-xs border border-gray-300 rounded px-1 py-1">
                 <option value="">Vybrat...</option>
                 {% for owner in owners %}
-                <option value="{{ owner.id }}">{{ owner.name_normalized }} (j. {{ owner.units[0].unit.unit_number if owner.units else '?' }})</option>
+                <option value="{{ owner.id }}">{{ owner.name_normalized }} (j. {{ owner.current_units[0].unit.unit_number if owner.current_units else '?' }})</option>
                 {% endfor %}
             </select>
             <button type="submit" class="px-2 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600">

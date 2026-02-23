@@ -1,6 +1,6 @@
 import re
 import shutil
-from datetime import datetime
+from datetime import date, datetime
 from difflib import SequenceMatcher
 from pathlib import Path
 
@@ -101,7 +101,7 @@ async def sync_create(
 
     excel_data = []
     for owner in owners:
-        for ou in owner.units:
+        for ou in owner.current_units:
             unit_num = str(ou.unit.unit_number)
             excel_data.append({
                 "unit_number": unit_num,
@@ -270,6 +270,7 @@ async def sync_detail(
         db.query(OwnerUnit.owner_id, Unit.unit_number, Owner.name_with_titles, Unit.id)
         .join(OwnerUnit.unit)
         .join(Owner, OwnerUnit.owner_id == Owner.id)
+        .filter(OwnerUnit.valid_to.is_(None))
         .all()
     )
     for oid, unit_num, oname, unit_id in owner_units:
@@ -571,7 +572,7 @@ async def apply_selected_updates(
             change_details.append(f"Jednotka {short_num}: nenalezena")
             continue
 
-        owner_unit = db.query(OwnerUnit).filter_by(unit_id=unit.id).first()
+        owner_unit = db.query(OwnerUnit).filter_by(unit_id=unit.id).filter(OwnerUnit.valid_to.is_(None)).first()
         if not owner_unit:
             error_count += 1
             change_details.append(f"Jednotka {short_num}: vlastník nenalezen")
@@ -584,7 +585,7 @@ async def apply_selected_updates(
                 csv_names = re.split(r'\s*[;,]\s*', new_value.strip())
                 csv_names = [n.strip() for n in csv_names if n.strip()]
 
-                all_owner_units = db.query(OwnerUnit).filter_by(unit_id=unit.id).all()
+                all_owner_units = db.query(OwnerUnit).filter_by(unit_id=unit.id).filter(OwnerUnit.valid_to.is_(None)).all()
                 all_owners = []
                 for ou in all_owner_units:
                     o = db.query(Owner).get(ou.owner_id)
@@ -727,6 +728,7 @@ async def apply_contacts(session_id: int, db: Session = Depends(get_db)):
             db.query(OwnerUnit)
             .join(OwnerUnit.unit)
             .filter(Unit.unit_number.endswith(f"/{short_num}") | (Unit.unit_number == short_num))
+            .filter(OwnerUnit.valid_to.is_(None))
             .first()
         )
         if not owner_unit:
@@ -778,6 +780,7 @@ async def exchange_preview_single(
         "batch": False,
         "record_ids": [record_id],
         "stats": stats,
+        "today": date.today().isoformat(),
     })
 
 
@@ -785,10 +788,12 @@ async def exchange_preview_single(
 async def exchange_confirm_single(
     session_id: int,
     record_id: int,
+    exchange_date: str = Form(""),
     db: Session = Depends(get_db),
 ):
     """Execute owner exchange for a single unit."""
-    execute_exchange(db, [record_id], session_id)
+    ed = date.fromisoformat(exchange_date) if exchange_date else date.today()
+    execute_exchange(db, [record_id], session_id, exchange_date=ed)
     return RedirectResponse(f"/synchronizace/{session_id}", status_code=302)
 
 
@@ -833,6 +838,7 @@ async def exchange_preview_batch(
         "batch": True,
         "record_ids": record_ids,
         "stats": stats,
+        "today": date.today().isoformat(),
     })
 
 
@@ -846,8 +852,10 @@ async def exchange_confirm_batch(
     form = await request.form()
     raw_ids = form.get("record_ids", "")
     record_ids = [int(x) for x in raw_ids.split(",") if x.strip().isdigit()]
+    exchange_date_str = form.get("exchange_date", "")
+    ed = date.fromisoformat(exchange_date_str) if exchange_date_str else date.today()
     if record_ids:
-        execute_exchange(db, record_ids, session_id)
+        execute_exchange(db, record_ids, session_id, exchange_date=ed)
     return RedirectResponse(f"/synchronizace/{session_id}", status_code=302)
 
 

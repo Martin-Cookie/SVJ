@@ -2,7 +2,7 @@ import enum
 from datetime import datetime
 
 from sqlalchemy import (
-    Boolean, Column, DateTime, Enum, Float, ForeignKey, Index, Integer, String, Text,
+    Boolean, Column, Date, DateTime, Enum, Float, ForeignKey, Index, Integer, String, Text,
 )
 from sqlalchemy.orm import relationship
 
@@ -73,6 +73,15 @@ class Owner(Base):
         return " ".join(parts) if parts else (self.name_with_titles or "")
 
     units = relationship("OwnerUnit", back_populates="owner", cascade="all, delete-orphan")
+
+    @property
+    def current_units(self):
+        return [ou for ou in self.units if ou.valid_to is None]
+
+    @property
+    def historical_units(self):
+        return [ou for ou in self.units if ou.valid_to is not None]
+
     ballots = relationship("Ballot", back_populates="owner")
     tax_distributions = relationship("TaxDistribution", back_populates="owner")
     given_proxies = relationship(
@@ -101,6 +110,14 @@ class Unit(Base):
 
     owners = relationship("OwnerUnit", back_populates="unit", cascade="all, delete-orphan")
 
+    @property
+    def current_owners(self):
+        return [ou for ou in self.owners if ou.valid_to is None]
+
+    @property
+    def historical_owners(self):
+        return [ou for ou in self.owners if ou.valid_to is not None]
+
 
 class OwnerUnit(Base):
     __tablename__ = "owner_units"
@@ -112,6 +129,8 @@ class OwnerUnit(Base):
     share = Column(Float, nullable=False, default=1.0)
     votes = Column(Integer, nullable=False, default=0)
     excel_row_number = Column(Integer, nullable=True)
+    valid_from = Column(Date, nullable=True, index=True)
+    valid_to = Column(Date, nullable=True, index=True)
 
     owner = relationship("Owner", back_populates="units")
     unit = relationship("Unit", back_populates="owners")

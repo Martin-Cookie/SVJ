@@ -65,7 +65,7 @@
         </td>
         <td class="px-1 py-1 text-right font-mono whitespace-nowrap {% if podil_diff %}text-orange-600 font-bold{% else %}text-gray-400{% endif %}">
             {% if podil_diff %}
-            <label class="inline-flex items-center gap-0.5 cursor-pointer"><input type="checkbox" name="update__{{ record.id }}__podil_scd" value="{{ record.csv_share }}" class="sync-checkbox" onchange="syncUpdateRowCheckbox(this);syncUpdateCount()"><span>{{ "{:,}".format(record.csv_share).replace(",", " ") }}</span></label>
+            <label class="inline-flex items-center gap-0.5 cursor-pointer"><input type="checkbox" name="update__{{ record.id }}__podil_scd" value="{{ record.csv_share or 0 }}" class="sync-checkbox" onchange="syncUpdateRowCheckbox(this);syncUpdateCount()"><span>{{ "{:,}".format(record.csv_share or 0).replace(",", " ") }}</span></label>
             {% elif record.csv_share %}{{ "{:,}".format(record.csv_share).replace(",", " ") }}{% else %}—{% endif %}
         </td>
     </tr>

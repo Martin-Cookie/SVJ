@@ -94,6 +94,12 @@
 <!-- Confirm form -->
 <form action="/synchronizace/{{ session.id }}/{% if batch %}vymena-hromadna{% else %}vymena/{{ record_ids[0] }}{% endif %}/potvrdit" method="post" hx-boost="false">
     <input type="hidden" name="record_ids" value="{{ record_ids|join(',') }}">
+    <div class="mb-3">
+        <label class="block text-sm font-medium text-gray-700 mb-1">Datum výměny</label>
+        <input type="date" name="exchange_date" value="{{ today }}"
+               class="px-3 py-2 border border-gray-300 rounded text-sm">
+        <p class="text-xs text-gray-400 mt-1">Výchozí: dnešní datum. Změňte pokud výměna proběhla dříve.</p>
+    </div>
     <div class="flex items-center gap-3">
         <a href="/synchronizace/{{ session.id }}" class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm">Zrušit</a>
         <button type="submit" class="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 text-sm font-medium">

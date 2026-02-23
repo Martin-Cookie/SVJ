@@ -36,7 +36,7 @@ async def home(request: Request, db: Session = Depends(get_db)):
     # Share statistics
     svj_info = db.query(SvjInfo).first()
     declared_shares = svj_info.total_shares if svj_info and svj_info.total_shares else 0
-    owners_scd = db.query(func.sum(OwnerUnit.votes)).scalar() or 0
+    owners_scd = db.query(func.sum(OwnerUnit.votes)).filter(OwnerUnit.valid_to.is_(None)).scalar() or 0
     units_scd = db.query(func.sum(Unit.podil_scd)).scalar() or 0
 
     return templates.TemplateResponse("dashboard.html", {

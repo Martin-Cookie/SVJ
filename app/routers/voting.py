@@ -184,8 +184,8 @@ async def voting_create(
         db.add(voting)
         db.flush()
 
-    # Calculate total votes
-    total = db.query(func.sum(OwnerUnit.votes)).scalar() or 0
+    # Calculate total votes (only current owner_units)
+    total = db.query(func.sum(OwnerUnit.votes)).filter(OwnerUnit.valid_to.is_(None)).scalar() or 0
     voting.total_votes_possible = total
 
     db.commit()
@@ -300,9 +300,9 @@ async def generate_ballots(
         if existing:
             continue
 
-        total_votes = sum(ou.votes for ou in owner.units)
+        total_votes = sum(ou.votes for ou in owner.current_units)
         units_text = ", ".join(
-            str(ou.unit.unit_number) for ou in owner.units
+            str(ou.unit.unit_number) for ou in owner.current_units
         )
 
         ballot = Ballot(

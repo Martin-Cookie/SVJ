@@ -7,7 +7,7 @@ Handles the case where the number or identity of owners changes
 from __future__ import annotations
 
 import re
-from datetime import datetime
+from datetime import date, datetime
 from difflib import SequenceMatcher
 
 from sqlalchemy.orm import Session
@@ -126,8 +126,8 @@ def prepare_exchange_preview(
         if not unit:
             continue
 
-        # Current owner_units
-        current_ous = db.query(OwnerUnit).filter_by(unit_id=unit.id).all()
+        # Current owner_units (only active — valid_to IS NULL)
+        current_ous = db.query(OwnerUnit).filter_by(unit_id=unit.id).filter(OwnerUnit.valid_to.is_(None)).all()
         current_owners = []
         for ou in current_ous:
             owner = db.query(Owner).get(ou.owner_id)
@@ -193,11 +193,14 @@ def execute_exchange(
     db: Session,
     record_ids: list[int],
     session_id: int,
+    exchange_date: date | None = None,
 ) -> dict:
     """Execute the owner exchange for given records.
 
     Returns a summary dict with counts.
     """
+    if exchange_date is None:
+        exchange_date = date.today()
     now = datetime.now().strftime("%d.%m.%Y %H:%M")
     session = db.query(SyncSession).get(session_id)
 
@@ -235,8 +238,8 @@ def execute_exchange(
         if not unit:
             continue
 
-        # Collect old owner IDs before deletion
-        old_ous = db.query(OwnerUnit).filter_by(unit_id=unit.id).all()
+        # Collect old owner IDs before soft-delete
+        old_ous = db.query(OwnerUnit).filter_by(unit_id=unit.id).filter(OwnerUnit.valid_to.is_(None)).all()
         old_owner_ids = [ou.owner_id for ou in old_ous]
         old_owner_names = []
         for ou in old_ous:
@@ -244,9 +247,9 @@ def execute_exchange(
             if o:
                 old_owner_names.append(o.name_with_titles)
 
-        # Delete old OwnerUnit records (NOT the Owner itself)
+        # Soft-delete old OwnerUnit records (set valid_to, NOT the Owner itself)
         for ou in old_ous:
-            db.delete(ou)
+            ou.valid_to = exchange_date
         db.flush()
 
         # Create new OwnerUnit records
@@ -293,13 +296,14 @@ def execute_exchange(
                 ownership_type=record.csv_ownership_type or "",
                 share=1.0 / len(csv_names) if len(csv_names) > 1 else 1.0,
                 votes=votes_split[i] if i < len(votes_split) else 0,
+                valid_from=exchange_date,
             )
             db.add(ou)
             new_owner_names.append(owner.name_with_titles)
 
-        # Deactivate old owners that have no remaining units
+        # Deactivate old owners that have no remaining active units
         for oid in old_owner_ids:
-            remaining = db.query(OwnerUnit).filter_by(owner_id=oid).count()
+            remaining = db.query(OwnerUnit).filter_by(owner_id=oid).filter(OwnerUnit.valid_to.is_(None)).count()
             if remaining == 0:
                 old_owner = db.query(Owner).get(oid)
                 if old_owner and old_owner.is_active:

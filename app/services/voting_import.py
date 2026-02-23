@@ -124,7 +124,7 @@ def preview_voting_import(file_path: str, mapping: dict, voting: Voting, db: Ses
     ballot_lookup = {}
     for ballot in voting.ballots:
         owner = ballot.owner
-        for ou in owner.units:
+        for ou in owner.current_units:
             unit_num = ou.unit.unit_number
             ballot_lookup.setdefault(unit_num, []).append(ballot)
 

@@ -14,7 +14,10 @@ from app.services.owner_matcher import normalize_for_matching
 
 
 def parse_sousede_csv(csv_content: str) -> list[dict]:
-    """Parse CSV from sousede.cz. Tries multiple delimiters and column names."""
+    """Parse CSV from sousede.cz or internal export. Tries multiple delimiters and column names."""
+    # Strip BOM (byte order mark) if present
+    csv_content = csv_content.lstrip("\ufeff")
+
     # Try to detect delimiter
     first_line = csv_content.split("\n")[0]
     delimiter = ";" if ";" in first_line else ","
@@ -33,12 +36,14 @@ def parse_sousede_csv(csv_content: str) -> list[dict]:
         ],
         "space_type": [
             "Typ jednoky", "Typ jednotky", "typ_jednotky",
+            "Druh prostoru",
         ],
         "ownership_type": [
             "Typ vlastnictví", "Typ vlastnictvi", "typ_vlastnictvi",
         ],
         "share": [
             "Podíl na domu", "Podil na domu", "podil_na_domu",
+            "Podíl SČD",
         ],
         "email": [
             "Hlavní kontaktní e-mail", "Hlavni kontaktni e-mail",
@@ -61,6 +66,13 @@ def parse_sousede_csv(csv_content: str) -> list[dict]:
             if key not in record:
                 record[key] = ""
 
+        # Internal export: combine Příjmení + Jméno if no unified owners column
+        if not record.get("owners"):
+            last_name = (row.get("Příjmení") or "").strip()
+            first_name = (row.get("Jméno") or "").strip()
+            if last_name or first_name:
+                record["owners"] = f"{last_name} {first_name}".strip()
+
         # Extract unit number from format "1098/14" -> "14"
         unit_raw = record.get("unit_number", "")
         if "/" in unit_raw:
@@ -69,7 +81,20 @@ def parse_sousede_csv(csv_content: str) -> list[dict]:
         if record.get("unit_number"):
             records.append(record)
 
-    return records
+    # Merge rows with the same unit_number (internal export has one row per co-owner)
+    merged: dict[str, dict] = {}
+    for rec in records:
+        unit = rec["unit_number"]
+        if unit not in merged:
+            merged[unit] = rec
+        else:
+            # Append owner name with separator
+            existing_owners = merged[unit].get("owners", "")
+            new_owner = rec.get("owners", "")
+            if new_owner and new_owner not in existing_owners:
+                merged[unit]["owners"] = f"{existing_owners}, {new_owner}" if existing_owners else new_owner
+
+    return list(merged.values())
 
 
 def _compare_structured_names(
@@ -169,12 +194,15 @@ def compare_owners(
         csv_owners_raw = csv_rec.get("owners", "")
         csv_type = csv_rec.get("ownership_type", "")
         csv_space_type = csv_rec.get("space_type", "")
-        # Extract share numerator from format "12212/1000000" -> 12212
+        # Extract share: "12212/4103391" -> 12212 or plain "3051" -> 3051
         csv_share_raw = csv_rec.get("share", "")
         csv_share = None
-        if csv_share_raw and "/" in csv_share_raw:
+        if csv_share_raw:
             try:
-                csv_share = int(csv_share_raw.split("/")[0].strip())
+                if "/" in csv_share_raw:
+                    csv_share = int(csv_share_raw.split("/")[0].strip())
+                else:
+                    csv_share = int(float(csv_share_raw))
             except (ValueError, TypeError):
                 pass
 

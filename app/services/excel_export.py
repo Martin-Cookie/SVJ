@@ -47,7 +47,7 @@ def export_owners_to_excel(db: Session, output_path: str) -> str:
         # Determine RC/IČ value
         birth_or_ic = owner.company_id or owner.birth_number or ""
 
-        for ou in owner.units:
+        for ou in owner.current_units:
             unit = ou.unit
             row = [
                 unit.unit_number,

@@ -110,7 +110,7 @@ def _rows_owners(db: Session):
     )
     for owner in owners:
         rc_ic = owner.company_id or owner.birth_number or ""
-        for ou in owner.units:
+        for ou in owner.current_units:
             u = ou.unit
             yield [
                 u.unit_number, u.building_number or "", u.podil_scd,

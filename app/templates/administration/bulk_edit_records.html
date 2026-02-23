@@ -39,9 +39,9 @@
                     <td class="px-2 py-1 text-gray-600 text-right font-mono whitespace-nowrap" data-v="{{ u.floor_area or '' }}">{% if u.floor_area %}{{ "%.1f"|format(u.floor_area) }}{% else %}—{% endif %}</td>
                     <td class="px-2 py-1 text-gray-600 text-right font-mono whitespace-nowrap" data-v="{{ u.podil_scd or '' }}">{% if u.podil_scd %}{{ "{:,}".format(u.podil_scd).replace(",", " ") }}{% else %}—{% endif %}</td>
                     <td class="px-2 py-1 text-gray-600 whitespace-nowrap" data-v="{{ u.lv_number or '' }}">{{ u.lv_number or '—' }}</td>
-                    <td class="px-2 py-1 text-gray-600 truncate max-w-[200px]" title="{% for ou in u.owners %}{{ ou.owner.display_name }}{% if not loop.last %}, {% endif %}{% endfor %}">
-                        {% for ou in u.owners %}<a href="/vlastnici/{{ ou.owner.id }}?back={{ (back_url ~ '#bulk-unit-' ~ u.id)|urlencode }}" class="text-blue-600 hover:text-blue-800 hover:underline">{{ ou.owner.first_name }} {{ ou.owner.last_name or '' }}</a>{% if not loop.last %}, {% endif %}{% endfor %}
-                        {% if not u.owners %}—{% endif %}
+                    <td class="px-2 py-1 text-gray-600 truncate max-w-[200px]" title="{% for ou in u.current_owners %}{{ ou.owner.display_name }}{% if not loop.last %}, {% endif %}{% endfor %}">
+                        {% for ou in u.current_owners %}<a href="/vlastnici/{{ ou.owner.id }}?back={{ (back_url ~ '#bulk-unit-' ~ u.id)|urlencode }}" class="text-blue-600 hover:text-blue-800 hover:underline">{{ ou.owner.first_name }} {{ ou.owner.last_name or '' }}</a>{% if not loop.last %}, {% endif %}{% endfor %}
+                        {% if not u.current_owners %}—{% endif %}
                     </td>
                 </tr>
                 {% endfor %}
@@ -80,7 +80,7 @@
                     <td class="px-2 py-1 text-gray-600">{{ ou.unit.space_type or '—' }}</td>
                     <td class="px-2 py-1 text-gray-600">{{ ou.unit.section or '—' }}</td>
                     <td class="px-2 py-1 text-gray-600"><a href="/vlastnici/{{ ou.owner.id }}?back={{ (back_url ~ '#bulk-ou-' ~ ou.id)|urlencode }}" class="text-blue-600 hover:text-blue-800 hover:underline">{{ ou.owner.display_name }}</a></td>
-                    <td class="px-2 py-1 text-gray-600">{{ ou.ownership_type or '—' }}</td>
+                    <td class="px-2 py-1 text-gray-600">{{ ou.current_ownership_type or '—' }}</td>
                     <td class="px-2 py-1 text-gray-600 text-right font-mono whitespace-nowrap" data-v="{{ ou.share }}">{{ ou.share }}</td>
                     <td class="px-2 py-1 text-gray-600 text-right font-mono whitespace-nowrap" data-v="{{ ou.votes }}">{{ ou.votes }}</td>
                 </tr>

@@ -11,9 +11,9 @@
     <td class="px-2 py-1.5 text-gray-700 text-right font-mono whitespace-nowrap">{% if unit.floor_area %}{{ unit.floor_area }}{% else %}—{% endif %}</td>
     <td class="px-2 py-1.5 text-gray-700 text-right font-mono whitespace-nowrap">{{ "{:,}".format(unit.podil_scd or 0).replace(",", " ") }}</td>
     <td class="px-2 py-1.5 overflow-hidden" style="text-overflow:ellipsis;white-space:nowrap">
-        {% for ou in unit.owners %}
+        {% for ou in unit.current_owners %}
         <a href="/vlastnici/{{ ou.owner.id }}?back={{ ((list_url or '/jednotky') ~ '#unit-' ~ unit.id)|urlencode }}" class="text-blue-600 hover:text-blue-800 hover:underline">{{ ou.owner.display_name }}</a>{% if not loop.last %}, {% endif %}
         {% endfor %}
-        {% if not unit.owners %}<span class="text-gray-300">—</span>{% endif %}
+        {% if not unit.current_owners %}<span class="text-gray-300">—</span>{% endif %}
     </td>
 </tr>

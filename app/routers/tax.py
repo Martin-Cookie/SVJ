@@ -79,8 +79,8 @@ async def tax_create(
         for o in owners
     ]
 
-    # Build unit->owner mapping
-    owner_units = db.query(OwnerUnit).all()
+    # Build unit->owner mapping (only current)
+    owner_units = db.query(OwnerUnit).filter(OwnerUnit.valid_to.is_(None)).all()
     unit_to_owners = {}
     for ou in owner_units:
         unit_num = str(ou.unit.unit_number)

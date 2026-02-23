@@ -80,6 +80,22 @@ def _migrate_units_table():
         logger.info("Units table migration complete")
 
 
+def _migrate_owner_units_history():
+    """Add valid_from / valid_to columns to owner_units for ownership history."""
+    with engine.connect() as conn:
+        columns = [
+            row[1] for row in
+            conn.execute(text("PRAGMA table_info(owner_units)")).fetchall()
+        ]
+        if "valid_from" not in columns:
+            conn.execute(text("ALTER TABLE owner_units ADD COLUMN valid_from DATE"))
+            logger.info("Added valid_from column to owner_units")
+        if "valid_to" not in columns:
+            conn.execute(text("ALTER TABLE owner_units ADD COLUMN valid_to DATE"))
+            logger.info("Added valid_to column to owner_units")
+        conn.commit()
+
+
 def _ensure_indexes():
     """Create indexes defined in models that may be missing on existing tables."""
     _INDEXES = [
@@ -108,6 +124,9 @@ def _ensure_indexes():
         ("ix_email_logs_module", "email_logs", "module"),
         ("ix_email_logs_reference_id", "email_logs", "reference_id"),
         ("ix_import_logs_import_type", "import_logs", "import_type"),
+        # owner_units history
+        ("ix_owner_units_valid_from", "owner_units", "valid_from"),
+        ("ix_owner_units_valid_to", "owner_units", "valid_to"),
     ]
     with engine.connect() as conn:
         for idx_name, table, column in _INDEXES:
@@ -119,6 +138,23 @@ def _ensure_indexes():
                 pass
         conn.commit()
     logger.info("Database indexes ensured")
+
+
+def run_post_restore_migrations():
+    """Re-connect to the (possibly replaced) database and run all migrations.
+
+    Called after every backup restore so the server keeps running even when
+    the restored DB is missing new columns.
+    """
+    engine.dispose()  # drop stale connections to the old file
+    try:
+        _migrate_owner_units_history()
+    except Exception:
+        logger.warning("post-restore: owner_units history migration skipped")
+    try:
+        _ensure_indexes()
+    except Exception:
+        logger.warning("post-restore: index creation skipped")
 
 
 @asynccontextmanager
@@ -133,6 +169,12 @@ async def lifespan(app: FastAPI):
         _migrate_units_table()
     except Exception:
         logger.warning("units migration skipped (table may not exist yet)")
+
+    # Add valid_from / valid_to to owner_units
+    try:
+        _migrate_owner_units_history()
+    except Exception:
+        logger.warning("owner_units history migration skipped")
 
     # Ensure indexes on existing tables
     try:

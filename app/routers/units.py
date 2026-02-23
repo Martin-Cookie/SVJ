@@ -212,7 +212,7 @@ async def unit_list(
     if sort == "owners":
         units = query.all()
         units.sort(
-            key=lambda u: (u.owners[0].owner.name_normalized if u.owners else ""),
+            key=lambda u: (u.current_owners[0].owner.name_normalized if u.current_owners else ""),
             reverse=(order == "desc"),
         )
     else:

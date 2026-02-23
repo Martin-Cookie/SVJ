@@ -27,6 +27,7 @@ from app.services.data_export import (
     EXPORT_ORDER, _EXPORTS as EXPORT_CATEGORIES,
     export_category_xlsx, export_category_csv,
 )
+from app.main import run_post_restore_migrations
 
 # Field mapping for bulk edit
 _BULK_FIELDS = {
@@ -294,6 +295,7 @@ async def backup_restore(file: UploadFile = File(...)):
         if temp_path.is_file():
             temp_path.unlink()
 
+    run_post_restore_migrations()
     return RedirectResponse("/sprava?sekce=zalohy", status_code=302)
 
 
@@ -312,6 +314,7 @@ async def backup_restore_directory(dir_path: str = Form(...)):
     new_backups = set(p.name for p in BACKUP_DIR.glob("*.zip")) - existing
     safety = next(iter(new_backups), "")
     log_restore(str(BACKUP_DIR), dir_path, "Adresář", safety_backup=safety)
+    run_post_restore_migrations()
     return RedirectResponse("/sprava?sekce=zalohy", status_code=302)
 
 
@@ -328,6 +331,7 @@ async def backup_restore_db_file(file: UploadFile = File(...)):
         f.write(await file.read())
 
     log_restore(str(BACKUP_DIR), file.filename or "svj.db", "DB soubor", safety_backup=safety)
+    run_post_restore_migrations()
     return RedirectResponse("/sprava?sekce=zalohy", status_code=302)
 
 
@@ -390,6 +394,7 @@ async def backup_restore_folder(files: List[UploadFile] = File(...)):
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
+    run_post_restore_migrations()
     return RedirectResponse("/sprava?sekce=zalohy", status_code=302)
 
 
@@ -598,12 +603,10 @@ async def bulk_edit_values(request: Request, pole: str, db: Session = Depends(ge
     model = Unit if field_info["model"] == "unit" else OwnerUnit
     col = getattr(model, field_info["column"])
 
-    rows = (
-        db.query(col, _sa_func.count().label("cnt"))
-        .group_by(col)
-        .order_by(_sa_func.count().desc())
-        .all()
-    )
+    base = db.query(col, _sa_func.count().label("cnt"))
+    if model == OwnerUnit:
+        base = base.filter(OwnerUnit.valid_to.is_(None))
+    rows = base.group_by(col).order_by(_sa_func.count().desc()).all()
 
     values = [{"value": r[0], "count": r[1]} for r in rows]
 
@@ -652,6 +655,7 @@ async def bulk_edit_records(
         q = (
             db.query(OwnerUnit)
             .options(joinedload(OwnerUnit.owner), joinedload(OwnerUnit.unit))
+            .filter(OwnerUnit.valid_to.is_(None))
         )
         if is_null:
             q = q.filter(col.is_(None))
