@@ -39,6 +39,18 @@
   var hodnota = new URLSearchParams(window.location.search).get('hodnota');
   if (hodnota) { /* najít a kliknout na řádek s data-hodnota == hodnota */ }
   ```
+- **Obnova scroll pozice při návratu** — pokud stránka má scrollovatelný kontejner (`overflow-y:auto`) s tabulkou:
+  1. Každý řádek musí mít unikátní `id` (např. `id="owner-{{ owner.id }}"`, `id="unit-{{ unit.id }}"`)
+  2. Back URL v odkazech musí obsahovat `#hash` fragment: `?back={{ ((list_url or '/seznam') ~ '#owner-' ~ owner.id)|urlencode }}`
+  3. Stránka seznamu musí mít na konci JS snippet:
+     ```javascript
+     if (location.hash) {
+         var el = document.querySelector(location.hash);
+         if (el) el.scrollIntoView({block: 'center'});
+     }
+     ```
+  - Prohlížeč nativně nescrolluje na `#hash` uvnitř overflow kontejnerů — proto je `scrollIntoView` nutný
+  - Všechny odkazy z řádku (na detail entity i na související entity) musí sdílet stejný `#hash` anchor daného řádku
 
 ## Filtrační bubliny
 
@@ -419,3 +431,4 @@ Vzor se skládá ze dvou partials (info + form) a tří endpointů:
 - Být proaktivní: když vytvářím novou stránku/entitu, rovnou aplikovat VŠECHNA pravidla z tohoto souboru (back URL, dynamické bubliny, sticky hlavičky, formátování čísel atd.) bez čekání na připomínku
 - Komunikovat stručně — co jsem udělal, ne co bych mohl udělat
 - Na potvrzení se PTÁT — "Chceš commitnout?", "Chceš něco upravit?" atd. jsou v pořádku
+- **Po opravě chyby se VŽDY zeptat**, zda se nemá stejný problém zkontrolovat v celém projektu — stejná chyba se často opakuje na více místech
