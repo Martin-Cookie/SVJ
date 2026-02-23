@@ -13,8 +13,8 @@
 <table class="w-full text-sm">
     <thead class="bg-gray-50">
         <tr>
-            <th class="text-left px-3 py-2 text-gray-500 font-medium">Aktuální hodnota</th>
-            <th class="text-right px-3 py-2 text-gray-500 font-medium w-24">Počet</th>
+            <th class="text-left px-3 py-2 text-gray-500 font-medium cursor-pointer hover:text-gray-800 select-none" data-col="0" data-type="text" onclick="sortValuesCol(this)">Aktuální hodnota <span class="sort-arrow"></span></th>
+            <th class="text-right px-3 py-2 text-gray-500 font-medium w-24 cursor-pointer hover:text-gray-800 select-none" data-col="1" data-type="num" onclick="sortValuesCol(this)">Počet <span class="sort-arrow"></span></th>
             <th class="text-right px-3 py-2 text-gray-500 font-medium w-64">Akce</th>
         </tr>
     </thead>
@@ -23,7 +23,7 @@
         <tr id="row-{{ loop.index }}" class="cursor-pointer hover:bg-blue-50"
             data-hodnota="{{ '__null__' if v.value is none else v.value }}"
             onclick="toggleDetail({{ loop.index }}, '{{ field_key }}', '{{ '__null__' if v.value is none else v.value|urlencode }}')">
-            <td class="px-3 py-2 text-gray-800">
+            <td class="px-3 py-2 text-gray-800" data-v="{{ v.value if v.value is not none else '' }}">
                 <div class="flex items-center gap-2">
                     <svg class="w-3 h-3 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
@@ -35,7 +35,7 @@
                     {% endif %}
                 </div>
             </td>
-            <td class="px-3 py-2 text-gray-600 text-right font-mono whitespace-nowrap">{{ v.count }}</td>
+            <td class="px-3 py-2 text-gray-600 text-right font-mono whitespace-nowrap" data-v="{{ v.count }}">{{ v.count }}</td>
             <td class="px-3 py-2 text-right" onclick="event.stopPropagation()">
                 <!-- View mode -->
                 <div id="view-{{ loop.index }}">
@@ -169,6 +169,47 @@ function submitBulkEdit(form, idx) {
         alert('Nejsou vybrány žádné záznamy.');
         return false;
     }
+}
+
+function sortValuesCol(th) {
+    var table = th.closest('table');
+    var tbody = table.querySelector('tbody');
+    var col = parseInt(th.dataset.col);
+    var type = th.dataset.type;
+    var asc = th.dataset.dir !== 'asc';
+    th.dataset.dir = asc ? 'asc' : 'desc';
+
+    th.closest('tr').querySelectorAll('.sort-arrow').forEach(function(s) { s.textContent = ''; });
+    th.querySelector('.sort-arrow').textContent = asc ? ' \u25B2' : ' \u25BC';
+
+    // Collect value+detail row pairs (they alternate in tbody)
+    var pairs = [];
+    var children = Array.from(tbody.children);
+    for (var i = 0; i < children.length; i += 2) {
+        pairs.push({ value: children[i], detail: children[i + 1] });
+    }
+
+    pairs.sort(function(a, b) {
+        var cellA = a.value.children[col];
+        var cellB = b.value.children[col];
+        var va, vb;
+        if (type === 'num') {
+            va = parseFloat((cellA.dataset.v || cellA.textContent).replace(/\s/g, '').replace(',', '.')) || 0;
+            vb = parseFloat((cellB.dataset.v || cellB.textContent).replace(/\s/g, '').replace(',', '.')) || 0;
+            return asc ? va - vb : vb - va;
+        }
+        va = (cellA.dataset.v || cellA.textContent || '').trim().toLowerCase();
+        vb = (cellB.dataset.v || cellB.textContent || '').trim().toLowerCase();
+        if (va === vb) return 0;
+        if (va === '') return 1;
+        if (vb === '') return -1;
+        return asc ? va.localeCompare(vb, 'cs') : vb.localeCompare(va, 'cs');
+    });
+
+    pairs.forEach(function(p) {
+        tbody.appendChild(p.value);
+        tbody.appendChild(p.detail);
+    });
 }
 
 function sortBulkCol(th) {
