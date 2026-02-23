@@ -162,7 +162,8 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
   - Hromadná výměna všech rozdílných záznamů najednou
   - Date picker pro datum výměny (výchozí dnešní, uživatel může změnit)
   - Soft-delete: staré OwnerUnit záznamy dostanou valid_to, nové valid_from
-  - Deaktivace vlastníků bez zbývajících jednotek po výměně
+  - Deaktivace vlastníků bez zbývajících jednotek po výměně (s db.flush pro autoflush=False)
+  - Zachování filtru a scroll pozice při navigaci zpět z výměny (filtr + #sync-{id} anchor)
   - Logování změn do ImportLog
 
 ### F. Administrace SVJ (`/sprava`)
