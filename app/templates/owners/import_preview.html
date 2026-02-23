@@ -2,6 +2,8 @@
 {% block title %}Náhled importu - SVJ Správa{% endblock %}
 
 {% block content %}
+<div class="flex flex-col" style="height:calc(100vh - 3rem)">
+<div class="shrink-0">
 <div class="mb-3">
     <a href="/vlastnici/import" class="text-sm text-gray-500 hover:text-gray-700">&larr; Zpět na import</a>
 </div>
@@ -57,7 +59,8 @@
 {% endif %}
 
 <!-- Preview table -->
-<div class="bg-white rounded-lg shadow" style="max-height:calc(100vh - 280px); overflow-y:auto; overflow-x:hidden">
+</div>
+<div class="flex-1 bg-white rounded-lg shadow overflow-y-auto overflow-x-hidden min-h-0">
     <table id="preview-table" class="w-full text-xs" style="table-layout:fixed">
         <colgroup>
             <col style="width:5%">
@@ -104,7 +107,8 @@
     </table>
 </div>
 
-<div class="mt-2 text-xs text-gray-400" id="visible-count">Zobrazeno: {{ preview.preview_rows|length }} řádků</div>
+<div class="shrink-0 mt-2 text-xs text-gray-400" id="visible-count">Zobrazeno: {{ preview.preview_rows|length }} řádků</div>
+</div>
 
 <script>
 var activeFilter = 'all';

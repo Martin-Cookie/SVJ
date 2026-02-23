@@ -17,6 +17,7 @@ from app.models import (
     SyncStatus, Unit,
 )
 from app.services.csv_comparator import compare_owners, parse_sousede_csv
+from app.services.owner_exchange import execute_exchange, prepare_exchange_preview
 from app.services.owner_matcher import normalize_for_matching
 
 router = APIRouter()
@@ -444,6 +445,7 @@ async def export_excel(
         "accepted": "OK",
         "rejected": "Zamítnuto",
         "manual_edit": "Upraveno",
+        "exchanged": "Výměna",
     }
 
     diff_fill = PatternFill(start_color="FFF3CD", end_color="FFF3CD", fill_type="solid")
@@ -748,3 +750,122 @@ async def apply_contacts(session_id: int, db: Session = Depends(get_db)):
 
     db.commit()
     return RedirectResponse(f"/synchronizace/{session_id}", status_code=302)
+
+
+@router.get("/{session_id}/vymena/{record_id}")
+async def exchange_preview_single(
+    session_id: int,
+    record_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Preview owner exchange for a single unit."""
+    session = db.query(SyncSession).get(session_id)
+    if not session:
+        return RedirectResponse("/synchronizace", status_code=302)
+
+    previews = prepare_exchange_preview(db, [record_id])
+    if not previews:
+        return RedirectResponse(f"/synchronizace/{session_id}", status_code=302)
+
+    stats = _exchange_stats(previews)
+
+    return templates.TemplateResponse("sync/exchange_preview.html", {
+        "request": request,
+        "active_nav": "sync",
+        "session": session,
+        "previews": previews,
+        "batch": False,
+        "record_ids": [record_id],
+        "stats": stats,
+    })
+
+
+@router.post("/{session_id}/vymena/{record_id}/potvrdit")
+async def exchange_confirm_single(
+    session_id: int,
+    record_id: int,
+    db: Session = Depends(get_db),
+):
+    """Execute owner exchange for a single unit."""
+    execute_exchange(db, [record_id], session_id)
+    return RedirectResponse(f"/synchronizace/{session_id}", status_code=302)
+
+
+@router.post("/{session_id}/vymena-hromadna")
+async def exchange_preview_batch(
+    session_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Preview batch owner exchange for all DIFFERENCE records."""
+    session = db.query(SyncSession).get(session_id)
+    if not session:
+        return RedirectResponse("/synchronizace", status_code=302)
+
+    form = await request.form()
+    filtr = form.get("filtr", "")
+
+    # Get all DIFFERENCE + PENDING records for this session
+    records = (
+        db.query(SyncRecord)
+        .filter_by(session_id=session_id, status=SyncStatus.DIFFERENCE, resolution=SyncResolution.PENDING)
+        .order_by(SyncRecord.unit_number.asc())
+        .all()
+    )
+    record_ids = [r.id for r in records]
+    if not record_ids:
+        url = f"/synchronizace/{session_id}"
+        if filtr:
+            url += f"?filtr={filtr}"
+        return RedirectResponse(url, status_code=302)
+
+    previews = prepare_exchange_preview(db, record_ids)
+    record_ids = [p["record"].id for p in previews]
+
+    stats = _exchange_stats(previews)
+
+    return templates.TemplateResponse("sync/exchange_preview.html", {
+        "request": request,
+        "active_nav": "sync",
+        "session": session,
+        "previews": previews,
+        "batch": True,
+        "record_ids": record_ids,
+        "stats": stats,
+    })
+
+
+@router.post("/{session_id}/vymena-hromadna/potvrdit")
+async def exchange_confirm_batch(
+    session_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Execute batch owner exchange."""
+    form = await request.form()
+    raw_ids = form.get("record_ids", "")
+    record_ids = [int(x) for x in raw_ids.split(",") if x.strip().isdigit()]
+    if record_ids:
+        execute_exchange(db, record_ids, session_id)
+    return RedirectResponse(f"/synchronizace/{session_id}", status_code=302)
+
+
+def _exchange_stats(previews: list[dict]) -> dict:
+    """Compute summary statistics for exchange preview."""
+    total_units = len(previews)
+    total_new = sum(
+        1 for p in previews for o in p["new_owners"] if o["match_type"] == "new"
+    )
+    total_reused = sum(
+        1 for p in previews for o in p["new_owners"] if o["match_type"] == "reuse"
+    )
+    total_possible = sum(
+        1 for p in previews for o in p["new_owners"] if o["match_type"] == "possible"
+    )
+    return {
+        "total_units": total_units,
+        "total_new": total_new,
+        "total_reused": total_reused,
+        "total_possible": total_possible,
+    }

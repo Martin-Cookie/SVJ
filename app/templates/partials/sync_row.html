@@ -35,7 +35,11 @@
         <td class="px-1 py-1 text-gray-800 text-right font-mono whitespace-nowrap">{% if record.excel_podil_scd %}{{ "{:,}".format(record.excel_podil_scd).replace(",", " ") }}{% else %}—{% endif %}</td>
         <td class="px-1 py-1 text-center font-bold whitespace-nowrap {% if st == 'match' %}text-green-600{% elif st == 'name_order' %}text-orange-500{% else %}text-red-500{% endif %}" rowspan="2">{{ record.match_details.split('|')[0].strip() if record.match_details else '' }}</td>
         <td class="px-1 py-1" rowspan="2">
-            {% if record.resolution.value == 'manual_edit' %}
+            {% if record.resolution.value == 'exchanged' %}
+            <span class="text-green-600 cursor-help font-medium" {% if record.admin_note %}title="{{ record.admin_note }}"{% endif %}>Vým.</span>
+            {% elif st == 'difference' and record.resolution.value == 'pending' %}
+            {% if session is defined %}<a href="/synchronizace/{{ session.id }}/vymena/{{ record.id }}" class="inline-block px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded text-xs hover:bg-purple-200 whitespace-nowrap">Výměna</a>{% endif %}
+            {% elif record.resolution.value == 'manual_edit' %}
             <span class="text-blue-600 cursor-help" {% if record.admin_note %}title="{{ record.admin_note }}"{% endif %}>Upr.</span>
             {% elif st in ('match', 'name_order') or record.resolution.value == 'accepted' %}
             <span class="text-green-600 font-medium">OK</span>

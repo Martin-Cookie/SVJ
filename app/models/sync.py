@@ -22,6 +22,7 @@ class SyncResolution(str, enum.Enum):
     ACCEPTED = "accepted"
     REJECTED = "rejected"
     MANUAL_EDIT = "manual_edit"
+    EXCHANGED = "exchanged"
 
 
 class SyncSession(Base):

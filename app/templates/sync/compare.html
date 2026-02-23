@@ -2,6 +2,8 @@
 {% block title %}Porovnání - {{ session.csv_filename }}{% endblock %}
 
 {% block content %}
+<div class="flex flex-col" style="height:calc(100vh - 3rem)">
+<div class="shrink-0">
 <div class="mb-3">
     <a href="{{ back_url|default('/synchronizace') }}" class="text-sm text-gray-500 hover:text-gray-700">&larr; {{ back_label|default('Zpět') }}</a>
 </div>
@@ -12,6 +14,10 @@
         <p class="text-xs text-gray-500 mt-0.5">{{ session.csv_filename }} | {{ session.created_at.strftime('%d.%m.%Y %H:%M') }}</p>
     </div>
     <div class="flex gap-2">
+        <form action="/synchronizace/{{ session.id }}/vymena-hromadna" method="post" hx-boost="false">
+            <input type="hidden" name="filtr" value="{{ filtr }}">
+            <button type="submit" class="px-3 py-1.5 bg-purple-600 text-white rounded hover:bg-purple-700 text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed" {% if not session.total_differences %}disabled{% endif %}>Hromadná výměna ({{ session.total_differences }})</button>
+        </form>
         <form action="/synchronizace/{{ session.id }}/aplikovat-kontakty" method="post" hx-boost="false">
             <button type="submit" class="px-3 py-1.5 bg-green-600 text-white rounded hover:bg-green-700 text-xs font-medium">Přenést kontakty</button>
         </form>
@@ -89,16 +95,17 @@
 </div>
 
 <!-- Update toolbar -->
-<form id="sync-update-form" action="/synchronizace/{{ session.id }}/aktualizovat" method="post">
+</div>
+<form id="sync-update-form" action="/synchronizace/{{ session.id }}/aktualizovat" method="post" class="flex flex-col flex-1 min-h-0">
 <input type="hidden" name="filtr" value="{{ filtr }}">
-<div class="flex items-center gap-3 mb-2 bg-white rounded-lg shadow px-3 py-2">
+<div class="shrink-0 flex items-center gap-3 mb-2 bg-white rounded-lg shadow px-3 py-2">
     <button type="button" id="sync-toggle-btn" onclick="syncToggleAll()" class="px-2 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 text-xs">Vybrat vše</button>
     <span id="sync-selected-count" class="text-xs text-gray-500">0 polí vybráno</span>
     <button type="submit" id="sync-submit-btn" disabled class="ml-auto px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed">Aktualizovat vybrané</button>
 </div>
 
 <!-- Comparison table -->
-<div class="bg-white rounded-lg shadow" style="max-height:calc(100vh - 280px); overflow-y:auto; overflow-x:hidden">
+<div class="flex-1 bg-white rounded-lg shadow overflow-y-auto overflow-x-hidden min-h-0">
     <table class="w-full text-xs" style="table-layout:fixed">
         <colgroup>
             <col style="width:2.5%">
@@ -147,7 +154,8 @@
 </div>
 </form>
 
-<div class="mt-2 text-xs text-gray-400">Zobrazeno: {{ records|length }} záznamů</div>
+<div class="shrink-0 mt-2 text-xs text-gray-400">Zobrazeno: {{ records|length }} záznamů</div>
+</div>
 
 <script>
 function syncToggleAll() {
