@@ -154,17 +154,17 @@
         <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
                 <tr>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Datum</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Modul</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Příjemce</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Předmět</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stav</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-800 select-none" data-col="0" data-type="text" onclick="sortTableCol(this)">Datum <span class="sort-arrow"></span></th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-800 select-none" data-col="1" data-type="text" onclick="sortTableCol(this)">Modul <span class="sort-arrow"></span></th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-800 select-none" data-col="2" data-type="text" onclick="sortTableCol(this)">Příjemce <span class="sort-arrow"></span></th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-800 select-none" data-col="3" data-type="text" onclick="sortTableCol(this)">Předmět <span class="sort-arrow"></span></th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-800 select-none" data-col="4" data-type="text" onclick="sortTableCol(this)">Stav <span class="sort-arrow"></span></th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-200">
                 {% for email in recent_emails %}
                 <tr>
-                    <td class="px-6 py-4 text-sm text-gray-500">{{ email.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
+                    <td class="px-6 py-4 text-sm text-gray-500" data-v="{{ email.created_at.isoformat() }}">{{ email.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
                     <td class="px-6 py-4 text-sm text-gray-500">{{ email.module }}</td>
                     <td class="px-6 py-4 text-sm text-gray-900">{{ email.recipient_name or email.recipient_email }}</td>
                     <td class="px-6 py-4 text-sm text-gray-500">{{ email.subject }}</td>

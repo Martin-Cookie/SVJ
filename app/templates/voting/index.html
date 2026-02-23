@@ -101,10 +101,10 @@
             </colgroup>
             <thead class="border-b border-gray-200">
                 <tr>
-                    <th class="px-2 py-1 text-left font-medium text-gray-500">Bod</th>
-                    <th class="px-2 py-1 text-right font-medium text-green-600">PRO</th>
-                    <th class="px-2 py-1 text-right font-medium text-red-600">PROTI</th>
-                    <th class="px-2 py-1 text-right font-medium text-gray-400">Zdržel se</th>
+                    <th class="px-2 py-1 text-left font-medium text-gray-500 cursor-pointer hover:text-gray-800 select-none" data-col="0" data-type="text" onclick="sortTableCol(this)">Bod <span class="sort-arrow"></span></th>
+                    <th class="px-2 py-1 text-right font-medium text-green-600 cursor-pointer hover:text-green-800 select-none" data-col="1" data-type="num" onclick="sortTableCol(this)">PRO <span class="sort-arrow"></span></th>
+                    <th class="px-2 py-1 text-right font-medium text-red-600 cursor-pointer hover:text-red-800 select-none" data-col="2" data-type="num" onclick="sortTableCol(this)">PROTI <span class="sort-arrow"></span></th>
+                    <th class="px-2 py-1 text-right font-medium text-gray-400 cursor-pointer hover:text-gray-600 select-none" data-col="3" data-type="num" onclick="sortTableCol(this)">Zdržel se <span class="sort-arrow"></span></th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-50">

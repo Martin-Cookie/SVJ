@@ -378,8 +378,8 @@
                         </colgroup>
                         <thead class="bg-gray-50">
                             <tr>
-                                <th class="text-left px-2 py-1.5 text-gray-500 font-medium text-xs">Záloha</th>
-                                <th class="text-right px-2 py-1.5 text-gray-500 font-medium text-xs">Velikost</th>
+                                <th class="text-left px-2 py-1.5 text-gray-500 font-medium text-xs cursor-pointer hover:text-gray-800 select-none" data-col="0" data-type="text" onclick="sortTableCol(this)">Záloha <span class="sort-arrow"></span></th>
+                                <th class="text-right px-2 py-1.5 text-gray-500 font-medium text-xs cursor-pointer hover:text-gray-800 select-none" data-col="1" data-type="num" onclick="sortTableCol(this)">Velikost <span class="sort-arrow"></span></th>
                                 <th class="text-right px-2 py-1.5 text-gray-500 font-medium text-xs"></th>
                             </tr>
                         </thead>
@@ -390,7 +390,7 @@
                                     <div class="truncate text-xs font-mono text-gray-800" title="{{ b.filename }}">{{ b.filename }}</div>
                                     <div class="text-xs text-gray-400">{{ b.created.strftime('%d.%m.%Y %H:%M') }}</div>
                                 </td>
-                                <td class="px-2 py-1.5 text-right text-xs text-gray-500 font-mono whitespace-nowrap">
+                                <td class="px-2 py-1.5 text-right text-xs text-gray-500 font-mono whitespace-nowrap" data-v="{{ b.size }}">
                                     {% if b.size >= 1048576 %}
                                         {{ "%.1f"|format(b.size / 1048576) }} MB
                                     {% else %}
@@ -436,9 +436,9 @@
                         </colgroup>
                         <thead class="bg-gray-50">
                             <tr>
-                                <th class="text-left px-2 py-1.5 text-gray-500 font-medium text-xs">Obnoveno z</th>
-                                <th class="text-left px-2 py-1.5 text-gray-500 font-medium text-xs">Datum</th>
-                                <th class="text-left px-2 py-1.5 text-gray-500 font-medium text-xs">Způsob</th>
+                                <th class="text-left px-2 py-1.5 text-gray-500 font-medium text-xs cursor-pointer hover:text-gray-800 select-none" data-col="0" data-type="text" onclick="sortTableCol(this)">Obnoveno z <span class="sort-arrow"></span></th>
+                                <th class="text-left px-2 py-1.5 text-gray-500 font-medium text-xs cursor-pointer hover:text-gray-800 select-none" data-col="1" data-type="text" onclick="sortTableCol(this)">Datum <span class="sort-arrow"></span></th>
+                                <th class="text-left px-2 py-1.5 text-gray-500 font-medium text-xs cursor-pointer hover:text-gray-800 select-none" data-col="2" data-type="text" onclick="sortTableCol(this)">Způsob <span class="sort-arrow"></span></th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100">

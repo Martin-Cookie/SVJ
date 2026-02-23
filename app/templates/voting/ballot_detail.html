@@ -52,9 +52,9 @@
     <table class="w-full text-sm">
         <thead class="border-b border-gray-200">
             <tr>
-                <th class="px-3 py-2 text-left font-medium text-gray-500">Bod</th>
-                <th class="px-3 py-2 text-left font-medium text-gray-500">Hlas</th>
-                <th class="px-3 py-2 text-right font-medium text-gray-500">Hlasů</th>
+                <th class="px-3 py-2 text-left font-medium text-gray-500 cursor-pointer hover:text-gray-800 select-none" data-col="0" data-type="num" onclick="sortTableCol(this)">Bod <span class="sort-arrow"></span></th>
+                <th class="px-3 py-2 text-left font-medium text-gray-500 cursor-pointer hover:text-gray-800 select-none" data-col="1" data-type="text" onclick="sortTableCol(this)">Hlas <span class="sort-arrow"></span></th>
+                <th class="px-3 py-2 text-right font-medium text-gray-500 cursor-pointer hover:text-gray-800 select-none" data-col="2" data-type="num" onclick="sortTableCol(this)">Hlasů <span class="sort-arrow"></span></th>
             </tr>
         </thead>
         <tbody class="divide-y divide-gray-100">
@@ -74,7 +74,7 @@
                     <span class="text-gray-400">—</span>
                     {% endif %}
                 </td>
-                <td class="px-3 py-2 text-right font-mono text-gray-600 whitespace-nowrap">{{ "{:,}".format(bv.votes_count).replace(",", " ") }}</td>
+                <td class="px-3 py-2 text-right font-mono text-gray-600 whitespace-nowrap" data-v="{{ bv.votes_count }}">{{ "{:,}".format(bv.votes_count).replace(",", " ") }}</td>
             </tr>
             {% endfor %}
         </tbody>

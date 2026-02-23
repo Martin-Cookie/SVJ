@@ -2,13 +2,15 @@
     <table class="min-w-full divide-y divide-gray-200 text-sm">
         <thead>
             <tr>
-                <th class="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase">Jedn.</th>
-                <th class="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase">Prostor</th>
-                <th class="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase">Typ</th>
-                <th class="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Podíl SČD</th>
-                {% if declared_shares %}<th class="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Podíl %</th>{% endif %}
-                <th class="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase">Plocha</th>
-                <th class="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase">Vlastnictví</th>
+                <th class="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-800 select-none" data-col="0" data-type="text" onclick="sortTableCol(this)">Jedn. <span class="sort-arrow"></span></th>
+                <th class="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-800 select-none" data-col="1" data-type="text" onclick="sortTableCol(this)">Prostor <span class="sort-arrow"></span></th>
+                <th class="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-800 select-none" data-col="2" data-type="text" onclick="sortTableCol(this)">Typ <span class="sort-arrow"></span></th>
+                <th class="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase whitespace-nowrap cursor-pointer hover:text-gray-800 select-none" data-col="3" data-type="num" onclick="sortTableCol(this)">Podíl SČD <span class="sort-arrow"></span></th>
+                {% if declared_shares %}<th class="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase whitespace-nowrap cursor-pointer hover:text-gray-800 select-none" data-col="4" data-type="num" onclick="sortTableCol(this)">Podíl % <span class="sort-arrow"></span></th>{% endif %}
+                {% set _plocha_col = 5 if declared_shares else 4 %}
+                {% set _vlast_col = 6 if declared_shares else 5 %}
+                <th class="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-800 select-none" data-col="{{ _plocha_col }}" data-type="num" onclick="sortTableCol(this)">Plocha <span class="sort-arrow"></span></th>
+                <th class="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-800 select-none" data-col="{{ _vlast_col }}" data-type="text" onclick="sortTableCol(this)">Vlastnictví <span class="sort-arrow"></span></th>
                 <th class="px-2 py-2"></th>
             </tr>
         </thead>
@@ -18,9 +20,9 @@
                 <td class="px-2 py-1.5 font-medium"><a href="/jednotky/{{ ou.unit.id }}?back={{ ('/vlastnici/' ~ owner.id ~ '?back=' ~ (back_url|default('/vlastnici')|urlencode))|urlencode }}" class="text-blue-600 hover:text-blue-800 hover:underline">{{ ou.unit.unit_number }}</a></td>
                 <td class="px-2 py-1.5 text-gray-500">{{ ou.unit.building_number or '—' }}</td>
                 <td class="px-2 py-1.5 text-gray-500">{{ ou.unit.space_type or '—' }}</td>
-                <td class="px-2 py-1.5 text-gray-500 text-right font-mono whitespace-nowrap">{{ "{:,}".format(ou.unit.podil_scd or 0).replace(",", " ") }}</td>
+                <td class="px-2 py-1.5 text-gray-500 text-right font-mono whitespace-nowrap" data-v="{{ ou.unit.podil_scd or 0 }}">{{ "{:,}".format(ou.unit.podil_scd or 0).replace(",", " ") }}</td>
                 {% if declared_shares %}<td class="px-2 py-1.5 text-gray-500 text-right font-mono whitespace-nowrap">{{ "%.4f" | format(((ou.unit.podil_scd or 0) / declared_shares * 100)) }}&nbsp;%</td>{% endif %}
-                <td class="px-2 py-1.5 text-gray-500 text-right whitespace-nowrap">{% if ou.unit.floor_area %}{{ ou.unit.floor_area }}&nbsp;m²{% else %}—{% endif %}</td>
+                <td class="px-2 py-1.5 text-gray-500 text-right whitespace-nowrap" data-v="{{ ou.unit.floor_area or 0 }}">{% if ou.unit.floor_area %}{{ ou.unit.floor_area }}&nbsp;m²{% else %}—{% endif %}</td>
                 <td class="px-2 py-1.5 text-gray-500">{{ ou.ownership_type or '—' }}</td>
                 <td class="px-2 py-1.5 text-right">
                     <button hx-post="/vlastnici/{{ owner.id }}/jednotky/{{ ou.id }}/odebrat"

@@ -3,7 +3,7 @@
     <td class="px-6 py-4 text-sm font-medium text-gray-900">{{ ballot.owner.display_name }}</td>
     <td class="px-6 py-4 text-sm text-gray-500">{{ ballot.units_text }}</td>
     <td class="px-6 py-4 text-sm text-gray-500">{{ ballot.owner.email or '—' }}</td>
-    <td class="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">{{ "{:,}".format(ballot.total_votes).replace(",", " ") }}</td>
+    <td class="px-6 py-4 text-sm text-gray-500 whitespace-nowrap" data-v="{{ ballot.total_votes }}">{{ "{:,}".format(ballot.total_votes).replace(",", " ") }}</td>
     <td class="px-6 py-4">
         {% if ballot.status.value == 'generated' %}
         <span class="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">Vygenerován</span>

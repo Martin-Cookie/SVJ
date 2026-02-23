@@ -53,10 +53,10 @@
                 <table class="w-full text-sm">
                     <thead class="border-b border-gray-200">
                         <tr>
-                            <th class="px-3 py-1.5 text-left font-medium text-gray-500">Soubor</th>
-                            <th class="px-3 py-1.5 text-left font-medium text-gray-500">Datum</th>
-                            <th class="px-3 py-1.5 text-right font-medium text-gray-500">Řádků</th>
-                            <th class="px-3 py-1.5 text-right font-medium text-gray-500">Vlastníků</th>
+                            <th class="px-3 py-1.5 text-left font-medium text-gray-500 cursor-pointer hover:text-gray-800 select-none" data-col="0" data-type="text" data-sort-tbody="import-history-body" onclick="sortTableCol(this)">Soubor <span class="sort-arrow"></span></th>
+                            <th class="px-3 py-1.5 text-left font-medium text-gray-500 cursor-pointer hover:text-gray-800 select-none" data-col="1" data-type="text" data-sort-tbody="import-history-body" onclick="sortTableCol(this)">Datum <span class="sort-arrow"></span></th>
+                            <th class="px-3 py-1.5 text-right font-medium text-gray-500 cursor-pointer hover:text-gray-800 select-none" data-col="2" data-type="num" data-sort-tbody="import-history-body" onclick="sortTableCol(this)">Řádků <span class="sort-arrow"></span></th>
+                            <th class="px-3 py-1.5 text-right font-medium text-gray-500 cursor-pointer hover:text-gray-800 select-none" data-col="3" data-type="num" data-sort-tbody="import-history-body" onclick="sortTableCol(this)">Vlastníků <span class="sort-arrow"></span></th>
                             <th class="px-3 py-1.5"></th>
                         </tr>
                     </thead>
@@ -64,11 +64,11 @@
             </div>
             <div class="flex-1 overflow-y-auto px-4 pb-4 min-h-0">
                 <table class="w-full text-sm">
-                    <tbody class="divide-y divide-gray-100">
+                    <tbody id="import-history-body" class="divide-y divide-gray-100">
                         {% for log in imports %}
                         <tr class="hover:bg-gray-50">
                             <td class="px-3 py-1.5 text-gray-800">{{ log.filename }}</td>
-                            <td class="px-3 py-1.5 text-gray-500 text-xs" style="white-space:nowrap">{{ log.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
+                            <td class="px-3 py-1.5 text-gray-500 text-xs" style="white-space:nowrap" data-v="{{ log.created_at.isoformat() }}">{{ log.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
                             <td class="px-3 py-1.5 text-gray-500 text-right whitespace-nowrap">{{ log.rows_total }}</td>
                             <td class="px-3 py-1.5 text-gray-500 text-right whitespace-nowrap">{{ log.rows_imported }}</td>
                             <td class="px-3 py-1.5 text-right">

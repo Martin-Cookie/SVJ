@@ -51,10 +51,10 @@
                 <table class="w-full text-sm">
                     <thead class="border-b border-gray-200">
                         <tr>
-                            <th class="px-3 py-1.5 text-left font-medium text-gray-500">Soubor</th>
-                            <th class="px-3 py-1.5 text-left font-medium text-gray-500">Datum</th>
-                            <th class="px-3 py-1.5 text-right font-medium text-gray-500">Shoda</th>
-                            <th class="px-3 py-1.5 text-right font-medium text-gray-500">Rozdíly</th>
+                            <th class="px-3 py-1.5 text-left font-medium text-gray-500 cursor-pointer hover:text-gray-800 select-none" data-col="0" data-type="text" data-sort-tbody="sync-history-body" onclick="sortTableCol(this)">Soubor <span class="sort-arrow"></span></th>
+                            <th class="px-3 py-1.5 text-left font-medium text-gray-500 cursor-pointer hover:text-gray-800 select-none" data-col="1" data-type="text" data-sort-tbody="sync-history-body" onclick="sortTableCol(this)">Datum <span class="sort-arrow"></span></th>
+                            <th class="px-3 py-1.5 text-right font-medium text-gray-500 cursor-pointer hover:text-gray-800 select-none" data-col="2" data-type="num" data-sort-tbody="sync-history-body" onclick="sortTableCol(this)">Shoda <span class="sort-arrow"></span></th>
+                            <th class="px-3 py-1.5 text-right font-medium text-gray-500 cursor-pointer hover:text-gray-800 select-none" data-col="3" data-type="num" data-sort-tbody="sync-history-body" onclick="sortTableCol(this)">Rozdíly <span class="sort-arrow"></span></th>
                             <th class="px-3 py-1.5"></th>
                         </tr>
                     </thead>
@@ -62,13 +62,13 @@
             </div>
             <div class="flex-1 overflow-y-auto px-4 pb-4 min-h-0">
                 <table class="w-full text-sm">
-                    <tbody class="divide-y divide-gray-100">
+                    <tbody id="sync-history-body" class="divide-y divide-gray-100">
                         {% for session in sessions %}
                         <tr id="session-{{ session.id }}" class="hover:bg-gray-50">
                             <td class="px-3 py-1.5">
                                 <a href="/synchronizace/{{ session.id }}?back={{ ((list_url or '/synchronizace') ~ '#session-' ~ session.id)|urlencode }}" class="text-blue-600 hover:text-blue-800 hover:underline font-medium">{{ session.csv_filename }}</a>
                             </td>
-                            <td class="px-3 py-1.5 text-gray-500 text-xs" style="white-space:nowrap">{{ session.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
+                            <td class="px-3 py-1.5 text-gray-500 text-xs" style="white-space:nowrap" data-v="{{ session.created_at.isoformat() }}">{{ session.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
                             <td class="px-3 py-1.5 text-green-600 text-right whitespace-nowrap">{{ session.total_matches }}</td>
                             <td class="px-3 py-1.5 text-red-600 text-right whitespace-nowrap">{{ session.total_differences + session.total_missing }}</td>
                             <td class="px-3 py-1.5 text-right">

@@ -34,11 +34,11 @@
     <table class="min-w-full divide-y divide-gray-200">
         <thead class="bg-gray-50">
             <tr>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Soubor</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Jednotka</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Jméno z PDF</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Přiřazený vlastník</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Shoda</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-800 select-none" data-col="0" data-type="text" onclick="sortTableCol(this)">Soubor <span class="sort-arrow"></span></th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-800 select-none" data-col="1" data-type="text" onclick="sortTableCol(this)">Jednotka <span class="sort-arrow"></span></th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-800 select-none" data-col="2" data-type="text" onclick="sortTableCol(this)">Jméno z PDF <span class="sort-arrow"></span></th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-800 select-none" data-col="3" data-type="text" onclick="sortTableCol(this)">Přiřazený vlastník <span class="sort-arrow"></span></th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-800 select-none" data-col="4" data-type="num" onclick="sortTableCol(this)">Shoda <span class="sort-arrow"></span></th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Akce</th>
             </tr>
         </thead>

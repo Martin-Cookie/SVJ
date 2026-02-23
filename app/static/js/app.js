@@ -29,3 +29,45 @@ document.body.addEventListener('htmx:confirm', function(event) {
     }
 });
 
+// Generic client-side table column sorting
+// Usage: <th data-col="0" data-type="num|text" onclick="sortTableCol(this)">Label <span class="sort-arrow"></span></th>
+// For split-header tables: add data-sort-tbody="tbody-id" on th
+function sortTableCol(th) {
+    var col = parseInt(th.dataset.col);
+    var type = th.dataset.type || 'text';
+    var asc = th.dataset.dir !== 'asc';
+    th.dataset.dir = asc ? 'asc' : 'desc';
+
+    th.closest('tr').querySelectorAll('.sort-arrow').forEach(function(s) { s.textContent = ''; });
+    var arrow = th.querySelector('.sort-arrow');
+    if (arrow) arrow.textContent = asc ? ' \u25B2' : ' \u25BC';
+
+    var tbody;
+    if (th.dataset.sortTbody) {
+        tbody = document.getElementById(th.dataset.sortTbody);
+    } else {
+        tbody = th.closest('table').querySelector('tbody');
+    }
+    if (!tbody) return;
+
+    var rows = Array.from(tbody.querySelectorAll(':scope > tr'));
+    rows.sort(function(a, b) {
+        var cellA = a.children[col];
+        var cellB = b.children[col];
+        if (!cellA || !cellB) return 0;
+        var va, vb;
+        if (type === 'num') {
+            va = parseFloat((cellA.dataset.v || cellA.textContent).replace(/\s/g, '').replace(',', '.')) || 0;
+            vb = parseFloat((cellB.dataset.v || cellB.textContent).replace(/\s/g, '').replace(',', '.')) || 0;
+            return asc ? va - vb : vb - va;
+        }
+        va = (cellA.dataset.v || cellA.textContent || '').trim().toLowerCase();
+        vb = (cellB.dataset.v || cellB.textContent || '').trim().toLowerCase();
+        if (va === vb) return 0;
+        if (va === '\u2014' || va === '') return 1;
+        if (vb === '\u2014' || vb === '') return -1;
+        return asc ? va.localeCompare(vb, 'cs') : vb.localeCompare(va, 'cs');
+    });
+    rows.forEach(function(r) { tbody.appendChild(r); });
+}
+
