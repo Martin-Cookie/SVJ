@@ -758,7 +758,8 @@ async def apply_contacts(session_id: int, db: Session = Depends(get_db)):
 async def exchange_preview_single(
     session_id: int,
     record_id: int,
-    request: Request,
+    filtr: str = "",
+    request: Request = None,
     db: Session = Depends(get_db),
 ):
     """Preview owner exchange for a single unit."""
@@ -771,6 +772,10 @@ async def exchange_preview_single(
         return RedirectResponse(f"/synchronizace/{session_id}", status_code=302)
 
     stats = _exchange_stats(previews)
+    back_url = f"/synchronizace/{session_id}"
+    if filtr:
+        back_url += f"?filtr={filtr}"
+    back_url += f"#sync-{record_id}"
 
     return templates.TemplateResponse("sync/exchange_preview.html", {
         "request": request,
@@ -781,6 +786,8 @@ async def exchange_preview_single(
         "record_ids": [record_id],
         "stats": stats,
         "today": date.today().isoformat(),
+        "back_url": back_url,
+        "filtr": filtr,
     })
 
 
@@ -789,12 +796,17 @@ async def exchange_confirm_single(
     session_id: int,
     record_id: int,
     exchange_date: str = Form(""),
+    filtr: str = Form(""),
     db: Session = Depends(get_db),
 ):
     """Execute owner exchange for a single unit."""
     ed = date.fromisoformat(exchange_date) if exchange_date else date.today()
     execute_exchange(db, [record_id], session_id, exchange_date=ed)
-    return RedirectResponse(f"/synchronizace/{session_id}", status_code=302)
+    url = f"/synchronizace/{session_id}"
+    if filtr:
+        url += f"?filtr={filtr}"
+    url += f"#sync-{record_id}"
+    return RedirectResponse(url, status_code=302)
 
 
 @router.post("/{session_id}/vymena-hromadna")
@@ -830,6 +842,10 @@ async def exchange_preview_batch(
 
     stats = _exchange_stats(previews)
 
+    back_url = f"/synchronizace/{session_id}"
+    if filtr:
+        back_url += f"?filtr={filtr}"
+
     return templates.TemplateResponse("sync/exchange_preview.html", {
         "request": request,
         "active_nav": "sync",
@@ -839,6 +855,8 @@ async def exchange_preview_batch(
         "record_ids": record_ids,
         "stats": stats,
         "today": date.today().isoformat(),
+        "back_url": back_url,
+        "filtr": filtr,
     })
 
 
@@ -853,10 +871,14 @@ async def exchange_confirm_batch(
     raw_ids = form.get("record_ids", "")
     record_ids = [int(x) for x in raw_ids.split(",") if x.strip().isdigit()]
     exchange_date_str = form.get("exchange_date", "")
+    filtr = form.get("filtr", "")
     ed = date.fromisoformat(exchange_date_str) if exchange_date_str else date.today()
     if record_ids:
         execute_exchange(db, record_ids, session_id, exchange_date=ed)
-    return RedirectResponse(f"/synchronizace/{session_id}", status_code=302)
+    url = f"/synchronizace/{session_id}"
+    if filtr:
+        url += f"?filtr={filtr}"
+    return RedirectResponse(url, status_code=302)
 
 
 def _exchange_stats(previews: list[dict]) -> dict:

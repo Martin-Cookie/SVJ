@@ -301,6 +301,10 @@ def execute_exchange(
             db.add(ou)
             new_owner_names.append(owner.name_with_titles)
 
+        # Flush new OwnerUnits so the deactivation check sees them
+        # (session has autoflush=False)
+        db.flush()
+
         # Deactivate old owners that have no remaining active units
         for oid in old_owner_ids:
             remaining = db.query(OwnerUnit).filter_by(owner_id=oid).filter(OwnerUnit.valid_to.is_(None)).count()
