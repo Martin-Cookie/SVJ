@@ -66,10 +66,11 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
 - Detail vlastníka:
   - Inline editace kontaktů (email, telefon) přes HTMX
   - Inline editace trvalé a korespondenční adresy přes HTMX
-  - Správa přiřazených jednotek (přidat z dropdownu, odebrat)
+  - Správa přiřazených jednotek (přidat z dropdownu, odebrat s valid_to datem)
   - Sloupec Podíl % (podíl SČD / celkový počet podílů z administrace)
   - Souhrnný řádek Celkem (podíl SČD, podíl %, plocha)
   - Proklik na detail jednotky
+  - Kolapsovatelná sekce „Historie vlastnictví" — předchozí jednotky s daty od/do
 - Export zpět do Excelu
 
 ### B. Evidence jednotek (`/jednotky`)
@@ -83,6 +84,7 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
 - Detail jednotky:
   - Inline editace všech polí přes HTMX (číslo, budova, typ, sekce, adresa, LV, místnosti, plocha, podíl)
   - Seznam vlastníků s prokliky
+  - Kolapsovatelná sekce „Předchozí vlastníci" — historické záznamy s daty od/do
   - Smazání jednotky (cascade smaže přiřazení)
 - Číslo jednotky uloženo jako INTEGER
 
@@ -130,7 +132,10 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
 
 ### E. Kontrola vlastníků (`/synchronizace`)
 
-- Nahrání CSV exportu (např. ze sousede.cz) — stránka s formulářem a historií kontrol
+- Nahrání CSV exportu (sousede.cz nebo interní export aplikace) — stránka s formulářem a historií kontrol
+- Automatická detekce formátu CSV: sousede.cz (Vlastníci jednotky) i interní export (Příjmení + Jméno)
+- BOM stripping pro korektní parsování UTF-8 souborů s BOM
+- Sloučení spoluvlastníků z interního exportu (řádek na vlastníka → jeden záznam na jednotku)
 - Historie kontrol s možností smazání (cascade smaže záznamy i CSV soubor)
 - Porovnání s daty v databázi (inteligentní párování jmen)
 - Rozlišení: úplná shoda / částečná shoda / přeházená jména / rozdílní vlastníci / rozdílné podíly / chybí
@@ -155,6 +160,8 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
   - Rovnoměrné rozdělení hlasů mezi spoluvlastníky s upozorněním na kontrolu na LV
   - Změny typu prostoru a druhu vlastnictví pokud se liší
   - Hromadná výměna všech rozdílných záznamů najednou
+  - Date picker pro datum výměny (výchozí dnešní, uživatel může změnit)
+  - Soft-delete: staré OwnerUnit záznamy dostanou valid_to, nové valid_from
   - Deaktivace vlastníků bez zbývajících jednotek po výměně
   - Logování změn do ImportLog
 
@@ -175,6 +182,7 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
     - Upload složky rozbalené zálohy z Finderu (webkitdirectory) — obnoví DB + uploads + generated
     - Upload souboru svj.db
   - Před každou obnovou se automaticky vytvoří pojistná záloha
+  - Po obnově automatická migrace (engine.dispose + přidání chybějících sloupců/indexů) — server nepadá
   - Sekce zůstává otevřená po všech akcích (query param `sekce=zalohy`)
   - Side-by-side layout: vytvořit zálohu vlevo, obnovit vpravo
   - `application/octet-stream` pro stahování — Safari nerozbaluje automaticky
@@ -447,7 +455,7 @@ LIBREOFFICE_PATH=/Applications/LibreOffice.app/Contents/MacOS/soffice
 
 - **Owner** — vlastník (jméno, tituly, RČ/IČ, adresy, kontakty, is_active); `display_name` property: formát „příjmení jméno" s titulem
 - **Unit** — jednotka (číslo KN jako INTEGER, budova, sekce, plocha, podíl SČD)
-- **OwnerUnit** — vazba vlastník-jednotka (typ vlastnictví, podíl, hlasovací váha)
+- **OwnerUnit** — vazba vlastník-jednotka (typ vlastnictví, podíl, hlasovací váha, valid_from, valid_to); valid_to=NULL = aktuálně platný, valid_to=datum = historický záznam
 - **Proxy** — plná moc pro hlasování
 - **Voting** → VotingItem → Ballot → BallotVote
 - **TaxSession** → TaxDocument → TaxDistribution
