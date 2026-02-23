@@ -149,7 +149,7 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
   - Řádkový checkbox pro hromadné zaškrtnutí všech polí záznamu
   - Toolbar: Vybrat vše / Zrušit výběr / počítadlo / Aktualizovat vybrané
   - Po aktualizaci se přepočítá status záznamu a počítadla v bublinách
-- Aktualizace jmen více vlastníků (SJM): fuzzy párování jednotlivých jmen
+- Aktualizace vlastníků: matchování CSV jmen na DB (fuzzy ≥75%), přidání nových, soft-delete nepárovaných OwnerUnit
 - Logování změn: každá úprava zaznamenána s názvem zdrojového CSV a časem
 - Proklik jména vlastníka do detailní karty s návratem zpět na porovnání
 - Export filtrovaného pohledu do Excelu (evidence vs CSV sloupce, žluté zvýraznění rozdílů)
@@ -161,8 +161,8 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
   - Změny typu prostoru a druhu vlastnictví pokud se liší
   - Hromadná výměna všech rozdílných záznamů najednou
   - Date picker pro datum výměny (výchozí dnešní, uživatel může změnit)
-  - Soft-delete: staré OwnerUnit záznamy dostanou valid_to, nové valid_from
-  - Deaktivace vlastníků bez zbývajících jednotek po výměně (s db.flush pro autoflush=False)
+  - Soft-delete: pouze nepárované OwnerUnit dostanou valid_to; shodní vlastníci zachováni beze změny
+  - Vlastníci bez jednotek zůstávají v evidenci (zešedlý řádek, opacity-50)
   - Zachování filtru a scroll pozice při navigaci zpět z výměny (filtr + #sync-{id} anchor)
   - Logování změn do ImportLog
 
