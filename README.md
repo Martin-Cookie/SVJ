@@ -149,6 +149,14 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
 - Proklik jména vlastníka do detailní karty s návratem zpět na porovnání
 - Export filtrovaného pohledu do Excelu (evidence vs CSV sloupce, žluté zvýraznění rozdílů)
 - Přenos kontaktů (email, telefon) z CSV do databáze
+- Výměna vlastníků:
+  - Preview výměny s porovnáním starých a nových vlastníků (přeškrtnutí → zelené badge)
+  - Inteligentní párování: existující vlastník (přesná shoda), možná shoda (fuzzy ≥90%), nový vlastník
+  - Rovnoměrné rozdělení hlasů mezi spoluvlastníky s upozorněním na kontrolu na LV
+  - Změny typu prostoru a druhu vlastnictví pokud se liší
+  - Hromadná výměna všech rozdílných záznamů najednou
+  - Deaktivace vlastníků bez zbývajících jednotek po výměně
+  - Logování změn do ImportLog
 
 ### F. Administrace SVJ (`/sprava`)
 
@@ -230,6 +238,7 @@ app/
 │   ├── owner_matcher.py       #   Fuzzy párování jmen
 │   ├── voting_import.py       #   Import výsledků hlasování z Excelu
 │   ├── csv_comparator.py      #   Porovnání CSV vs Excel
+│   ├── owner_exchange.py      #   Výměna vlastníků při synchronizaci
 │   ├── backup_service.py      #   Zálohování a obnova dat (ZIP)
 │   ├── data_export.py         #   Export dat do Excel/CSV (6 kategorií)
 │   └── email_service.py       #   SMTP odesílání emailů
@@ -269,7 +278,8 @@ app/
 │   │   └── matching.html      #     Párování dokumentů
 │   ├── sync/                  #   Stránky synchronizace
 │   │   ├── index.html         #     Nahrání CSV + historie kontrol
-│   │   └── compare.html       #     Porovnání s filtry a bublinami
+│   │   ├── compare.html       #     Porovnání s filtry a bublinami
+│   │   └── exchange_preview.html #  Preview výměny vlastníků
 │   ├── administration/        #   Stránky administrace
 │   │   ├── index.html         #     Info SVJ, adresy, výbor, kontrolní orgán
 │   │   ├── bulk_edit.html     #     Hromadné úpravy — výběr pole
@@ -383,6 +393,10 @@ wheels/                        # Offline Python balíčky (gitignored)
 | POST | `/synchronizace/{id}/aktualizovat` | Aplikace vybraných změn z CSV |
 | POST | `/synchronizace/{id}/aplikovat-kontakty` | Přenos kontaktů z CSV |
 | POST | `/synchronizace/{id}/exportovat` | Export filtrovaného pohledu do Excelu (se zvýrazněním rozdílů) |
+| GET | `/synchronizace/{id}/vymena/{rec_id}` | Preview výměny vlastníků pro jednotku |
+| POST | `/synchronizace/{id}/vymena/{rec_id}/potvrdit` | Potvrzení výměny vlastníků |
+| POST | `/synchronizace/{id}/vymena-hromadna` | Preview hromadné výměny všech rozdílných |
+| POST | `/synchronizace/{id}/vymena-hromadna/potvrdit` | Potvrzení hromadné výměny |
 | POST | `/synchronizace/{id}/prijmout/{rec_id}` | Přijetí změny |
 | POST | `/synchronizace/{id}/odmitnout/{rec_id}` | Odmítnutí změny |
 | POST | `/synchronizace/{id}/upravit/{rec_id}` | Ruční úprava jména |
