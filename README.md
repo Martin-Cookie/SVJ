@@ -16,7 +16,7 @@ git clone https://github.com/Martin-Cookie/SVJ.git
 cd SVJ
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt  # nebo: pip install fastapi uvicorn[standard] sqlalchemy pydantic-settings jinja2 python-multipart openpyxl python-docx docxtpl pdfplumber pytesseract Pillow unidecode
+pip install -e .
 cp .env.example .env  # upravit SMTP a cesty
 ```
 
@@ -28,6 +28,24 @@ uvicorn app.main:app --reload --port 8000
 ```
 
 Aplikace běží na http://localhost:8000
+
+### Spuštění z USB (jiný počítač)
+
+Pro spuštění na jiném Macu bez nutnosti klonovat repozitář:
+
+1. **Příprava USB** (na tvém počítači):
+   ```bash
+   ./pripravit_usb.sh    # stáhne offline balíčky do wheels/
+   ```
+   Zkopírovat celou složku `SVJ/` na USB **bez** `.venv/`
+
+2. **Na cílovém počítači**: dvakrát kliknout na `spustit.command`
+
+Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (offline z wheels nebo online) a spustí aplikaci.
+
+**Požadavky na cílovém počítači:**
+- Python 3.9+ (`python3 --version`)
+- LibreOffice (volitelně, jen pro generování PDF lístků)
 
 ## Moduly
 
@@ -129,6 +147,7 @@ Aplikace běží na http://localhost:8000
 - Aktualizace jmen více vlastníků (SJM): fuzzy párování jednotlivých jmen
 - Logování změn: každá úprava zaznamenána s názvem zdrojového CSV a časem
 - Proklik jména vlastníka do detailní karty s návratem zpět na porovnání
+- Export filtrovaného pohledu do Excelu (evidence vs CSV sloupce, žluté zvýraznění rozdílů)
 - Přenos kontaktů (email, telefon) z CSV do databáze
 
 ### F. Administrace SVJ (`/sprava`)
@@ -152,9 +171,9 @@ Aplikace běží na http://localhost:8000
   - Side-by-side layout: vytvořit zálohu vlevo, obnovit vpravo
   - `application/octet-stream` pro stahování — Safari nerozbaluje automaticky
 - Smazání dat:
-  - Výběr kategorií ke smazání (vlastníci, hlasování, daně, synchronizace, logy, administrace)
+  - Výběr kategorií ke smazání (vlastníci, hlasování, daně, synchronizace, logy, administrace, zálohy, historie obnovení)
   - Checkbox „Vybrat/Zrušit vše" pro hromadné označení
-  - Počet záznamů a popis u každé kategorie
+  - Počet záznamů a popis u každé kategorie (DB modely i souborové kategorie)
   - Potvrzení zadáním slova DELETE — tlačítko disabled dokud není zadáno
   - Cascade smazání v bezpečném pořadí (děti před rodiči)
 - Export dat:
@@ -167,7 +186,10 @@ Aplikace běží na http://localhost:8000
   - Výběr pole (typ prostoru, sekce, počet místností, vlastnictví druh, vlastnictví/podíl, adresa, orientační číslo)
   - Tabulka unikátních hodnot s počtem výskytů
   - Rozkliknutí hodnoty zobrazí všechny záznamy (jednotky nebo vlastnictví) s detailními údaji
-  - Checkboxy pro selektivní opravu — označit vše / zrušit vše + počítadlo
+  - Prokliky na detail jednotky a detail vlastníka s navigací zpět
+  - Třídění sloupců kliknutím na hlavičky (klientské řazení)
+  - Checkboxy pro selektivní opravu — vybrat/zrušit vše + počítadlo + indeterminate stav
+  - Persistence výběru checkboxů přes sessionStorage (zachová se při navigaci na detail a zpět)
   - Inline oprava s datalist napovídáním — přepsání vybraných záznamů
 - Všechny sekce zabaleny do skládacích `<details>` bloků
 - Modely: `SvjInfo`, `SvjAddress`, `BoardMember`
@@ -277,6 +299,9 @@ data/
 ├── uploads/                   # Nahrané soubory (Excel, CSV, PDF)
 ├── generated/                 # Generované dokumenty (PDF lístky)
 └── backups/                   # ZIP zálohy (DB + uploads + generated)
+spustit.command                # macOS spouštěcí skript (USB nasazení)
+pripravit_usb.sh               # Příprava offline wheels pro USB
+wheels/                        # Offline Python balíčky (gitignored)
 ```
 
 ## API endpointy
@@ -357,7 +382,7 @@ data/
 | GET | `/synchronizace/{id}` | Porovnání s filtry a bublinami |
 | POST | `/synchronizace/{id}/aktualizovat` | Aplikace vybraných změn z CSV |
 | POST | `/synchronizace/{id}/aplikovat-kontakty` | Přenos kontaktů z CSV |
-| POST | `/synchronizace/{id}/exportovat` | Export do Excelu |
+| POST | `/synchronizace/{id}/exportovat` | Export filtrovaného pohledu do Excelu (se zvýrazněním rozdílů) |
 | POST | `/synchronizace/{id}/prijmout/{rec_id}` | Přijetí změny |
 | POST | `/synchronizace/{id}/odmitnout/{rec_id}` | Odmítnutí změny |
 | POST | `/synchronizace/{id}/upravit/{rec_id}` | Ruční úprava jména |
