@@ -10,7 +10,7 @@
         </a>
     </td>
     <td class="px-4 py-2 text-gray-500">{{ ballot.units_text }}</td>
-    <td class="px-4 py-2 text-gray-500 text-right font-mono">{{ "{:,}".format(ballot.total_votes).replace(",", " ") }}</td>
+    <td class="px-4 py-2 text-gray-500 text-right font-mono whitespace-nowrap">{{ "{:,}".format(ballot.total_votes).replace(",", " ") }}</td>
     {% for item in voting.items %}
     {% set bv = vote_map.get(item.id) %}
     <td class="px-3 py-2 text-center">

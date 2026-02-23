@@ -4,11 +4,11 @@
         <span class="font-medium text-gray-900">{{ r.item.order }}.</span>
         {{ r.item.title }}
     </td>
-    <td class="px-6 py-4 text-sm font-medium text-green-600">{{ "{:,}".format(r.votes_for).replace(",", " ") }}</td>
-    <td class="px-6 py-4 text-sm text-green-600">{{ r.pct_for }}%</td>
-    <td class="px-6 py-4 text-sm font-medium text-red-600">{{ "{:,}".format(r.votes_against).replace(",", " ") }}</td>
-    <td class="px-6 py-4 text-sm text-red-600">{{ r.pct_against }}%</td>
-    <td class="px-6 py-4 text-sm text-gray-500">
+    <td class="px-6 py-4 text-sm font-medium text-green-600 whitespace-nowrap">{{ "{:,}".format(r.votes_for).replace(",", " ") }}</td>
+    <td class="px-6 py-4 text-sm text-green-600 whitespace-nowrap">{{ r.pct_for }}%</td>
+    <td class="px-6 py-4 text-sm font-medium text-red-600 whitespace-nowrap">{{ "{:,}".format(r.votes_against).replace(",", " ") }}</td>
+    <td class="px-6 py-4 text-sm text-red-600 whitespace-nowrap">{{ r.pct_against }}%</td>
+    <td class="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">
         {{ "{:,}".format(r.votes_missing).replace(",", " ") }}
         ({{ r.pct_missing }}%)
     </td>
