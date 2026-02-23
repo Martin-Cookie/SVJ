@@ -420,7 +420,7 @@ Vzor se skládá ze dvou partials (info + form) a tří endpointů:
 ## Workflow
 
 - Po dokončení změn: commit + push (pokud uživatel požádá)
-- Po commitu: aktualizovat README.md (pokud uživatel požádá)
+- **Po pushi se VŽDY zeptat**: „Mám aktualizovat README.md?" — dokumentace by měla odrážet aktuální stav projektu
 - Commit message v češtině, stručný, popisuje "co a proč"
 
 ## Komunikace s uživatelem
