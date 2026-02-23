@@ -187,5 +187,10 @@ function syncUpdateCount() {
     if (btn) btn.disabled = checked === 0;
     if (toggle) toggle.textContent = (checked === all.length && all.length > 0) ? 'Zrušit výběr' : 'Vybrat vše';
 }
+// Scroll to hash target inside the overflow container
+if (location.hash) {
+    var el = document.querySelector(location.hash);
+    if (el) el.scrollIntoView({block: 'center'});
+}
 </script>
 {% endblock %}

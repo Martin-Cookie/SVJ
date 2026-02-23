@@ -151,4 +151,10 @@
 </div>
 
 <div class="mt-2 text-xs text-gray-400">Zobrazeno: {{ units|length }} jednotek</div>
+<script>
+if (location.hash) {
+    var el = document.querySelector(location.hash);
+    if (el) el.scrollIntoView({block: 'center'});
+}
+</script>
 {% endblock %}

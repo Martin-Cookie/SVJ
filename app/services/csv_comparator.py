@@ -72,6 +72,77 @@ def parse_sousede_csv(csv_content: str) -> list[dict]:
     return records
 
 
+def _compare_structured_names(
+    csv_owners_raw: str,
+    excel_entries: list[dict],
+) -> str | None:
+    """
+    Compare CSV names (format 'příjmení jméno') against structured DB fields.
+
+    Returns:
+        "match" - all names match structurally
+        "name_order" - names are swapped (first_name/last_name in DB)
+        None - cannot determine, fall back to fuzzy matching
+    """
+    # Split CSV into individual owners (comma or semicolon separated)
+    csv_names = re.split(r'\s*[;,]\s*', csv_owners_raw.strip())
+    csv_names = [n.strip() for n in csv_names if n.strip()]
+
+    # Get structured names from DB entries
+    db_names = [
+        (e.get("first_name", ""), e.get("last_name", ""))
+        for e in excel_entries
+    ]
+
+    # Only attempt structured comparison when counts match
+    if not csv_names or not db_names or len(csv_names) != len(db_names):
+        return None
+
+    # Skip if any DB entry lacks structured data
+    if any(not first and not last for first, last in db_names):
+        return None
+
+    all_match = True
+    any_swapped = False
+    used_db = set()
+
+    for csv_name in csv_names:
+        # CSV format: "příjmení jméno" → first word = last_name, rest = first_name
+        csv_parts = csv_name.strip().split(None, 1)
+        if not csv_parts:
+            return None
+        csv_last = normalize_for_matching(csv_parts[0])
+        csv_first = normalize_for_matching(csv_parts[1]) if len(csv_parts) > 1 else ""
+
+        found = False
+        for i, (db_first, db_last) in enumerate(db_names):
+            if i in used_db:
+                continue
+            db_first_n = normalize_for_matching(db_first)
+            db_last_n = normalize_for_matching(db_last)
+
+            if csv_first == db_first_n and csv_last == db_last_n:
+                found = True
+                used_db.add(i)
+                break
+            elif csv_first == db_last_n and csv_last == db_first_n:
+                any_swapped = True
+                found = True
+                used_db.add(i)
+                break
+
+        if not found:
+            all_match = False
+            break
+
+    if not all_match:
+        return None  # fallback to fuzzy
+
+    if any_swapped:
+        return "name_order"
+    return "match"
+
+
 def compare_owners(
     csv_records: list[dict],
     excel_data: list[dict],
@@ -162,10 +233,23 @@ def compare_owners(
             and csv_share != excel_podil_scd
         )
 
-        # Determine status: exact match vs reordered names vs real difference
+        # Determine status: try structured comparison first, then fuzzy fallback
+        structured_result = _compare_structured_names(csv_owners_raw, excel_entries)
+
+        # When names are equivalent (structurally or all word-parts identical),
+        # unify displayed strings so the UI doesn't offer a spurious name-change
+        # checkbox.  Covers: structured match, different separators (, vs ;),
+        # different owner ordering, and minor diacritics/title differences.
+        if structured_result == "match" or parts_overlap == 1.0:
+            excel_names_combined = csv_owners_raw
+
+        # Status reflects name comparison only; share/type differences are
+        # captured in match_details and shown via field checkboxes in the UI.
         exact_string_match = csv_norm == excel_norm
-        if share_mismatch:
-            status = SyncStatus.DIFFERENCE
+        if structured_result == "match" or parts_overlap == 1.0:
+            status = SyncStatus.MATCH
+        elif structured_result == "name_order":
+            status = SyncStatus.NAME_ORDER
         elif best_ratio >= 0.85 and exact_string_match:
             status = SyncStatus.MATCH
         elif best_ratio >= 0.85:

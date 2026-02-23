@@ -64,9 +64,9 @@
                 <table class="w-full text-sm">
                     <tbody class="divide-y divide-gray-100">
                         {% for session in sessions %}
-                        <tr class="hover:bg-gray-50">
+                        <tr id="session-{{ session.id }}" class="hover:bg-gray-50">
                             <td class="px-3 py-1.5">
-                                <a href="/synchronizace/{{ session.id }}?back={{ (list_url or '/synchronizace')|urlencode }}" class="text-blue-600 hover:text-blue-800 hover:underline font-medium">{{ session.csv_filename }}</a>
+                                <a href="/synchronizace/{{ session.id }}?back={{ ((list_url or '/synchronizace') ~ '#session-' ~ session.id)|urlencode }}" class="text-blue-600 hover:text-blue-800 hover:underline font-medium">{{ session.csv_filename }}</a>
                             </td>
                             <td class="px-3 py-1.5 text-gray-500 text-xs" style="white-space:nowrap">{{ session.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
                             <td class="px-3 py-1.5 text-green-600 text-right">{{ session.total_matches }}</td>
@@ -90,4 +90,10 @@
         </div>
     </div>
 </div>
+<script>
+if (location.hash) {
+    var el = document.querySelector(location.hash);
+    if (el) el.scrollIntoView({block: 'center'});
+}
+</script>
 {% endblock %}
