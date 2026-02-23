@@ -238,32 +238,51 @@ def execute_exchange(
         if not unit:
             continue
 
-        # Collect old owner IDs before soft-delete
+        # Collect old OwnerUnits
         old_ous = db.query(OwnerUnit).filter_by(unit_id=unit.id).filter(OwnerUnit.valid_to.is_(None)).all()
-        old_owner_ids = [ou.owner_id for ou in old_ous]
         old_owner_names = []
+        ou_by_owner_id = {}
         for ou in old_ous:
             o = db.query(Owner).get(ou.owner_id)
             if o:
                 old_owner_names.append(o.name_with_titles)
+                ou_by_owner_id[o.id] = ou
 
-        # Soft-delete old OwnerUnit records (set valid_to, NOT the Owner itself)
-        for ou in old_ous:
-            ou.valid_to = exchange_date
-        db.flush()
-
-        # Create new OwnerUnit records
-        votes_split = _split_votes(unit.podil_scd or 0, len(csv_names))
+        # Match each CSV name to existing owners on this unit
+        matched_owner_ids = set()  # DB owner IDs that match a CSV name
         new_owner_names = []
+        unmatched_csv_names = []
 
-        for i, csv_name in enumerate(csv_names):
+        for csv_name in csv_names:
             match_type, existing_owner, confidence = _find_existing_owner(
                 db, csv_name, active_owners,
             )
 
             if match_type in ("reuse", "possible") and existing_owner:
+                if existing_owner.id in ou_by_owner_id:
+                    # Owner already on this unit — keep existing OwnerUnit
+                    matched_owner_ids.add(existing_owner.id)
+                    new_owner_names.append(existing_owner.name_with_titles)
+                    reused_count += 1
+                else:
+                    # Owner exists but not on this unit — need new OwnerUnit
+                    unmatched_csv_names.append((csv_name, existing_owner))
+                    reused_count += 1
+            else:
+                unmatched_csv_names.append((csv_name, None))
+
+        # Soft-delete only OwnerUnits for owners NOT matched to any CSV name
+        removed_owner_ids = []
+        for ou in old_ous:
+            if ou.owner_id not in matched_owner_ids:
+                ou.valid_to = exchange_date
+                removed_owner_ids.append(ou.owner_id)
+        db.flush()
+
+        # Create new OwnerUnit records only for unmatched CSV names
+        for csv_name, existing_owner in unmatched_csv_names:
+            if existing_owner:
                 owner = existing_owner
-                reused_count += 1
             else:
                 # Create new owner
                 first_name, last_name = _parse_csv_name(csv_name)
@@ -282,7 +301,6 @@ def execute_exchange(
                 )
                 db.add(owner)
                 db.flush()
-                # Add to active_owners for subsequent lookups in this batch
                 active_owners.append({
                     "id": owner.id,
                     "name": owner.name_with_titles,
@@ -295,7 +313,7 @@ def execute_exchange(
                 unit_id=unit.id,
                 ownership_type=record.csv_ownership_type or "",
                 share=1.0 / len(csv_names) if len(csv_names) > 1 else 1.0,
-                votes=votes_split[i] if i < len(votes_split) else 0,
+                votes=0,  # will be recalculated below
                 valid_from=exchange_date,
             )
             db.add(ou)
@@ -305,14 +323,18 @@ def execute_exchange(
         # (session has autoflush=False)
         db.flush()
 
-        # Deactivate old owners that have no remaining active units
-        for oid in old_owner_ids:
+        # Recalculate votes for all current OwnerUnits on this unit
+        current_ous = db.query(OwnerUnit).filter_by(unit_id=unit.id).filter(OwnerUnit.valid_to.is_(None)).all()
+        votes_split = _split_votes(unit.podil_scd or 0, len(current_ous))
+        for i, cou in enumerate(current_ous):
+            cou.votes = votes_split[i] if i < len(votes_split) else 0
+            cou.share = 1.0 / len(current_ous) if len(current_ous) > 1 else 1.0
+
+        # Count removed owners that have no remaining active units
+        for oid in removed_owner_ids:
             remaining = db.query(OwnerUnit).filter_by(owner_id=oid).filter(OwnerUnit.valid_to.is_(None)).count()
             if remaining == 0:
-                old_owner = db.query(Owner).get(oid)
-                if old_owner and old_owner.is_active:
-                    old_owner.is_active = False
-                    deactivated_count += 1
+                deactivated_count += 1
 
         # Update unit space_type and ownership_type if CSV differs
         if record.csv_space_type and record.csv_space_type != (unit.space_type or ""):

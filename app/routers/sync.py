@@ -581,37 +581,48 @@ async def apply_selected_updates(
         changes = []
         for field, new_value in fields.items():
             if field == "owner_name":
-                # Split CSV name into individual names (handles multi-owner units like SJM)
+                # Split CSV name into individual names
                 csv_names = re.split(r'\s*[;,]\s*', new_value.strip())
                 csv_names = [n.strip() for n in csv_names if n.strip()]
 
                 all_owner_units = db.query(OwnerUnit).filter_by(unit_id=unit.id).filter(OwnerUnit.valid_to.is_(None)).all()
                 all_owners = []
-                for ou in all_owner_units:
-                    o = db.query(Owner).get(ou.owner_id)
+                ou_by_owner = {}
+                for aou in all_owner_units:
+                    o = db.query(Owner).get(aou.owner_id)
                     if o:
                         all_owners.append(o)
+                        ou_by_owner[o.id] = aou
 
-                if len(csv_names) > 1 and len(csv_names) == len(all_owners):
-                    # Multiple owners — match each CSV name to closest existing owner
-                    used = set()
-                    matched = []
-                    for cn in csv_names:
-                        csv_norm = normalize_for_matching(cn)
-                        best_idx, best_ratio = None, -1
-                        for i, o in enumerate(all_owners):
-                            if i in used:
-                                continue
-                            r = SequenceMatcher(None, csv_norm, o.name_normalized or "").ratio()
-                            if r > best_ratio:
-                                best_ratio = r
-                                best_idx = i
-                        if best_idx is not None:
-                            used.add(best_idx)
-                            matched.append((all_owners[best_idx], cn))
+                # Match CSV names to existing owners by fuzzy similarity
+                used_db = set()
+                matched_pairs = []  # (owner, csv_name, ratio)
+                unmatched_csv = []
 
-                    for owner, matched_name in matched:
-                        old_val = owner.name_with_titles
+                for cn in csv_names:
+                    csv_norm = normalize_for_matching(cn)
+                    best_owner, best_ratio = None, -1
+                    for o in all_owners:
+                        if o.id in used_db:
+                            continue
+                        r = SequenceMatcher(None, csv_norm, o.name_normalized or "").ratio()
+                        if r > best_ratio:
+                            best_ratio = r
+                            best_owner = o
+
+                    if best_owner and best_ratio >= 0.75:
+                        used_db.add(best_owner.id)
+                        matched_pairs.append((best_owner, cn, best_ratio))
+                    else:
+                        unmatched_csv.append(cn)
+
+                # DB owners not matched to any CSV name → soft-delete
+                unmatched_db = [o for o in all_owners if o.id not in used_db]
+
+                # Rename matched owners (name correction)
+                for owner, matched_name, _ratio in matched_pairs:
+                    old_val = owner.name_with_titles
+                    if old_val != matched_name:
                         name_parts = matched_name.split(None, 1)
                         if len(name_parts) == 2:
                             owner.last_name = name_parts[0]
@@ -622,24 +633,61 @@ async def apply_selected_updates(
                         owner.name_with_titles = matched_name
                         owner.name_normalized = normalize_for_matching(matched_name)
                         changes.append(f"jméno: {old_val} → {matched_name}")
-                    record.excel_owner_name = new_value.strip()
-                else:
-                    # Single owner or count mismatch — update first owner
-                    owner = db.query(Owner).get(owner_unit.owner_id)
-                    if not owner:
-                        continue
-                    old_val = owner.name_with_titles
-                    name_parts = new_value.strip().split(None, 1)
-                    if len(name_parts) == 2:
-                        owner.last_name = name_parts[0]
-                        owner.first_name = name_parts[1]
-                    else:
-                        owner.first_name = name_parts[0]
-                        owner.last_name = None
-                    owner.name_with_titles = new_value.strip()
-                    owner.name_normalized = normalize_for_matching(new_value)
-                    record.excel_owner_name = new_value.strip()
-                    changes.append(f"jméno: {old_val} → {new_value.strip()}")
+
+                # Soft-delete OwnerUnits for unmatched DB owners
+                for o in unmatched_db:
+                    aou = ou_by_owner.get(o.id)
+                    if aou:
+                        aou.valid_to = date.today()
+                        changes.append(f"odebrán: {o.name_with_titles}")
+                    db.flush()
+
+                # Create new Owner + OwnerUnit for unmatched CSV names
+                total_votes = unit.podil_scd or 0
+                new_count = len(matched_pairs) + len(unmatched_csv)
+                votes_each = total_votes // new_count if new_count > 0 else 0
+
+                for cn in unmatched_csv:
+                    name_parts = cn.split(None, 1)
+                    is_legal = re.search(
+                        r'\b(s\.r\.o\.|a\.s\.|spol\.|z\.s\.|v\.o\.s\.)\b',
+                        cn, re.IGNORECASE,
+                    )
+                    from app.models import OwnerType
+                    new_owner = Owner(
+                        first_name=name_parts[1] if len(name_parts) == 2 else name_parts[0],
+                        last_name=name_parts[0] if len(name_parts) == 2 else None,
+                        name_with_titles=cn,
+                        name_normalized=normalize_for_matching(cn),
+                        owner_type=OwnerType.LEGAL_ENTITY if is_legal else OwnerType.PHYSICAL,
+                        data_source="csv_sync",
+                        is_active=True,
+                    )
+                    db.add(new_owner)
+                    db.flush()
+                    new_ou = OwnerUnit(
+                        owner_id=new_owner.id,
+                        unit_id=unit.id,
+                        ownership_type=record.csv_ownership_type or "",
+                        share=1.0 / new_count if new_count > 1 else 1.0,
+                        votes=votes_each,
+                        valid_from=date.today(),
+                    )
+                    db.add(new_ou)
+                    changes.append(f"přidán: {cn}")
+
+                # Recalculate votes for remaining owners if count changed
+                if unmatched_db or unmatched_csv:
+                    db.flush()
+                    active_ous = db.query(OwnerUnit).filter_by(unit_id=unit.id).filter(OwnerUnit.valid_to.is_(None)).all()
+                    if active_ous:
+                        base = total_votes // len(active_ous)
+                        remainder = total_votes % len(active_ous)
+                        for idx, aou in enumerate(active_ous):
+                            aou.votes = base + (1 if idx < remainder else 0)
+                            aou.share = 1.0 / len(active_ous)
+
+                record.excel_owner_name = new_value.strip()
             elif field == "ownership_type":
                 old_val = record.excel_ownership_type or owner_unit.ownership_type or ""
                 owner_unit.ownership_type = new_value
