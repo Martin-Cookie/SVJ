@@ -45,6 +45,7 @@ async def tax_create_page(request: Request):
     return templates.TemplateResponse("tax/upload.html", {
         "request": request,
         "active_nav": "tax",
+        "current_year": datetime.now().year,
     })
 
 

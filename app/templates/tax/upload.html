@@ -14,28 +14,32 @@
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Název *</label>
                 <input type="text" name="title" required
-                       placeholder="např. Rozúčtování příjmů 2025"
+                       value="Rozúčtování příjmů {{ current_year }}"
                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
             </div>
 
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Rok</label>
-                <input type="number" name="year" placeholder="2025"
+                <input type="number" name="year" value="{{ current_year }}"
                        class="w-32 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
             </div>
 
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Předmět emailu</label>
                 <input type="text" name="email_subject"
-                       placeholder="Rozúčtování příjmů za rok 2025"
+                       value="Rozúčtování příjmů za rok {{ current_year }}"
                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
             </div>
 
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Text emailu</label>
                 <textarea name="email_body" rows="4"
-                          placeholder="Dobrý den,&#10;&#10;v příloze zasíláme rozúčtování příjmů za rok 2025.&#10;&#10;S pozdravem,&#10;SVJ"
-                          class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"></textarea>
+                          class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">Dobrý den,
+
+v příloze zasíláme rozúčtování příjmů za rok {{ current_year }}.
+
+S pozdravem,
+SVJ</textarea>
             </div>
 
             <div>
