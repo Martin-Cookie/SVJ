@@ -634,13 +634,13 @@ async def apply_selected_updates(
                         owner.name_normalized = normalize_for_matching(matched_name)
                         changes.append(f"jméno: {old_val} → {matched_name}")
 
-                # Soft-delete OwnerUnits for unmatched DB owners
+                # Hard-delete OwnerUnits for unmatched DB owners (no history)
                 for o in unmatched_db:
                     aou = ou_by_owner.get(o.id)
                     if aou:
-                        aou.valid_to = date.today()
+                        db.delete(aou)
                         changes.append(f"odebrán: {o.name_with_titles}")
-                    db.flush()
+                db.flush()
 
                 # Create new Owner + OwnerUnit for unmatched CSV names
                 total_votes = unit.podil_scd or 0
@@ -671,7 +671,6 @@ async def apply_selected_updates(
                         ownership_type=record.csv_ownership_type or "",
                         share=1.0 / new_count if new_count > 1 else 1.0,
                         votes=votes_each,
-                        valid_from=date.today(),
                     )
                     db.add(new_ou)
                     changes.append(f"přidán: {cn}")
