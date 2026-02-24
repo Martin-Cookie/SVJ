@@ -94,21 +94,28 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
 - Vytvoření hlasování (název, termíny, kvórum)
 - Nahrání šablony hlasovacího lístku (.docx)
 - Automatická extrakce bodů hlasování z šablony
+- Automatická extrakce metadat z .docx šablony (název, popis, data zahájení/ukončení):
+  - AJAX náhled při výběru souboru — předvyplní prázdná pole formuláře
+  - Parsování českých dat (DD.MM.YYYY i „19. ledna 2026")
+  - Název: z document properties, Heading 1, nebo regex „per rollam" + datum
+  - Popis: text mezi názvem a prvním BODem (filtruje boilerplate)
+  - Server-side prefill prázdných polí při odeslání formuláře
 - Přidání a smazání jednotlivých bodů hlasování (pouze ve stavu koncept)
 - Generování personalizovaných PDF lístků pro každého vlastníka
 - Smazání hlasování z přehledu (cascade smaže body, lístky, hlasy + soubory) s potvrzovacím dialogem
 - Seznam hlasování s výsledky po bodech (PRO/PROTI/Zdržel se s procenty)
 - Filtrační bubliny dle stavu hlasování (vše, koncept, aktivní, uzavřeno, zrušeno)
-- Sdílený header na všech stránkách hlasování (partial `_voting_header.html`)
+- Sdílený header na všech stránkách hlasování (partial `_voting_header.html`) s popisem hlasování
 - Status bubliny fixně nahoře (celkem, zbývá zpracovat, odesláno, zpracováno, neodevzdané, kvórum) — nescrollují se
 - Aktivní bublina zvýrazněna ring-2 dle aktuální stránky/filtru
 - Viditelnost UI dle stavu: koncept zobrazuje správu bodů + generování, po generování výsledky + zpracování
 - Detail hlasování: vyhledávání v bodech + řazení sloupců (HTMX partial)
-- Seznam lístků s vyhledáváním vlastníka a řazením sloupců
-- Detail hlasovacího lístku s prokliky na vlastníka
+- Seznam lístků s vyhledáváním vlastníka a řazením všech sloupců (vlastník, jednotky, hlasy, body hlasování, plná moc, stav)
+- Klikací vlastníci a jednotky v seznamu lístků i neodevzdaných — prokliky s back URL a scroll restoration
+- Detail hlasovacího lístku s prokliky na vlastníka (back URL chain pro zanoření)
 - Zpracování lístků: zadání hlasů (PRO/PROTI/Zdržel se) s vyhledáváním vlastníka
-- Neodevzdané lístky s vyhledáváním vlastníka
-- Sčítání hlasů a výpočet kvóra
+- Neodevzdané lístky s vyhledáváním vlastníka, klikací vlastníci a jednotky s back URL
+- Sčítání hlasů a výpočet kvóra (vstup v %, uložení jako podíl 0–1)
 - Podpora hlasování v zastoupení (plné moci)
 - Stavy hlasování: koncept → aktivní → uzavřené / zrušené
 - Zpracování lístků: řazení dle vlastníka/jednotek/hlasů
@@ -243,7 +250,7 @@ app/
 ├── services/                  # Business logika
 │   ├── excel_import.py        #   Import z 31-sloupcového Excelu
 │   ├── excel_export.py        #   Export do Excelu
-│   ├── word_parser.py         #   Extrakce bodů z .docx šablony
+│   ├── word_parser.py         #   Extrakce bodů a metadat z .docx šablony
 │   ├── pdf_generator.py       #   Generování PDF lístků
 │   ├── pdf_extractor.py       #   Extrakce textu z PDF
 │   ├── owner_matcher.py       #   Fuzzy párování jmen
@@ -364,6 +371,7 @@ wheels/                        # Offline Python balíčky (gitignored)
 |--------|-------|-------|
 | GET | `/hlasovani` | Seznam hlasování (filtr dle stavu, bubliny) |
 | GET | `/hlasovani/nova` | Formulář nového hlasování |
+| POST | `/hlasovani/nova/nahled-metadat` | AJAX: extrakce metadat z .docx šablony |
 | POST | `/hlasovani/nova` | Vytvoření hlasování + šablona .docx |
 | GET | `/hlasovani/{id}` | Detail hlasování s výsledky (search, sort, HTMX partial) |
 | POST | `/hlasovani/{id}/smazat` | Smazání hlasování (cascade + soubory) |
