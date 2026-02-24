@@ -432,3 +432,11 @@ Vzor se skládá ze dvou partials (info + form) a tří endpointů:
 - Komunikovat stručně — co jsem udělal, ne co bych mohl udělat
 - Na potvrzení se PTÁT — "Chceš commitnout?", "Chceš něco upravit?" atd. jsou v pořádku
 - **Po opravě chyby se VŽDY zeptat**, zda se nemá stejný problém zkontrolovat v celém projektu — stejná chyba se často opakuje na více místech
+- **Při zápisu dat do evidence (update, exchange, import, checkbox aktualizace) VŽDY aktivně testovat všechny kombinace scénářů:**
+  - 1 vlastník → 1 vlastník (přepis)
+  - 1 vlastník → N vlastníků (přidání spoluvlastníků)
+  - N vlastníků → 1 vlastník (odebrání spoluvlastníků)
+  - N vlastníků → M vlastníků (částečná shoda, částečná výměna)
+  - Reuse vlastník (už na jednotce) vs nový vlastník vs vlastník z jiné jednotky
+  - Ověřit že se propisují VŠECHNA relevantní pole všem dotčeným záznamům (ownership_type, space_type, podíl, jméno)
+  - Výstup analýzy scénářů nabízet uživateli při každé změně v datové logice
