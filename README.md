@@ -70,7 +70,7 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
   - Sloupec Podíl % (podíl SČD / celkový počet podílů z administrace)
   - Souhrnný řádek Celkem (podíl SČD, podíl %, plocha)
   - Proklik na detail jednotky
-  - Kolapsovatelná sekce „Historie vlastnictví" — předchozí jednotky s daty od/do
+  - Kolapsovatelná sekce „Historie vlastnictví" — předchozí jednotky s daty od/do, prokliky s back URL chain
 - Export zpět do Excelu
 
 ### B. Evidence jednotek (`/jednotky`)
@@ -84,7 +84,7 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
 - Detail jednotky:
   - Inline editace všech polí přes HTMX (číslo, budova, typ, sekce, adresa, LV, místnosti, plocha, podíl)
   - Seznam vlastníků s prokliky
-  - Kolapsovatelná sekce „Předchozí vlastníci" — historické záznamy s daty od/do
+  - Kolapsovatelná sekce „Předchozí vlastníci" — historické záznamy s daty od/do, prokliky s back URL chain
   - Smazání jednotky (cascade smaže přiřazení)
 - Číslo jednotky uloženo jako INTEGER
 
