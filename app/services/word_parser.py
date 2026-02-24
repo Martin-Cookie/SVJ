@@ -57,6 +57,151 @@ def extract_voting_items(docx_path: str) -> list[dict]:
     return items
 
 
+_CZECH_MONTHS = {
+    "ledna": 1, "února": 2, "března": 3, "dubna": 4,
+    "května": 5, "června": 6, "července": 7, "srpna": 8,
+    "září": 9, "října": 10, "listopadu": 11, "prosince": 12,
+}
+
+
+def _parse_czech_date(text: str) -> str | None:
+    """Try to parse a Czech date from text, return ISO YYYY-MM-DD or None."""
+    # DD.MM.YYYY
+    m = re.search(r"(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})", text)
+    if m:
+        d, mo, y = int(m.group(1)), int(m.group(2)), int(m.group(3))
+        return f"{y}-{mo:02d}-{d:02d}"
+    # DD. měsíce YYYY  (e.g. "19. ledna 2026")
+    m = re.search(
+        r"(\d{1,2})\.\s*(" + "|".join(_CZECH_MONTHS) + r")\s+(\d{4})",
+        text, re.IGNORECASE,
+    )
+    if m:
+        d = int(m.group(1))
+        mo = _CZECH_MONTHS[m.group(2).lower()]
+        y = int(m.group(3))
+        return f"{y}-{mo:02d}-{d:02d}"
+    return None
+
+
+def extract_voting_metadata(docx_path: str) -> dict:
+    """Extract voting metadata (title, description, dates) from Word document."""
+    doc = Document(docx_path)
+    paragraphs = [(p.text.strip(), p.style.name if p.style else "") for p in doc.paragraphs]
+
+    result = {"title": None, "description": None, "start_date": None, "end_date": None}
+
+    # --- Title ---
+    # Build title from "per rollam" / "ROZHODOVÁNÍ" paragraph + following date line
+    per_rollam_pattern = re.compile(
+        r"(hlasování\s+per\s+rollam|rozhodování\s+per\s+rollam|per\s+rollam)",
+        re.IGNORECASE,
+    )
+    title_idx = None
+
+    # 1. Document properties
+    try:
+        if doc.core_properties.title and doc.core_properties.title.strip():
+            result["title"] = doc.core_properties.title.strip()
+    except Exception:
+        pass
+
+    if not result["title"]:
+        # 2. First Heading 1 or Title style
+        for i, (text, style) in enumerate(paragraphs):
+            if text and style in ("Heading 1", "Title"):
+                result["title"] = text
+                title_idx = i
+                break
+
+    if not result["title"]:
+        # 3. Paragraph matching "per rollam" / "rozhodování per rollam"
+        for i, (text, _) in enumerate(paragraphs):
+            if text and per_rollam_pattern.search(text):
+                result["title"] = text
+                title_idx = i
+                break
+
+    # If title found and next paragraph is a short date-like line, merge it
+    if result["title"] and title_idx is not None:
+        next_idx = title_idx + 1
+        while next_idx < len(paragraphs) and not paragraphs[next_idx][0]:
+            next_idx += 1
+        if next_idx < len(paragraphs):
+            next_text = paragraphs[next_idx][0]
+            if next_text and len(next_text) <= 80 and _parse_czech_date(next_text):
+                result["title"] = result["title"] + " " + next_text
+                title_idx = next_idx  # advance past the merged line
+
+    if not result["title"]:
+        # 4. First short non-empty paragraph (max 150 chars)
+        for i, (text, _) in enumerate(paragraphs):
+            if text and len(text) <= 150:
+                result["title"] = text
+                title_idx = i
+                break
+
+    # --- Dates ---
+    full_text = "\n".join(text for text, _ in paragraphs)
+
+    # Start date: "od|zahájení|začátek|vyhlášené" + date
+    start_patterns = [
+        r"(?:od|zahájení|začátek)[:\s]+(\d{1,2}\.\s*\d{1,2}\.\s*\d{4})",
+        r"(?:od|zahájení|začátek)[:\s]+(\d{1,2}\.\s*(?:" + "|".join(_CZECH_MONTHS) + r")\s+\d{4})",
+        r"(?:vyhlášen[áéo])\s+(\d{1,2}\.\s*(?:" + "|".join(_CZECH_MONTHS) + r")\s+\d{4})",
+        r"(?:vyhlášen[áéo])\s+(\d{1,2}\.\s*\d{1,2}\.\s*\d{4})",
+    ]
+    for pat in start_patterns:
+        m = re.search(pat, full_text, re.IGNORECASE)
+        if m:
+            result["start_date"] = _parse_czech_date(m.group(1))
+            if result["start_date"]:
+                break
+
+    # End date: "do|ukončení|konec|odevzdání" + date
+    end_patterns = [
+        r"(?:do|ukončení|konec|odevzdání)[:\s]+.*?(\d{1,2}\.\s*\d{1,2}\.\s*\d{4})",
+        r"(?:do|ukončení|konec|odevzdání)[:\s]+.*?(\d{1,2}\.\s*(?:" + "|".join(_CZECH_MONTHS) + r")\s+\d{4})",
+        r"(?:lhůta|termín).*?(?:do|je)\s+(\d{1,2}\.\s*(?:" + "|".join(_CZECH_MONTHS) + r")\s+\d{4})",
+        r"(?:lhůta|termín).*?(?:do|je)\s+(\d{1,2}\.\s*\d{1,2}\.\s*\d{4})",
+    ]
+    for pat in end_patterns:
+        m = re.search(pat, full_text, re.IGNORECASE)
+        if m:
+            result["end_date"] = _parse_czech_date(m.group(1))
+            if result["end_date"]:
+                break
+
+    # --- Description: text between title and first BOD ---
+    if title_idx is not None:
+        bod_pattern = re.compile(r"^\s*BOD\s+\d+", re.IGNORECASE)
+        bod_idx = None
+        for i in range(title_idx + 1, len(paragraphs)):
+            text, _ = paragraphs[i]
+            if text and bod_pattern.match(text):
+                bod_idx = i
+                break
+
+        if bod_idx is not None:
+            skip_re = re.compile(
+                r"^(SOUHLASÍM|NESOUHLASÍM|☐|□|se\s+sídlem|zapsané\s+ve|IČO)",
+                re.IGNORECASE,
+            )
+            desc_parts = []
+            for i in range(title_idx + 1, bod_idx):
+                text, _ = paragraphs[i]
+                if not text or skip_re.match(text):
+                    continue
+                # Skip the date line that was already merged into title
+                if _parse_czech_date(text) and len(text) <= 80:
+                    continue
+                desc_parts.append(text)
+            if desc_parts:
+                result["description"] = "\n".join(desc_parts)
+
+    return result
+
+
 def extract_full_text(docx_path: str) -> str:
     doc = Document(docx_path)
     texts = []

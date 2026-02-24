@@ -42,11 +42,24 @@
                 </th>
                 {% endfor %}
                 {% for item in voting.items %}
-                <th class="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase" style="min-width:70px" title="{{ item.title }}">
-                    Bod {{ item.order }}
+                {% set bcol = "bod_" ~ item.id %}
+                {% set next_bod_order = "desc" if sort == bcol and order == "asc" else "asc" %}
+                <th class="px-3 py-3 text-center text-xs font-medium uppercase {% if sort == bcol %}text-blue-600{% else %}text-gray-500{% endif %}" style="min-width:70px" title="{{ item.title }}">
+                    <a href="/hlasovani/{{ voting.id }}/listky?sort={{ bcol }}&order={{ next_bod_order }}&{{ _all }}"
+                       class="inline-flex items-center gap-0.5 cursor-pointer hover:text-blue-600 select-none">
+                        Bod {{ item.order }}
+                        {% if sort == bcol %}{{ (_svg_up if order == "asc" else _svg_down)|safe }}{% endif %}
+                    </a>
                 </th>
                 {% endfor %}
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Plná moc</th>
+                {% set next_proxy_order = "desc" if sort == "proxy" and order == "asc" else "asc" %}
+                <th class="px-4 py-3 text-left text-xs font-medium uppercase {% if sort == 'proxy' %}text-blue-600{% else %}text-gray-500{% endif %}">
+                    <a href="/hlasovani/{{ voting.id }}/listky?sort=proxy&order={{ next_proxy_order }}&{{ _all }}"
+                       class="inline-flex items-center gap-0.5 cursor-pointer hover:text-blue-600 select-none">
+                        Plná moc
+                        {% if sort == 'proxy' %}{{ (_svg_up if order == "asc" else _svg_down)|safe }}{% endif %}
+                    </a>
+                </th>
                 {% set next_status_order = "desc" if sort == "status" and order == "asc" else "asc" %}
                 <th class="px-4 py-3 text-left text-xs font-medium uppercase {% if sort == 'status' %}text-blue-600{% else %}text-gray-500{% endif %}">
                     <a href="/hlasovani/{{ voting.id }}/listky?sort=status&order={{ next_status_order }}&{{ _all }}"
@@ -68,4 +81,10 @@
 </div>
 </div>
 </div>
+<script>
+if (location.hash) {
+    var el = document.querySelector(location.hash);
+    if (el) el.scrollIntoView({block: 'center'});
+}
+</script>
 {% endblock %}

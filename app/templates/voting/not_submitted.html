@@ -45,4 +45,10 @@
 {% endif %}
 </div>
 </div>
+<script>
+if (location.hash) {
+    var el = document.querySelector(location.hash);
+    if (el) el.scrollIntoView({block: 'center'});
+}
+</script>
 {% endblock %}

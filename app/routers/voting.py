@@ -6,7 +6,7 @@ from io import BytesIO
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
-from fastapi.responses import FileResponse, RedirectResponse, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
@@ -17,7 +17,7 @@ from app.models import (
     Ballot, BallotStatus, BallotVote, Owner, OwnerUnit, Voting,
     VotingItem, VotingStatus, VoteValue,
 )
-from app.services.word_parser import extract_voting_items
+from app.services.word_parser import extract_voting_items, extract_voting_metadata
 from app.services.voting_import import (
     read_excel_headers, preview_voting_import, execute_voting_import,
 )
@@ -132,6 +132,38 @@ async def voting_create_page(request: Request):
     })
 
 
+@router.post("/nova/nahled-metadat")
+async def voting_preview_metadata(
+    file: UploadFile = File(...),
+):
+    """AJAX endpoint: extract metadata from uploaded .docx and return JSON."""
+    if not file.filename or not file.filename.endswith(".docx"):
+        return JSONResponse({"error": "Nahrajte .docx soubor"}, status_code=400)
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    dest = settings.upload_dir / "word_templates" / f"{timestamp}_{file.filename}"
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        with open(dest, "wb") as f:
+            shutil.copyfileobj(file.file, f)
+        meta = extract_voting_metadata(str(dest))
+        items = extract_voting_items(str(dest))
+        return JSONResponse({
+            "meta": meta,
+            "items_count": len(items),
+        })
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JSONResponse({"error": f"{type(e).__name__}: {e}"}, status_code=500)
+    finally:
+        # Clean up temp file — the real upload happens on form submit
+        try:
+            dest.unlink()
+        except Exception:
+            pass
+
+
 @router.post("/nova")
 async def voting_create(
     request: Request,
@@ -147,7 +179,7 @@ async def voting_create(
     voting = Voting(
         title=title,
         description=description,
-        quorum_threshold=quorum_threshold,
+        quorum_threshold=quorum_threshold / 100,
         partial_owner_mode=partial_owner_mode,
     )
     if start_date:
@@ -180,6 +212,18 @@ async def voting_create(
         except Exception:
             db.add(voting)
             db.flush()
+
+        # Extract metadata to pre-fill empty fields
+        try:
+            meta = extract_voting_metadata(str(dest))
+            if not description.strip() and meta.get("description"):
+                voting.description = meta["description"]
+            if not start_date and meta.get("start_date"):
+                voting.start_date = date.fromisoformat(meta["start_date"])
+            if not end_date and meta.get("end_date"):
+                voting.end_date = date.fromisoformat(meta["end_date"])
+        except Exception:
+            pass  # metadata extraction is best-effort
     else:
         db.add(voting)
         db.flush()
@@ -346,7 +390,7 @@ async def ballot_list(
 ):
     voting = db.query(Voting).options(
         joinedload(Voting.items),
-        joinedload(Voting.ballots).joinedload(Ballot.owner),
+        joinedload(Voting.ballots).joinedload(Ballot.owner).joinedload(Owner.units).joinedload(OwnerUnit.unit),
         joinedload(Voting.ballots).joinedload(Ballot.votes),
     ).get(voting_id)
     if not voting:
@@ -372,9 +416,22 @@ async def ballot_list(
         "units": lambda b: b.units_text or "",
         "votes": lambda b: b.total_votes,
         "status": lambda b: b.status.value,
+        "proxy": lambda b: (b.proxy_holder_name or ""),
     }
+    # Dynamic sort by voting item vote (e.g. sort=bod_3 for item id=3)
+    if sort.startswith("bod_"):
+        item_id = int(sort[4:])
+        vote_order = {"for": 0, "against": 1, "abstain": 2}
+        sort_keys[sort] = lambda b, _iid=item_id: next(
+            (vote_order.get(bv.vote.value, 3) for bv in b.votes if bv.voting_item_id == _iid and bv.vote),
+            4,
+        )
     key_fn = sort_keys.get(sort, sort_keys["owner"])
     ballots = sorted(ballots, key=key_fn, reverse=(order == "desc"))
+
+    list_url = str(request.url.path)
+    if request.url.query:
+        list_url += "?" + str(request.url.query)
 
     ctx = {
         "request": request,
@@ -386,6 +443,7 @@ async def ballot_list(
         "q": q,
         "sort": sort,
         "order": order,
+        "list_url": list_url,
         **_ballot_stats(voting),
     }
 
@@ -401,6 +459,7 @@ async def ballot_detail(
     voting_id: int,
     ballot_id: int,
     request: Request,
+    back: str = Query(""),
     db: Session = Depends(get_db),
 ):
     ballot = db.query(Ballot).options(
@@ -411,11 +470,16 @@ async def ballot_detail(
     if not ballot:
         return RedirectResponse(f"/hlasovani/{voting_id}/listky", status_code=302)
 
+    back_url = back or f"/hlasovani/{voting_id}/listky"
+    back_label = "Zpět na hlasovací lístky"
+
     return templates.TemplateResponse("voting/ballot_detail.html", {
         "request": request,
         "active_nav": "voting",
         "voting": ballot.voting,
         "ballot": ballot,
+        "back_url": back_url,
+        "back_label": back_label,
     })
 
 
@@ -662,7 +726,7 @@ async def not_submitted(
     db: Session = Depends(get_db),
 ):
     voting = db.query(Voting).options(
-        joinedload(Voting.ballots).joinedload(Ballot.owner),
+        joinedload(Voting.ballots).joinedload(Ballot.owner).joinedload(Owner.units).joinedload(OwnerUnit.unit),
     ).get(voting_id)
     if not voting:
         return RedirectResponse("/hlasovani", status_code=302)
@@ -681,6 +745,10 @@ async def not_submitted(
             or q_lower in (b.units_text or "").lower()
         ]
 
+    list_url = str(request.url.path)
+    if request.url.query:
+        list_url += "?" + str(request.url.query)
+
     ctx = {
         "request": request,
         "active_nav": "voting",
@@ -688,6 +756,7 @@ async def not_submitted(
         "missing": missing,
         "active_bubble": "neodevzdane",
         "q": q,
+        "list_url": list_url,
         **_ballot_stats(voting),
     }
 

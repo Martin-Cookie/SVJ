@@ -16,6 +16,9 @@
             {% if voting.start_date %}<span class="text-sm text-gray-500">Od: {{ voting.start_date.strftime('%d.%m.%Y') }}</span>{% endif %}
             {% if voting.end_date %}<span class="text-sm text-gray-500">Do: {{ voting.end_date.strftime('%d.%m.%Y') }}</span>{% endif %}
         </div>
+        {% if voting.description %}
+        <p class="mt-2 text-sm text-gray-600">{{ voting.description }}</p>
+        {% endif %}
     </div>
     <div class="flex gap-2">
         {% if voting.status.value == 'draft' %}
