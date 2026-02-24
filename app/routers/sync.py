@@ -689,7 +689,10 @@ async def apply_selected_updates(
                 record.excel_owner_name = new_value.strip()
             elif field == "ownership_type":
                 old_val = record.excel_ownership_type or owner_unit.ownership_type or ""
-                owner_unit.ownership_type = new_value
+                # Update ALL active OwnerUnits on this unit (not just the first)
+                all_ous = db.query(OwnerUnit).filter_by(unit_id=unit.id).filter(OwnerUnit.valid_to.is_(None)).all()
+                for aou in all_ous:
+                    aou.ownership_type = new_value
                 record.excel_ownership_type = new_value
                 changes.append(f"vlastnictví: {old_val} → {new_value}")
             elif field == "space_type":

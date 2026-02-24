@@ -263,6 +263,9 @@ def execute_exchange(
                     # Owner already on this unit — keep existing OwnerUnit
                     matched_owner_ids.add(existing_owner.id)
                     new_owner_names.append(existing_owner.name_with_titles)
+                    # Update ownership_type if CSV has a different value
+                    if record.csv_ownership_type:
+                        ou_by_owner_id[existing_owner.id].ownership_type = record.csv_ownership_type
                     reused_count += 1
                 else:
                     # Owner exists but not on this unit — need new OwnerUnit
