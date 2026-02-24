@@ -85,7 +85,7 @@
                 <tbody class="divide-y divide-gray-100">
                     {% for ou in unit.historical_owners %}
                     <tr class="text-gray-400">
-                        <td class="px-3 py-1.5"><a href="/vlastnici/{{ ou.owner.id }}" class="text-gray-400 hover:text-gray-600 hover:underline">{{ ou.owner.display_name }}</a></td>
+                        <td class="px-3 py-1.5"><a href="/vlastnici/{{ ou.owner.id }}?back={{ ('/jednotky/' ~ unit.id ~ '?back=' ~ (back_url|urlencode))|urlencode }}" class="text-gray-400 hover:text-gray-600 hover:underline">{{ ou.owner.display_name }}</a></td>
                         <td class="px-3 py-1.5 whitespace-nowrap">{{ ou.valid_from.strftime('%d.%m.%Y') if ou.valid_from else '—' }}</td>
                         <td class="px-3 py-1.5 whitespace-nowrap">{{ ou.valid_to.strftime('%d.%m.%Y') if ou.valid_to else '—' }}</td>
                         <td class="px-3 py-1.5 text-right font-mono whitespace-nowrap">{{ "{:,}".format(ou.votes).replace(",", " ") }}</td>

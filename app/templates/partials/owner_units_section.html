@@ -103,7 +103,7 @@
         <tbody class="divide-y divide-gray-100">
             {% for ou in owner.historical_units %}
             <tr class="text-gray-400">
-                <td class="px-2 py-1.5"><a href="/jednotky/{{ ou.unit.id }}" class="text-gray-400 hover:text-gray-600 hover:underline">{{ ou.unit.unit_number }}</a></td>
+                <td class="px-2 py-1.5"><a href="/jednotky/{{ ou.unit.id }}?back={{ ('/vlastnici/' ~ owner.id ~ '?back=' ~ (back_url|default('/vlastnici')|urlencode))|urlencode }}" class="text-gray-400 hover:text-gray-600 hover:underline">{{ ou.unit.unit_number }}</a></td>
                 <td class="px-2 py-1.5">{{ ou.ownership_type or '—' }}</td>
                 <td class="px-2 py-1.5 text-right font-mono whitespace-nowrap">{{ "{:,}".format(ou.unit.podil_scd or 0).replace(",", " ") }}</td>
                 <td class="px-2 py-1.5 whitespace-nowrap">{{ ou.valid_from.strftime('%d.%m.%Y') if ou.valid_from else '—' }}</td>
