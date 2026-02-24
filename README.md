@@ -151,6 +151,7 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
   - Toolbar: Vybrat vše / Zrušit výběr / počítadlo / Aktualizovat vybrané
   - Po aktualizaci se přepočítá status záznamu a počítadla v bublinách
 - Aktualizace vlastníků přes checkbox: matchování CSV jmen na DB (fuzzy ≥75%), přejmenování shodných, přidání nových, hard-delete nepárovaných OwnerUnit (bez historie — historie se tvoří pouze přes Výměnu)
+- Aktualizace ownership_type se propisuje všem spoluvlastníkům na jednotce (checkbox i výměna)
 - Logování změn: každá úprava zaznamenána s názvem zdrojového CSV a časem
 - Proklik jména vlastníka do detailní karty s návratem zpět na porovnání
 - Export filtrovaného pohledu do Excelu (evidence vs CSV sloupce, žluté zvýraznění rozdílů)
