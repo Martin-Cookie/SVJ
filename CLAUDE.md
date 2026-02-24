@@ -52,6 +52,33 @@
   - Prohlížeč nativně nescrolluje na `#hash` uvnitř overflow kontejnerů — proto je `scrollIntoView` nutný
   - Všechny odkazy z řádku (na detail entity i na související entity) musí sdílet stejný `#hash` anchor daného řádku
 
+## Tabulky — klikací entity a eager loading
+
+- **Každý odkaz na entitu v tabulce musí být klikací** — vlastník, jednotka, lístek. Nikdy plain text pokud existuje detail stránka
+- Klikací entity vyžadují eager loading relací v routeru:
+  ```python
+  joinedload(Ballot.owner).joinedload(Owner.units).joinedload(OwnerUnit.unit)
+  ```
+- Bez eager loading `current_units` vrátí prázdný list (lazy loading selže mimo session) nebo způsobí N+1 dotazy
+- Při přidání nového klikacího sloupce do tabulky VŽDY zkontrolovat, zda router má potřebný `joinedload()`
+- **Všechny datové sloupce v tabulce musí být řaditelné** — pokud má tabulka sort, přidat sort key i pro nové/dynamické sloupce (body hlasování, plná moc atd.)
+
+## Procentuální vstupy (kvórum, podíly)
+
+- Formulář posílá procenta jako číslo (např. `50` pro 50%)
+- Databáze ukládá jako podíl 0–1 (např. `0.5`)
+- **Router MUSÍ dělit vstup `/100`** při ukládání: `quorum_threshold = form_value / 100`
+- Šablona MUSÍ násobit `*100` při zobrazení: `{{ (value * 100)|round(1) }}%`
+- Nikdy neukládat surovou hodnotu z formuláře bez konverze
+
+## AJAX preview při file uploadu
+
+- Pokud formulář obsahuje file upload, soubor se může zpracovat AJAX endpointem pro předvyplnění polí
+- Vzor: separátní POST endpoint (např. `/nova/nahled-metadat`) přijme soubor, vrátí JSON, JS vyplní prázdná pole
+- Soubor z AJAX preview je dočasný — smaže se po zpracování; skutečný upload proběhne při odeslání formuláře
+- Předvyplní se pouze prázdná pole — uživatelem vyplněné hodnoty se nepřepisují
+- Server-side prefill (v POST handleru) jako fallback pro případ, že JS selže
+
 ## Filtrační bubliny
 
 - Bubliny jsou vždy dynamické: `flex` + `flex-1` (nikdy ne `grid` ani `flex-wrap`)
