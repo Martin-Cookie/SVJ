@@ -34,6 +34,7 @@ async def owner_list(
     owner_type: str = Query("", alias="typ"),
     vlastnictvi: str = Query("", alias="vlastnictvi"),
     kontakt: str = Query("", alias="kontakt"),
+    stav: str = Query("", alias="stav"),
     sekce: str = Query("", alias="sekce"),
     sort: str = Query("name", alias="sort"),
     order: str = Query("asc", alias="order"),
@@ -77,6 +78,8 @@ async def owner_list(
         query = query.filter(Owner.phone.isnot(None), Owner.phone != "")
     elif kontakt == "bez_telefonu":
         query = query.filter((Owner.phone.is_(None)) | (Owner.phone == ""))
+    if stav == "bez_jednotky":
+        query = query.filter(~Owner.units.any(OwnerUnit.valid_to.is_(None)))
     if sekce:
         query = query.filter(
             Owner.units.any((OwnerUnit.valid_to.is_(None)) & OwnerUnit.unit.has(Unit.section == sekce))
@@ -151,6 +154,11 @@ async def owner_list(
         Owner.phone != "",
     ).count()
 
+    no_units_count = db.query(Owner).filter(
+        Owner.is_active == True,
+        ~Owner.units.any(OwnerUnit.valid_to.is_(None)),
+    ).count()
+
     total_scd = db.query(func.sum(OwnerUnit.votes)).filter(OwnerUnit.valid_to.is_(None)).scalar() or 0
     svj_info = db.query(SvjInfo).first()
     declared_shares = svj_info.total_shares if svj_info and svj_info.total_shares else 0
@@ -177,6 +185,7 @@ async def owner_list(
         "owner_type": owner_type,
         "vlastnictvi": vlastnictvi,
         "kontakt": kontakt,
+        "stav": stav,
         "sekce": sekce,
         "sort": sort,
         "order": order,
@@ -188,6 +197,7 @@ async def owner_list(
             "sections": sections,
             "emails_count": emails_count,
             "phones_count": phones_count,
+            "no_units_count": no_units_count,
             "total_scd": total_scd,
             "declared_shares": declared_shares,
             "ownership_counts": ownership_counts,

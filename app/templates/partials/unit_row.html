@@ -14,6 +14,7 @@
         {% for ou in unit.current_owners %}
         <a href="/vlastnici/{{ ou.owner.id }}?back={{ ((list_url or '/jednotky') ~ '#unit-' ~ unit.id)|urlencode }}" class="text-blue-600 hover:text-blue-800 hover:underline">{{ ou.owner.display_name }}</a>{% if not loop.last %}, {% endif %}
         {% endfor %}
-        {% if not unit.current_owners %}<span class="text-gray-300">—</span>{% endif %}
+        {% if unit.historical_owners %}{% if unit.current_owners %}, {% endif %}{% for ou in unit.historical_owners %}<a href="/vlastnici/{{ ou.owner.id }}?back={{ ((list_url or '/jednotky') ~ '#unit-' ~ unit.id)|urlencode }}" class="text-gray-300 hover:text-gray-500 hover:underline" title="předchozí vlastník">{{ ou.owner.display_name }}</a>{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}
+        {% if not unit.current_owners and not unit.historical_owners %}<span class="text-gray-300">—</span>{% endif %}
     </td>
 </tr>
