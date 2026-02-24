@@ -57,6 +57,7 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
 - Filtrační bubliny podle typu vlastníka (fyzická/právnická osoba) a sekce domu
 - Filtrační bubliny podle typu vlastnictví (SJM, VL, SJVL, Výhradní, Podílové, Neuvedeno)
 - Filtrační bubliny kontaktů: s/bez emailu, s/bez telefonu (rozdělené bubliny)
+- Filtrační bublina „Bez jednotky" — vlastníci bez aktuální jednotky (historičtí, po výměně)
 - Všechny bubliny dynamicky roztažené na celou šířku (flex-1)
 - Zachování filtrů při navigaci seznam → detail → detail → zpět (back URL řetěz)
 - Řazení kliknutím na hlavičky sloupců (jméno, typ, email, telefon, podíl, jednotky, sekce)
@@ -75,7 +76,7 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
 
 ### B. Evidence jednotek (`/jednotky`)
 
-- Seznam jednotek s vyhledáváním (číslo, budova, typ, sekce, adresa, vlastník)
+- Seznam jednotek s vyhledáváním (číslo, budova, typ, sekce, adresa, vlastník včetně historických)
 - Filtrační bubliny podle typu prostoru a sekce domu (dynamicky roztažené na celou šířku)
 - Zachování filtrů při navigaci seznam → detail → zpět (back URL řetěz)
 - Řazení kliknutím na hlavičky sloupců
@@ -83,7 +84,7 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
 - Vytvoření nové jednotky (inline HTMX formulář)
 - Detail jednotky:
   - Inline editace všech polí přes HTMX (číslo, budova, typ, sekce, adresa, LV, místnosti, plocha, podíl)
-  - Seznam vlastníků s prokliky
+  - Seznam vlastníků s prokliky (aktuální modře, historičtí šedě)
   - Kolapsovatelná sekce „Předchozí vlastníci" — historické záznamy s daty od/do, prokliky s back URL chain
   - Smazání jednotky (cascade smaže přiřazení)
 - Číslo jednotky uloženo jako INTEGER
