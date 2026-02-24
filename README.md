@@ -151,6 +151,7 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
   - Každá bublina zobrazuje podíly v evidenci, CSV a rozdíl
   - Bublina „Vše" zobrazuje i katastrální podíl (4 103 391) s procentuálními rozdíly
   - Bublina „Rozdílné podíly" filtruje záznamy kde se liší pouze podíl SČD
+  - Bubliny i řazení zachovávají back URL pro správnou navigaci zpět
 - Třídění kliknutím na hlavičky sloupců (jednotka, vlastník, typ, vlastnictví, podíl, shoda)
 - Selektivní aktualizace dat z CSV do databáze:
   - Checkboxy u lišících se polí (jméno, typ, vlastnictví, podíl)
