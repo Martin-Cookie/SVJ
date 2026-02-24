@@ -4,6 +4,7 @@ from __future__ import annotations
 Extract owner name from tax PDF files using pdfplumber.
 PDFs are text-based (not scanned).
 """
+import os
 import re
 
 import pdfplumber
@@ -56,7 +57,8 @@ def parse_owner_name(text: str) -> str | None:
 
 
 def parse_unit_from_filename(filename: str) -> tuple[str, str]:
-    name = filename.rsplit(".", 1)[0]
+    # Use basename only (webkitdirectory may send paths like "dir/9A.pdf")
+    name = os.path.basename(filename).rsplit(".", 1)[0]
     match = re.match(r"(\d+)([a-zA-Z])?$", name)
     if match:
         return match.group(1), (match.group(2) or "").upper()

@@ -94,18 +94,20 @@ async def tax_create(
         if not file.filename or not file.filename.lower().endswith(".pdf"):
             continue
 
-        dest = upload_dir / file.filename
+        # webkitdirectory sends relative paths (e.g. "dir/9A.pdf") — use basename only
+        basename = Path(file.filename).name
+        dest = upload_dir / basename
         with open(dest, "wb") as f:
             shutil.copyfileobj(file.file, f)
 
-        unit_number, unit_letter = parse_unit_from_filename(file.filename)
+        unit_number, unit_letter = parse_unit_from_filename(basename)
 
         # Extract owner name from PDF
         extracted = extract_owner_from_tax_pdf(str(dest))
 
         doc = TaxDocument(
             session_id=session.id,
-            filename=file.filename,
+            filename=basename,
             unit_number=unit_number,
             unit_letter=unit_letter,
             file_path=str(dest),

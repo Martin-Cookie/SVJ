@@ -40,11 +40,19 @@
 
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">PDF soubory *</label>
-                <input type="file" name="files" accept=".pdf" multiple required
+                <div class="flex items-center gap-3 mb-2">
+                    <label class="inline-flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer select-none">
+                        <input type="checkbox" id="dir-toggle"
+                               onchange="toggleDirMode(this.checked)"
+                               class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                        Vybrat celý adresář
+                    </label>
+                </div>
+                <input type="file" id="file-input" name="files" accept=".pdf" multiple required
                        class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4
                               file:rounded-lg file:border-0 file:text-sm file:font-medium
                               file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
-                <p class="text-xs text-gray-400 mt-1">
+                <p id="file-hint" class="text-xs text-gray-400 mt-1">
                     Pojmenování souborů: {číslo_jednotky}{písmeno}.pdf (např. 9A.pdf, 101B.pdf).
                     Vyberte všechny PDF najednou.
                 </p>
@@ -61,4 +69,23 @@
         </div>
     </form>
 </div>
+
+<script>
+function toggleDirMode(on) {
+    var inp = document.getElementById('file-input');
+    var hint = document.getElementById('file-hint');
+    inp.value = '';
+    if (on) {
+        inp.setAttribute('webkitdirectory', '');
+        inp.removeAttribute('accept');
+        inp.removeAttribute('multiple');
+        hint.textContent = 'Vyberte adresář obsahující PDF soubory. Soubory jiných typů budou automaticky přeskočeny.';
+    } else {
+        inp.removeAttribute('webkitdirectory');
+        inp.setAttribute('accept', '.pdf');
+        inp.setAttribute('multiple', '');
+        hint.textContent = 'Pojmenování souborů: {číslo_jednotky}{písmeno}.pdf (např. 9A.pdf, 101B.pdf). Vyberte všechny PDF najednou.';
+    }
+}
+</script>
 {% endblock %}
