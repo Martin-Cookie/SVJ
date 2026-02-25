@@ -7,7 +7,7 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import and_, func, or_
+from sqlalchemy import and_, cast, func, Integer, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.config import settings
@@ -163,7 +163,7 @@ async def sync_create(
 
 
 SYNC_SORT_COLUMNS = {
-    "unit": SyncRecord.unit_number,
+    "unit": cast(SyncRecord.unit_number, Integer),
     "owner": SyncRecord.excel_owner_name,
     "space_type": SyncRecord.excel_space_type,
     "ownership": SyncRecord.excel_ownership_type,
@@ -259,7 +259,7 @@ async def sync_detail(
         else:
             query = query.order_by(sort_col.asc().nulls_last())
     else:
-        query = query.order_by(SyncRecord.unit_number.asc())
+        query = query.order_by(cast(SyncRecord.unit_number, Integer).asc())
     records = query.all()
 
     # Build unit_number → [(owner_id, owner_name), ...] mapping for clickable owner links
