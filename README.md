@@ -132,11 +132,22 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
 
 ### D. Rozúčtování příjmů (`/dane`)
 
-- Nahrání daňových PDF dokumentů
+- Nahrání daňových PDF dokumentů (jednotlivě nebo celý adresář)
 - Extrakce jmen z PDF (pdfplumber)
 - Fuzzy párování jmen na vlastníky v databázi (práh 0.6 pro jednotku, 0.75 globálně)
-- Ruční ověření a oprava párování
-- Hromadné rozeslání emailem s přílohami
+- **Multi-owner matching**: automatické přiřazení spoluvlastníků (SJM) na stejné jednotce
+  - Detekce spoluvlastníků dle jednotky s překrývajícím se obdobím v daňovém roce
+  - Ruční přiřazení automaticky přidá spoluvlastníky
+- Redesignovaná stránka přiřazení:
+  - Fixní header se 4 stat kartami (celkem / potvrzeno / k potvrzení / nepřiřazeno)
+  - Toolbar s checkboxy: vybrat/zrušit vše, potvrdit vybrané, potvrdit vše
+  - Multi-owner zobrazení: barevné badge s X odebráním pro každého vlastníka
+  - Dropdown přiřazení s `display_name (j. X, Y)` — zobrazuje čísla jednotek
+  - 7 sortable sloupců (checkbox, soubor, jednotka, jméno z PDF, vlastníci, shoda, akce)
+- Odebrání vlastníka z dokumentu (pokud poslední → UNMATCHED)
+- Přidání externího příjemce (ad-hoc jméno + email)
+- Smazání celé relace (session + dokumenty + distribuce + soubory)
+- Připravené sloupce pro workflow odesílání emailů (Fáze 2–3)
 
 ### E. Kontrola vlastníků (`/synchronizace`)
 
@@ -397,10 +408,15 @@ wheels/                        # Offline Python balíčky (gitignored)
 |--------|-------|-------|
 | GET | `/dane` | Seznam rozúčtování |
 | GET | `/dane/nova` | Formulář nového rozúčtování |
-| POST | `/dane/nova` | Vytvoření s nahráním PDF |
-| GET | `/dane/{id}` | Detail s párováním dokumentů |
+| POST | `/dane/nova` | Vytvoření s nahráním PDF (multi-owner matching) |
+| GET | `/dane/{id}` | Detail s párováním dokumentů (stat karty, checkboxy) |
 | POST | `/dane/{id}/potvrdit/{dist_id}` | Potvrzení automatického párování |
-| POST | `/dane/{id}/prirazeni/{doc_id}` | Ruční přiřazení dokumentu |
+| POST | `/dane/{id}/prirazeni/{doc_id}` | Ruční přiřazení dokumentu (+ spoluvlastníci) |
+| POST | `/dane/{id}/potvrdit-vse` | Potvrzení všech automaticky přiřazených |
+| POST | `/dane/{id}/potvrdit-vybrane` | Potvrzení vybraných (z checkboxů) |
+| POST | `/dane/{id}/odebrat/{dist_id}` | Odebrání vlastníka z dokumentu |
+| POST | `/dane/{id}/pridat-externi/{doc_id}` | Přidání externího příjemce (jméno + email) |
+| POST | `/dane/{id}/smazat` | Smazání relace (session + dokumenty + soubory) |
 
 ### Kontrola vlastníků (`/synchronizace`)
 
