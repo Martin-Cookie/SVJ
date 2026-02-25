@@ -291,12 +291,18 @@ async def tax_create(
 
 
 @router.get("/{session_id}")
-async def tax_detail(session_id: int, request: Request, back: str = Query("", alias="back"), db: Session = Depends(get_db)):
+async def tax_detail(
+    session_id: int,
+    request: Request,
+    back: str = Query("", alias="back"),
+    filtr: str = Query("", alias="filtr"),
+    db: Session = Depends(get_db),
+):
     session = db.query(TaxSession).get(session_id)
     if not session:
         return RedirectResponse("/dane", status_code=302)
 
-    documents = (
+    all_documents = (
         db.query(TaxDocument)
         .filter_by(session_id=session_id)
         .options(
@@ -308,6 +314,38 @@ async def tax_detail(session_id: int, request: Request, back: str = Query("", al
         .order_by(TaxDocument.unit_number, TaxDocument.unit_letter)
         .all()
     )
+
+    # Stats are always computed from ALL documents (unfiltered)
+    stats = _session_stats(all_documents)
+
+    # Apply filter
+    if filtr == "confirmed":
+        documents = [
+            d for d in all_documents
+            if d.distributions and all(
+                x.match_status in (MatchStatus.CONFIRMED, MatchStatus.MANUAL)
+                for x in d.distributions
+            )
+        ]
+    elif filtr == "auto":
+        documents = [
+            d for d in all_documents
+            if d.distributions and any(
+                x.match_status == MatchStatus.AUTO_MATCHED for x in d.distributions
+            ) and not all(
+                x.match_status in (MatchStatus.CONFIRMED, MatchStatus.MANUAL)
+                for x in d.distributions
+            )
+        ]
+    elif filtr == "unmatched":
+        documents = [
+            d for d in all_documents
+            if not d.distributions or any(
+                x.match_status == MatchStatus.UNMATCHED for x in d.distributions
+            )
+        ]
+    else:
+        documents = all_documents
 
     owners = (
         db.query(Owner)
@@ -333,8 +371,9 @@ async def tax_detail(session_id: int, request: Request, back: str = Query("", al
         "back_url": back_url,
         "back_label": back_label,
         "list_url": list_url,
+        "filtr": filtr,
         "unit_by_number": _unit_by_number(db),
-        **_session_stats(documents),
+        **stats,
     })
 
 
