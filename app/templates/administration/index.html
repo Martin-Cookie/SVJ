@@ -331,6 +331,7 @@
                                     </svg>
                                 </span>
                                 {% endif %}
+                                {% if usage == 0 %}
                                 <form action="/sprava/ciselnik/{{ item.id }}/smazat" method="post" hx-boost="false" class="inline">
                                     <button type="submit" onclick="return confirm('Opravdu smazat položku „{{ item.value }}"?')" title="Smazat"
                                             class="p-1 text-gray-400 hover:text-red-600 rounded">
