@@ -51,6 +51,7 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
 
 ### A. Evidence vlastníků (`/vlastnici`)
 
+- Vytvoření nového vlastníka (inline HTMX formulář: příjmení, jméno, titul, typ, email, telefon, RČ/IČ)
 - Import z Excelu (31 sloupců, sheet `Vlastnici_SVJ`) s náhledem a potvrzením
 - Historie importů s možností smazání (smaže vlastníky, jednotky i přiřazení)
 - Seznam s vyhledáváním (jméno, email, telefon, RČ, IČ, č. jednotky)
@@ -378,6 +379,8 @@ wheels/                        # Offline Python balíčky (gitignored)
 | Metoda | Cesta | Popis |
 |--------|-------|-------|
 | GET | `/vlastnici` | Seznam vlastníků (search, filtr, řazení) |
+| GET | `/vlastnici/novy-formular` | HTMX: formulář nového vlastníka |
+| POST | `/vlastnici/novy` | Vytvoření vlastníka → redirect na detail |
 | GET | `/vlastnici/import` | Stránka importu z Excelu + historie |
 | POST | `/vlastnici/import` | Nahrání Excel souboru → náhled |
 | POST | `/vlastnici/import/potvrdit` | Potvrzení importu → uložení |
