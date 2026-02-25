@@ -13,6 +13,10 @@
         <h1 class="text-xl font-bold text-gray-800">Kontrola podílu SČD</h1>
         <p class="text-xs text-gray-500 mt-0.5">{{ session.filename }} | {{ session.created_at.strftime('%d.%m.%Y %H:%M') }} | Sloupce: {{ session.col_unit }} / {{ session.col_share }}</p>
     </div>
+    <form action="/kontrola-podilu/{{ session.id }}/exportovat" method="post" hx-boost="false">
+        <input type="hidden" name="filtr" value="{{ filtr }}">
+        <button type="submit" class="px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs font-medium">Export Excel</button>
+    </form>
 </div>
 
 <!-- Stats bubbles -->

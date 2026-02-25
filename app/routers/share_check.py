@@ -3,7 +3,7 @@ from datetime import datetime
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
-from fastapi.responses import RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -289,6 +289,112 @@ async def share_check_detail(
         "unit_map": unit_map,
         "owner_map": owner_map,
     })
+
+
+@router.post("/{session_id}/exportovat")
+async def share_check_export(
+    session_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Export current filtered view to Excel."""
+    form_data = await request.form()
+    filtr = form_data.get("filtr", "")
+
+    session = db.query(ShareCheckSession).get(session_id)
+    if not session:
+        return RedirectResponse("/kontrola-podilu", status_code=302)
+
+    query = db.query(ShareCheckRecord).filter_by(session_id=session_id)
+    if filtr == "match":
+        query = query.filter(ShareCheckRecord.status == ShareCheckStatus.MATCH)
+    elif filtr == "rozdil":
+        query = query.filter(ShareCheckRecord.status == ShareCheckStatus.DIFFERENCE)
+    elif filtr == "chybi_db":
+        query = query.filter(ShareCheckRecord.status == ShareCheckStatus.MISSING_DB)
+    elif filtr == "chybi_soubor":
+        query = query.filter(ShareCheckRecord.status == ShareCheckStatus.MISSING_FILE)
+
+    records = query.order_by(ShareCheckRecord.unit_number.asc()).all()
+
+    # Build owner_map for owner names in export
+    owner_map: dict[int, list[str]] = {}
+    owner_units = (
+        db.query(OwnerUnit.owner_id, Unit.unit_number, Owner.name_with_titles)
+        .join(OwnerUnit.unit)
+        .join(Owner, OwnerUnit.owner_id == Owner.id)
+        .filter(OwnerUnit.valid_to.is_(None))
+        .all()
+    )
+    for _, unit_num, oname in owner_units:
+        owner_map.setdefault(unit_num, []).append(oname)
+
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Kontrola podílu"
+
+    headers = ["Jednotka", "Vlastník", "Podíl DB", "Podíl soubor", "Rozdíl", "Stav"]
+    ws.append(headers)
+    bold = Font(bold=True)
+    for cell in ws[1]:
+        cell.font = bold
+
+    _STATUS_LABELS = {
+        "match": "Shoda",
+        "difference": "Rozdíl",
+        "missing_db": "Chybí v DB",
+        "missing_file": "Chybí v souboru",
+    }
+
+    diff_fill = PatternFill(start_color="FFF3CD", end_color="FFF3CD", fill_type="solid")
+
+    for r in records:
+        owners = "; ".join(owner_map.get(r.unit_number, []))
+        db_share = r.db_share
+        file_share = r.file_share
+        diff_val = (db_share or 0) - (file_share or 0) if db_share is not None and file_share is not None else None
+        row = [
+            r.unit_number,
+            owners or "—",
+            db_share,
+            file_share,
+            diff_val,
+            _STATUS_LABELS.get(r.status.value, r.status.value),
+        ]
+        ws.append(row)
+
+        if r.status == ShareCheckStatus.DIFFERENCE:
+            row_num = ws.max_row
+            ws.cell(row=row_num, column=3).fill = diff_fill
+            ws.cell(row=row_num, column=4).fill = diff_fill
+            ws.cell(row=row_num, column=5).fill = diff_fill
+
+    for col in ws.columns:
+        max_len = 0
+        for cell in col:
+            if cell.value is not None:
+                max_len = max(max_len, len(str(cell.value)))
+        ws.column_dimensions[col[0].column_letter].width = min(max_len + 2, 45)
+
+    _FILTR_LABELS = {
+        "": "vse", "match": "shoda", "rozdil": "rozdily",
+        "chybi_db": "chybi_db", "chybi_soubor": "chybi_soubor",
+    }
+    suffix = _FILTR_LABELS.get(filtr, filtr or "vse")
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"kontrola_podilu_{suffix}_{timestamp}.xlsx"
+    output_path = settings.generated_dir / "exports" / filename
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    wb.save(str(output_path))
+
+    return FileResponse(
+        str(output_path),
+        filename=filename,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
 
 
 @router.post("/{session_id}/smazat")

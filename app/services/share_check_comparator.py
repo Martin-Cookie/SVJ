@@ -353,7 +353,7 @@ def compare_shares(file_records: list[dict], db: Session) -> list[dict]:
     """
     Compare parsed file records against Unit.podil_scd in the database.
     Returns [{"unit_number", "db_share", "file_share", "status"}].
-    Deduplicates file records by unit_number (takes first occurrence).
+    Sums file_share per unit_number (multiple co-owner rows → one total).
     """
     from app.models import Unit
 
@@ -363,18 +363,17 @@ def compare_shares(file_records: list[dict], db: Session) -> list[dict]:
     for u in units:
         db_by_unit[u.unit_number] = u.podil_scd
 
-    # Deduplicate file records — one per unit (first occurrence wins)
-    deduped: dict[int, dict] = {}
+    # Aggregate file records — sum shares per unit (multiple co-owner rows)
+    summed: dict[int, int] = {}
     for rec in file_records:
-        if rec["unit_number"] not in deduped:
-            deduped[rec["unit_number"]] = rec
+        unit_num = rec["unit_number"]
+        share = rec["file_share"] or 0
+        summed[unit_num] = summed.get(unit_num, 0) + share
 
     results = []
     file_units_seen = set()
 
-    for rec in deduped.values():
-        unit_num = rec["unit_number"]
-        file_share = rec["file_share"]
+    for unit_num, file_share in summed.items():
         file_units_seen.add(unit_num)
 
         if unit_num not in db_by_unit:

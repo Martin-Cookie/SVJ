@@ -757,6 +757,90 @@ async def apply_selected_updates(
     return RedirectResponse(url, status_code=302)
 
 
+def _build_contact_preview(session_id: int, db: Session) -> list[dict]:
+    """Build preview of contact transfers from CSV to owners."""
+    records = (
+        db.query(SyncRecord)
+        .filter_by(session_id=session_id)
+        .filter(SyncRecord.status == SyncStatus.MATCH)
+        .all()
+    )
+
+    preview = []
+    seen_owners: set[int] = set()
+    for record in records:
+        if not record.unit_number:
+            continue
+        if not record.csv_email and not record.csv_phone:
+            continue
+
+        short_num = record.unit_number
+        owner_units = (
+            db.query(OwnerUnit)
+            .join(OwnerUnit.unit)
+            .filter(Unit.unit_number.endswith(f"/{short_num}") | (Unit.unit_number == short_num))
+            .filter(OwnerUnit.valid_to.is_(None))
+            .all()
+        )
+        if not owner_units:
+            continue
+
+        for ou in owner_units:
+            if ou.owner_id in seen_owners:
+                continue
+            seen_owners.add(ou.owner_id)
+
+            owner = db.query(Owner).get(ou.owner_id)
+            if not owner:
+                continue
+
+            will_email = bool(record.csv_email and not owner.email)
+            will_phone = bool(record.csv_phone and not owner.phone)
+
+            if not will_email and not will_phone:
+                continue
+
+            preview.append({
+                "owner_id": owner.id,
+                "owner_name": owner.display_name,
+                "unit_number": record.unit_number,
+                "current_email": owner.email or "",
+                "csv_email": record.csv_email or "",
+                "will_email": will_email,
+                "current_phone": owner.phone or "",
+                "csv_phone": record.csv_phone or "",
+                "will_phone": will_phone,
+            })
+
+    preview.sort(key=lambda x: x["owner_name"])
+    return preview
+
+
+@router.get("/{session_id}/nahled-kontaktu")
+async def contacts_preview(
+    session_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Preview contact transfers before applying."""
+    session = db.query(SyncSession).get(session_id)
+    if not session:
+        return RedirectResponse("/synchronizace", status_code=302)
+
+    preview = _build_contact_preview(session_id, db)
+    back_url = f"/synchronizace/{session_id}"
+
+    return templates.TemplateResponse("sync/contacts_preview.html", {
+        "request": request,
+        "active_nav": "sync",
+        "session": session,
+        "preview": preview,
+        "total_email": sum(1 for p in preview if p["will_email"]),
+        "total_phone": sum(1 for p in preview if p["will_phone"]),
+        "back_url": back_url,
+    })
+
+
 @router.post("/{session_id}/aplikovat-kontakty")
 async def apply_contacts(session_id: int, db: Session = Depends(get_db)):
     """Apply email and phone from CSV to matching owners."""
@@ -768,37 +852,39 @@ async def apply_contacts(session_id: int, db: Session = Depends(get_db)):
     )
 
     updated = 0
+    seen_owners: set[int] = set()
     for record in records:
         if not record.unit_number:
             continue
-        # Find owner by unit number — record has short number (e.g. "14"),
-        # DB has full KN number (e.g. "1098/14"), so search with LIKE suffix
         short_num = record.unit_number
-        owner_unit = (
+        owner_units = (
             db.query(OwnerUnit)
             .join(OwnerUnit.unit)
             .filter(Unit.unit_number.endswith(f"/{short_num}") | (Unit.unit_number == short_num))
             .filter(OwnerUnit.valid_to.is_(None))
-            .first()
+            .all()
         )
-        if not owner_unit:
-            continue
 
-        owner = db.query(Owner).get(owner_unit.owner_id)
-        if not owner:
-            continue
+        for ou in owner_units:
+            if ou.owner_id in seen_owners:
+                continue
+            seen_owners.add(ou.owner_id)
 
-        changed = False
-        if record.csv_email and not owner.email:
-            owner.email = record.csv_email
-            changed = True
-        if record.csv_phone and not owner.phone:
-            owner.phone = record.csv_phone
-            changed = True
+            owner = db.query(Owner).get(ou.owner_id)
+            if not owner:
+                continue
 
-        if changed:
-            owner.updated_at = datetime.utcnow()
-            updated += 1
+            changed = False
+            if record.csv_email and not owner.email:
+                owner.email = record.csv_email
+                changed = True
+            if record.csv_phone and not owner.phone:
+                owner.phone = record.csv_phone
+                changed = True
+
+            if changed:
+                owner.updated_at = datetime.utcnow()
+                updated += 1
 
     db.commit()
     return RedirectResponse(f"/synchronizace/{session_id}", status_code=302)
