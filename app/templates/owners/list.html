@@ -41,8 +41,13 @@
         </div>
         {% endif %}
     </div>
-    <a href="/vlastnici/import" class="px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs font-medium">Importovat z Excelu</a>
+    <button hx-get="/vlastnici/novy-formular" hx-target="#owner-create-section" hx-swap="innerHTML"
+            class="px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium">
+        + Nový vlastník
+    </button>
 </div>
+
+<div id="owner-create-section"></div>
 
 {% set _back = "&back=" ~ (back_url|default('')|urlencode) if back_url else "" %}
 {% set _base = "q=" ~ q ~ "&sekce=" ~ sekce ~ "&sort=" ~ sort ~ "&order=" ~ order ~ _back %}

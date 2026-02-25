@@ -96,14 +96,14 @@ async def voting_list(
                 "votes_for": votes_for,
                 "votes_against": votes_against,
                 "votes_abstain": votes_abstain,
-                "pct_for": round(votes_for / total * 100, 1) if total else 0,
-                "pct_against": round(votes_against / total * 100, 1) if total else 0,
+                "pct_for": round(votes_for / total * 100, 2) if total else 0,
+                "pct_against": round(votes_against / total * 100, 2) if total else 0,
             })
 
         voting_stats[voting.id] = {
             "processed_count": len(processed),
             "processed_votes": processed_votes,
-            "quorum_pct": round(processed_votes / total * 100, 1) if total else 0,
+            "quorum_pct": round(processed_votes / total * 100, 2) if total else 0,
             "quorum_reached": processed_votes / total >= voting.quorum_threshold if total else False,
             "item_results": item_results,
         }
@@ -274,10 +274,10 @@ async def voting_detail(
             "item": item,
             "votes_for": votes_for,
             "votes_against": votes_against,
-            "pct_for": round(votes_for / total * 100, 1) if total else 0,
-            "pct_against": round(votes_against / total * 100, 1) if total else 0,
+            "pct_for": round(votes_for / total * 100, 2) if total else 0,
+            "pct_against": round(votes_against / total * 100, 2) if total else 0,
             "votes_missing": total - votes_for - votes_against,
-            "pct_missing": round((total - votes_for - votes_against) / total * 100, 1) if total else 0,
+            "pct_missing": round((total - votes_for - votes_against) / total * 100, 2) if total else 0,
         })
 
     # Search filter

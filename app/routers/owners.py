@@ -34,6 +34,62 @@ SORT_COLUMNS = {
 }
 
 
+@router.get("/novy-formular")
+async def owner_create_form(request: Request):
+    return templates.TemplateResponse("partials/owner_create_form.html", {
+        "request": request,
+    })
+
+
+@router.post("/novy")
+async def owner_create(
+    request: Request,
+    first_name: str = Form(...),
+    last_name: str = Form(...),
+    title: str = Form(""),
+    owner_type: str = Form("physical"),
+    email: str = Form(""),
+    phone: str = Form(""),
+    birth_number: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    # Build name_with_titles and name_normalized
+    parts_wt = []
+    if title:
+        parts_wt.append(title)
+    if last_name:
+        parts_wt.append(last_name)
+    if first_name:
+        parts_wt.append(first_name)
+    name_with_titles = " ".join(parts_wt)
+
+    parts_norm = []
+    if last_name:
+        parts_norm.append(last_name)
+    if first_name:
+        parts_norm.append(first_name)
+    name_normalized = _strip_diacritics(" ".join(parts_norm))
+
+    owner = Owner(
+        first_name=first_name.strip(),
+        last_name=last_name.strip() or None,
+        title=title.strip() or None,
+        owner_type=OwnerType(owner_type),
+        name_with_titles=name_with_titles,
+        name_normalized=name_normalized,
+        email=email.strip() or None,
+        phone=phone.strip() or None,
+        birth_number=birth_number.strip() or None,
+        data_source="manual",
+        is_active=True,
+        created_at=datetime.utcnow(),
+    )
+    db.add(owner)
+    db.commit()
+
+    return RedirectResponse(f"/vlastnici/{owner.id}", status_code=302)
+
+
 @router.get("/")
 async def owner_list(
     request: Request,
