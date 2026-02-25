@@ -17,6 +17,7 @@ from app.models import (
     Voting, VotingItem, Ballot, BallotVote,
     TaxSession, TaxDocument, TaxDistribution,
     SyncSession, SyncRecord,
+    ShareCheckSession, ShareCheckRecord, ShareCheckColumnMapping,
     EmailLog, ImportLog,
 )
 from app.services.backup_service import (
@@ -499,6 +500,11 @@ _PURGE_CATEGORIES = {
         "description": "Synchronizační relace a záznamy",
         "models": [SyncRecord, SyncSession],
     },
+    "share_check": {
+        "label": "Kontrola podílu",
+        "description": "Kontroly podílů SČD — relace, záznamy, mapování sloupců",
+        "models": [ShareCheckRecord, ShareCheckSession, ShareCheckColumnMapping],
+    },
     "logs": {
         "label": "Logy",
         "description": "E-mailové logy, importní logy",
@@ -521,7 +527,7 @@ _PURGE_CATEGORIES = {
     },
 }
 
-_PURGE_ORDER = ["owners", "votings", "tax", "sync", "logs", "administration", "backups", "restore_log"]
+_PURGE_ORDER = ["owners", "votings", "tax", "sync", "share_check", "logs", "administration", "backups", "restore_log"]
 
 
 def _purge_counts(db: Session) -> dict:

@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% block title %}Porovnání podílů - {{ session.filename }}{% endblock %}
+
+{% block content %}
+<div class="flex flex-col" style="height:calc(100vh - 3rem)">
+<div class="shrink-0">
+<div class="mb-3">
+    <a href="{{ back_url|default('/kontrola-podilu') }}" class="text-sm text-gray-500 hover:text-gray-700">&larr; {{ back_label|default('Zpět') }}</a>
+</div>
+
+<div class="flex items-center justify-between mb-3">
+    <div>
+        <h1 class="text-xl font-bold text-gray-800">Kontrola podílu SČD</h1>
+        <p class="text-xs text-gray-500 mt-0.5">{{ session.filename }} | {{ session.created_at.strftime('%d.%m.%Y %H:%M') }} | Sloupce: {{ session.col_unit }} / {{ session.col_share }}</p>
+    </div>
+</div>
+
+<!-- Stats bubbles -->
+{% set _back = "&back=" ~ (back_url|default('')|urlencode) if back_url else "" %}
+{% macro podil_tbl(db_val, file_val) %}
+{% set d = db_val - file_val %}
+<table class="text-xs" style="border-spacing:0;border-collapse:collapse;margin:0 auto">
+    <tr><td class="text-left text-gray-500 pr-1" style="white-space:nowrap">DB:</td><td class="text-right font-mono text-gray-800" style="white-space:nowrap">{{ "{:,}".format(db_val).replace(",", " ") }}</td></tr>
+    <tr><td class="text-left text-gray-400 pr-1" style="white-space:nowrap">Soub:</td><td class="text-right font-mono text-gray-400" style="white-space:nowrap">{{ "{:,}".format(file_val).replace(",", " ") }}</td></tr>
+    <tr><td class="text-left pr-1 {% if d != 0 %}text-red-500{% else %}text-green-500{% endif %}" style="white-space:nowrap">&plusmn;</td><td class="text-right font-mono {% if d != 0 %}text-red-500{% else %}text-green-500{% endif %}" style="white-space:nowrap">{{ "{:,}".format(d).replace(",", " ") }}</td></tr>
+</table>
+{% endmacro %}
+
+<div class="flex gap-1.5 mb-3">
+    <a href="/kontrola-podilu/{{ session.id }}{{ '?back=' ~ (back_url|urlencode) if back_url else '' }}" style="flex:1" class="bg-white rounded-lg shadow px-2 py-1 text-center hover:ring-2 hover:ring-gray-300 {% if not filtr %}ring-2 ring-gray-400{% endif %}">
+        <p class="text-sm font-bold text-gray-800">{{ session.total_records }}</p>
+        <p class="text-xs text-gray-500">Celkem</p>
+        {{ podil_tbl(total_db_share, total_file_share) }}
+    </a>
+    <a href="/kontrola-podilu/{{ session.id }}?filtr=match{{ _back }}" style="flex:1" class="bg-green-50 rounded-lg shadow px-2 py-1 text-center border border-green-200 hover:ring-2 hover:ring-green-300 {% if filtr == 'match' %}ring-2 ring-green-400{% endif %}">
+        <p class="text-sm font-bold text-green-600">{{ total_match }}</p>
+        <p class="text-xs text-green-600">Shoda</p>
+        {{ podil_tbl(match_db, match_file) }}
+    </a>
+    <a href="/kontrola-podilu/{{ session.id }}?filtr=rozdil{{ _back }}" style="flex:1" class="bg-red-50 rounded-lg shadow px-2 py-1 text-center border border-red-200 hover:ring-2 hover:ring-red-300 {% if filtr == 'rozdil' %}ring-2 ring-red-400{% endif %}">
+        <p class="text-sm font-bold text-red-600">{{ total_diff }}</p>
+        <p class="text-xs text-red-600">Rozdíl</p>
+        {{ podil_tbl(diff_db, diff_file) }}
+    </a>
+    <a href="/kontrola-podilu/{{ session.id }}?filtr=chybi_db{{ _back }}" style="flex:1" class="bg-orange-50 rounded-lg shadow px-2 py-1 text-center border border-orange-200 hover:ring-2 hover:ring-orange-300 {% if filtr == 'chybi_db' %}ring-2 ring-orange-400{% endif %}">
+        <p class="text-sm font-bold text-orange-600">{{ total_missing_db }}</p>
+        <p class="text-xs text-orange-600">Chybí v DB</p>
+    </a>
+    <a href="/kontrola-podilu/{{ session.id }}?filtr=chybi_soubor{{ _back }}" style="flex:1" class="bg-gray-50 rounded-lg shadow px-2 py-1 text-center border border-gray-200 hover:ring-2 hover:ring-gray-300 {% if filtr == 'chybi_soubor' %}ring-2 ring-gray-400{% endif %}">
+        <p class="text-sm font-bold text-gray-600">{{ total_missing_file }}</p>
+        <p class="text-xs text-gray-600">Chybí v souboru</p>
+    </a>
+</div>
+
+<!-- Update toolbar -->
+</div>
+<form id="sc-update-form" action="/kontrola-podilu/{{ session.id }}/aktualizovat" method="post" class="flex flex-col flex-1 min-h-0">
+<input type="hidden" name="filtr" value="{{ filtr }}">
+<div class="shrink-0 flex items-center gap-3 mb-2 bg-white rounded-lg shadow px-3 py-2">
+    <button type="button" id="sc-toggle-btn" onclick="scToggleAll()" class="px-2 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 text-xs">Vybrat vše</button>
+    <span id="sc-selected-count" class="text-xs text-gray-500">0 vybráno</span>
+    <button type="submit" id="sc-submit-btn" disabled class="ml-auto px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed">Aktualizovat vybrané</button>
+</div>
+
+<!-- Comparison table -->
+<div class="flex-1 bg-white rounded-lg shadow overflow-y-auto overflow-x-hidden min-h-0">
+    <table class="w-full text-xs" style="table-layout:fixed">
+        <colgroup>
+            <col style="width:5%">
+            <col style="width:12%">
+            <col style="width:22%">
+            <col style="width:22%">
+            <col style="width:19%">
+            <col style="width:20%">
+        </colgroup>
+        <thead class="bg-gray-50 border-b-2 border-gray-300 sticky top-0 z-10">
+            {% set _base = "/kontrola-podilu/" ~ session.id ~ "?filtr=" ~ filtr %}
+            {% set _cols = [
+                ("Jedn.", "unit", "left"),
+                ("DB podíl", "db_share", "right"),
+                ("Soubor podíl", "file_share", "right"),
+                ("Rozdíl", "", "right"),
+                ("Stav", "status", "center"),
+            ] %}
+            <tr>
+                <th class="px-1 py-1.5"></th>
+                {% for label, col, align in _cols %}
+                {% if col %}
+                {% set next_order = "desc" if sort == col and order == "asc" else "asc" %}
+                <th class="px-1 py-1.5 text-{{ align }} font-medium {% if sort == col %}text-blue-600{% else %}text-gray-500{% endif %}">
+                    <a href="{{ _base }}&sort={{ col }}&order={{ next_order }}{{ _back }}"
+                       class="inline-flex items-center gap-0.5 cursor-pointer hover:text-blue-600 select-none">
+                        {{ label }}
+                        {% if sort == col %}
+                            {% if order == "asc" %}
+                            <svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L10 6.414l-3.293 3.293a1 1 0 01-1.414 0z"/></svg>
+                            {% else %}
+                            <svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path d="M14.707 10.293a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L10 13.586l3.293-3.293a1 1 0 011.414 0z"/></svg>
+                            {% endif %}
+                        {% endif %}
+                    </a>
+                </th>
+                {% else %}
+                <th class="px-1 py-1.5 text-{{ align }} font-medium text-gray-500">{{ label }}</th>
+                {% endif %}
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+        {% for record in records %}
+        {% include "partials/share_check_row.html" %}
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+</form>
+
+<div class="shrink-0 mt-2 text-xs text-gray-400">Zobrazeno: {{ records|length }} záznamů</div>
+</div>
+
+<script>
+function scToggleAll() {
+    var all = document.querySelectorAll('.sc-checkbox');
+    var anyUnchecked = Array.from(all).some(function(cb) { return !cb.checked; });
+    all.forEach(function(cb) { cb.checked = anyUnchecked; });
+    scUpdateCount();
+    document.getElementById('sc-toggle-btn').textContent = anyUnchecked ? 'Zrušit výběr' : 'Vybrat vše';
+}
+function scUpdateCount() {
+    var all = document.querySelectorAll('.sc-checkbox');
+    var checked = document.querySelectorAll('.sc-checkbox:checked').length;
+    var counter = document.getElementById('sc-selected-count');
+    var btn = document.getElementById('sc-submit-btn');
+    var toggle = document.getElementById('sc-toggle-btn');
+    if (counter) counter.textContent = checked + ' vybráno';
+    if (btn) btn.disabled = checked === 0;
+    if (toggle) toggle.textContent = (checked === all.length && all.length > 0) ? 'Zrušit výběr' : 'Vybrat vše';
+}
+if (location.hash) {
+    var el = document.querySelector(location.hash);
+    if (el) el.scrollIntoView({block: 'center'});
+}
+</script>
+{% endblock %}

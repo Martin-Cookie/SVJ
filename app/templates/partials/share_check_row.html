@@ -1,0 +1,47 @@
+{% set st = record.status.value %}
+{% set is_diff = st == 'difference' %}
+{% set is_missing_db = st == 'missing_db' %}
+{% set is_missing_file = st == 'missing_file' %}
+{% set is_match = st == 'match' %}
+{% set is_updated = record.resolution.value == 'updated' %}
+{% set bg_class %}{% if is_match or is_updated %}bg-green-50{% elif is_diff %}bg-red-50{% elif is_missing_db %}bg-orange-50{% elif is_missing_file %}bg-gray-50{% else %}bg-white{% endif %}{% endset %}
+{% set diff_val = (record.db_share or 0) - (record.file_share or 0) %}
+{% set back_url_rec = (("/kontrola-podilu/" ~ session.id ~ "?filtr=" ~ filtr) if (session is defined and filtr is defined) else ("/kontrola-podilu/" ~ session.id if session is defined else "/kontrola-podilu")) ~ "#sc-" ~ record.id %}
+<tr id="sc-{{ record.id }}" class="{{ bg_class }} hover:bg-opacity-80">
+    <td class="px-1 py-1.5 text-center">
+        {% if is_diff %}
+        <input type="checkbox" name="update__{{ record.id }}" value="1" class="sc-checkbox cursor-pointer" onchange="scUpdateCount()">
+        {% endif %}
+    </td>
+    <td class="px-1 py-1.5 font-medium">
+        {% if unit_map is defined and record.unit_number in unit_map %}
+        <a href="/jednotky/{{ unit_map[record.unit_number] }}?back={{ back_url_rec|urlencode }}" class="text-blue-600 hover:text-blue-800 hover:underline">{{ record.unit_number }}</a>
+        {% else %}
+        <span class="text-gray-900">{{ record.unit_number }}</span>
+        {% endif %}
+    </td>
+    <td class="px-1 py-1.5 text-right font-mono whitespace-nowrap text-gray-800">
+        {% if record.db_share is not none %}{{ "{:,}".format(record.db_share).replace(",", " ") }}{% else %}&mdash;{% endif %}
+    </td>
+    <td class="px-1 py-1.5 text-right font-mono whitespace-nowrap {% if is_diff %}text-red-600 font-bold{% else %}text-gray-500{% endif %}">
+        {% if record.file_share is not none %}{{ "{:,}".format(record.file_share).replace(",", " ") }}{% else %}&mdash;{% endif %}
+    </td>
+    <td class="px-1 py-1.5 text-right font-mono whitespace-nowrap {% if diff_val > 0 %}text-blue-600{% elif diff_val < 0 %}text-red-600{% else %}text-green-600{% endif %}">
+        {% if record.db_share is not none and record.file_share is not none %}
+        {{ "{:+,}".format(diff_val).replace(",", " ") }}
+        {% else %}&mdash;{% endif %}
+    </td>
+    <td class="px-1 py-1.5 text-center">
+        {% if is_updated %}
+        <span class="px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-800 rounded-full" {% if record.admin_note %}title="{{ record.admin_note }}"{% endif %}>Aktualizováno</span>
+        {% elif is_match %}
+        <span class="px-2 py-0.5 text-xs font-medium bg-green-100 text-green-800 rounded-full">Shoda</span>
+        {% elif is_diff %}
+        <span class="px-2 py-0.5 text-xs font-medium bg-red-100 text-red-800 rounded-full">Rozdíl</span>
+        {% elif is_missing_db %}
+        <span class="px-2 py-0.5 text-xs font-medium bg-orange-100 text-orange-800 rounded-full">Chybí v DB</span>
+        {% elif is_missing_file %}
+        <span class="px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">Chybí v souboru</span>
+        {% endif %}
+    </td>
+</tr>

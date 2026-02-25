@@ -176,6 +176,10 @@ def _ensure_indexes():
         # owner_units history
         ("ix_owner_units_valid_from", "owner_units", "valid_from"),
         ("ix_owner_units_valid_to", "owner_units", "valid_to"),
+        # share_check.py
+        ("ix_share_check_records_session_id", "share_check_records", "session_id"),
+        ("ix_share_check_records_status", "share_check_records", "status"),
+        ("ix_share_check_records_resolution", "share_check_records", "resolution"),
     ]
     with engine.connect() as conn:
         for idx_name, table, column in _INDEXES:
@@ -244,7 +248,7 @@ async def lifespan(app: FastAPI):
     # Ensure data directories exist
     for d in [settings.upload_dir, settings.generated_dir, settings.temp_dir]:
         d.mkdir(parents=True, exist_ok=True)
-    for sub in ["excel", "word_templates", "scanned_ballots", "tax_pdfs", "csv"]:
+    for sub in ["excel", "word_templates", "scanned_ballots", "tax_pdfs", "csv", "share_check"]:
         (settings.upload_dir / sub).mkdir(exist_ok=True)
     for sub in ["ballots", "exports"]:
         (settings.generated_dir / sub).mkdir(exist_ok=True)
@@ -258,7 +262,7 @@ app = FastAPI(title=settings.app_name, lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
 
 # Register routers
-from app.routers import dashboard, owners, units, voting, tax, sync, settings_page, administration  # noqa: E402
+from app.routers import dashboard, owners, units, voting, tax, sync, share_check, settings_page, administration  # noqa: E402
 
 app.include_router(dashboard.router)
 app.include_router(owners.router, prefix="/vlastnici", tags=["Vlastníci"])
@@ -266,5 +270,6 @@ app.include_router(units.router, prefix="/jednotky", tags=["Jednotky"])
 app.include_router(voting.router, prefix="/hlasovani", tags=["Hlasování"])
 app.include_router(tax.router, prefix="/dane", tags=["Daně"])
 app.include_router(sync.router, prefix="/synchronizace", tags=["Synchronizace"])
+app.include_router(share_check.router, prefix="/kontrola-podilu", tags=["Kontrola podílu"])
 app.include_router(administration.router, prefix="/sprava", tags=["Administrace"])
 app.include_router(settings_page.router, prefix="/nastaveni", tags=["Nastavení"])

@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}Kontrola podílu SČD - SVJ Správa{% endblock %}
+
+{% block content %}
+<div class="flex flex-col" style="height:calc(100vh - 48px)">
+    <div class="mb-3 flex-none">
+        {% if back_url %}
+        <a href="{{ back_url }}" class="text-sm text-gray-500 hover:text-gray-700">&larr; Zpět na přehled</a>
+        {% endif %}
+    </div>
+    <h1 class="text-xl font-bold text-gray-800 mb-4 flex-none">Kontrola podílu SČD</h1>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start flex-1 min-h-0">
+        <!-- Left: upload form -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-sm font-semibold text-gray-700 mb-3">Nahrát soubor s podíly</h2>
+            <div class="mb-4">
+                <ol class="text-xs text-gray-500 list-decimal list-inside space-y-0.5">
+                    <li>Připravte CSV nebo XLSX soubor s podíly SČD</li>
+                    <li>Nahrajte soubor níže</li>
+                    <li>Potvrďte mapování sloupců</li>
+                    <li>Systém porovná podíly s daty v evidenci</li>
+                </ol>
+            </div>
+
+            <form action="/kontrola-podilu/nova" method="post" enctype="multipart/form-data">
+                <div class="mb-3">
+                    <input type="file" name="file" accept=".csv,.xlsx,.xls" required
+                           class="block w-full text-sm text-gray-500 file:mr-4 file:py-1.5 file:px-3
+                                  file:rounded file:border-0 file:text-sm file:font-medium
+                                  file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                    <p class="text-xs text-gray-400 mt-1">
+                        CSV (středník/čárka, UTF-8/Windows-1250) nebo XLSX soubor.
+                    </p>
+                </div>
+                <button type="submit" class="px-4 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm font-medium">
+                    Nahrát a pokračovat
+                </button>
+            </form>
+        </div>
+
+        <!-- Right: history -->
+        <div class="bg-white rounded-lg shadow flex flex-col min-h-0 h-full">
+            <div class="px-4 pt-4 flex-none">
+                <h2 class="text-sm font-semibold text-gray-700 mb-2">Historie kontrol</h2>
+            </div>
+            {% if sessions %}
+            <div class="flex-none px-4">
+                <table class="w-full text-sm">
+                    <thead class="border-b border-gray-200">
+                        <tr>
+                            <th class="px-3 py-1.5 text-left font-medium text-gray-500">Soubor</th>
+                            <th class="px-3 py-1.5 text-left font-medium text-gray-500">Datum</th>
+                            <th class="px-3 py-1.5 text-right font-medium text-gray-500">Shoda</th>
+                            <th class="px-3 py-1.5 text-right font-medium text-gray-500">Rozdíly</th>
+                            <th class="px-3 py-1.5"></th>
+                        </tr>
+                    </thead>
+                </table>
+            </div>
+            <div class="flex-1 overflow-y-auto px-4 pb-4 min-h-0">
+                <table class="w-full text-sm">
+                    <tbody class="divide-y divide-gray-100">
+                        {% for session in sessions %}
+                        <tr id="session-{{ session.id }}" class="hover:bg-gray-50">
+                            <td class="px-3 py-1.5">
+                                <a href="/kontrola-podilu/{{ session.id }}?back={{ ((list_url or '/kontrola-podilu') ~ '#session-' ~ session.id)|urlencode }}" class="text-blue-600 hover:text-blue-800 hover:underline font-medium truncate block" style="max-width:160px" title="{{ session.filename }}">{{ session.filename }}</a>
+                            </td>
+                            <td class="px-3 py-1.5 text-gray-500 text-xs whitespace-nowrap">{{ session.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
+                            <td class="px-3 py-1.5 text-green-600 text-right whitespace-nowrap">{{ session.total_matches }}</td>
+                            <td class="px-3 py-1.5 text-red-600 text-right whitespace-nowrap">{{ session.total_differences + session.total_missing_db + session.total_missing_file }}</td>
+                            <td class="px-3 py-1.5 text-right">
+                                <form action="/kontrola-podilu/{{ session.id }}/smazat" method="post" style="display:inline"
+                                      onsubmit="return confirm('Smazat kontrolu {{ session.filename }}?')">
+                                    <button type="submit" class="p-1 rounded text-gray-400 hover:text-red-600 hover:bg-red-50" title="Smazat">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="px-4 pb-4">
+                <p class="text-sm text-gray-400">Zatím žádné kontroly.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+<script>
+if (location.hash) {
+    var el = document.querySelector(location.hash);
+    if (el) el.scrollIntoView({block: 'center'});
+}
+</script>
+{% endblock %}

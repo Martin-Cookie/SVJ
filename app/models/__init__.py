@@ -7,6 +7,10 @@ from app.models.tax import TaxSession, TaxDocument, TaxDistribution, MatchStatus
 from app.models.sync import SyncSession, SyncRecord, SyncStatus, SyncResolution
 from app.models.common import EmailLog, ImportLog, EmailStatus
 from app.models.administration import SvjInfo, SvjAddress, BoardMember
+from app.models.share_check import (
+    ShareCheckSession, ShareCheckRecord, ShareCheckColumnMapping,
+    ShareCheckStatus, ShareCheckResolution,
+)
 
 __all__ = [
     "Owner", "Unit", "OwnerUnit", "OwnerType", "Proxy",
@@ -17,4 +21,6 @@ __all__ = [
     "SyncSession", "SyncRecord", "SyncStatus", "SyncResolution",
     "EmailLog", "ImportLog", "EmailStatus",
     "SvjInfo", "SvjAddress", "BoardMember",
+    "ShareCheckSession", "ShareCheckRecord", "ShareCheckColumnMapping",
+    "ShareCheckStatus", "ShareCheckResolution",
 ]
