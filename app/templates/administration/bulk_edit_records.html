@@ -3,6 +3,15 @@
 {% elif model_type == "unit" %}
 <tr>
     <td colspan="99" class="p-0">
+        <div class="flex items-center gap-2 px-2 py-1.5 bg-gray-100 border-b border-gray-200">
+            <span class="text-xs text-gray-500">Filtr:</span>
+            <select class="bulk-col-filter text-xs border border-gray-300 rounded px-1.5 py-0.5" data-col="3" onchange="filterBulkRecords(this)">
+                <option value="">Typ prostoru: vše</option>
+                {% for v in records|map(attribute='space_type')|unique|sort %}
+                {% if v %}<option value="{{ v }}">{{ v }}</option>{% endif %}
+                {% endfor %}
+            </select>
+        </div>
         <table class="w-full text-xs bg-gray-50 bulk-sortable">
             <thead>
                 <tr class="bg-gray-50 border-b border-gray-200">
@@ -24,7 +33,7 @@
             </thead>
             <tbody class="divide-y divide-gray-100">
                 {% for u in records %}
-                <tr id="bulk-unit-{{ u.id }}" class="hover:bg-gray-100">
+                <tr id="bulk-unit-{{ u.id }}" class="hover:bg-gray-100" data-filter-3="{{ u.space_type or '' }}">
                     <td class="px-2 py-1 text-center">
                         <input type="checkbox" class="bulk-cb" value="{{ u.id }}"
                                onchange="updateCounter(this)">
@@ -52,6 +61,21 @@
 {% elif model_type == "owner_unit" %}
 <tr>
     <td colspan="99" class="p-0">
+        <div class="flex items-center gap-2 px-2 py-1.5 bg-gray-100 border-b border-gray-200">
+            <span class="text-xs text-gray-500">Filtr:</span>
+            <select class="bulk-col-filter text-xs border border-gray-300 rounded px-1.5 py-0.5" data-col="3" onchange="filterBulkRecords(this)">
+                <option value="">Typ prostoru: vše</option>
+                {% for v in records|map(attribute='unit')|map(attribute='space_type')|unique|sort %}
+                {% if v %}<option value="{{ v }}">{{ v }}</option>{% endif %}
+                {% endfor %}
+            </select>
+            <select class="bulk-col-filter text-xs border border-gray-300 rounded px-1.5 py-0.5" data-col="6" onchange="filterBulkRecords(this)">
+                <option value="">Vlastnictví: vše</option>
+                {% for v in records|map(attribute='ownership_type')|unique|sort %}
+                {% if v %}<option value="{{ v }}">{{ v }}</option>{% endif %}
+                {% endfor %}
+            </select>
+        </div>
         <table class="w-full text-xs bg-gray-50 bulk-sortable">
             <thead>
                 <tr class="bg-gray-50 border-b border-gray-200">
@@ -70,7 +94,7 @@
             </thead>
             <tbody class="divide-y divide-gray-100">
                 {% for ou in records %}
-                <tr id="bulk-ou-{{ ou.id }}" class="hover:bg-gray-100">
+                <tr id="bulk-ou-{{ ou.id }}" class="hover:bg-gray-100" data-filter-3="{{ ou.unit.space_type or '' }}" data-filter-6="{{ ou.ownership_type or '' }}">
                     <td class="px-2 py-1 text-center">
                         <input type="checkbox" class="bulk-cb" value="{{ ou.id }}"
                                onchange="updateCounter(this)">

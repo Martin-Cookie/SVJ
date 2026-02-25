@@ -1,6 +1,7 @@
 {% if not values %}
 <p class="text-sm text-gray-400">Žádná data.</p>
 {% else %}
+<style>.bulk-row-hidden { display: none !important; }</style>
 
 <datalist id="dl-suggestions">
     {% for s in suggestions %}
@@ -129,19 +130,28 @@ function toggleDetail(idx, field, value) {
 
 function bulkCheck(selectAllCb, checked) {
     var table = selectAllCb.closest('table');
-    table.querySelectorAll('.bulk-cb').forEach(function(cb) { cb.checked = checked; });
+    // Only toggle checkboxes in visible (non-filtered) rows
+    table.querySelectorAll('tbody tr').forEach(function(row) {
+        if (row.classList.contains('bulk-row-hidden')) return;
+        var cb = row.querySelector('.bulk-cb');
+        if (cb) cb.checked = checked;
+    });
     saveBulkChecks(selectAllCb);
+}
+
+function _syncSelectAll(table) {
+    var visible = Array.from(table.querySelectorAll('tbody tr:not(.bulk-row-hidden) .bulk-cb'));
+    var checkedCount = visible.filter(function(c) { return c.checked; }).length;
+    var selectAll = table.querySelector('.bulk-select-all');
+    if (selectAll) {
+        selectAll.checked = checkedCount === visible.length && visible.length > 0;
+        selectAll.indeterminate = checkedCount > 0 && checkedCount < visible.length;
+    }
 }
 
 function updateCounter(cb) {
     var table = cb.closest('table');
-    var all = table.querySelectorAll('.bulk-cb');
-    var checked = table.querySelectorAll('.bulk-cb:checked').length;
-    var selectAll = table.querySelector('.bulk-select-all');
-    if (selectAll) {
-        selectAll.checked = checked === all.length;
-        selectAll.indeterminate = checked > 0 && checked < all.length;
-    }
+    _syncSelectAll(table);
     saveBulkChecks(cb);
 }
 
@@ -210,6 +220,32 @@ function sortValuesCol(th) {
         tbody.appendChild(p.value);
         tbody.appendChild(p.detail);
     });
+}
+
+function filterBulkRecords(select) {
+    var container = select.closest('td');
+    var table = container.querySelector('table.bulk-sortable');
+    var filters = container.querySelectorAll('.bulk-col-filter');
+    var tbody = table.querySelector('tbody');
+    var rows = Array.from(tbody.querySelectorAll('tr'));
+
+    rows.forEach(function(row) {
+        var show = true;
+        filters.forEach(function(f) {
+            var val = f.value;
+            if (!val) return;
+            var col = f.dataset.col;
+            var rowVal = row.getAttribute('data-filter-' + col) || '';
+            if (rowVal !== val) show = false;
+        });
+        if (show) {
+            row.classList.remove('bulk-row-hidden');
+        } else {
+            row.classList.add('bulk-row-hidden');
+        }
+    });
+
+    _syncSelectAll(table);
 }
 
 function sortBulkCol(th) {
