@@ -127,7 +127,9 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
   - Nastavitelný počáteční řádek dat
   - Režim importu: doplnit (ponechat existující) nebo vyčistit a přepsat
   - Automatické párování spoluvlastníků (SJM): pokud Excel řádek má hlasy, aplikují se na všechny vlastníky sdílející tutéž jednotku
-  - Náhled s filtračními bublinami (přiřazeno/nepřiřazeno/chyby)
+  - Podpora porovnávacích operátorů (`>0`, `<0`, `>=`, `<=`) pro hodnoty PRO/PROTI
+  - Náhled s filtračními bublinami (přiřazeno/nepřiřazeno/nerozpoznáno/chyby)
+  - Detekce nerozpoznaných hodnot: řádky s vyplněnými buňkami, které neodpovídají pravidlům PRO/PROTI, se zobrazí v oranžové bublině „Nerozpoznáno" se surovými hodnotami
   - Výsledek s prokliky na zpracované/nezpracované lístky
 
 ### D. Rozúčtování příjmů (`/dane`)
