@@ -86,6 +86,83 @@ async def unit_create(
     return RedirectResponse(f"/jednotky/{unit.id}", status_code=302)
 
 
+@router.get("/{unit_id}/vlastnici-sekce")
+async def unit_owners_section(
+    unit_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    unit = db.query(Unit).options(
+        joinedload(Unit.owners).joinedload(OwnerUnit.owner)
+    ).get(unit_id)
+    if not unit:
+        return HTMLResponse("<p class='text-sm text-red-600'>Jednotka nenalezena.</p>")
+    return templates.TemplateResponse("partials/unit_owners.html", {
+        "request": request,
+        "unit": unit,
+    })
+
+
+@router.get("/{unit_id}/vlastnik/{ou_id}/upravit-formular")
+async def owner_unit_edit_form(
+    unit_id: int,
+    ou_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    unit = db.query(Unit).get(unit_id)
+    ou = db.query(OwnerUnit).options(joinedload(OwnerUnit.owner)).get(ou_id)
+    if not unit or not ou or ou.unit_id != unit_id:
+        return HTMLResponse("<tr><td colspan='5' class='text-sm text-red-600 px-3 py-2'>Záznam nenalezen.</td></tr>")
+    return templates.TemplateResponse("partials/unit_owner_edit_row.html", {
+        "request": request,
+        "unit": unit,
+        "ou": ou,
+    })
+
+
+@router.post("/{unit_id}/vlastnik/{ou_id}/upravit")
+async def owner_unit_update(
+    unit_id: int,
+    ou_id: int,
+    request: Request,
+    share: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    unit = db.query(Unit).options(
+        joinedload(Unit.owners).joinedload(OwnerUnit.owner)
+    ).get(unit_id)
+    ou = db.query(OwnerUnit).get(ou_id)
+    if not unit or not ou or ou.unit_id != unit_id:
+        return HTMLResponse("<p class='text-sm text-red-600'>Záznam nenalezen.</p>")
+
+    # Parse share — accept both float (0.5) and fraction (1/2)
+    try:
+        if "/" in share:
+            parts = share.split("/")
+            share_val = float(parts[0].strip()) / float(parts[1].strip())
+        else:
+            share_val = float(share)
+    except (ValueError, ZeroDivisionError):
+        share_val = ou.share  # keep original on parse error
+
+    ou.share = share_val
+
+    # Recalculate votes for all owners of the unit
+    from app.services.owner_exchange import recalculate_unit_votes
+    recalculate_unit_votes(unit, db)
+
+    db.commit()
+
+    # Refresh relationships
+    db.refresh(unit)
+
+    return templates.TemplateResponse("partials/unit_owners.html", {
+        "request": request,
+        "unit": unit,
+    })
+
+
 @router.get("/{unit_id}/upravit-formular")
 async def unit_edit_form(
     unit_id: int,
