@@ -1,5 +1,6 @@
 import shutil
 from datetime import date, datetime
+from unicodedata import category, normalize
 
 from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
 from fastapi.responses import RedirectResponse
@@ -14,6 +15,12 @@ from app.services.excel_import import import_owners_from_excel, preview_owners_f
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
+
+
+def _strip_diacritics(text: str) -> str:
+    """Remove diacritics and lowercase for SQLite-safe search."""
+    nfkd = normalize("NFD", text)
+    return "".join(c for c in nfkd if category(c) != "Mn").lower()
 
 
 SORT_COLUMNS = {
@@ -46,10 +53,12 @@ async def owner_list(
     )
     if q:
         search = f"%{q}%"
+        search_ascii = f"%{_strip_diacritics(q)}%"
         # Search across name, email, phone, birth number, company ID, unit number
+        # name_normalized is stored without diacritics → compare with stripped search
         query = query.filter(
-            Owner.name_with_titles.ilike(search)
-            | Owner.name_normalized.ilike(search)
+            Owner.name_normalized.like(search_ascii)
+            | Owner.name_with_titles.ilike(search)
             | Owner.first_name.ilike(search)
             | Owner.last_name.ilike(search)
             | Owner.email.ilike(search)

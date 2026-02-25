@@ -246,12 +246,24 @@ Vzor se skládá ze dvou partials (info + form) a tří endpointů:
 - Prohledávají se všechna relevantní pole (jméno, email, telefon, RČ, IČ, číslo jednotky, adresa)
 - Hledání se kombinuje s filtry (typ, sekce, vlastnictví, kontakt) — filtry se přenáší přes hidden inputy a `hx-include`
 - Hidden inputy (`sort`, `order`, `stav`, `back`) jsou VEDLE search inputu, NE uvnitř tbody partial
+- **Diakritika v SQLite**: SQLite `lower()` a `LIKE`/`ilike` nefungují s českou diakritikou (č≠Č, ř≠Ř atd.). Proto se jména **vždy hledají přes sloupec `name_normalized`** (bez diakritiky, lowercase) s normalizovaným hledaným výrazem:
+  ```python
+  from unicodedata import category, normalize
+
+  def _strip_diacritics(text: str) -> str:
+      nfkd = normalize("NFD", text)
+      return "".join(c for c in nfkd if category(c) != "Mn").lower()
+
+  search_ascii = f"%{_strip_diacritics(q)}%"
+  Owner.name_normalized.like(search_ascii)  # NE ilike — name_normalized je už lowercase
+  ```
+- **Nikdy nepoužívat `name_with_titles.ilike(search)` jako hlavní vyhledávání jmen** — selže pro české znaky. Vždy `name_normalized.like(search_ascii)`.
 
 ## Jména vlastníků
 
 - **Zobrazení**: vždy `owner.display_name` (property na modelu Owner) — formát „titul příjmení jméno"
-- **DB sloupec** `name_with_titles` zůstává pro SQL dotazy (`.ilike()`, index) — nepoužívat v šablonách
-- **Hledání** v Pythonu: `owner.display_name.lower()` (ne `name_with_titles`)
+- **DB sloupec** `name_with_titles` zůstává pro index — nepoužívat v šablonách ani pro vyhledávání
+- **Hledání** v SQL: `Owner.name_normalized.like(search_ascii)` — viz sekce Vyhledávání výše
 - **Řazení**: `owner.name_normalized` (příjmení-first, bez diakritiky, lowercase)
 - **Budoucí importy**: `_build_name_with_titles()` v `excel_import.py` generuje příjmení-first formát
 

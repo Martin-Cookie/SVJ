@@ -1,4 +1,5 @@
 from datetime import datetime
+from unicodedata import category, normalize
 
 from fastapi import APIRouter, Depends, Form, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -11,6 +12,12 @@ from app.models import Owner, OwnerUnit, SvjInfo, Unit
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
+
+
+def _strip_diacritics(text: str) -> str:
+    """Remove diacritics and lowercase for SQLite-safe search."""
+    nfkd = normalize("NFD", text)
+    return "".join(c for c in nfkd if category(c) != "Mn").lower()
 
 
 SORT_COLUMNS = {
@@ -276,13 +283,14 @@ async def unit_list(
 
     if q:
         search = f"%{q}%"
+        search_ascii = f"%{_strip_diacritics(q)}%"
         query = query.filter(
             cast(Unit.unit_number, String).ilike(search)
             | Unit.building_number.ilike(search)
             | Unit.space_type.ilike(search)
             | Unit.section.ilike(search)
             | Unit.address.ilike(search)
-            | Unit.owners.any(OwnerUnit.owner.has(Owner.name_with_titles.ilike(search)))
+            | Unit.owners.any(OwnerUnit.owner.has(Owner.name_normalized.like(search_ascii)))
         )
     if typ:
         query = query.filter(Unit.space_type == typ)
