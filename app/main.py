@@ -197,9 +197,18 @@ def run_post_restore_migrations():
     """Re-connect to the (possibly replaced) database and run all migrations.
 
     Called after every backup restore so the server keeps running even when
-    the restored DB is missing new columns.
+    the restored DB is missing new columns or tables.
     """
     engine.dispose()  # drop stale connections to the old file
+
+    # Create any missing tables (e.g. share_check_* from newer code)
+    import app.models  # noqa: F401
+    Base.metadata.create_all(bind=engine)
+
+    try:
+        _migrate_units_table()
+    except Exception:
+        logger.warning("post-restore: units table migration skipped")
     try:
         _migrate_owner_units_history()
     except Exception:
