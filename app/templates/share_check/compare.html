@@ -66,17 +66,19 @@
 <div class="flex-1 bg-white rounded-lg shadow overflow-y-auto overflow-x-hidden min-h-0">
     <table class="w-full text-xs" style="table-layout:fixed">
         <colgroup>
-            <col style="width:5%">
-            <col style="width:12%">
-            <col style="width:22%">
-            <col style="width:22%">
-            <col style="width:19%">
-            <col style="width:20%">
+            <col style="width:4%">
+            <col style="width:8%">
+            <col style="width:26%">
+            <col style="width:16%">
+            <col style="width:16%">
+            <col style="width:14%">
+            <col style="width:16%">
         </colgroup>
         <thead class="bg-gray-50 border-b-2 border-gray-300 sticky top-0 z-10">
             {% set _base = "/kontrola-podilu/" ~ session.id ~ "?filtr=" ~ filtr %}
             {% set _cols = [
                 ("Jedn.", "unit", "left"),
+                ("Vlastník", "", "left"),
                 ("DB podíl", "db_share", "right"),
                 ("Soubor podíl", "file_share", "right"),
                 ("Rozdíl", "", "right"),

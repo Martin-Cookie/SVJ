@@ -11,8 +11,8 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.database import get_db
 from app.models import (
-    ImportLog, ShareCheckColumnMapping, ShareCheckRecord, ShareCheckResolution,
-    ShareCheckSession, ShareCheckStatus, Unit,
+    ImportLog, Owner, OwnerUnit, ShareCheckColumnMapping, ShareCheckRecord,
+    ShareCheckResolution, ShareCheckSession, ShareCheckStatus, Unit,
 )
 from app.services.share_check_comparator import (
     compare_shares, get_file_headers, get_file_preview, parse_file, suggest_mapping,
@@ -242,11 +242,22 @@ async def share_check_detail(
 
     records = query.all()
 
-    # Build unit_number → unit_id mapping for clickable links
+    # Build unit_number → unit_id and unit_number → [(owner_id, name)] mappings
     unit_map = {}
     units = db.query(Unit.unit_number, Unit.id).all()
     for unit_num, unit_id in units:
         unit_map[unit_num] = unit_id
+
+    owner_map: dict[int, list[tuple[int, str]]] = {}
+    owner_units = (
+        db.query(OwnerUnit.owner_id, Unit.unit_number, Owner.name_with_titles)
+        .join(OwnerUnit.unit)
+        .join(Owner, OwnerUnit.owner_id == Owner.id)
+        .filter(OwnerUnit.valid_to.is_(None))
+        .all()
+    )
+    for oid, unit_num, oname in owner_units:
+        owner_map.setdefault(unit_num, []).append((oid, oname))
 
     back_url = back or "/kontrola-podilu"
     back_label = "Zpět na přehled" if back == "/" else "Zpět"
@@ -276,6 +287,7 @@ async def share_check_detail(
         "total_db_share": total_db_share,
         "total_file_share": total_file_share,
         "unit_map": unit_map,
+        "owner_map": owner_map,
     })
 
 

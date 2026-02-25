@@ -232,7 +232,24 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
 - Všechny sekce zabaleny do skládacích `<details>` bloků
 - Modely: `SvjInfo`, `SvjAddress`, `BoardMember`
 
-### G. Nastavení (`/nastaveni`)
+### G. Kontrola podílu SČD (`/kontrola-podilu`)
+
+- Nahrání CSV, XLSX nebo XLS souboru s podíly SČD
+- Automatická detekce sloupců (case-insensitive kandidáti) s fallbackem na uloženou historii mapování
+- Náhled vzorkových hodnot u každého sloupce při výběru mapování
+- Podpora starého .xls formátu (xlrd) i .xlsx (openpyxl)
+- CSV: auto-detekce oddělovače (středník/čárka) a kódování (UTF-8/Windows-1250)
+- Parsování čísla jednotky z formátu „1098/14" → 14, podílu z „12212/4103391" → 12212
+- Deduplikace spoluvlastníků (stejná jednotka → první výskyt)
+- Porovnání s evidencí: shoda / rozdíl / chybí v DB / chybí v souboru
+- Filtrační bubliny s dynamickými počty a souhrny podílů (DB, soubor, rozdíl)
+- Klikací jména vlastníků s proklikem na detail a návratem zpět
+- Klikací čísla jednotek s proklikem na detail a návratem zpět
+- Třídění kliknutím na hlavičky sloupců
+- Selektivní aktualizace: checkboxy u rozdílů → batch update Unit.podil_scd
+- Historie kontrol s možností smazání (cascade smaže záznamy i soubor)
+
+### H. Nastavení (`/nastaveni`)
 
 - Přehled odeslaných emailů (posledních 50)
 
@@ -248,6 +265,7 @@ app/
 │   ├── voting.py              #   Voting, VotingItem, Ballot, BallotVote
 │   ├── tax.py                 #   TaxSession, TaxDocument, TaxDistribution
 │   ├── sync.py                #   SyncSession, SyncRecord
+│   ├── share_check.py         #   ShareCheckSession, ShareCheckRecord, ShareCheckColumnMapping
 │   ├── common.py              #   EmailLog, ImportLog
 │   └── administration.py      #   SvjInfo, SvjAddress, BoardMember
 ├── routers/                   # HTTP endpointy
@@ -257,6 +275,7 @@ app/
 │   ├── voting.py              #   /hlasovani
 │   ├── tax.py                 #   /dane
 │   ├── sync.py                #   /synchronizace
+│   ├── share_check.py         #   /kontrola-podilu
 │   ├── administration.py      #   /sprava
 │   └── settings_page.py       #   /nastaveni
 ├── services/                  # Business logika
@@ -268,6 +287,7 @@ app/
 │   ├── owner_matcher.py       #   Fuzzy párování jmen
 │   ├── voting_import.py       #   Import výsledků hlasování z Excelu
 │   ├── csv_comparator.py      #   Porovnání CSV vs Excel
+│   ├── share_check_comparator.py #  Parsování souboru + porovnání podílů SČD
 │   ├── owner_exchange.py      #   Výměna vlastníků při synchronizaci
 │   ├── backup_service.py      #   Zálohování a obnova dat (ZIP)
 │   ├── data_export.py         #   Export dat do Excel/CSV (6 kategorií)
@@ -310,6 +330,10 @@ app/
 │   │   ├── index.html         #     Nahrání CSV + historie kontrol
 │   │   ├── compare.html       #     Porovnání s filtry a bublinami
 │   │   └── exchange_preview.html #  Preview výměny vlastníků
+│   ├── share_check/           #   Stránky kontroly podílu
+│   │   ├── index.html         #     Nahrání souboru + historie kontrol
+│   │   ├── mapping.html       #     Mapování sloupců (krok 2)
+│   │   └── compare.html       #     Výsledky s filtry a bublinami
 │   ├── administration/        #   Stránky administrace
 │   │   ├── index.html         #     Info SVJ, adresy, výbor, kontrolní orgán
 │   │   ├── bulk_edit.html     #     Hromadné úpravy — výběr pole
@@ -329,6 +353,7 @@ app/
 │       ├── unit_edit_form.html
 │       ├── unit_info.html
 │       ├── sync_row.html
+│       ├── share_check_row.html
 │       ├── tax_match_row.html
 │       └── ballot_processed.html
 └── static/                    # CSS, JS
@@ -437,6 +462,18 @@ wheels/                        # Offline Python balíčky (gitignored)
 | POST | `/synchronizace/{id}/odmitnout/{rec_id}` | Odmítnutí změny |
 | POST | `/synchronizace/{id}/upravit/{rec_id}` | Ruční úprava jména |
 
+### Kontrola podílu SČD (`/kontrola-podilu`)
+
+| Metoda | Cesta | Popis |
+|--------|-------|-------|
+| GET | `/kontrola-podilu` | Historie kontrol + upload formulář |
+| POST | `/kontrola-podilu/nova` | Nahrání souboru → redirect na mapování |
+| GET | `/kontrola-podilu/mapovani` | Mapování sloupců (auto-detekce + preview) |
+| POST | `/kontrola-podilu/potvrdit-mapovani` | Porovnání → uložení → redirect na detail |
+| GET | `/kontrola-podilu/{id}` | Výsledky s filtry a bublinami |
+| POST | `/kontrola-podilu/{id}/smazat` | Smazání kontroly (záznamy + soubor) |
+| POST | `/kontrola-podilu/{id}/aktualizovat` | Batch update Unit.podil_scd z vybraných |
+
 ### Administrace (`/sprava`)
 
 | Metoda | Cesta | Popis |
@@ -488,6 +525,7 @@ LIBREOFFICE_PATH=/Applications/LibreOffice.app/Contents/MacOS/soffice
 - **Voting** → VotingItem → Ballot → BallotVote
 - **TaxSession** → TaxDocument → TaxDistribution
 - **SyncSession** → SyncRecord (cascade delete)
+- **ShareCheckSession** → ShareCheckRecord (cascade delete); ShareCheckColumnMapping (zapamatované mapování sloupců)
 - **SvjInfo** → SvjAddress — informace o SVJ a adresy
 - **BoardMember** — členové výboru a kontrolního orgánu (group: board/control)
 - **EmailLog**, **ImportLog** — systémové logy
