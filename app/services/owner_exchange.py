@@ -364,12 +364,22 @@ def execute_exchange(
             unit.space_type = record.csv_space_type
         # ownership_type is on OwnerUnit, already set above
 
+        # Update unit podil_scd if CSV has a different value
+        if record.csv_share and record.csv_share != (unit.podil_scd or 0):
+            unit.podil_scd = record.csv_share
+            # Re-recalculate votes with updated podil_scd
+            current_ous = db.query(OwnerUnit).filter_by(unit_id=unit.id).filter(OwnerUnit.valid_to.is_(None)).all()
+            votes_split = _split_votes(unit.podil_scd or 0, len(current_ous))
+            for i, cou in enumerate(current_ous):
+                cou.votes = votes_split[i] if i < len(votes_split) else 0
+
         # Update SyncRecord
         record.status = SyncStatus.MATCH
         record.resolution = SyncResolution.EXCHANGED
         record.excel_owner_name = record.csv_owner_name
         record.excel_space_type = record.csv_space_type or record.excel_space_type
         record.excel_ownership_type = record.csv_ownership_type or record.excel_ownership_type
+        record.excel_podil_scd = record.csv_share or record.excel_podil_scd
 
         # Admin note
         note_parts = [

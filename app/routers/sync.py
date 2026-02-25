@@ -704,6 +704,8 @@ async def apply_selected_updates(
                 old_val = record.excel_podil_scd or unit.podil_scd
                 unit.podil_scd = int(new_value)
                 record.excel_podil_scd = int(new_value)
+                from app.services.owner_exchange import recalculate_unit_votes
+                recalculate_unit_votes(unit, db)
                 changes.append(
                     f"podíl: {old_val} → {new_value}"
                 )
