@@ -32,7 +32,7 @@
                 <td class="text-right font-mono text-gray-700 whitespace-nowrap">{{ "{:,}".format(owners_scd).replace(",", " ") }}</td>
                 <td></td>
             </tr>
-            <tr>
+            <tr class="{% if diff != 0 %}cursor-pointer hover:bg-blue-50 rounded{% endif %}" {% if diff != 0 %}onclick="event.preventDefault(); event.stopPropagation(); window.location.href='/prehled/rozdil-podilu';" title="Zobrazit rozpis rozdílu podílů"{% endif %}>
                 <td class="pr-2">Rozdíl podílů:</td>
                 <td class="text-right font-mono {% if diff < 0 %}text-red-600{% elif diff > 0 %}text-blue-600{% else %}text-green-600{% endif %} font-medium whitespace-nowrap">{{ "{:,}".format(diff).replace(",", " ") }}</td>
                 <td class="pl-2 font-mono {% if diff < 0 %}text-red-600{% elif diff > 0 %}text-blue-600{% else %}text-green-600{% endif %} whitespace-nowrap">{% if diff != 0 %}({{ "{:+.2f}".format(diff_pct) }} %){% endif %}</td>
@@ -66,7 +66,7 @@
                 <td class="text-right font-mono text-gray-700 whitespace-nowrap">{{ "{:,}".format(units_scd).replace(",", " ") }}</td>
                 <td></td>
             </tr>
-            <tr>
+            <tr class="{% if diff != 0 %}cursor-pointer hover:bg-green-50 rounded{% endif %}" {% if diff != 0 %}onclick="event.preventDefault(); event.stopPropagation(); window.location.href='/prehled/rozdil-podilu';" title="Zobrazit rozpis rozdílu podílů"{% endif %}>
                 <td class="pr-2">Rozdíl podílů:</td>
                 <td class="text-right font-mono {% if diff < 0 %}text-red-600{% elif diff > 0 %}text-blue-600{% else %}text-green-600{% endif %} font-medium whitespace-nowrap">{{ "{:,}".format(diff).replace(",", " ") }}</td>
                 <td class="pl-2 font-mono {% if diff < 0 %}text-red-600{% elif diff > 0 %}text-blue-600{% else %}text-green-600{% endif %} whitespace-nowrap">{% if diff != 0 %}({{ "{:+.2f}".format(diff_pct) }} %){% endif %}</td>

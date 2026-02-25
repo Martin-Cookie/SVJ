@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}Rozdíl podílů - SVJ Správa{% endblock %}
+
+{% block content %}
+<div class="flex items-center gap-3 mb-6">
+    <a href="/" class="text-gray-400 hover:text-gray-600">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+        </svg>
+    </a>
+    <h1 class="text-2xl font-bold text-gray-800">Rozdíl podílů</h1>
+</div>
+
+<!-- Summary -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+    <div class="bg-white rounded-lg shadow p-4">
+        <p class="text-xs text-gray-500 mb-1">Podíly dle prohlášení</p>
+        <p class="text-xl font-bold text-gray-800 font-mono">{{ "{:,}".format(declared_shares).replace(",", " ") }}</p>
+    </div>
+    <div class="bg-white rounded-lg shadow p-4">
+        <p class="text-xs text-gray-500 mb-1">Součet z jednotek (podíl SČD)</p>
+        <p class="text-xl font-bold font-mono {% if diff_units != 0 %}text-red-600{% else %}text-green-600{% endif %}">
+            {{ "{:,}".format(total_units_scd).replace(",", " ") }}
+        </p>
+        {% if diff_units != 0 %}
+        <p class="text-xs font-mono mt-1 {% if diff_units < 0 %}text-red-600{% else %}text-blue-600{% endif %}">
+            rozdíl: {{ "{:+,}".format(diff_units).replace(",", " ") }}
+        </p>
+        {% endif %}
+    </div>
+    <div class="bg-white rounded-lg shadow p-4">
+        <p class="text-xs text-gray-500 mb-1">Součet z vlastníků (hlasy)</p>
+        <p class="text-xl font-bold font-mono {% if diff_owners != 0 %}text-red-600{% else %}text-green-600{% endif %}">
+            {{ "{:,}".format(total_owners_votes).replace(",", " ") }}
+        </p>
+        {% if diff_owners != 0 %}
+        <p class="text-xs font-mono mt-1 {% if diff_owners < 0 %}text-red-600{% else %}text-blue-600{% endif %}">
+            rozdíl: {{ "{:+,}".format(diff_owners).replace(",", " ") }}
+        </p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Filter toggle -->
+<div class="flex items-center justify-between mb-3">
+    <p class="text-sm text-gray-500">
+        {% if show_all %}Všechny jednotky ({{ total_count }}){% else %}Pouze s rozdílem ({{ diff_count }} z {{ total_count }}){% endif %}
+    </p>
+    {% if show_all %}
+    <a href="/prehled/rozdil-podilu" class="text-sm text-blue-600 hover:underline">Zobrazit jen rozdíly</a>
+    {% else %}
+    <a href="/prehled/rozdil-podilu?vse=1" class="text-sm text-blue-600 hover:underline">Zobrazit vše</a>
+    {% endif %}
+</div>
+
+<!-- Table -->
+<div class="bg-white rounded-lg shadow overflow-hidden">
+    <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+            <tr>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Jednotka</th>
+                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Podíl SČD</th>
+                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Hlasy vlastníků</th>
+                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Rozdíl</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-200">
+            {% for item in items %}
+            <tr class="{% if item.diff != 0 %}bg-red-50{% endif %}">
+                <td class="px-6 py-3 text-sm">
+                    <a href="/jednotky/{{ item.unit_id }}?back=/prehled/rozdil-podilu" class="text-blue-600 hover:underline font-medium">{{ item.unit_number }}</a>
+                </td>
+                <td class="px-6 py-3 text-sm text-right font-mono text-gray-700">{{ "{:,}".format(item.podil_scd).replace(",", " ") }}</td>
+                <td class="px-6 py-3 text-sm text-right font-mono text-gray-700">{{ "{:,}".format(item.owners_votes).replace(",", " ") }}</td>
+                <td class="px-6 py-3 text-sm text-right font-mono font-medium {% if item.diff < 0 %}text-red-600{% elif item.diff > 0 %}text-blue-600{% else %}text-green-600{% endif %}">
+                    {% if item.diff != 0 %}{{ "{:+,}".format(item.diff).replace(",", " ") }}{% else %}-{% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot class="bg-gray-50 font-semibold">
+            <tr>
+                <td class="px-6 py-3 text-sm">Celkem</td>
+                <td class="px-6 py-3 text-sm text-right font-mono">{{ "{:,}".format(total_units_scd).replace(",", " ") }}</td>
+                <td class="px-6 py-3 text-sm text-right font-mono">{{ "{:,}".format(total_owners_votes).replace(",", " ") }}</td>
+                <td class="px-6 py-3 text-sm text-right font-mono {% if total_owners_votes - total_units_scd != 0 %}text-red-600{% else %}text-green-600{% endif %}">
+                    {% set total_diff = total_owners_votes - total_units_scd %}
+                    {% if total_diff != 0 %}{{ "{:+,}".format(total_diff).replace(",", " ") }}{% else %}-{% endif %}
+                </td>
+            </tr>
+        </tfoot>
+    </table>
+</div>
+{% endblock %}

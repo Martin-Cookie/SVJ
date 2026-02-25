@@ -10,6 +10,68 @@ router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
 
 
+@router.get("/prehled/rozdil-podilu")
+async def shares_breakdown(request: Request, vse: int = 0, db: Session = Depends(get_db)):
+    svj_info = db.query(SvjInfo).first()
+    declared_shares = svj_info.total_shares if svj_info and svj_info.total_shares else 0
+
+    # Per-unit: sum of active owner votes
+    owner_votes_subq = (
+        db.query(
+            OwnerUnit.unit_id,
+            func.sum(OwnerUnit.votes).label("owners_votes"),
+        )
+        .filter(OwnerUnit.valid_to.is_(None))
+        .group_by(OwnerUnit.unit_id)
+        .subquery()
+    )
+
+    rows = (
+        db.query(
+            Unit.id,
+            Unit.unit_number,
+            Unit.podil_scd,
+            owner_votes_subq.c.owners_votes,
+        )
+        .outerjoin(owner_votes_subq, Unit.id == owner_votes_subq.c.unit_id)
+        .order_by(Unit.unit_number)
+        .all()
+    )
+
+    items = []
+    total_units_scd = 0
+    total_owners_votes = 0
+    for unit_id, unit_number, podil_scd, owners_votes in rows:
+        p = podil_scd or 0
+        o = owners_votes or 0
+        total_units_scd += p
+        total_owners_votes += o
+        items.append({
+            "unit_id": unit_id,
+            "unit_number": unit_number,
+            "podil_scd": p,
+            "owners_votes": o,
+            "diff": o - p,
+        })
+
+    show_all = bool(vse)
+    filtered_items = items if show_all else [i for i in items if i["diff"] != 0]
+
+    return templates.TemplateResponse("dashboard_shares.html", {
+        "request": request,
+        "active_nav": "dashboard",
+        "declared_shares": declared_shares,
+        "total_units_scd": total_units_scd,
+        "total_owners_votes": total_owners_votes,
+        "diff_owners": total_owners_votes - declared_shares,
+        "diff_units": total_units_scd - declared_shares,
+        "items": filtered_items,
+        "show_all": show_all,
+        "total_count": len(items),
+        "diff_count": len([i for i in items if i["diff"] != 0]),
+    })
+
+
 @router.get("/")
 async def home(request: Request, db: Session = Depends(get_db)):
     owners_count = db.query(Owner).filter_by(is_active=True).count()
