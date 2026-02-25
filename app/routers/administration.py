@@ -323,28 +323,22 @@ async def code_list_edit(
     if not item:
         return RedirectResponse("/sprava?sekce=ciselniky", status_code=302)
 
+    # Only allow edit if unused
+    usage = _get_usage_count(db, item.category, item.value)
+    if usage > 0:
+        return RedirectResponse("/sprava?sekce=ciselniky", status_code=302)
+
     new_value = new_value.strip()
     if not new_value:
         return RedirectResponse("/sprava?sekce=ciselniky", status_code=302)
 
-    old_value = item.value
-    if new_value != old_value:
+    if new_value != item.value:
         # Check duplicate
         dup = db.query(CodeListItem).filter_by(
             category=item.category, value=new_value
         ).first()
         if dup:
             return RedirectResponse("/sprava?sekce=ciselniky", status_code=302)
-
-        # Propagate rename to existing records
-        meta = _CODE_LIST_CATEGORIES.get(item.category)
-        if meta:
-            model = meta["model"]
-            col = getattr(model, meta["column"])
-            q = db.query(model).filter(col == old_value)
-            if model == OwnerUnit:
-                q = q.filter(OwnerUnit.valid_to.is_(None))
-            q.update({col: new_value}, synchronize_session="fetch")
 
         item.value = new_value
 

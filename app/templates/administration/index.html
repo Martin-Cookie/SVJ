@@ -317,13 +317,20 @@
                                 <span class="text-xs text-gray-400 ml-1">({{ usage }}x)</span>
                             </div>
                             <div class="flex items-center gap-1 flex-shrink-0 ml-2">
+                                {% if usage == 0 %}
                                 <button onclick="adminEditMember('cl-{{ cat_key }}', {{ item.id }})" title="Upravit"
                                         class="p-1 text-gray-400 hover:text-blue-600 rounded">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
                                     </svg>
                                 </button>
-                                {% if usage == 0 %}
+                                {% else %}
+                                <span class="p-1 text-gray-200 cursor-not-allowed" title="Nelze upravit — používá se v {{ usage }} záznamech">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+                                    </svg>
+                                </span>
+                                {% endif %}
                                 <form action="/sprava/ciselnik/{{ item.id }}/smazat" method="post" hx-boost="false" class="inline">
                                     <button type="submit" onclick="return confirm('Opravdu smazat položku „{{ item.value }}"?')" title="Smazat"
                                             class="p-1 text-gray-400 hover:text-red-600 rounded">
@@ -342,12 +349,10 @@
                             </div>
                         </div>
 
+                        {% if usage == 0 %}
                         <!-- Inline edit form (hidden) -->
                         <form action="/sprava/ciselnik/{{ item.id }}/upravit" method="post" hx-boost="false"
                               id="cl-{{ cat_key }}-edit-{{ item.id }}" class="hidden pt-1">
-                            {% if usage > 0 %}
-                            <p class="text-xs text-amber-600 mb-1">Přejmenování se projeví v {{ usage }} existujících záznamech.</p>
-                            {% endif %}
                             <div class="flex items-end gap-2">
                                 <div class="flex-1">
                                     <label class="block text-xs text-gray-500 mb-1">Nový název</label>
@@ -359,6 +364,7 @@
                                         class="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm font-medium">Zrušit</button>
                             </div>
                         </form>
+                        {% endif %}
                     </li>
                     {% endfor %}
                 </ul>
