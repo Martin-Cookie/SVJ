@@ -13,8 +13,9 @@ from sqlalchemy.orm import Session, joinedload
 from app.config import settings
 from app.database import get_db
 from app.models import (
-    MatchStatus, Owner, OwnerUnit, TaxDistribution, TaxDocument, TaxSession, Unit,
+    MatchStatus, Owner, OwnerUnit, SendStatus, TaxDistribution, TaxDocument, TaxSession, Unit,
 )
+from app.services.email_service import send_email
 from app.services.owner_matcher import match_name
 from app.services.pdf_extractor import (
     extract_owner_from_tax_pdf, parse_unit_from_filename,
@@ -143,6 +144,59 @@ def _reload_doc_row(doc_id: int, session_id: int, request: Request, db: Session)
         "list_url": list_url,
         "unit_by_number": unit_by_number,
     })
+
+
+def _build_recipients(documents):
+    """Deduplicate recipients across documents by owner_id (or ad_hoc key).
+
+    Returns list of dicts:
+        {key, name, email, docs: [{filename, file_path}], dist_ids: [int],
+         owner_id: int|None, is_external: bool, email_status: str}
+    """
+    recipients = {}  # key -> recipient dict
+
+    for doc in documents:
+        for dist in doc.distributions:
+            if dist.match_status == MatchStatus.UNMATCHED:
+                continue
+
+            # Build unique key
+            if dist.owner_id:
+                key = f"owner_{dist.owner_id}"
+            else:
+                key = f"ext_{dist.id}"
+
+            if key not in recipients:
+                # Determine email: dist.email_address_used → owner.email → None
+                email = dist.email_address_used
+                if not email and dist.owner:
+                    email = dist.owner.email
+                if not email and dist.ad_hoc_email:
+                    email = dist.ad_hoc_email
+
+                name = dist.owner.display_name if dist.owner else (dist.ad_hoc_name or "Neznámý")
+
+                recipients[key] = {
+                    "key": key,
+                    "name": name,
+                    "email": email,
+                    "docs": [],
+                    "dist_ids": [],
+                    "owner_id": dist.owner_id,
+                    "is_external": dist.owner_id is None,
+                    "email_status": dist.email_status.value if dist.email_status else "pending",
+                }
+
+            recipients[key]["docs"].append({
+                "filename": doc.filename,
+                "file_path": doc.file_path,
+            })
+            recipients[key]["dist_ids"].append(dist.id)
+            # Update email_status to worst status across distributions
+            if dist.email_status and dist.email_status.value == "failed":
+                recipients[key]["email_status"] = "failed"
+
+    return sorted(recipients.values(), key=lambda r: r["name"])
 
 
 # ---------------------------------------------------------------------------
@@ -540,6 +594,221 @@ async def add_external_recipient(
     if request and request.headers.get("HX-Request"):
         return _reload_doc_row(doc_id, session_id, request, db)
     return RedirectResponse(f"/dane/{session_id}", status_code=302)
+
+
+# ---------------------------------------------------------------------------
+# Send preview endpoints
+# ---------------------------------------------------------------------------
+
+@router.get("/{session_id}/rozeslat")
+async def tax_send_preview(
+    session_id: int,
+    request: Request,
+    back: str = Query("", alias="back"),
+    db: Session = Depends(get_db),
+):
+    session = db.query(TaxSession).get(session_id)
+    if not session:
+        return RedirectResponse("/dane", status_code=302)
+
+    documents = (
+        db.query(TaxDocument)
+        .filter_by(session_id=session_id)
+        .options(
+            joinedload(TaxDocument.distributions)
+            .joinedload(TaxDistribution.owner)
+            .joinedload(Owner.units)
+            .joinedload(OwnerUnit.unit),
+        )
+        .order_by(TaxDocument.unit_number, TaxDocument.unit_letter)
+        .all()
+    )
+
+    recipients = _build_recipients(documents)
+    total_recipients = len(recipients)
+    with_email = sum(1 for r in recipients if r["email"])
+    without_email = total_recipients - with_email
+
+    back_url = back or f"/dane/{session_id}"
+
+    list_url = str(request.url.path)
+    if request.url.query:
+        list_url += "?" + str(request.url.query)
+
+    return templates.TemplateResponse("tax/send.html", {
+        "request": request,
+        "active_nav": "tax",
+        "session": session,
+        "recipients": recipients,
+        "total_recipients": total_recipients,
+        "with_email": with_email,
+        "without_email": without_email,
+        "back_url": back_url,
+        "list_url": list_url,
+    })
+
+
+@router.post("/{session_id}/rozeslat/email/{dist_id}")
+async def update_recipient_email(
+    session_id: int,
+    dist_id: int,
+    request: Request,
+    email: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    dist = db.query(TaxDistribution).get(dist_id)
+    if not dist:
+        return RedirectResponse(f"/dane/{session_id}/rozeslat", status_code=302)
+
+    email = email.strip()
+
+    if dist.owner_id:
+        # Propagate to all distributions of this owner in this session
+        doc_ids = [d.id for d in db.query(TaxDocument).filter_by(session_id=session_id).all()]
+        sibling_dists = (
+            db.query(TaxDistribution)
+            .filter(
+                TaxDistribution.document_id.in_(doc_ids),
+                TaxDistribution.owner_id == dist.owner_id,
+            )
+            .all()
+        )
+        for d in sibling_dists:
+            d.email_address_used = email or None
+    else:
+        # Ad-hoc recipient
+        dist.ad_hoc_email = email or None
+
+    db.commit()
+
+    # Rebuild recipients for the updated row
+    documents = (
+        db.query(TaxDocument)
+        .filter_by(session_id=session_id)
+        .options(
+            joinedload(TaxDocument.distributions)
+            .joinedload(TaxDistribution.owner)
+            .joinedload(Owner.units)
+            .joinedload(OwnerUnit.unit),
+        )
+        .order_by(TaxDocument.unit_number, TaxDocument.unit_letter)
+        .all()
+    )
+    recipients = _build_recipients(documents)
+
+    # Find the updated recipient
+    if dist.owner_id:
+        key = f"owner_{dist.owner_id}"
+    else:
+        key = f"ext_{dist.id}"
+
+    recipient = next((r for r in recipients if r["key"] == key), None)
+    if not recipient:
+        return RedirectResponse(f"/dane/{session_id}/rozeslat", status_code=302)
+
+    list_url = str(request.url.path)
+
+    return templates.TemplateResponse("partials/tax_recipient_row.html", {
+        "request": request,
+        "r": recipient,
+        "session": db.query(TaxSession).get(session_id),
+        "list_url": list_url,
+    })
+
+
+@router.post("/{session_id}/rozeslat/test")
+async def send_test_email(
+    session_id: int,
+    request: Request,
+    test_email: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    session = db.query(TaxSession).get(session_id)
+    if not session:
+        return RedirectResponse("/dane", status_code=302)
+
+    # Find the first document with a file
+    first_doc = (
+        db.query(TaxDocument)
+        .filter_by(session_id=session_id)
+        .order_by(TaxDocument.id)
+        .first()
+    )
+
+    attachments = [first_doc.file_path] if first_doc else []
+
+    result = send_email(
+        to_email=test_email.strip(),
+        to_name="Test",
+        subject=session.email_subject or "Test email",
+        body_html=session.email_body or "",
+        attachments=attachments,
+        module="tax",
+        reference_id=session.id,
+        db=db,
+    )
+
+    if result["success"]:
+        flash_message = f"Testovací email odeslán na {test_email}"
+        flash_type = "success"
+    else:
+        flash_message = f"Chyba při odesílání: {result['error']}"
+        flash_type = "error"
+
+    # Redirect back with flash
+    documents = (
+        db.query(TaxDocument)
+        .filter_by(session_id=session_id)
+        .options(
+            joinedload(TaxDocument.distributions)
+            .joinedload(TaxDistribution.owner)
+            .joinedload(Owner.units)
+            .joinedload(OwnerUnit.unit),
+        )
+        .all()
+    )
+    recipients = _build_recipients(documents)
+    total_recipients = len(recipients)
+    with_email = sum(1 for r in recipients if r["email"])
+
+    back_url = f"/dane/{session_id}/rozeslat"
+    return templates.TemplateResponse("tax/send.html", {
+        "request": request,
+        "active_nav": "tax",
+        "session": session,
+        "recipients": recipients,
+        "total_recipients": total_recipients,
+        "with_email": with_email,
+        "without_email": total_recipients - with_email,
+        "back_url": f"/dane/{session_id}",
+        "list_url": back_url,
+        "flash_message": flash_message,
+        "flash_type": flash_type,
+    })
+
+
+@router.post("/{session_id}/rozeslat/nastaveni")
+async def save_send_settings(
+    session_id: int,
+    request: Request,
+    email_subject: str = Form(""),
+    email_body: str = Form(""),
+    send_batch_size: int = Form(10),
+    send_batch_interval: int = Form(5),
+    db: Session = Depends(get_db),
+):
+    session = db.query(TaxSession).get(session_id)
+    if not session:
+        return RedirectResponse("/dane", status_code=302)
+
+    session.email_subject = email_subject
+    session.email_body = email_body
+    session.send_batch_size = send_batch_size
+    session.send_batch_interval = send_batch_interval
+    session.send_status = SendStatus.READY
+    db.commit()
+
+    return RedirectResponse(f"/dane/{session_id}/rozeslat", status_code=302)
 
 
 @router.post("/{session_id}/smazat")

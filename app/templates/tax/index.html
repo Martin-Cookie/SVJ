@@ -29,6 +29,26 @@
                     <span>Vytvořeno: {{ session.created_at.strftime('%d.%m.%Y') }}</span>
                 </div>
             </div>
+            <div class="flex items-center gap-2">
+                {% if session.send_status and session.send_status.value == 'ready' %}
+                <span class="px-3 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">Připraveno</span>
+                {% elif session.send_status and session.send_status.value == 'sending' %}
+                <span class="px-3 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">Odesílá se</span>
+                {% elif session.send_status and session.send_status.value == 'paused' %}
+                <span class="px-3 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full">Pozastaveno</span>
+                {% elif session.send_status and session.send_status.value == 'completed' %}
+                <span class="px-3 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">Dokončeno</span>
+                {% else %}
+                <span class="px-3 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">Koncept</span>
+                {% endif %}
+                <form action="/dane/{{ session.id }}/smazat" method="post"
+                      onsubmit="return confirm('Smazat rozúčtování „{{ session.title }}"?')">
+                    <button type="submit"
+                            class="px-3 py-1 text-xs font-medium bg-red-100 text-red-700 rounded-full hover:bg-red-200 transition-colors">
+                        Smazat
+                    </button>
+                </form>
+            </div>
         </div>
     </div>
     {% endfor %}

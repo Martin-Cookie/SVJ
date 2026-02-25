@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block title %}Rozesílka - {{ session.title }}{% endblock %}
+
+{% block content %}
+<div class="flex flex-col" style="height:calc(100vh - 3rem)">
+    <!-- Fixed header -->
+    <div class="shrink-0">
+        <a href="{{ back_url|default('/dane/' ~ session.id) }}" class="text-sm text-gray-500 hover:text-gray-700">&larr; Zpět na přiřazení</a>
+
+        <!-- Title row with inline stats -->
+        <div class="flex items-center gap-4 mt-1 mb-3">
+            <h1 class="text-xl font-bold text-gray-800">Rozesílka &mdash; {{ session.title }}</h1>
+            <div class="flex items-center gap-2 text-xs">
+                <span class="px-2 py-0.5 bg-white border border-gray-200 rounded-full"><strong>{{ total_recipients }}</strong> příjemců</span>
+                <span class="px-2 py-0.5 bg-green-50 border border-green-200 rounded-full text-green-700"><strong>{{ with_email }}</strong> s emailem</span>
+                {% if without_email > 0 %}
+                <span class="px-2 py-0.5 bg-red-50 border border-red-200 rounded-full text-red-600"><strong>{{ without_email }}</strong> bez emailu</span>
+                {% endif %}
+            </div>
+            <div class="ml-auto">
+                {% if session.send_status and session.send_status.value == 'ready' %}
+                <span class="px-2.5 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">Připraveno k odeslání</span>
+                {% elif session.send_status and session.send_status.value == 'draft' %}
+                <span class="px-2.5 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-medium">Koncept</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Email configuration (collapsed) -->
+        <details class="bg-white rounded-lg shadow mb-3">
+            <summary class="px-4 py-2 cursor-pointer text-sm font-medium text-gray-700 hover:text-gray-900 select-none">
+                Konfigurace emailu
+            </summary>
+            <div class="px-4 pb-3 border-t border-gray-100">
+                <form method="post" action="/dane/{{ session.id }}/rozeslat/nastaveni" hx-boost="false">
+                    <div class="flex gap-6 mt-3 mb-2">
+                        <!-- Left: subject + body -->
+                        <div class="flex-1 flex flex-col gap-2">
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 mb-0.5">Předmět emailu</label>
+                                <input type="text" name="email_subject" value="{{ session.email_subject or '' }}"
+                                       class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 mb-0.5">Text emailu (HTML)</label>
+                                <textarea name="email_body" rows="3"
+                                          class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono">{{ session.email_body or '' }}</textarea>
+                            </div>
+                        </div>
+                        <!-- Right: batch, interval, test, save -->
+                        <div class="w-64 flex flex-col gap-2">
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 mb-0.5">Velikost dávky</label>
+                                <input type="number" name="send_batch_size" value="{{ session.send_batch_size or 10 }}" min="1" max="100"
+                                       class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 mb-0.5">Interval mezi dávkami (min)</label>
+                                <input type="number" name="send_batch_interval" value="{{ session.send_batch_interval or 5 }}" min="1" max="60"
+                                       class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            </div>
+                            <div class="flex items-center gap-2 mt-1">
+                                <input type="email" name="test_email_inline" placeholder="test@example.com"
+                                       class="flex-1 border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <button type="button" onclick="sendTest(this)"
+                                        class="px-2.5 py-1 bg-yellow-500 text-white rounded hover:bg-yellow-600 text-xs font-medium whitespace-nowrap">
+                                    Test
+                                </button>
+                            </div>
+                            <button type="submit" class="w-full px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm font-medium mt-1">
+                                Uložit nastavení
+                            </button>
+                        </div>
+                    </div>
+                </form>
+                <!-- Hidden test form -->
+                <form id="test-email-form" method="post" action="/dane/{{ session.id }}/rozeslat/test" hx-boost="false" class="hidden">
+                    <input type="hidden" name="test_email" id="test-email-hidden">
+                </form>
+            </div>
+        </details>
+    </div>
+
+    <!-- Scrollable recipients table -->
+    <div class="flex-1 overflow-y-auto min-h-0 bg-white rounded-lg shadow">
+        <table class="min-w-full divide-y divide-gray-200" style="table-layout:fixed">
+            <colgroup>
+                <col style="width:25%">
+                <col style="width:25%">
+                <col style="width:35%">
+                <col style="width:15%">
+            </colgroup>
+            <thead class="bg-gray-50 sticky top-0 z-10">
+                <tr>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Příjemce</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Dokumenty</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stav</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200">
+                {% for r in recipients %}
+                {% include "partials/tax_recipient_row.html" %}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+function sendTest(btn) {
+    var email = btn.closest('.flex').querySelector('input[name="test_email_inline"]').value;
+    if (!email) return;
+    document.getElementById('test-email-hidden').value = email;
+    document.getElementById('test-email-form').submit();
+}
+
+function toggleEmailEdit(key) {
+    var cell = document.getElementById('email-cell-' + key);
+    if (!cell) return;
+    var display = cell.querySelector('.email-display');
+    var edit = cell.querySelector('.email-edit');
+    if (display) display.classList.toggle('hidden');
+    if (edit) edit.classList.toggle('hidden');
+}
+</script>
+{% endblock %}
