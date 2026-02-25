@@ -227,7 +227,6 @@ def compare_owners(
         excel_entries = excel_by_unit[unit]
         # Combine all Excel owner names for this unit
         excel_names_combined = "; ".join(e["owner_name"] for e in excel_entries)
-        excel_type = excel_entries[0].get("owner_type", "")
         excel_space_type = excel_entries[0].get("space_type", "")
         excel_podil_scd = excel_entries[0].get("podil_scd", 0)
         excel_ownership_type_raw = excel_entries[0].get("ownership_type", "")
@@ -297,12 +296,12 @@ def compare_owners(
         else:
             status = SyncStatus.DIFFERENCE
 
-        # Check ownership type mismatch
+        # Check ownership type mismatch (compare ownership_type, not owner_type)
         type_mismatch = False
-        if csv_type and excel_type:
-            csv_type_norm = csv_type.lower()
-            if ("sjm" in csv_type_norm and excel_type != "sjm") or \
-               ("sjm" not in csv_type_norm and excel_type == "sjm"):
+        if csv_type and excel_ownership_type_raw:
+            csv_type_norm = csv_type.strip().lower()
+            excel_type_norm = excel_ownership_type_raw.strip().lower()
+            if csv_type_norm != excel_type_norm:
                 type_mismatch = True
 
         details = f"{best_ratio:.0%}"
