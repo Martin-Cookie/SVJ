@@ -558,6 +558,11 @@ async def purge_data(request: Request, db: Session = Depends(get_db)):
         for model in cat["models"]:
             db.query(model).delete()
 
+    # Cascade: owners → sync (sync records reference owners, useless without them)
+    if "owners" in categories and "sync" not in categories:
+        for model in _PURGE_CATEGORIES["sync"]["models"]:
+            db.query(model).delete()
+
     # Clean uploaded / generated files if owners or votings are wiped
     if "owners" in categories or "votings" in categories:
         for dirname in (UPLOADS_DIR, GENERATED_DIR):
