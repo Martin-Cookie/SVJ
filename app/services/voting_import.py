@@ -154,6 +154,7 @@ def preview_voting_import(file_path: str, mapping: dict, voting: Voting, db: Ses
 
     matched = []
     unmatched = []
+    no_match = []
     errors = []
 
     # Build lookup: unit_number → list of (owner_id, ballot_id)
@@ -206,6 +207,7 @@ def preview_voting_import(file_path: str, mapping: dict, voting: Voting, db: Ses
 
         # Parse vote choices for each item (ballot-independent)
         vote_choices = {}
+        raw_values = {}  # item_id → raw string from cell (for unrecognized tracking)
         for im in item_mappings:
             item_id = im["item_id"]
             for_col = im.get("for_col")
@@ -215,6 +217,8 @@ def preview_voting_import(file_path: str, mapping: dict, voting: Voting, db: Ses
             if for_col is not None:
                 raw = _cell(row, for_col)
                 num = _cell_numeric(row, for_col)
+                if raw is not None:
+                    raw_values[item_id] = raw
                 result = _match_vote(raw, num, for_values, against_values)
                 if result:
                     vote_choices[item_id] = result
@@ -223,12 +227,34 @@ def preview_voting_import(file_path: str, mapping: dict, voting: Voting, db: Ses
             if against_col is not None and item_id not in vote_choices:
                 raw = _cell(row, against_col)
                 num = _cell_numeric(row, against_col)
+                if raw is not None and item_id not in raw_values:
+                    raw_values[item_id] = raw
                 # In against column, for_values → PROTI, against_values → PRO (inverted)
                 result = _match_vote(raw, num, for_values, against_values)
                 if result == "for":
                     vote_choices[item_id] = "against"
                 elif result == "against":
                     vote_choices[item_id] = "for"
+
+        # Detect unrecognized: items with raw values but no match
+        unrecognized = {
+            item_id: raw_values[item_id]
+            for item_id in raw_values
+            if item_id not in vote_choices
+        }
+
+        # If ALL items have raw values but NONE matched → no_match
+        if raw_values and not vote_choices:
+            for ballot in ballots_for_unit:
+                if ballot.id not in seen_ballots:
+                    no_match.append({
+                        "row": row_idx,
+                        "owner_name": ballot.owner.display_name or owner_name,
+                        "unit_number": unit_number,
+                        "ballot_id": ballot.id,
+                        "raw_values": raw_values,
+                    })
+            continue
 
         # Primary ballot = direct unit match; co-owners only if there are votes
         targets = ballots_for_unit if vote_choices else [ballots_for_unit[0]]
@@ -252,15 +278,18 @@ def preview_voting_import(file_path: str, mapping: dict, voting: Voting, db: Ses
                 "ballot_id": ballot.id,
                 "votes": votes,
             }
+            if unrecognized:
+                entry["unrecognized"] = unrecognized
             seen_ballots[ballot.id] = entry
             matched.append(entry)
 
     wb.close()
 
     return {
-        "total_rows": len(matched) + len(unmatched),
+        "total_rows": len(matched) + len(unmatched) + len(no_match),
         "matched": matched,
         "unmatched": unmatched,
+        "no_match": no_match,
         "errors": errors,
     }
 

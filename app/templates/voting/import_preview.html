@@ -9,7 +9,7 @@
 <div class="flex items-center justify-between mb-3">
     <div>
         <h2 class="text-lg font-bold text-gray-800">Náhled importu výsledků</h2>
-        <p class="text-xs text-gray-500 mt-0.5">{{ preview.matched|length + preview.unmatched|length }} řádků celkem</p>
+        <p class="text-xs text-gray-500 mt-0.5">{{ preview.matched|length + preview.unmatched|length + preview.no_match|length }} řádků celkem</p>
     </div>
     <div class="flex items-center gap-2">
         <form action="/hlasovani/{{ voting.id }}/import/potvrdit" method="post">
@@ -34,7 +34,7 @@
 <div class="flex gap-2 mb-3">
     <a href="#" onclick="filterImport('all');return false"
        class="filter-bubble flex-1 block bg-white rounded-lg shadow p-2 text-center hover:ring-2 hover:ring-gray-300 ring-2 ring-gray-400" data-filter="all">
-        <p class="text-lg font-bold text-gray-800">{{ preview.matched|length + preview.unmatched|length }}</p>
+        <p class="text-lg font-bold text-gray-800">{{ preview.matched|length + preview.unmatched|length + preview.no_match|length }}</p>
         <p class="text-xs text-gray-500">Celkem</p>
     </a>
     <a href="#" onclick="filterImport('matched');return false"
@@ -46,6 +46,11 @@
        class="filter-bubble flex-1 block bg-red-50 rounded-lg shadow p-2 text-center border border-red-200 hover:ring-2 hover:ring-red-300" data-filter="unmatched">
         <p class="text-lg font-bold {% if preview.unmatched %}text-red-600{% else %}text-gray-400{% endif %}">{{ preview.unmatched|length }}</p>
         <p class="text-xs text-red-600">Nepřiřazeno</p>
+    </a>
+    <a href="#" onclick="filterImport('no_match');return false"
+       class="filter-bubble flex-1 block bg-orange-50 rounded-lg shadow p-2 text-center border border-orange-200 hover:ring-2 hover:ring-orange-300" data-filter="no_match">
+        <p class="text-lg font-bold {% if preview.no_match %}text-orange-600{% else %}text-gray-400{% endif %}">{{ preview.no_match|length }}</p>
+        <p class="text-xs text-orange-600">Nerozpoznáno</p>
     </a>
     <a href="#" onclick="filterImport('error');return false"
        class="filter-bubble flex-1 block bg-yellow-50 rounded-lg shadow p-2 text-center border border-yellow-200 hover:ring-2 hover:ring-yellow-300" data-filter="error">
@@ -102,13 +107,19 @@
                         {% elif entry.votes[item.id].vote == 'against' %}
                         <span class="px-2 py-0.5 text-xs font-medium bg-red-100 text-red-800 rounded-full">PROTI {{ entry.votes[item.id].count }}</span>
                         {% endif %}
+                    {% elif entry.get('unrecognized') and item.id in entry.unrecognized %}
+                    <span class="text-orange-500" title="Hodnota neodpovídá pravidlu PRO/PROTI">{{ entry.unrecognized[item.id] }} ?</span>
                     {% else %}
                     <span class="text-gray-300">-</span>
                     {% endif %}
                 </td>
                 {% endfor %}
                 <td class="px-3 py-1.5 text-center">
+                    {% if entry.get('unrecognized') %}
+                    <span class="text-green-600" title="Přiřazeno (některé hodnoty nerozpoznány)">&#10003;</span><span class="text-orange-500 ml-0.5" title="Nerozpoznané hodnoty">?</span>
+                    {% else %}
                     <span class="text-green-600" title="Přiřazeno">&#10003;</span>
+                    {% endif %}
                 </td>
             </tr>
             {% endfor %}
@@ -125,11 +136,30 @@
                 </td>
             </tr>
             {% endfor %}
+            {% for entry in preview.no_match %}
+            <tr class="hover:bg-orange-50 import-row bg-orange-50/50" data-match="no_match">
+                <td class="px-3 py-1.5 text-gray-400">{{ entry.row }}</td>
+                <td class="px-3 py-1.5 font-medium text-gray-900">{{ entry.owner_name }}</td>
+                <td class="px-3 py-1.5 text-gray-500">{{ entry.unit_number }}</td>
+                {% for item in voting.items %}
+                <td class="px-3 py-1.5 text-center">
+                    {% if item.id in entry.raw_values %}
+                    <span class="text-orange-500">{{ entry.raw_values[item.id] }} ?</span>
+                    {% else %}
+                    <span class="text-gray-300">-</span>
+                    {% endif %}
+                </td>
+                {% endfor %}
+                <td class="px-3 py-1.5 text-center" title="Hodnota neodpovídá žádnému pravidlu PRO/PROTI">
+                    <span class="text-orange-500">?</span>
+                </td>
+            </tr>
+            {% endfor %}
         </tbody>
     </table>
 </div>
 
-<div class="mt-2 text-xs text-gray-400" id="visible-count">Zobrazeno: {{ preview.matched|length + preview.unmatched|length }} řádků</div>
+<div class="mt-2 text-xs text-gray-400" id="visible-count">Zobrazeno: {{ preview.matched|length + preview.unmatched|length + preview.no_match|length }} řádků</div>
 </div>
 </div>
 
@@ -161,12 +191,13 @@ function filterImport(type) {
     activeFilter = type;
     applyFilters();
     document.querySelectorAll('.filter-bubble').forEach(function(b) {
-        b.classList.remove('ring-2', 'ring-gray-400', 'ring-green-400', 'ring-red-400', 'ring-yellow-400');
+        b.classList.remove('ring-2', 'ring-gray-400', 'ring-green-400', 'ring-red-400', 'ring-orange-400', 'ring-yellow-400');
         if (b.dataset.filter === type) {
             b.classList.add('ring-2');
             if (type === 'all') b.classList.add('ring-gray-400');
             else if (type === 'matched') b.classList.add('ring-green-400');
             else if (type === 'unmatched') b.classList.add('ring-red-400');
+            else if (type === 'no_match') b.classList.add('ring-orange-400');
             else if (type === 'error') b.classList.add('ring-yellow-400');
         }
     });
