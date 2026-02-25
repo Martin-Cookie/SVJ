@@ -94,13 +94,22 @@ def _find_coowners(owner_id: int, unit_number: str, tax_year: int | None, db: Se
     return list(owner_ids)
 
 
+def _unit_by_number(db: Session) -> dict:
+    """Build {unit_number_str: Unit} lookup for clickable unit links."""
+    units = db.query(Unit).all()
+    return {str(u.unit_number): u for u in units}
+
+
 def _reload_doc_row(doc_id: int, session_id: int, request: Request, db: Session):
     """Reload a document with its distributions and return a partial row response."""
     doc = (
         db.query(TaxDocument)
         .filter_by(id=doc_id)
         .options(
-            joinedload(TaxDocument.distributions).joinedload(TaxDistribution.owner),
+            joinedload(TaxDocument.distributions)
+            .joinedload(TaxDistribution.owner)
+            .joinedload(Owner.units)
+            .joinedload(OwnerUnit.unit),
         )
         .first()
     )
@@ -111,11 +120,28 @@ def _reload_doc_row(doc_id: int, session_id: int, request: Request, db: Session)
         .order_by(Owner.name_normalized)
         .all()
     )
+
+    # Build list_url from current browser URL for back navigation
+    from urllib.parse import urlparse
+    current_url = request.headers.get("HX-Current-URL", "")
+    if current_url:
+        parsed = urlparse(current_url)
+        list_url = parsed.path
+        if parsed.query:
+            list_url += "?" + parsed.query
+    else:
+        list_url = f"/dane/{session_id}"
+
+    # Unit lookup for clickable unit links
+    unit_by_number = _unit_by_number(db)
+
     return templates.TemplateResponse("partials/tax_match_row.html", {
         "request": request,
         "doc": doc,
         "owners": owners,
         "session": doc.session,
+        "list_url": list_url,
+        "unit_by_number": unit_by_number,
     })
 
 
@@ -307,6 +333,7 @@ async def tax_detail(session_id: int, request: Request, back: str = Query("", al
         "back_url": back_url,
         "back_label": back_label,
         "list_url": list_url,
+        "unit_by_number": _unit_by_number(db),
         **_session_stats(documents),
     })
 

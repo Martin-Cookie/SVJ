@@ -18,8 +18,15 @@
     {# Filename #}
     <td class="px-3 py-3 text-sm font-medium text-gray-900 truncate" title="{{ doc.filename }}">{{ doc.filename }}</td>
 
-    {# Unit number #}
-    <td class="px-3 py-3 text-sm text-gray-500" data-v="{{ doc.unit_number or '' }}">{{ doc.unit_number }}{{ doc.unit_letter }}</td>
+    {# Unit number — clickable link to unit detail #}
+    {%- set _unit = unit_by_number.get(doc.unit_number) if unit_by_number is defined and doc.unit_number else None -%}
+    <td class="px-3 py-3 text-sm" data-v="{{ doc.unit_number or '' }}">
+        {% if _unit %}
+        <a href="/jednotky/{{ _unit.id }}?back={{ list_url|urlencode }}" class="text-blue-600 hover:text-blue-800 hover:underline">{{ doc.unit_number }}{{ doc.unit_letter }}</a>
+        {% else %}
+        <span class="text-gray-500">{{ doc.unit_number }}{{ doc.unit_letter }}</span>
+        {% endif %}
+    </td>
 
     {# Extracted name from PDF #}
     <td class="px-3 py-3 text-sm text-gray-500 truncate" title="{{ doc.extracted_owner_name or '' }}">{{ doc.extracted_owner_name or '—' }}</td>
@@ -36,7 +43,7 @@
                 {% elif dist.match_status.value == 'auto_matched' %}bg-yellow-100 text-yellow-800
                 {% endif %}">
                 {% if dist.owner %}
-                {{ dist.owner.display_name }}
+                <a href="/vlastnici/{{ dist.owner.id }}?back={{ list_url|urlencode }}" class="hover:underline">{{ dist.owner.display_name }}</a>
                 {% elif dist.ad_hoc_name %}
                 {{ dist.ad_hoc_name }} <span class="text-gray-400">(externí)</span>
                 {% endif %}
