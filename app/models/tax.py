@@ -16,6 +16,22 @@ class MatchStatus(str, enum.Enum):
     UNMATCHED = "unmatched"
 
 
+class SendStatus(str, enum.Enum):
+    DRAFT = "draft"
+    READY = "ready"
+    SENDING = "sending"
+    PAUSED = "paused"
+    COMPLETED = "completed"
+
+
+class EmailDeliveryStatus(str, enum.Enum):
+    PENDING = "pending"
+    QUEUED = "queued"
+    SENT = "sent"
+    FAILED = "failed"
+    SKIPPED = "skipped"
+
+
 class TaxSession(Base):
     __tablename__ = "tax_sessions"
 
@@ -25,6 +41,12 @@ class TaxSession(Base):
     email_subject = Column(String(500), nullable=True)
     email_body = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Send workflow
+    send_batch_size = Column(Integer, default=10)
+    send_batch_interval = Column(Integer, default=5)
+    send_scheduled_at = Column(DateTime, nullable=True)
+    send_status = Column(Enum(SendStatus), default=SendStatus.DRAFT, index=True)
 
     documents = relationship(
         "TaxDocument", back_populates="session", cascade="all, delete-orphan"
@@ -60,6 +82,15 @@ class TaxDistribution(Base):
     admin_note = Column(Text, nullable=True)
     email_sent = Column(Boolean, default=False)
     email_sent_at = Column(DateTime, nullable=True)
+
+    # Email delivery (new workflow)
+    email_status = Column(Enum(EmailDeliveryStatus), default=EmailDeliveryStatus.PENDING, index=True)
+    email_address_used = Column(String(200), nullable=True)
+    email_error = Column(Text, nullable=True)
+
+    # Ad-hoc external recipient (not in DB)
+    ad_hoc_name = Column(String(300), nullable=True)
+    ad_hoc_email = Column(String(200), nullable=True)
 
     document = relationship("TaxDocument", back_populates="distributions")
     owner = relationship("Owner", back_populates="tax_distributions")

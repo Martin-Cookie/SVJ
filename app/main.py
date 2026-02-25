@@ -96,6 +96,53 @@ def _migrate_owner_units_history():
         conn.commit()
 
 
+def _migrate_tax_tables():
+    """Add new columns to tax_sessions and tax_distributions for send workflow."""
+    with engine.connect() as conn:
+        # tax_sessions
+        columns = [
+            row[1] for row in
+            conn.execute(text("PRAGMA table_info(tax_sessions)")).fetchall()
+        ]
+        for col, ddl in [
+            ("send_batch_size", "ALTER TABLE tax_sessions ADD COLUMN send_batch_size INTEGER DEFAULT 10"),
+            ("send_batch_interval", "ALTER TABLE tax_sessions ADD COLUMN send_batch_interval INTEGER DEFAULT 5"),
+            ("send_scheduled_at", "ALTER TABLE tax_sessions ADD COLUMN send_scheduled_at DATETIME"),
+            ("send_status", "ALTER TABLE tax_sessions ADD COLUMN send_status VARCHAR(20) DEFAULT 'DRAFT'"),
+        ]:
+            if col not in columns:
+                conn.execute(text(ddl))
+                logger.info("Added %s column to tax_sessions", col)
+
+        # Fix lowercase enum values from earlier migration
+        conn.execute(text(
+            "UPDATE tax_sessions SET send_status = 'DRAFT' WHERE send_status = 'draft'"
+        ))
+
+        # tax_distributions
+        columns = [
+            row[1] for row in
+            conn.execute(text("PRAGMA table_info(tax_distributions)")).fetchall()
+        ]
+        for col, ddl in [
+            ("email_status", "ALTER TABLE tax_distributions ADD COLUMN email_status VARCHAR(20) DEFAULT 'PENDING'"),
+            ("email_address_used", "ALTER TABLE tax_distributions ADD COLUMN email_address_used VARCHAR(200)"),
+            ("email_error", "ALTER TABLE tax_distributions ADD COLUMN email_error TEXT"),
+            ("ad_hoc_name", "ALTER TABLE tax_distributions ADD COLUMN ad_hoc_name VARCHAR(300)"),
+            ("ad_hoc_email", "ALTER TABLE tax_distributions ADD COLUMN ad_hoc_email VARCHAR(200)"),
+        ]:
+            if col not in columns:
+                conn.execute(text(ddl))
+                logger.info("Added %s column to tax_distributions", col)
+
+        # Fix lowercase enum values from earlier migration
+        conn.execute(text(
+            "UPDATE tax_distributions SET email_status = 'PENDING' WHERE email_status = 'pending'"
+        ))
+
+        conn.commit()
+
+
 def _ensure_indexes():
     """Create indexes defined in models that may be missing on existing tables."""
     _INDEXES = [
@@ -115,6 +162,8 @@ def _ensure_indexes():
         ("ix_tax_distributions_document_id", "tax_distributions", "document_id"),
         ("ix_tax_distributions_owner_id", "tax_distributions", "owner_id"),
         ("ix_tax_distributions_match_status", "tax_distributions", "match_status"),
+        ("ix_tax_sessions_send_status", "tax_sessions", "send_status"),
+        ("ix_tax_distributions_email_status", "tax_distributions", "email_status"),
         # sync.py
         ("ix_sync_records_session_id", "sync_records", "session_id"),
         ("ix_sync_records_status", "sync_records", "status"),
@@ -152,6 +201,10 @@ def run_post_restore_migrations():
     except Exception:
         logger.warning("post-restore: owner_units history migration skipped")
     try:
+        _migrate_tax_tables()
+    except Exception:
+        logger.warning("post-restore: tax tables migration skipped")
+    try:
         _ensure_indexes()
     except Exception:
         logger.warning("post-restore: index creation skipped")
@@ -175,6 +228,12 @@ async def lifespan(app: FastAPI):
         _migrate_owner_units_history()
     except Exception:
         logger.warning("owner_units history migration skipped")
+
+    # Add send workflow columns to tax tables
+    try:
+        _migrate_tax_tables()
+    except Exception:
+        logger.warning("tax tables migration skipped")
 
     # Ensure indexes on existing tables
     try:
