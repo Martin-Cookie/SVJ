@@ -98,7 +98,6 @@
 <form id="sync-update-form" action="/synchronizace/{{ session.id }}/aktualizovat" method="post" class="flex flex-col flex-1 min-h-0">
 <input type="hidden" name="filtr" value="{{ filtr }}">
 <div class="shrink-0 flex items-center gap-3 mb-2 bg-white rounded-lg shadow px-3 py-2">
-    <button type="button" id="sync-toggle-btn" onclick="syncToggleAll()" class="px-2 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 text-xs">Vybrat vše</button>
     <span id="sync-selected-count" class="text-xs text-gray-500">0 polí vybráno</span>
     <button type="submit" id="sync-submit-btn" disabled class="ml-auto px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed">Aktualizovat vybrané</button>
 </div>
@@ -135,7 +134,9 @@
             </th>
             {% endmacro %}
             <tr>
-                <th class="px-0 py-1.5"></th>
+                <th class="px-0 py-1.5 text-center">
+                    <input type="checkbox" id="sync-toggle-all" onchange="syncToggleAll(this.checked)">
+                </th>
                 {{ sort_th("Jedn.", "unit") }}
                 <th class="px-0 py-1.5"></th>
                 {{ sort_th("Vlastník", "owner") }}
@@ -157,13 +158,10 @@
 </div>
 
 <script>
-function syncToggleAll() {
-    var all = document.querySelectorAll('.sync-checkbox');
-    var anyUnchecked = Array.from(all).some(function(cb) { return !cb.checked; });
-    all.forEach(function(cb) { cb.checked = anyUnchecked; });
-    document.querySelectorAll('.sync-row-checkbox').forEach(function(cb) { cb.checked = anyUnchecked; cb.indeterminate = false; });
+function syncToggleAll(checked) {
+    document.querySelectorAll('.sync-checkbox').forEach(function(cb) { cb.checked = checked; });
+    document.querySelectorAll('.sync-row-checkbox').forEach(function(cb) { cb.checked = checked; cb.indeterminate = false; });
     syncUpdateCount();
-    document.getElementById('sync-toggle-btn').textContent = anyUnchecked ? 'Zrušit výběr' : 'Vybrat vše';
 }
 function syncToggleRow(rowCb) {
     var recordId = rowCb.dataset.record;
@@ -186,13 +184,16 @@ function syncUpdateRowCheckbox(fieldCb) {
 }
 function syncUpdateCount() {
     var all = document.querySelectorAll('.sync-checkbox');
-    var checked = document.querySelectorAll('.sync-checkbox:checked').length;
+    var checkedCount = document.querySelectorAll('.sync-checkbox:checked').length;
     var counter = document.getElementById('sync-selected-count');
     var btn = document.getElementById('sync-submit-btn');
-    var toggle = document.getElementById('sync-toggle-btn');
-    if (counter) counter.textContent = checked + ' polí vybráno';
-    if (btn) btn.disabled = checked === 0;
-    if (toggle) toggle.textContent = (checked === all.length && all.length > 0) ? 'Zrušit výběr' : 'Vybrat vše';
+    var toggle = document.getElementById('sync-toggle-all');
+    if (counter) counter.textContent = checkedCount + ' polí vybráno';
+    if (btn) btn.disabled = checkedCount === 0;
+    if (toggle) {
+        toggle.checked = checkedCount === all.length && all.length > 0;
+        toggle.indeterminate = checkedCount > 0 && checkedCount < all.length;
+    }
 }
 // Scroll to hash target inside the overflow container
 if (location.hash) {

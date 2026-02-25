@@ -411,10 +411,25 @@ Vzor se skládá ze dvou partials (info + form) a tří endpointů:
 
 ## Hromadný výběr (checkbox "Vybrat/Zrušit vše")
 
-- Checkbox pro hromadné označení/odznačení se vždy jmenuje **„Vybrat/Zrušit vše"**
-- Vizuálně odlišený: `bg-gray-50 border border-gray-200` (oproti běžným řádkům bez borderu)
-- JS vzor: `toggleAll(checked)` nastaví všechny checkboxy, `updateSelectAll()` na každém jednotlivém checkboxu synchronizuje stav hlavního checkboxu
-- Akční tlačítka (export, smazání) jsou `disabled` dokud není zaškrtnutý alespoň jeden checkbox
+- **Vždy checkbox v hlavičce tabulky** (`<th>`), nikdy textový button "Vybrat vše" v toolbaru:
+  ```html
+  <th class="px-1 py-1.5 text-center">
+      <input type="checkbox" id="xxx-toggle-all" onchange="xxxToggleAll(this.checked)">
+  </th>
+  ```
+- JS vzor: `toggleAll(checked)` nastaví všechny checkboxy; `updateCount()` synchronizuje stav header checkboxu (`checked` / `indeterminate`):
+  ```javascript
+  function xxxUpdateCount() {
+      var all = document.querySelectorAll('.xxx-checkbox');
+      var checkedCount = document.querySelectorAll('.xxx-checkbox:checked').length;
+      var toggle = document.getElementById('xxx-toggle-all');
+      if (toggle) {
+          toggle.checked = checkedCount === all.length && all.length > 0;
+          toggle.indeterminate = checkedCount > 0 && checkedCount < all.length;
+      }
+  }
+  ```
+- Akční tlačítka (export, smazání, aktualizace) jsou `disabled` dokud není zaškrtnutý alespoň jeden checkbox
 - Pokud se obsah (řádky s checkboxy) načítá dynamicky přes fetch/HTMX, **stav checkboxů se musí persistovat v sessionStorage**:
   - Klíč: `bulk_{field}_{value}` — unikátní pro každý kontext
   - Uložit: při každé změně checkboxu (`saveBulkChecks`)

@@ -10,13 +10,41 @@ import re
 from docx import Document
 
 
+_CZECH_MONTHS = {
+    "ledna": 1, "února": 2, "března": 3, "dubna": 4,
+    "května": 5, "června": 6, "července": 7, "srpna": 8,
+    "září": 9, "října": 10, "listopadu": 11, "prosince": 12,
+}
+
+# Czech ordinal words → number
+_CZECH_ORDINALS = {
+    "první": 1, "druhý": 2, "druhá": 2, "třetí": 3, "čtvrtý": 4, "čtvrtá": 4,
+    "pátý": 5, "pátá": 5, "šestý": 6, "šestá": 6, "sedmý": 7, "sedmá": 7,
+    "osmý": 8, "osmá": 8, "devátý": 9, "devátá": 9, "desátý": 10, "desátá": 10,
+}
+
+# Date-like text after a number — used to filter out false positives like "19. ledna 2026"
+_DATE_AFTER_NUM = re.compile(
+    r"^\s*(?:" + "|".join(_CZECH_MONTHS) + r")\s+\d{4}",
+    re.IGNORECASE,
+)
+
+
 def extract_voting_items(docx_path: str) -> list[dict]:
     doc = Document(docx_path)
     items = []
     current_item = None
 
-    # Multiple patterns for numbered items
-    patterns = [
+    # Pattern: Czech ordinal + "bod hlasování" + separator + title
+    # e.g. "První bod hlasování – provoz FVE"
+    ordinal_words = "|".join(_CZECH_ORDINALS.keys())
+    ordinal_pattern = re.compile(
+        r"^\s*(" + ordinal_words + r")\s+bod\s+hlasování\s*[–\-:.]\s*(.+)",
+        re.IGNORECASE,
+    )
+
+    # Numeric patterns
+    numeric_patterns = [
         re.compile(r"^\s*BOD\s+(\d+)\s*[:.]\s*(.+)", re.IGNORECASE),
         re.compile(r"^\s*(\d+)\s*[.)]\s*(.+)"),
         re.compile(r"^\s*(\d+)\s*[:.]\s*(.+)"),
@@ -28,20 +56,41 @@ def extract_voting_items(docx_path: str) -> list[dict]:
             continue
 
         matched = False
-        for pattern in patterns:
-            match = pattern.match(text)
-            if match:
-                if current_item:
-                    items.append(current_item)
-                order = int(match.group(1))
-                title = match.group(2).strip()
-                current_item = {
-                    "order": order,
-                    "title": title,
-                    "description": "",
-                }
-                matched = True
-                break
+
+        # Try Czech ordinal pattern first
+        m = ordinal_pattern.match(text)
+        if m:
+            if current_item:
+                items.append(current_item)
+            word = m.group(1).lower()
+            order = _CZECH_ORDINALS.get(word, len(items) + 1)
+            title = m.group(2).strip()
+            current_item = {
+                "order": order,
+                "title": title,
+                "description": "",
+            }
+            matched = True
+
+        # Try numeric patterns
+        if not matched:
+            for pattern in numeric_patterns:
+                match = pattern.match(text)
+                if match:
+                    title_part = match.group(2).strip()
+                    # Skip date false positives (e.g. "19. ledna 2026")
+                    if _DATE_AFTER_NUM.match(title_part):
+                        break
+                    if current_item:
+                        items.append(current_item)
+                    order = int(match.group(1))
+                    current_item = {
+                        "order": order,
+                        "title": title_part,
+                        "description": "",
+                    }
+                    matched = True
+                    break
 
         if not matched and current_item:
             # Skip table-like content and checkbox markers
@@ -55,13 +104,6 @@ def extract_voting_items(docx_path: str) -> list[dict]:
         items.append(current_item)
 
     return items
-
-
-_CZECH_MONTHS = {
-    "ledna": 1, "února": 2, "března": 3, "dubna": 4,
-    "května": 5, "června": 6, "července": 7, "srpna": 8,
-    "září": 9, "října": 10, "listopadu": 11, "prosince": 12,
-}
 
 
 def _parse_czech_date(text: str) -> str | None:
@@ -172,15 +214,24 @@ def extract_voting_metadata(docx_path: str) -> dict:
             if result["end_date"]:
                 break
 
-    # --- Description: text between title and first BOD ---
+    # --- Description: text between title and first voting item ---
     if title_idx is not None:
-        bod_pattern = re.compile(r"^\s*BOD\s+\d+", re.IGNORECASE)
+        ordinal_words = "|".join(_CZECH_ORDINALS.keys())
+        bod_patterns = [
+            re.compile(r"^\s*BOD\s+\d+", re.IGNORECASE),
+            re.compile(r"^\s*(?:" + ordinal_words + r")\s+bod\s+hlasování", re.IGNORECASE),
+            re.compile(r"^\s*\d+\s*[.)]\s*\S"),
+        ]
         bod_idx = None
         for i in range(title_idx + 1, len(paragraphs)):
             text, _ = paragraphs[i]
-            if text and bod_pattern.match(text):
-                bod_idx = i
-                break
+            if not text:
+                continue
+            if any(p.match(text) for p in bod_patterns):
+                # Exclude date false positives
+                if not _parse_czech_date(text):
+                    bod_idx = i
+                    break
 
         if bod_idx is not None:
             skip_re = re.compile(

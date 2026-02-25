@@ -61,7 +61,6 @@
 <form id="sc-update-form" action="/kontrola-podilu/{{ session.id }}/aktualizovat" method="post" class="flex flex-col flex-1 min-h-0">
 <input type="hidden" name="filtr" value="{{ filtr }}">
 <div class="shrink-0 flex items-center gap-3 mb-2 bg-white rounded-lg shadow px-3 py-2">
-    <button type="button" id="sc-toggle-btn" onclick="scToggleAll()" class="px-2 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 text-xs">Vybrat vše</button>
     <span id="sc-selected-count" class="text-xs text-gray-500">0 vybráno</span>
     <button type="submit" id="sc-submit-btn" disabled class="ml-auto px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed">Aktualizovat vybrané</button>
 </div>
@@ -89,7 +88,9 @@
                 ("Stav", "status", "center"),
             ] %}
             <tr>
-                <th class="px-1 py-1.5"></th>
+                <th class="px-1 py-1.5 text-center">
+                    <input type="checkbox" id="sc-toggle-all" onchange="scToggleAll(this.checked)">
+                </th>
                 {% for label, col, align in _cols %}
                 {% if col %}
                 {% set next_order = "desc" if sort == col and order == "asc" else "asc" %}
@@ -125,22 +126,22 @@
 </div>
 
 <script>
-function scToggleAll() {
-    var all = document.querySelectorAll('.sc-checkbox');
-    var anyUnchecked = Array.from(all).some(function(cb) { return !cb.checked; });
-    all.forEach(function(cb) { cb.checked = anyUnchecked; });
+function scToggleAll(checked) {
+    document.querySelectorAll('.sc-checkbox').forEach(function(cb) { cb.checked = checked; });
     scUpdateCount();
-    document.getElementById('sc-toggle-btn').textContent = anyUnchecked ? 'Zrušit výběr' : 'Vybrat vše';
 }
 function scUpdateCount() {
     var all = document.querySelectorAll('.sc-checkbox');
-    var checked = document.querySelectorAll('.sc-checkbox:checked').length;
+    var checkedCount = document.querySelectorAll('.sc-checkbox:checked').length;
     var counter = document.getElementById('sc-selected-count');
     var btn = document.getElementById('sc-submit-btn');
-    var toggle = document.getElementById('sc-toggle-btn');
-    if (counter) counter.textContent = checked + ' vybráno';
-    if (btn) btn.disabled = checked === 0;
-    if (toggle) toggle.textContent = (checked === all.length && all.length > 0) ? 'Zrušit výběr' : 'Vybrat vše';
+    var toggle = document.getElementById('sc-toggle-all');
+    if (counter) counter.textContent = checkedCount + ' vybráno';
+    if (btn) btn.disabled = checkedCount === 0;
+    if (toggle) {
+        toggle.checked = checkedCount === all.length && all.length > 0;
+        toggle.indeterminate = checkedCount > 0 && checkedCount < all.length;
+    }
 }
 if (location.hash) {
     var el = document.querySelector(location.hash);
