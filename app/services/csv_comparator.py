@@ -254,6 +254,17 @@ def compare_owners(
 
         best_ratio = max(ratio, parts_overlap)
 
+        # Compare as sorted individual names (handles SJM pairs in different order/separator)
+        csv_individuals = sorted(
+            " ".join(sorted(normalize_for_matching(n).split()))
+            for n in re.split(r'\s*[;,]\s*', csv_owners_raw) if n.strip()
+        )
+        excel_individuals = sorted(
+            " ".join(sorted(normalize_for_matching(n).split()))
+            for n in re.split(r'\s*[;,]\s*', excel_names_combined) if n.strip()
+        )
+        individuals_match = csv_individuals == excel_individuals
+
         # Check share mismatch
         share_mismatch = (
             csv_share is not None
@@ -268,13 +279,13 @@ def compare_owners(
         # unify displayed strings so the UI doesn't offer a spurious name-change
         # checkbox.  Covers: structured match, different separators (, vs ;),
         # different owner ordering, and minor diacritics/title differences.
-        if structured_result == "match" or parts_overlap == 1.0:
+        if structured_result == "match" or parts_overlap == 1.0 or individuals_match:
             excel_names_combined = csv_owners_raw
 
         # Status reflects name comparison only; share/type differences are
         # captured in match_details and shown via field checkboxes in the UI.
         exact_string_match = csv_norm == excel_norm
-        if structured_result == "match" or parts_overlap == 1.0:
+        if structured_result == "match" or parts_overlap == 1.0 or individuals_match:
             status = SyncStatus.MATCH
         elif structured_result == "name_order":
             status = SyncStatus.NAME_ORDER
