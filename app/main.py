@@ -180,6 +180,8 @@ def _ensure_indexes():
         ("ix_share_check_records_session_id", "share_check_records", "session_id"),
         ("ix_share_check_records_status", "share_check_records", "status"),
         ("ix_share_check_records_resolution", "share_check_records", "resolution"),
+        # administration.py — code lists
+        ("ix_code_list_items_category", "code_list_items", "category"),
     ]
     with engine.connect() as conn:
         for idx_name, table, column in _INDEXES:
@@ -191,6 +193,41 @@ def _ensure_indexes():
                 pass
         conn.commit()
     logger.info("Database indexes ensured")
+
+
+def _seed_code_lists():
+    """Populate code_list_items from existing unique values if table is empty."""
+    from sqlalchemy.orm import Session as _Session
+    from app.models.administration import CodeListItem
+    from app.models.owner import Unit, OwnerUnit
+
+    with _Session(engine) as session:
+        if session.query(CodeListItem).first() is not None:
+            return  # already seeded
+
+        _SEED_SOURCES = [
+            ("space_type", Unit, "space_type"),
+            ("section", Unit, "section"),
+            ("room_count", Unit, "room_count"),
+            ("ownership_type", OwnerUnit, "ownership_type"),
+        ]
+        for category, model, column in _SEED_SOURCES:
+            col = getattr(model, column)
+            values = (
+                session.query(col)
+                .filter(col.isnot(None), col != "")
+                .distinct()
+                .order_by(col)
+                .all()
+            )
+            for idx, (val,) in enumerate(values):
+                session.add(CodeListItem(
+                    category=category,
+                    value=val,
+                    order=idx,
+                ))
+        session.commit()
+        logger.info("Code lists seeded from existing data")
 
 
 def run_post_restore_migrations():
@@ -221,6 +258,10 @@ def run_post_restore_migrations():
         _ensure_indexes()
     except Exception:
         logger.warning("post-restore: index creation skipped")
+    try:
+        _seed_code_lists()
+    except Exception:
+        logger.warning("post-restore: code list seeding skipped")
 
 
 @asynccontextmanager
@@ -253,6 +294,12 @@ async def lifespan(app: FastAPI):
         _ensure_indexes()
     except Exception:
         logger.warning("index creation skipped")
+
+    # Seed code lists from existing data
+    try:
+        _seed_code_lists()
+    except Exception:
+        logger.warning("code list seeding skipped")
 
     # Ensure data directories exist
     for d in [settings.upload_dir, settings.generated_dir, settings.temp_dir]:

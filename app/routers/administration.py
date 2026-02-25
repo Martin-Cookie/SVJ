@@ -13,7 +13,8 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.models import (
-    SvjInfo, SvjAddress, BoardMember, Unit, OwnerUnit, Owner, Proxy,
+    SvjInfo, SvjAddress, BoardMember, CodeListItem,
+    Unit, OwnerUnit, Owner, Proxy,
     Voting, VotingItem, Ballot, BallotVote,
     TaxSession, TaxDocument, TaxDistribution,
     SyncSession, SyncRecord,
@@ -40,6 +41,53 @@ _BULK_FIELDS = {
     "address": {"label": "Adresa", "model": "unit", "column": "address"},
     "orientation_number": {"label": "Orientační číslo", "model": "unit", "column": "orientation_number"},
 }
+
+_CODE_LIST_CATEGORIES = {
+    "space_type": {"label": "Typ prostoru", "model": Unit, "column": "space_type"},
+    "section": {"label": "Sekce", "model": Unit, "column": "section"},
+    "room_count": {"label": "Počet místností", "model": Unit, "column": "room_count"},
+    "ownership_type": {"label": "Typ vlastnictví", "model": OwnerUnit, "column": "ownership_type"},
+}
+
+_CODE_LIST_ORDER = ["space_type", "section", "room_count", "ownership_type"]
+
+
+def _get_code_list(db: Session, category: str):
+    """Return code list items for a category, sorted by (order, value)."""
+    return (
+        db.query(CodeListItem)
+        .filter_by(category=category)
+        .order_by(CodeListItem.order, CodeListItem.value)
+        .all()
+    )
+
+
+def _get_all_code_lists(db: Session) -> dict:
+    """Return {category: [items]} for all code list categories."""
+    items = (
+        db.query(CodeListItem)
+        .order_by(CodeListItem.category, CodeListItem.order, CodeListItem.value)
+        .all()
+    )
+    result = {cat: [] for cat in _CODE_LIST_ORDER}
+    for item in items:
+        if item.category in result:
+            result[item.category].append(item)
+    return result
+
+
+def _get_usage_count(db: Session, category: str, value: str) -> int:
+    """Return number of records using a code list value."""
+    meta = _CODE_LIST_CATEGORIES.get(category)
+    if not meta:
+        return 0
+    model = meta["model"]
+    col = getattr(model, meta["column"])
+    q = db.query(model).filter(col == value)
+    if model == OwnerUnit:
+        q = q.filter(OwnerUnit.valid_to.is_(None))
+    return q.count()
+
 
 DATA_DIR = Path("data")
 DB_PATH = DATA_DIR / "svj.db"
@@ -100,6 +148,13 @@ async def administration_page(request: Request, sekce: str = Query(""), chyba: s
     default_backup_name = f"svj_backup_{datetime.now().strftime('%Y-%m-%d_%H%M%S')}"
     restore_log = read_restore_log(str(BACKUP_DIR))
 
+    # Code lists
+    code_lists = _get_all_code_lists(db)
+    code_list_usage = {}
+    for cat in _CODE_LIST_ORDER:
+        for item in code_lists.get(cat, []):
+            code_list_usage[item.id] = _get_usage_count(db, cat, item.value)
+
     return templates.TemplateResponse("administration/index.html", {
         "request": request,
         "active_nav": "administration",
@@ -116,6 +171,10 @@ async def administration_page(request: Request, sekce: str = Query(""), chyba: s
         "sekce": sekce,
         "chyba": chyba,
         "default_backup_name": default_backup_name,
+        "code_lists": code_lists,
+        "code_list_usage": code_list_usage,
+        "code_list_categories": _CODE_LIST_CATEGORIES,
+        "code_list_order": _CODE_LIST_ORDER,
     })
 
 
@@ -226,6 +285,88 @@ async def delete_member(member_id: int, db: Session = Depends(get_db)):
         db.delete(member)
         db.commit()
     return RedirectResponse("/sprava", status_code=302)
+
+
+# ---- Code list endpoints ----
+
+
+@router.post("/ciselnik/pridat")
+async def code_list_add(
+    request: Request,
+    category: str = Form(...),
+    value: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    value = value.strip()
+    if not value or category not in _CODE_LIST_CATEGORIES:
+        return RedirectResponse("/sprava?sekce=ciselniky", status_code=302)
+
+    # Check duplicate
+    existing = db.query(CodeListItem).filter_by(category=category, value=value).first()
+    if existing:
+        return RedirectResponse("/sprava?sekce=ciselniky", status_code=302)
+
+    max_order = db.query(CodeListItem).filter_by(category=category).count()
+    item = CodeListItem(category=category, value=value, order=max_order)
+    db.add(item)
+    db.commit()
+    return RedirectResponse("/sprava?sekce=ciselniky", status_code=302)
+
+
+@router.post("/ciselnik/{item_id}/upravit")
+async def code_list_edit(
+    item_id: int,
+    new_value: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    item = db.query(CodeListItem).get(item_id)
+    if not item:
+        return RedirectResponse("/sprava?sekce=ciselniky", status_code=302)
+
+    new_value = new_value.strip()
+    if not new_value:
+        return RedirectResponse("/sprava?sekce=ciselniky", status_code=302)
+
+    old_value = item.value
+    if new_value != old_value:
+        # Check duplicate
+        dup = db.query(CodeListItem).filter_by(
+            category=item.category, value=new_value
+        ).first()
+        if dup:
+            return RedirectResponse("/sprava?sekce=ciselniky", status_code=302)
+
+        # Propagate rename to existing records
+        meta = _CODE_LIST_CATEGORIES.get(item.category)
+        if meta:
+            model = meta["model"]
+            col = getattr(model, meta["column"])
+            q = db.query(model).filter(col == old_value)
+            if model == OwnerUnit:
+                q = q.filter(OwnerUnit.valid_to.is_(None))
+            q.update({col: new_value}, synchronize_session="fetch")
+
+        item.value = new_value
+
+    db.commit()
+    return RedirectResponse("/sprava?sekce=ciselniky", status_code=302)
+
+
+@router.post("/ciselnik/{item_id}/smazat")
+async def code_list_delete(
+    item_id: int,
+    db: Session = Depends(get_db),
+):
+    item = db.query(CodeListItem).get(item_id)
+    if not item:
+        return RedirectResponse("/sprava?sekce=ciselniky", status_code=302)
+
+    # Only delete if unused
+    usage = _get_usage_count(db, item.category, item.value)
+    if usage == 0:
+        db.delete(item)
+        db.commit()
+    return RedirectResponse("/sprava?sekce=ciselniky", status_code=302)
 
 
 # ---- Backup endpoints ----
@@ -512,8 +653,8 @@ _PURGE_CATEGORIES = {
     },
     "administration": {
         "label": "Administrace SVJ",
-        "description": "Informace o SVJ, adresy, členové výboru",
-        "models": [SvjAddress, BoardMember, SvjInfo],
+        "description": "Informace o SVJ, adresy, členové výboru, číselníky",
+        "models": [CodeListItem, SvjAddress, BoardMember, SvjInfo],
     },
     "backups": {
         "label": "Existující zálohy",
@@ -625,6 +766,13 @@ async def bulk_edit_values(request: Request, pole: str, db: Session = Depends(ge
     suggestions = sorted(set(
         str(r[0]) for r in rows if r[0] is not None
     ))
+
+    # Merge code list values into suggestions
+    if pole in _CODE_LIST_CATEGORIES:
+        cl_values = [
+            item.value for item in _get_code_list(db, pole)
+        ]
+        suggestions = sorted(set(suggestions) | set(cl_values))
 
     return templates.TemplateResponse("administration/bulk_edit_values.html", {
         "request": request,

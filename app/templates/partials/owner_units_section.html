@@ -65,8 +65,13 @@
         </div>
         <div>
             <label class="block text-xs text-gray-500 mb-1">Typ vlastnictví</label>
-            <input type="text" name="ownership_type" placeholder="vlastnictví"
-                   class="w-28 px-2 py-1.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500">
+            <select name="ownership_type"
+                    class="w-36 px-2 py-1.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500">
+                <option value="">—</option>
+                {% for item in code_lists.ownership_type %}
+                <option value="{{ item.value }}">{{ item.value }}</option>
+                {% endfor %}
+            </select>
         </div>
         <div>
             <label class="block text-xs text-gray-500 mb-1">Podíl</label>

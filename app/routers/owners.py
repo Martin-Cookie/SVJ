@@ -386,6 +386,8 @@ async def owner_detail(
     back: str = Query("", alias="back"),
     db: Session = Depends(get_db),
 ):
+    from app.routers.administration import _get_all_code_lists
+
     owner = db.query(Owner).options(
         joinedload(Owner.units).joinedload(OwnerUnit.unit)
     ).get(owner_id)
@@ -419,6 +421,7 @@ async def owner_detail(
             else "Zpět na hlasovací lístek" if "/hlasovani/" in back
             else "Zpět na seznam vlastníků"
         ),
+        "code_lists": _get_all_code_lists(db),
     })
 
 
@@ -623,12 +626,14 @@ async def owner_add_unit(
         db.refresh(owner)
 
     if request.headers.get("HX-Request"):
+        from app.routers.administration import _get_all_code_lists
         available_units, declared_shares = _owner_units_context(owner, db)
         return templates.TemplateResponse("partials/owner_units_section.html", {
             "request": request,
             "owner": owner,
             "available_units": available_units,
             "declared_shares": declared_shares,
+            "code_lists": _get_all_code_lists(db),
         })
     return RedirectResponse(f"/vlastnici/{owner_id}", status_code=302)
 
@@ -650,11 +655,13 @@ async def owner_remove_unit(
     ).get(owner_id)
 
     if request.headers.get("HX-Request"):
+        from app.routers.administration import _get_all_code_lists
         available_units, declared_shares = _owner_units_context(owner, db)
         return templates.TemplateResponse("partials/owner_units_section.html", {
             "request": request,
             "owner": owner,
             "available_units": available_units,
             "declared_shares": declared_shares,
+            "code_lists": _get_all_code_lists(db),
         })
     return RedirectResponse(f"/vlastnici/{owner_id}", status_code=302)

@@ -14,13 +14,23 @@
             </div>
             <div>
                 <label class="block text-xs text-gray-500 mb-1">Typ prostoru</label>
-                <input type="text" name="space_type"
-                       class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500">
+                <select name="space_type"
+                        class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500">
+                    <option value="">—</option>
+                    {% for item in code_lists.space_type %}
+                    <option value="{{ item.value }}">{{ item.value }}</option>
+                    {% endfor %}
+                </select>
             </div>
             <div>
                 <label class="block text-xs text-gray-500 mb-1">Sekce</label>
-                <input type="text" name="section"
-                       class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500">
+                <select name="section"
+                        class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500">
+                    <option value="">—</option>
+                    {% for item in code_lists.section %}
+                    <option value="{{ item.value }}">{{ item.value }}</option>
+                    {% endfor %}
+                </select>
             </div>
             <div>
                 <label class="block text-xs text-gray-500 mb-1">Adresa</label>
@@ -34,8 +44,13 @@
             </div>
             <div>
                 <label class="block text-xs text-gray-500 mb-1">Místnosti</label>
-                <input type="text" name="room_count"
-                       class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500">
+                <select name="room_count"
+                        class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500">
+                    <option value="">—</option>
+                    {% for item in code_lists.room_count %}
+                    <option value="{{ item.value }}">{{ item.value }}</option>
+                    {% endfor %}
+                </select>
             </div>
             <div>
                 <label class="block text-xs text-gray-500 mb-1">Plocha (m²)</label>

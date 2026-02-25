@@ -34,9 +34,11 @@ SORT_COLUMNS = {
 
 
 @router.get("/nova-formular")
-async def unit_create_form(request: Request):
+async def unit_create_form(request: Request, db: Session = Depends(get_db)):
+    from app.routers.administration import _get_all_code_lists
     return templates.TemplateResponse("partials/unit_create_form.html", {
         "request": request,
+        "code_lists": _get_all_code_lists(db),
     })
 
 
@@ -54,6 +56,8 @@ async def unit_create(
     podil_scd: str = Form(""),
     db: Session = Depends(get_db),
 ):
+    from app.routers.administration import _get_all_code_lists
+
     # Parse unit_number
     try:
         unit_number_int = int(unit_number)
@@ -61,6 +65,7 @@ async def unit_create(
         return templates.TemplateResponse("partials/unit_create_form.html", {
             "request": request,
             "error": "Číslo jednotky musí být celé číslo.",
+            "code_lists": _get_all_code_lists(db),
         })
 
     # Check uniqueness
@@ -69,6 +74,7 @@ async def unit_create(
         return templates.TemplateResponse("partials/unit_create_form.html", {
             "request": request,
             "error": f"Jednotka s číslem {unit_number_int} již existuje.",
+            "code_lists": _get_all_code_lists(db),
         })
 
     unit = Unit(
@@ -176,12 +182,14 @@ async def unit_edit_form(
     request: Request,
     db: Session = Depends(get_db),
 ):
+    from app.routers.administration import _get_all_code_lists
     unit = db.query(Unit).get(unit_id)
     if not unit:
         return RedirectResponse("/jednotky", status_code=302)
     return templates.TemplateResponse("partials/unit_edit_form.html", {
         "request": request,
         "unit": unit,
+        "code_lists": _get_all_code_lists(db),
     })
 
 
@@ -216,6 +224,8 @@ async def unit_update(
     podil_scd: str = Form(""),
     db: Session = Depends(get_db),
 ):
+    from app.routers.administration import _get_all_code_lists
+
     unit = db.query(Unit).get(unit_id)
     if not unit:
         return RedirectResponse("/jednotky", status_code=302)
@@ -228,6 +238,7 @@ async def unit_update(
             "request": request,
             "unit": unit,
             "error": "Číslo jednotky musí být celé číslo.",
+            "code_lists": _get_all_code_lists(db),
         })
 
     # Check uniqueness (exclude self)
@@ -239,6 +250,7 @@ async def unit_update(
             "request": request,
             "unit": unit,
             "error": f"Jednotka s číslem {unit_number_int} již existuje.",
+            "code_lists": _get_all_code_lists(db),
         })
 
     unit.unit_number = unit_number_int

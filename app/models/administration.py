@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
+from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, String
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -41,5 +41,19 @@ class BoardMember(Base):
     email = Column(String(200), nullable=True)
     phone = Column(String(50), nullable=True)
     group = Column(String(50), nullable=False, default="board", index=True)
+    order = Column(Integer, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class CodeListItem(Base):
+    __tablename__ = "code_list_items"
+    __table_args__ = (
+        Index("ix_code_list_category_value", "category", "value", unique=True),
+    )
+
+    id = Column(Integer, primary_key=True)
+    category = Column(String(50), nullable=False, index=True)
+    # "space_type" | "section" | "room_count" | "ownership_type"
+    value = Column(String(200), nullable=False)
     order = Column(Integer, default=0)
     created_at = Column(DateTime, default=datetime.utcnow)

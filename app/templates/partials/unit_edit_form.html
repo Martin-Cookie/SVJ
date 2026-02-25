@@ -12,13 +12,33 @@
         </div>
         <div class="flex items-center">
             <label class="w-36 text-sm font-medium text-gray-700">Typ prostoru</label>
-            <input type="text" name="space_type" value="{{ unit.space_type or '' }}"
-                   class="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+            <select name="space_type"
+                    class="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+                <option value="">—</option>
+                {% set _found_st = [] %}
+                {% for item in code_lists.space_type %}
+                <option value="{{ item.value }}" {% if unit.space_type == item.value %}selected{% endif %}>{{ item.value }}</option>
+                {% if unit.space_type == item.value %}{% if _found_st.append(1) %}{% endif %}{% endif %}
+                {% endfor %}
+                {% if unit.space_type and not _found_st %}
+                <option value="{{ unit.space_type }}" selected>{{ unit.space_type }}</option>
+                {% endif %}
+            </select>
         </div>
         <div class="flex items-center">
             <label class="w-36 text-sm font-medium text-gray-700">Sekce</label>
-            <input type="text" name="section" value="{{ unit.section or '' }}"
-                   class="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+            <select name="section"
+                    class="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+                <option value="">—</option>
+                {% set _found_sec = [] %}
+                {% for item in code_lists.section %}
+                <option value="{{ item.value }}" {% if unit.section == item.value %}selected{% endif %}>{{ item.value }}</option>
+                {% if unit.section == item.value %}{% if _found_sec.append(1) %}{% endif %}{% endif %}
+                {% endfor %}
+                {% if unit.section and not _found_sec %}
+                <option value="{{ unit.section }}" selected>{{ unit.section }}</option>
+                {% endif %}
+            </select>
         </div>
         <div class="flex items-center">
             <label class="w-36 text-sm font-medium text-gray-700">Orientační číslo</label>
@@ -37,8 +57,18 @@
         </div>
         <div class="flex items-center">
             <label class="w-36 text-sm font-medium text-gray-700">Počet místností</label>
-            <input type="text" name="room_count" value="{{ unit.room_count or '' }}"
-                   class="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+            <select name="room_count"
+                    class="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+                <option value="">—</option>
+                {% set _found_rc = [] %}
+                {% for item in code_lists.room_count %}
+                <option value="{{ item.value }}" {% if unit.room_count == item.value %}selected{% endif %}>{{ item.value }}</option>
+                {% if unit.room_count == item.value %}{% if _found_rc.append(1) %}{% endif %}{% endif %}
+                {% endfor %}
+                {% if unit.room_count and not _found_rc %}
+                <option value="{{ unit.room_count }}" selected>{{ unit.room_count }}</option>
+                {% endif %}
+            </select>
         </div>
         <div class="flex items-center">
             <label class="w-36 text-sm font-medium text-gray-700">Plocha (m²)</label>
