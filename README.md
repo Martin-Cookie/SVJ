@@ -223,6 +223,18 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
   - Stažení ve formátu Excel (xlsx) nebo CSV (UTF-8 s BOM)
   - Hromadný export: jedna kategorie = přímý soubor, více kategorií = ZIP archiv
   - 6 kategorií: vlastníci a jednotky, hlasování, daňové podklady, synchronizace, logy, administrace
+- Číselníky (centrálně spravované kódy):
+  - 4 kategorie: Typ prostoru, Sekce, Počet místností, Typ vlastnictví
+  - Automatické naplnění z existujících unikátních hodnot v DB při prvním startu
+  - Přidání a přejmenování položek (přejmenování pouze nepoužívaných)
+  - Smazání pouze nepoužívaných položek (používané mají šedivé ikony)
+  - Zobrazení počtu použití u každé položky
+  - 2×2 grid karet v administraci
+  - Dropdowny (`<select>`) ve všech formulářích: vytvoření/editace jednotky, přidání jednotky vlastníkovi
+  - Edge case: hodnota mimo číselník se zobrazí jako extra `<option>` v editačním formuláři
+  - Integrace s hromadnými úpravami (suggestions z číselníku)
+  - Zahrnuty v purge kategorie „administrace" (po smazání a restartu se znovu seedují)
+  - Zahrnuty v SQLite záloze (full file backup)
 - Hromadné úpravy (`/sprava/hromadne-upravy`):
   - Výběr pole (typ prostoru, sekce, počet místností, vlastnictví druh, vlastnictví/podíl, adresa, orientační číslo)
   - Tabulka unikátních hodnot s počtem výskytů
@@ -233,7 +245,7 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
   - Persistence výběru checkboxů přes sessionStorage (zachová se při navigaci na detail a zpět)
   - Inline oprava s datalist napovídáním — přepsání vybraných záznamů
 - Všechny sekce zabaleny do skládacích `<details>` bloků
-- Modely: `SvjInfo`, `SvjAddress`, `BoardMember`
+- Modely: `SvjInfo`, `SvjAddress`, `BoardMember`, `CodeListItem`
 
 ### G. Kontrola podílu SČD (`/kontrola-podilu`)
 
@@ -270,7 +282,7 @@ app/
 │   ├── sync.py                #   SyncSession, SyncRecord
 │   ├── share_check.py         #   ShareCheckSession, ShareCheckRecord, ShareCheckColumnMapping
 │   ├── common.py              #   EmailLog, ImportLog
-│   └── administration.py      #   SvjInfo, SvjAddress, BoardMember
+│   └── administration.py      #   SvjInfo, SvjAddress, BoardMember, CodeListItem
 ├── routers/                   # HTTP endpointy
 │   ├── dashboard.py           #   GET /
 │   ├── owners.py              #   /vlastnici (+ /vlastnici/import)
@@ -338,7 +350,7 @@ app/
 │   │   ├── mapping.html       #     Mapování sloupců (krok 2)
 │   │   └── compare.html       #     Výsledky s filtry a bublinami
 │   ├── administration/        #   Stránky administrace
-│   │   ├── index.html         #     Info SVJ, adresy, výbor, kontrolní orgán
+│   │   ├── index.html         #     Info SVJ, adresy, výbor, kontrolní orgán, číselníky
 │   │   ├── bulk_edit.html     #     Hromadné úpravy — výběr pole
 │   │   ├── bulk_edit_values.html #  HTMX: tabulka unikátních hodnot
 │   │   └── bulk_edit_records.html # HTMX: záznamy pro danou hodnotu
@@ -505,6 +517,9 @@ wheels/                        # Offline Python balíčky (gitignored)
 | GET | `/sprava/hromadne-upravy/hodnoty` | HTMX: tabulka unikátních hodnot pole |
 | GET | `/sprava/hromadne-upravy/zaznamy` | HTMX: záznamy pro danou hodnotu |
 | POST | `/sprava/hromadne-upravy/opravit` | Hromadná oprava hodnoty |
+| POST | `/sprava/ciselnik/pridat` | Přidání položky do číselníku |
+| POST | `/sprava/ciselnik/{id}/upravit` | Přejmenování položky (jen nepoužívané) |
+| POST | `/sprava/ciselnik/{id}/smazat` | Smazání položky (jen nepoužívané) |
 
 ## Konfigurace (.env)
 
@@ -533,6 +548,7 @@ LIBREOFFICE_PATH=/Applications/LibreOffice.app/Contents/MacOS/soffice
 - **ShareCheckSession** → ShareCheckRecord (cascade delete); ShareCheckColumnMapping (zapamatované mapování sloupců)
 - **SvjInfo** → SvjAddress — informace o SVJ a adresy
 - **BoardMember** — členové výboru a kontrolního orgánu (group: board/control)
+- **CodeListItem** — položky číselníků (category: space_type/section/room_count/ownership_type, value, order); unique index na (category, value)
 - **EmailLog**, **ImportLog** — systémové logy
 
 ## UI vzory
