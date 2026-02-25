@@ -58,35 +58,71 @@ def _parse_unit_number(raw: str) -> int | None:
         return None
 
 
-def _is_for_value(val: str) -> bool:
-    """Check if cell value represents a FOR vote (contains a number > 0)."""
-    try:
-        return float(val) > 0
-    except (ValueError, TypeError):
-        return False
+def _parse_value_list(raw: str) -> tuple[set[str], list[tuple[str, float]]]:
+    """Parse comma-separated value list into exact matches and comparison rules.
 
-
-def _parse_value_list(raw: str) -> set[str]:
-    """Parse comma-separated value list into a set of uppercase strings."""
+    Supports: exact values (1, ANO, YES) and comparisons (>0, <0, >=1, <=0).
+    Returns (exact_values_set, comparison_rules_list).
+    """
     if not raw:
-        return set()
-    return {v.strip().upper() for v in raw.split(",") if v.strip()}
+        return set(), []
+    exact = set()
+    comparisons = []
+    import re
+    cmp_re = re.compile(r"^([<>]=?)\s*(-?\d+(?:\.\d+)?)$")
+    for v in raw.split(","):
+        v = v.strip()
+        if not v:
+            continue
+        m = cmp_re.match(v)
+        if m:
+            comparisons.append((m.group(1), float(m.group(2))))
+        else:
+            exact.add(v.upper())
+    return exact, comparisons
 
 
-def _match_vote(raw: str | None, num: float | None, for_values: set[str], against_values: set[str]) -> str | None:
+def _check_comparisons(num: float, comparisons: list[tuple[str, float]]) -> bool:
+    """Check if a number matches any comparison rule."""
+    for op, threshold in comparisons:
+        if op == ">" and num > threshold:
+            return True
+        if op == "<" and num < threshold:
+            return True
+        if op == ">=" and num >= threshold:
+            return True
+        if op == "<=" and num <= threshold:
+            return True
+    return False
+
+
+def _match_vote(
+    raw: str | None,
+    num: float | None,
+    for_values: tuple[set[str], list],
+    against_values: tuple[set[str], list],
+) -> str | None:
     """Match a cell value against for/against value sets. Returns 'for', 'against', or None."""
+    for_exact, for_cmp = for_values
+    against_exact, against_cmp = against_values
+
     if raw is not None:
         upper = raw.upper()
-        if upper in for_values:
+        if upper in for_exact:
             return "for"
-        if upper in against_values:
+        if upper in against_exact:
             return "against"
     if num is not None:
-        # Also check numeric as string (e.g. "1" in for_values, "0" in against_values)
+        # Check numeric as string (e.g. "1" in for_values, "0" in against_values)
         num_str = str(int(num)) if num == int(num) else str(num)
-        if num_str in for_values:
+        if num_str in for_exact:
             return "for"
-        if num_str in against_values:
+        if num_str in against_exact:
+            return "against"
+        # Check comparison rules (e.g. >0, <0)
+        if _check_comparisons(num, for_cmp):
+            return "for"
+        if _check_comparisons(num, against_cmp):
             return "against"
     return None
 

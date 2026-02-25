@@ -50,13 +50,13 @@
                     <label class="block text-xs font-medium text-gray-600 mb-1">Hodnoty pro PRO</label>
                     <input type="text" id="for_values" value="{{ saved_mapping.for_values if saved_mapping and saved_mapping.for_values else '1, ANO, YES, X, PRO' }}"
                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
-                    <p class="text-xs text-gray-400 mt-1">Čárkou oddělené hodnoty, např. 1, ANO, YES</p>
+                    <p class="text-xs text-gray-400 mt-1">Čárkou oddělené hodnoty nebo porovnání, např. 1, ANO, YES, >0</p>
                 </div>
                 <div>
                     <label class="block text-xs font-medium text-gray-600 mb-1">Hodnoty pro PROTI</label>
                     <input type="text" id="against_values" value="{{ saved_mapping.against_values if saved_mapping and saved_mapping.against_values else '0, NE, NO, PROTI' }}"
                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
-                    <p class="text-xs text-gray-400 mt-1">Čárkou oddělené hodnoty, např. 0, NE, NO</p>
+                    <p class="text-xs text-gray-400 mt-1">Čárkou oddělené hodnoty nebo porovnání, např. 0, NE, NO, <0</p>
                 </div>
             </div>
         </div>
