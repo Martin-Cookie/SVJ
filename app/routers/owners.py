@@ -292,17 +292,12 @@ async def import_delete(
     log_id: int,
     db: Session = Depends(get_db),
 ):
-    """Delete an import: remove data, log entry, and uploaded file."""
+    """Delete an import log entry and its uploaded file (data remain intact)."""
     from pathlib import Path
 
     log = db.query(ImportLog).filter_by(id=log_id, import_type="owners_excel").first()
     if not log:
         return RedirectResponse("/vlastnici/import", status_code=302)
-
-    # Clear imported data
-    db.query(OwnerUnit).delete()
-    db.query(Owner).delete()
-    db.query(Unit).delete()
 
     # Remove uploaded file
     try:
@@ -312,7 +307,7 @@ async def import_delete(
     except Exception:
         pass
 
-    # Remove log entry
+    # Remove log entry only
     db.delete(log)
     db.commit()
 
