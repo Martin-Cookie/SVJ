@@ -740,6 +740,19 @@ async def bulk_edit_apply(
             )
 
     q.update({col: final_value}, synchronize_session="fetch")
+
+    # Recalculate votes when share changes
+    if pole == "share":
+        from app.services.owner_exchange import recalculate_unit_votes
+        affected_ous = q.all()
+        seen_units = set()
+        for ou in affected_ous:
+            if ou.unit_id not in seen_units:
+                seen_units.add(ou.unit_id)
+                unit = db.query(Unit).get(ou.unit_id)
+                if unit:
+                    recalculate_unit_votes(unit, db)
+
     db.commit()
 
     return RedirectResponse(

@@ -167,6 +167,10 @@ async def unit_update(
     unit.room_count = room_count or None
     unit.floor_area = float(floor_area) if floor_area else None
     unit.podil_scd = int(podil_scd) if podil_scd else None
+
+    from app.services.owner_exchange import recalculate_unit_votes
+    recalculate_unit_votes(unit, db)
+
     db.commit()
 
     if request.headers.get("HX-Request"):

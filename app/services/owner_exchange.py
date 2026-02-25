@@ -19,6 +19,26 @@ from app.models import (
 from app.services.owner_matcher import match_name, normalize_for_matching
 
 
+def recalculate_unit_votes(unit, db: Session):
+    """Přepočítá hlasy všech aktivních vlastníků jednotky dle podíl_scd * share.
+
+    Zajistí, že sum(votes) == unit.podil_scd (zbytky se rozmístí).
+    """
+    ous = db.query(OwnerUnit).filter_by(unit_id=unit.id).filter(OwnerUnit.valid_to.is_(None)).all()
+    total = unit.podil_scd or 0
+    if not ous or not total:
+        for ou in ous:
+            ou.votes = 0
+        return
+    raw = [(ou, total * ou.share) for ou in ous]
+    for ou, r in raw:
+        ou.votes = int(r)
+    remainder = total - sum(ou.votes for ou in ous)
+    raw.sort(key=lambda x: -(x[1] - int(x[1])))
+    for i in range(remainder):
+        raw[i][0].votes += 1
+
+
 def _split_votes(total_votes: int, num_owners: int) -> list[int]:
     """Split votes evenly; remainder goes to the first N owners."""
     if num_owners <= 0:

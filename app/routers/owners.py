@@ -546,6 +546,13 @@ async def owner_add_unit(
             valid_from=date.today(),
         )
         db.add(ou)
+        db.flush()
+
+        from app.services.owner_exchange import recalculate_unit_votes
+        unit = db.query(Unit).get(unit_id_int)
+        if unit:
+            recalculate_unit_votes(unit, db)
+
         db.commit()
         # Refresh owner to get updated units
         db.refresh(owner)
