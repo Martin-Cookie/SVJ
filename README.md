@@ -156,6 +156,7 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
   - 7 sortable sloupců (checkbox, soubor, jednotka, jméno z PDF, vlastníci, shoda, akce)
 - Odebrání vlastníka z dokumentu (pokud poslední → UNMATCHED)
 - Přidání externího příjemce (ad-hoc jméno + email)
+- Přejmenování relace (inline HTMX editace názvu — tlačítko „Uložit")
 - Smazání celé relace (session + dokumenty + distribuce + soubory)
 - Připravené sloupce pro workflow odesílání emailů (Fáze 2–3)
 
@@ -463,6 +464,7 @@ wheels/                        # Offline Python balíčky (gitignored)
 | GET | `/dane/{id}/zpracovani` | Stránka s progress barem zpracování PDF |
 | GET | `/dane/{id}/zpracovani-stav` | HTMX polling: aktuální stav zpracování (nebo HX-Redirect po dokončení) |
 | GET | `/dane/{id}` | Detail s párováním dokumentů (stat karty, checkboxy) |
+| POST | `/dane/{id}/prejmenovat` | Přejmenování relace (HTMX inline editace) |
 | POST | `/dane/{id}/potvrdit/{dist_id}` | Potvrzení automatického párování |
 | POST | `/dane/{id}/prirazeni/{doc_id}` | Ruční přiřazení dokumentu (+ spoluvlastníci) |
 | POST | `/dane/{id}/potvrdit-vse` | Potvrzení všech automaticky přiřazených |
