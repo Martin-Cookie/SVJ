@@ -142,11 +142,12 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
 - Extrakce jmen z PDF (pdfplumber):
   - Primárně jednotlivá jména ze sekce „Údaje o vlastníkovi:" (SP řádky na str. 1)
   - Fallback na kombinované jméno ze sekce „Vlastník:" (str. 2)
-- Fuzzy párování jmen na vlastníky v databázi (práh 0.6 pro jednotku, 0.75 globálně)
-- Párování zkouší nejdřív jednotlivá jména (vyšší přesnost), pak kombinované
-- **Multi-owner matching**: automatické přiřazení spoluvlastníků (SJM) na stejné jednotce
-  - Detekce spoluvlastníků dle jednotky s překrývajícím se obdobím v daňovém roce
-  - Ruční přiřazení automaticky přidá spoluvlastníky
+- Fuzzy párování jmen na vlastníky v databázi — každé jméno z PDF se páruje zvlášť:
+  - Nejdřív shoda na vlastníky dané jednotky (práh 0.6), pak globální hledání (práh 0.75)
+  - Sloupec „Jméno z PDF" zobrazuje všechna individuální jména oddělená čárkou
+  - Spoluvlastníci se přidávají pouze pokud jsou nalezeni v PDF, nikoliv z databáze
+  - Ruční přiřazení automaticky přidá spoluvlastníky na stejné jednotce
+- X tlačítko (odebrat vlastníka) skryto u potvrzených distribucí a u 100% shody
 - Redesignovaná stránka přiřazení:
   - Fixní header s 5 stat kartami (celkem / potvrzeno / k potvrzení / nepřiřazeno / bez PDF)
   - Bublina „Bez PDF" (oranžová) — jednotky s vlastníky, pro které nebyl nahrán žádný dokument; tabulka s prokliky na jednotku a vlastníky
