@@ -473,7 +473,7 @@ async def export_excel(
     elif filtr == "missing":
         query = query.filter(SyncRecord.status.in_([SyncStatus.MISSING_CSV, SyncStatus.MISSING_EXCEL]))
 
-    records = query.order_by(SyncRecord.unit_number.asc()).all()
+    records = query.order_by(cast(SyncRecord.unit_number, Integer).asc()).all()
 
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill, Alignment
@@ -1025,7 +1025,7 @@ async def exchange_preview_batch(
     records = (
         db.query(SyncRecord)
         .filter_by(session_id=session_id, status=SyncStatus.DIFFERENCE, resolution=SyncResolution.PENDING)
-        .order_by(SyncRecord.unit_number.asc())
+        .order_by(cast(SyncRecord.unit_number, Integer).asc())
         .all()
     )
     record_ids = [r.id for r in records]

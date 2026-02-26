@@ -12,6 +12,7 @@ from unicodedata import category, normalize
 from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+from sqlalchemy import cast, Integer
 from sqlalchemy.orm import Session, joinedload
 
 from app.config import settings
@@ -545,7 +546,7 @@ async def tax_detail(
             .joinedload(Owner.units)
             .joinedload(OwnerUnit.unit),
         )
-        .order_by(TaxDocument.unit_number, TaxDocument.unit_letter)
+        .order_by(cast(TaxDocument.unit_number, Integer), TaxDocument.unit_letter)
         .all()
     )
 
@@ -620,7 +621,7 @@ async def tax_detail(
     # Sorting
     SORT_KEYS = {
         "filename": lambda d: (d.filename or "").lower(),
-        "unit_number": lambda d: (d.unit_number or 0, d.unit_letter or ""),
+        "unit_number": lambda d: (int(d.unit_number) if d.unit_number and d.unit_number.isdigit() else 0, d.unit_letter or ""),
         "extracted": lambda d: (d.extracted_owner_name or "").lower(),
         "owner": lambda d: next(
             (_strip_diacritics(dist.owner.display_name) for dist in d.distributions if dist.owner),
@@ -966,7 +967,7 @@ async def tax_send_preview(
             .joinedload(Owner.units)
             .joinedload(OwnerUnit.unit),
         )
-        .order_by(TaxDocument.unit_number, TaxDocument.unit_letter)
+        .order_by(cast(TaxDocument.unit_number, Integer), TaxDocument.unit_letter)
         .all()
     )
 
@@ -1089,7 +1090,7 @@ async def update_recipient_email(
             .joinedload(Owner.units)
             .joinedload(OwnerUnit.unit),
         )
-        .order_by(TaxDocument.unit_number, TaxDocument.unit_letter)
+        .order_by(cast(TaxDocument.unit_number, Integer), TaxDocument.unit_letter)
         .all()
     )
     recipients = _build_recipients(documents)

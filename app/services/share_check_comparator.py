@@ -416,6 +416,11 @@ def compare_shares(file_records: list[dict], db: Session) -> list[dict]:
         ShareCheckStatus.MISSING_FILE: 2,
         ShareCheckStatus.MATCH: 3,
     }
-    results.sort(key=lambda r: (status_order.get(r["status"], 4), r["unit_number"]))
+    def _unit_sort_key(r):
+        try:
+            return int(r["unit_number"])
+        except (ValueError, TypeError):
+            return 0
+    results.sort(key=lambda r: (status_order.get(r["status"], 4), _unit_sort_key(r)))
 
     return results
