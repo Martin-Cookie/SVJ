@@ -15,6 +15,7 @@ document.body.addEventListener('htmx:afterSwap', function(event) {
 document.addEventListener('keydown', function(event) {
     if (event.key === 'Escape') {
         closePdfModal();
+        closeSendConfirmModal();
         const modal = document.getElementById('modal-container');
         if (modal) modal.innerHTML = '';
     }
@@ -81,8 +82,6 @@ document.body.addEventListener('htmx:confirm', function(event) {
 });
 
 // Generic client-side table column sorting
-// Usage: <th data-col="0" data-type="num|text" onclick="sortTableCol(this)">Label <span class="sort-arrow"></span></th>
-// For split-header tables: add data-sort-tbody="tbody-id" on th
 function sortTableCol(th) {
     var col = parseInt(th.dataset.col);
     var type = th.dataset.type || 'text';
@@ -122,3 +121,151 @@ function sortTableCol(th) {
     rows.forEach(function(r) { tbody.appendChild(r); });
 }
 
+
+// =========================================================================
+// Send page: checkboxes, test email, confirmation modal
+// =========================================================================
+
+// --- Checkbox state in sessionStorage (survives hx-boost page swaps) ---
+var _SS_KEY = 'svj_send_checked';
+
+function _getCheckedKeys() {
+    try {
+        var raw = sessionStorage.getItem(_SS_KEY);
+        return raw ? JSON.parse(raw) : [];
+    } catch(e) { return []; }
+}
+
+function _saveCheckedKeys() {
+    var keys = [];
+    document.querySelectorAll('.rcpt-cb:checked').forEach(function(cb) {
+        keys.push(cb.value);
+    });
+    try { sessionStorage.setItem(_SS_KEY, JSON.stringify(keys)); } catch(e) {}
+}
+
+function _restoreCheckedKeys() {
+    var tbody = document.getElementById('send-tbody');
+    if (!tbody) return;
+    var saved = _getCheckedKeys();
+    if (saved.length === 0) return;
+    var savedSet = new Set(saved);
+    tbody.querySelectorAll('.rcpt-cb').forEach(function(cb) {
+        if (!cb.disabled && savedSet.has(cb.value)) {
+            cb.checked = true;
+        }
+    });
+    _syncSelectAll();
+    updateSendButtonCount();
+}
+
+function _syncSelectAll() {
+    var all = document.querySelectorAll('.rcpt-cb:not(:disabled)').length;
+    var checked = document.querySelectorAll('.rcpt-cb:checked').length;
+    var master = document.getElementById('select-all-cb');
+    if (master) master.checked = (all > 0 && all === checked);
+}
+
+// Save before any HTMX request that targets send-tbody
+document.body.addEventListener('htmx:beforeRequest', function(e) {
+    var target = e.detail.target || (e.detail.elt && e.detail.elt.getAttribute && document.getElementById(e.detail.elt.getAttribute('hx-target')));
+    if (target && ((typeof target === 'string' && target === '#send-tbody') || (target.id === 'send-tbody'))) {
+        _saveCheckedKeys();
+    }
+});
+
+// Restore after any swap into send-tbody
+document.body.addEventListener('htmx:afterSettle', function(e) {
+    if (e.detail.target && e.detail.target.id === 'send-tbody') {
+        _restoreCheckedKeys();
+    }
+});
+
+// Also restore on full page load (hx-boost replaces body, then app.js runs again)
+document.addEventListener('DOMContentLoaded', function() {
+    _restoreCheckedKeys();
+    _loadTestEmail();
+    updateSendButtonCount();
+});
+
+// Individual checkbox change
+document.addEventListener('change', function(e) {
+    if (e.target.classList.contains('rcpt-cb')) {
+        _saveCheckedKeys();
+        _syncSelectAll();
+        updateSendButtonCount();
+    }
+});
+
+function toggleAllRecipients(master) {
+    document.querySelectorAll('.rcpt-cb:not(:disabled)').forEach(function(cb) {
+        cb.checked = master.checked;
+    });
+    _saveCheckedKeys();
+    updateSendButtonCount();
+}
+
+function updateSendButtonCount() {
+    var checked = document.querySelectorAll('.rcpt-cb:checked').length;
+    var span = document.getElementById('send-count');
+    if (span) span.textContent = checked;
+}
+
+// --- Test email: persist via sessionStorage ---
+var _TE_KEY = 'svj_test_email';
+
+function sendTest(btn) {
+    var email = btn.closest('.flex').querySelector('input[name="test_email_inline"]').value;
+    if (!email) return;
+    try { sessionStorage.setItem(_TE_KEY, email); } catch(e) {}
+    document.getElementById('test-email-hidden').value = email;
+    document.getElementById('test-email-form').submit();
+}
+
+function _loadTestEmail() {
+    var input = document.getElementById('test-email-input');
+    if (!input) return;
+    if (input.value) {
+        // Already has a value from server, save it
+        try { sessionStorage.setItem(_TE_KEY, input.value); } catch(e) {}
+        return;
+    }
+    try {
+        var saved = sessionStorage.getItem(_TE_KEY);
+        if (saved) input.value = saved;
+    } catch(e) {}
+}
+
+function toggleEmailEdit(key) {
+    var cell = document.getElementById('email-cell-' + key);
+    if (!cell) return;
+    var display = cell.querySelector('.email-display');
+    var edit = cell.querySelector('.email-edit');
+    if (display) display.classList.toggle('hidden');
+    if (edit) edit.classList.toggle('hidden');
+}
+
+// --- Send confirmation modal ---
+function showSendConfirmModal() {
+    var checked = document.querySelectorAll('.rcpt-cb:checked');
+    if (checked.length === 0) return;
+    document.getElementById('modal-count').textContent = checked.length;
+    var subj = document.querySelector('input[name="email_subject"]');
+    document.getElementById('modal-subject').textContent = subj ? subj.value : '';
+    document.getElementById('send-confirm-modal').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeSendConfirmModal() {
+    var modal = document.getElementById('send-confirm-modal');
+    if (!modal) return;
+    modal.classList.add('hidden');
+    document.body.style.overflow = '';
+}
+
+function startBatchSend() {
+    closeSendConfirmModal();
+    // Clear selection after sending
+    try { sessionStorage.removeItem(_SS_KEY); } catch(e) {}
+    document.getElementById('send-form').submit();
+}

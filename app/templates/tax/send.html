@@ -44,7 +44,7 @@
         </div>
 
         <!-- Email configuration (collapsed) -->
-        <details class="bg-white rounded-lg shadow mb-3">
+        <details class="bg-white rounded-lg shadow mb-3"{% if flash_message %} open{% endif %}>
             <summary class="px-4 py-2 cursor-pointer text-sm font-medium text-gray-700 hover:text-gray-900 select-none">
                 Konfigurace emailu
             </summary>
@@ -83,8 +83,7 @@
                                 Potvrdit každou dávku
                             </label>
                             <div class="flex items-center gap-2 mt-1">
-                                <input type="email" name="test_email_inline" placeholder="test@example.com"
-                                       value="{{ test_email_value|default('') }}"
+                                <input type="email" name="test_email_inline" id="test-email-input" placeholder="test@example.com"
                                        class="flex-1 border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                                 <button type="button" onclick="sendTest(this)"
                                         class="px-2.5 py-1 bg-yellow-500 text-white rounded hover:bg-yellow-600 text-xs font-medium whitespace-nowrap">
@@ -105,45 +104,45 @@
         </details>
 
         <!-- Filter pills + Search -->
-        <div class="flex items-center gap-3 mb-3 bg-white rounded-lg shadow px-3 py-2">
-            <div class="flex items-center gap-1">
+        <div class="flex items-center gap-3 mb-3 bg-white rounded-lg shadow px-3 py-2" hx-boost="false">
+            <div class="flex items-center gap-1" id="filter-pills">
                 {% set filter_base = "/dane/" ~ session.id ~ "/rozeslat" %}
                 {% set qs_base = "sort=" ~ sort ~ "&order=" ~ order ~ "&back=" ~ (back_url|default('')|urlencode) %}
-                <a href="{{ filter_base }}?{{ qs_base }}"
+                <button type="button"
                    hx-get="{{ filter_base }}?{{ qs_base }}"
-                   hx-target="#send-tbody" hx-push-url="true"
-                   class="px-2.5 py-1 rounded-full text-xs font-medium transition-colors
+                   hx-target="#send-tbody" hx-push-url="{{ filter_base }}?{{ qs_base }}"
+                   class="px-2.5 py-1 rounded-full text-xs font-medium transition-colors cursor-pointer
                    {% if not filtr %}bg-blue-600 text-white{% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}">
                     Vše ({{ total_recipients }})
-                </a>
-                <a href="{{ filter_base }}?filtr=with_email&{{ qs_base }}"
+                </button>
+                <button type="button"
                    hx-get="{{ filter_base }}?filtr=with_email&{{ qs_base }}"
-                   hx-target="#send-tbody" hx-push-url="true"
-                   class="px-2.5 py-1 rounded-full text-xs font-medium transition-colors
+                   hx-target="#send-tbody" hx-push-url="{{ filter_base }}?filtr=with_email&{{ qs_base }}"
+                   class="px-2.5 py-1 rounded-full text-xs font-medium transition-colors cursor-pointer
                    {% if filtr == 'with_email' %}bg-blue-600 text-white{% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}">
                     S emailem ({{ with_email }})
-                </a>
-                <a href="{{ filter_base }}?filtr=pending&{{ qs_base }}"
+                </button>
+                <button type="button"
                    hx-get="{{ filter_base }}?filtr=pending&{{ qs_base }}"
-                   hx-target="#send-tbody" hx-push-url="true"
-                   class="px-2.5 py-1 rounded-full text-xs font-medium transition-colors
+                   hx-target="#send-tbody" hx-push-url="{{ filter_base }}?filtr=pending&{{ qs_base }}"
+                   class="px-2.5 py-1 rounded-full text-xs font-medium transition-colors cursor-pointer
                    {% if filtr == 'pending' %}bg-yellow-500 text-white{% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}">
                     Čekající ({{ count_pending|default(0) }})
-                </a>
-                <a href="{{ filter_base }}?filtr=sent&{{ qs_base }}"
+                </button>
+                <button type="button"
                    hx-get="{{ filter_base }}?filtr=sent&{{ qs_base }}"
-                   hx-target="#send-tbody" hx-push-url="true"
-                   class="px-2.5 py-1 rounded-full text-xs font-medium transition-colors
+                   hx-target="#send-tbody" hx-push-url="{{ filter_base }}?filtr=sent&{{ qs_base }}"
+                   class="px-2.5 py-1 rounded-full text-xs font-medium transition-colors cursor-pointer
                    {% if filtr == 'sent' %}bg-green-600 text-white{% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}">
                     Odesláno ({{ count_sent|default(0) }})
-                </a>
-                <a href="{{ filter_base }}?filtr=failed&{{ qs_base }}"
+                </button>
+                <button type="button"
                    hx-get="{{ filter_base }}?filtr=failed&{{ qs_base }}"
-                   hx-target="#send-tbody" hx-push-url="true"
-                   class="px-2.5 py-1 rounded-full text-xs font-medium transition-colors
+                   hx-target="#send-tbody" hx-push-url="{{ filter_base }}?filtr=failed&{{ qs_base }}"
+                   class="px-2.5 py-1 rounded-full text-xs font-medium transition-colors cursor-pointer
                    {% if filtr == 'failed' %}bg-red-600 text-white{% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}">
                     Chyba ({{ count_failed|default(0) }})
-                </a>
+                </button>
             </div>
             <div class="flex-1">
                 <input type="hidden" name="sort" value="{{ sort }}">
@@ -228,122 +227,4 @@
         </div>
     </div>
 </div>
-
-<script>
-// --- Checked recipients state (persists across HTMX swaps) ---
-var _checkedKeys = new Set();
-
-function _saveCheckedState() {
-    _checkedKeys.clear();
-    document.querySelectorAll('.rcpt-cb:checked').forEach(function(cb) {
-        _checkedKeys.add(cb.value);
-    });
-}
-
-function _restoreCheckedState() {
-    document.querySelectorAll('.rcpt-cb').forEach(function(cb) {
-        if (!cb.disabled && _checkedKeys.has(cb.value)) {
-            cb.checked = true;
-        }
-    });
-    // Sync select-all
-    var all = document.querySelectorAll('.rcpt-cb:not(:disabled)').length;
-    var checked = document.querySelectorAll('.rcpt-cb:checked').length;
-    var master = document.getElementById('select-all-cb');
-    if (master) master.checked = (all > 0 && all === checked);
-    updateSendButtonCount();
-}
-
-// Save before HTMX replaces tbody, restore after
-document.body.addEventListener('htmx:beforeSwap', function(e) {
-    if (e.detail.target && e.detail.target.id === 'send-tbody') {
-        _saveCheckedState();
-    }
-});
-document.body.addEventListener('htmx:afterSwap', function(e) {
-    if (e.detail.target && e.detail.target.id === 'send-tbody') {
-        _restoreCheckedState();
-    }
-});
-
-// --- Test email: persist via localStorage ---
-var _testEmailKey = 'svj_test_email_{{ session.id }}';
-
-function sendTest(btn) {
-    var email = btn.closest('.flex').querySelector('input[name="test_email_inline"]').value;
-    if (!email) return;
-    try { localStorage.setItem(_testEmailKey, email); } catch(e) {}
-    document.getElementById('test-email-hidden').value = email;
-    document.getElementById('test-email-form').submit();
-}
-
-(function() {
-    var input = document.querySelector('input[name="test_email_inline"]');
-    if (input && !input.value) {
-        try { var saved = localStorage.getItem(_testEmailKey); if (saved) input.value = saved; } catch(e) {}
-    }
-})();
-
-// --- Email inline edit ---
-function toggleEmailEdit(key) {
-    var cell = document.getElementById('email-cell-' + key);
-    if (!cell) return;
-    var display = cell.querySelector('.email-display');
-    var edit = cell.querySelector('.email-edit');
-    if (display) display.classList.toggle('hidden');
-    if (edit) edit.classList.toggle('hidden');
-}
-
-// --- Select all / count ---
-function toggleAllRecipients(master) {
-    var cbs = document.querySelectorAll('.rcpt-cb:not(:disabled)');
-    cbs.forEach(function(cb) { cb.checked = master.checked; });
-    updateSendButtonCount();
-}
-
-function updateSendButtonCount() {
-    var checked = document.querySelectorAll('.rcpt-cb:checked').length;
-    var span = document.getElementById('send-count');
-    if (span) span.textContent = checked;
-    var btn = document.getElementById('send-btn');
-    if (btn && !btn.hasAttribute('data-test-required')) {
-        btn.disabled = checked === 0;
-    }
-}
-
-// --- Send confirmation modal ---
-function showSendConfirmModal() {
-    var checked = document.querySelectorAll('.rcpt-cb:checked');
-    if (checked.length === 0) return;
-    document.getElementById('modal-count').textContent = checked.length;
-    var subj = document.querySelector('input[name="email_subject"]');
-    document.getElementById('modal-subject').textContent = subj ? subj.value : '';
-    document.getElementById('send-confirm-modal').classList.remove('hidden');
-    document.body.style.overflow = 'hidden';
-}
-
-function closeSendConfirmModal() {
-    document.getElementById('send-confirm-modal').classList.add('hidden');
-    document.body.style.overflow = '';
-}
-
-function startBatchSend() {
-    closeSendConfirmModal();
-    document.getElementById('send-form').submit();
-}
-
-// Update count on individual checkbox change
-document.addEventListener('change', function(e) {
-    if (e.target.classList.contains('rcpt-cb')) {
-        updateSendButtonCount();
-        var all = document.querySelectorAll('.rcpt-cb:not(:disabled)').length;
-        var checked = document.querySelectorAll('.rcpt-cb:checked').length;
-        var master = document.getElementById('select-all-cb');
-        if (master) master.checked = (all > 0 && all === checked);
-    }
-});
-
-// Initial count on page load
-document.addEventListener('DOMContentLoaded', function() { updateSendButtonCount(); });
-</script>
 {% endblock %}
