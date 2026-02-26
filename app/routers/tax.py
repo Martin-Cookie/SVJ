@@ -624,10 +624,18 @@ async def rename_session(
     db.commit()
 
     from html import escape
+    t = escape(session.title)
     return HTMLResponse(
         f'<div id="session-title-area">'
-        f'<h1 class="text-2xl font-bold text-gray-800">{escape(session.title)}</h1>'
+        f'<div class="flex items-center gap-2">'
+        f'<h1 class="text-2xl font-bold text-gray-800">{t}</h1>'
+        f'<button type="button" onclick="showTitleEdit()" class="text-gray-400 hover:text-gray-600" title="Přejmenovat">'
+        f'<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">'
+        f'<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" '
+        f'd="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>'
+        f'</svg></button></div>'
         f'<p class="text-sm text-green-600 mt-1">Uloženo</p>'
+        f'<script>hideTitleEdit()</script>'
         f'</div>'
     )
 
