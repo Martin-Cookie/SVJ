@@ -8,7 +8,7 @@ from typing import List
 from unicodedata import category, normalize
 
 from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session, joinedload
 
@@ -202,6 +202,7 @@ def _build_recipients(documents):
                 }
 
             recipients[key]["docs"].append({
+                "id": doc.id,
                 "filename": doc.filename,
                 "file_path": doc.file_path,
             })
@@ -897,6 +898,28 @@ async def add_external_recipient(
     if request and request.headers.get("HX-Request"):
         return _reload_doc_row(doc_id, session_id, request, db)
     return RedirectResponse(f"/dane/{session_id}", status_code=302)
+
+
+# ---------------------------------------------------------------------------
+# PDF serving
+# ---------------------------------------------------------------------------
+
+@router.get("/{session_id}/dokument/{doc_id}")
+async def serve_document(
+    session_id: int,
+    doc_id: int,
+    db: Session = Depends(get_db),
+):
+    """Serve a tax PDF file for in-browser viewing."""
+    doc = db.query(TaxDocument).filter_by(id=doc_id, session_id=session_id).first()
+    if not doc or not doc.file_path:
+        return RedirectResponse(f"/dane/{session_id}", status_code=302)
+
+    path = Path(doc.file_path)
+    if not path.exists():
+        return RedirectResponse(f"/dane/{session_id}", status_code=302)
+
+    return FileResponse(path, media_type="application/pdf")
 
 
 # ---------------------------------------------------------------------------

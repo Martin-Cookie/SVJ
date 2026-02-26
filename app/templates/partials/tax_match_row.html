@@ -20,7 +20,11 @@
     </td>
 
     {# Filename #}
-    <td class="px-3 py-3 text-sm font-medium text-gray-900 truncate" title="{{ doc.filename }}">{{ doc.filename }}</td>
+    <td class="px-3 py-3 text-sm font-medium truncate" title="{{ doc.filename }}">
+        <a href="/dane/{{ doc.session_id }}/dokument/{{ doc.id }}" target="_blank"
+           onclick="if(!event.ctrlKey && !event.metaKey){event.preventDefault(); openPdfModal(this.href, '{{ doc.filename }}')}"
+           class="text-blue-600 hover:text-blue-800 hover:underline">{{ doc.filename }}</a>
+    </td>
 
     {# Unit number — clickable link to unit detail #}
     {%- set _unit = unit_by_number.get(doc.unit_number) if unit_by_number is defined and doc.unit_number else None -%}

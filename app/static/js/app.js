@@ -14,10 +14,29 @@ document.body.addEventListener('htmx:afterSwap', function(event) {
 // Close modal on escape key
 document.addEventListener('keydown', function(event) {
     if (event.key === 'Escape') {
+        closePdfModal();
         const modal = document.getElementById('modal-container');
         if (modal) modal.innerHTML = '';
     }
 });
+
+// PDF preview modal
+function openPdfModal(url, title) {
+    var modal = document.getElementById('pdf-modal');
+    document.getElementById('pdf-modal-title').textContent = title || '';
+    document.getElementById('pdf-modal-newtab').href = url;
+    document.getElementById('pdf-modal-iframe').src = url;
+    modal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+}
+
+function closePdfModal() {
+    var modal = document.getElementById('pdf-modal');
+    if (!modal || modal.classList.contains('hidden')) return;
+    modal.classList.add('hidden');
+    document.getElementById('pdf-modal-iframe').src = '';
+    document.body.style.overflow = '';
+}
 
 // Confirm before destructive actions
 document.body.addEventListener('htmx:confirm', function(event) {
