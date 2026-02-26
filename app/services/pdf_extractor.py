@@ -31,15 +31,52 @@ def extract_owner_from_tax_pdf(pdf_path: str) -> dict:
     }
 
 
+_COMPANY_SUFFIXES = re.compile(
+    r"(?:s\.r\.o\.|a\.s\.|z\.s\.|z\.ú\.|o\.s\.|k\.s\.|v\.o\.s\.|o\.p\.s\.|"
+    r"spol\.\s*s\s*r\.?\s*o\.?|SE|s\.p\.)$",
+    re.IGNORECASE,
+)
+
+
+def _is_company_suffix(name: str) -> bool:
+    """Return True if the text looks like a continuation of a company name."""
+    if _COMPANY_SUFFIXES.search(name.strip()):
+        return True
+    # All-uppercase fragment without a normal name pattern (e.g. "GROUP s.r.o.")
+    words = name.strip().split()
+    if words and all(w.isupper() or w.endswith(".") for w in words):
+        return True
+    return False
+
+
 def _extract_name_from_sp_line(line: str) -> str | None:
     """Extract owner name appended after SP fraction (e.g. 'SP 2 3108/907635 Kočí Martin')."""
     m = re.match(r"SP\s+\S+\s+\d+/\d+\s+(.*)", line.strip())
     if m:
         name = m.group(1).strip()
         # Filter out non-name text (must start with uppercase letter)
-        if name and re.match(r"[A-ZÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ]", name):
+        if name and re.match(r"[A-ZÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ0-9]", name):
             return name
     return None
+
+
+def _merge_company_fragments(names: list[str]) -> list[str]:
+    """Merge name fragments that belong to a single company name.
+
+    Long company names get split across SP lines in the PDF, e.g.:
+        SP 2 ... 35 ASSOCIATES INVESTMENT
+        SP 3 ... GROUP s.r.o.
+    should be merged into '35 ASSOCIATES INVESTMENT GROUP s.r.o.'
+    """
+    if not names:
+        return names
+    merged = [names[0]]
+    for name in names[1:]:
+        if _is_company_suffix(name):
+            merged[-1] = merged[-1] + " " + name
+        else:
+            merged.append(name)
+    return merged
 
 
 def parse_owner_names_from_details(text: str) -> list[str]:
@@ -67,7 +104,7 @@ def parse_owner_names_from_details(text: str) -> list[str]:
             m = re.search(r"[úu]daje o vlastn[ií]k[^:]*:\s*(.+)", stripped, re.IGNORECASE)
             if m:
                 val = m.group(1).strip()
-                if val and re.match(r"[A-ZÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ]", val):
+                if val and re.match(r"[A-ZÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ0-9]", val):
                     names.append(val)
             continue
 
@@ -80,7 +117,7 @@ def parse_owner_names_from_details(text: str) -> list[str]:
             if name:
                 names.append(name)
 
-    return names
+    return _merge_company_fragments(names)
 
 
 def parse_owner_name(text: str) -> str | None:
@@ -95,11 +132,21 @@ def parse_owner_name(text: str) -> str | None:
         )
         if match:
             value = match.group(1).strip()
+            if not value:
+                # Name might be on the next line
+                if i + 1 < len(lines) and lines[i + 1].strip():
+                    value = lines[i + 1].strip()
             if value:
+                # Append continuation lines for company names (e.g. "GROUP s.r.o.")
+                j = i + 1
+                while j < len(lines):
+                    next_line = lines[j].strip()
+                    if next_line and _is_company_suffix(next_line):
+                        value = value + " " + next_line
+                        j += 1
+                    else:
+                        break
                 return value
-            # Name might be on the next line
-            if i + 1 < len(lines) and lines[i + 1].strip():
-                return lines[i + 1].strip()
 
         # Pattern: "SJ:" or "SJM:" prefix
         if re.match(r"^SJM?\s*:", stripped, re.IGNORECASE):
