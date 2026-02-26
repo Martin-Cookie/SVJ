@@ -366,50 +366,46 @@ def _process_tax_files(session_id: int, file_paths: list, tax_year):
             db.add(doc)
             db.flush()
 
-            # Try auto-matching
-            matched_owner = None
-            confidence = 0.0
+            # Try auto-matching — match each name from PDF individually
+            individual_names = [n for n in (extracted.get("owner_names") or []) if n]
+            # Fallback to combined "Vlastník:" line if no individual names
+            if not individual_names and extracted.get("owner_name"):
+                individual_names = [extracted["owner_name"]]
 
-            names_to_try = []
-            for n in extracted.get("owner_names") or []:
-                if n:
-                    names_to_try.append(n)
-            if extracted.get("owner_name"):
-                names_to_try.append(extracted["owner_name"])
+            matched_any = False
+            matched_ids = set()  # avoid duplicates
 
-            # First try: match by unit number + name
-            if unit_number in unit_to_owners and names_to_try:
-                for candidate in names_to_try:
+            for candidate in individual_names:
+                best = None
+
+                # First try: match against owners on this unit
+                if unit_number in unit_to_owners:
                     matches = match_name(
                         candidate,
                         unit_to_owners[unit_number],
                         threshold=0.6,
                     )
-                    if matches and matches[0]["confidence"] > confidence:
-                        matched_owner = matches[0]
-                        confidence = matches[0]["confidence"]
+                    if matches:
+                        best = matches[0]
 
-            # Second try: match against all owners by name only
-            if not matched_owner and names_to_try:
-                for candidate in names_to_try:
+                # Second try: match against all owners
+                if not best:
                     matches = match_name(candidate, owner_dicts, threshold=0.75)
-                    if matches and matches[0]["confidence"] > confidence:
-                        matched_owner = matches[0]
-                        confidence = matches[0]["confidence"]
+                    if matches:
+                        best = matches[0]
 
-            if matched_owner:
-                coowner_ids = _find_coowners(
-                    matched_owner["owner_id"], unit_number, tax_year, db
-                )
-                for oid in coowner_ids:
+                if best and best["owner_id"] not in matched_ids:
+                    matched_ids.add(best["owner_id"])
                     dist = TaxDistribution(
                         document_id=doc.id,
-                        owner_id=oid,
+                        owner_id=best["owner_id"],
                         match_status=MatchStatus.AUTO_MATCHED,
-                        match_confidence=confidence,
+                        match_confidence=best["confidence"],
                     )
                     db.add(dist)
-            else:
+                    matched_any = True
+
+            if not matched_any:
                 dist = TaxDistribution(
                     document_id=doc.id,
                     owner_id=None,
