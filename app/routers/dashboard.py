@@ -93,11 +93,12 @@ async def home(
     units_count = db.query(Unit).count()
     active_votings_list = (
         db.query(Voting)
-        .filter(Voting.status.in_([VotingStatus.ACTIVE, VotingStatus.DRAFT]))
         .order_by(
             case(
                 (Voting.status == VotingStatus.ACTIVE, 0),
                 (Voting.status == VotingStatus.DRAFT, 1),
+                (Voting.status == VotingStatus.CLOSED, 2),
+                (Voting.status == VotingStatus.CANCELLED, 3),
             ),
             Voting.updated_at.desc(),
         )
