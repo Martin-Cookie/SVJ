@@ -195,7 +195,7 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
   - Bublina „Vše" zobrazuje i katastrální podíl (4 103 391) s procentuálními rozdíly
   - Bublina „Rozdílné podíly" filtruje záznamy kde se liší pouze podíl SČD
   - Bubliny i řazení zachovávají back URL pro správnou navigaci zpět
-- Vyhledávání v porovnání (jednotka, vlastník, typ — diacritics-insensitive, full page swap)
+- Vyhledávání v porovnání (jednotka, vlastník, typ — diacritics-insensitive, HTMX live search s `hx-target="main"` swapem)
 - Třídění kliknutím na hlavičky sloupců (jednotka, vlastník, typ, vlastnictví, podíl, shoda)
 - Selektivní aktualizace dat z CSV do databáze:
   - Checkboxy u lišících se polí (jméno, typ, vlastnictví, podíl)
@@ -290,7 +290,7 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
 - Filtrační bubliny s dynamickými počty a souhrny podílů (DB, soubor, rozdíl)
 - Klikací jména vlastníků s proklikem na detail a návratem zpět
 - Klikací čísla jednotek s proklikem na detail a návratem zpět
-- Vyhledávání v porovnání (jednotka, vlastník — diacritics-insensitive, full page swap)
+- Vyhledávání v porovnání (jednotka, vlastník — diacritics-insensitive, HTMX live search s `hx-target="main"` swapem)
 - Třídění kliknutím na hlavičky sloupců
 - Selektivní aktualizace: checkboxy u rozdílů → batch update Unit.podil_scd
 - Historie kontrol s vyhledáváním a řazením (soubor, datum, shoda, rozdíly) s HTMX partial
@@ -612,6 +612,7 @@ LIBREOFFICE_PATH=/Applications/LibreOffice.app/Contents/MacOS/soffice
 - **HTMX inline editace** — formuláře pro kontakty, adresy a údaje jednotek se přepínají bez reloadu
 - **HTMX upload formuláře** — všechny formuláře s `enctype="multipart/form-data"` mají `hx-boost="false"` pro spolehlivý upload souborů
 - **Normalizace vstupů** — všechny textové formulářové vstupy používají `.strip() or None` pro konzistentní uložení (bez mezer, prázdné = NULL)
+- **Search bar — kanonický styl** — všechny search bary mají jednotný wrapper (`bg-white rounded-lg shadow`), `text-xs` input, hidden inputy vedle search inputu (ne v tbody); HTMX `keyup changed delay:300ms` s `hx-push-url`; sync/share_check compare používají `hx-target="main"` + `hx-select="main"` full-page swap (delay 500ms) s auto-refocusem
 - **Server-side search + sort** — konzistentní vzor na všech výpisových stránkách: `_strip_diacritics` pro case+diacritics-insensitive hledání, `sort_th` Jinja2 makro pro klikací hlavičky s šipkami a modrým zvýrazněním aktivního sloupce, HTMX partials (kde možné) pro live filtrování `keyup changed delay:300ms`, bookmarkovatelné URL parametry (`q`, `sort`, `order`), prázdný stav při 0 výsledcích
 - **Dvousloupcový layout** — formulář vlevo + historie vpravo (import, kontrola)
 - **Flex layout s fixní hlavičkou** — `height:calc(100vh - 48px)` pro stránky kde scrolluje jen tělo tabulky
