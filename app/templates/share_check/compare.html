@@ -19,8 +19,22 @@
     </form>
 </div>
 
+<!-- Search -->
+<div class="flex items-center gap-3 mb-3 bg-white rounded-lg shadow px-3 py-2">
+    <div class="flex-1">
+        <input type="text" name="q" value="{{ q }}"
+               placeholder="Hledat jednotku, vlastníka..."
+               class="w-full px-3 py-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs"
+               onkeydown="if(event.key==='Enter'){event.preventDefault(); var u=new URL(window.location); u.searchParams.set('q',this.value); window.location=u;}">
+    </div>
+    {% if q %}
+    <a href="{{ request.url.path }}?filtr={{ filtr }}{% if sort %}&sort={{ sort }}&order={{ order }}{% endif %}{{ '&back=' ~ (back_url|default('')|urlencode) if back_url else '' }}" class="text-xs text-gray-500 hover:text-gray-700">Zrušit</a>
+    {% endif %}
+</div>
+
 <!-- Stats bubbles -->
 {% set _back = "&back=" ~ (back_url|default('')|urlencode) if back_url else "" %}
+{% set _q = "&q=" ~ (q|default('')|urlencode) if q else "" %}
 {% macro podil_tbl(db_val, file_val) %}
 {% set d = db_val - file_val %}
 <table class="text-xs" style="border-spacing:0;border-collapse:collapse;margin:0 auto">
@@ -31,26 +45,26 @@
 {% endmacro %}
 
 <div class="flex gap-1.5 mb-3">
-    <a href="/kontrola-podilu/{{ session.id }}{{ '?back=' ~ (back_url|urlencode) if back_url else '' }}" style="flex:1" class="bg-white rounded-lg shadow px-2 py-1 text-center hover:ring-2 hover:ring-gray-300 {% if not filtr %}ring-2 ring-gray-400{% endif %}">
+    <a href="/kontrola-podilu/{{ session.id }}?{{ 'back=' ~ (back_url|urlencode) if back_url else '' }}{{ _q }}" style="flex:1" class="bg-white rounded-lg shadow px-2 py-1 text-center hover:ring-2 hover:ring-gray-300 {% if not filtr %}ring-2 ring-gray-400{% endif %}">
         <p class="text-sm font-bold text-gray-800">{{ session.total_records }}</p>
         <p class="text-xs text-gray-500">Celkem</p>
         {{ podil_tbl(total_db_share, total_file_share) }}
     </a>
-    <a href="/kontrola-podilu/{{ session.id }}?filtr=match{{ _back }}" style="flex:1" class="bg-green-50 rounded-lg shadow px-2 py-1 text-center border border-green-200 hover:ring-2 hover:ring-green-300 {% if filtr == 'match' %}ring-2 ring-green-400{% endif %}">
+    <a href="/kontrola-podilu/{{ session.id }}?filtr=match{{ _back }}{{ _q }}" style="flex:1" class="bg-green-50 rounded-lg shadow px-2 py-1 text-center border border-green-200 hover:ring-2 hover:ring-green-300 {% if filtr == 'match' %}ring-2 ring-green-400{% endif %}">
         <p class="text-sm font-bold text-green-600">{{ total_match }}</p>
         <p class="text-xs text-green-600">Shoda</p>
         {{ podil_tbl(match_db, match_file) }}
     </a>
-    <a href="/kontrola-podilu/{{ session.id }}?filtr=rozdil{{ _back }}" style="flex:1" class="bg-red-50 rounded-lg shadow px-2 py-1 text-center border border-red-200 hover:ring-2 hover:ring-red-300 {% if filtr == 'rozdil' %}ring-2 ring-red-400{% endif %}">
+    <a href="/kontrola-podilu/{{ session.id }}?filtr=rozdil{{ _back }}{{ _q }}" style="flex:1" class="bg-red-50 rounded-lg shadow px-2 py-1 text-center border border-red-200 hover:ring-2 hover:ring-red-300 {% if filtr == 'rozdil' %}ring-2 ring-red-400{% endif %}">
         <p class="text-sm font-bold text-red-600">{{ total_diff }}</p>
         <p class="text-xs text-red-600">Rozdíl</p>
         {{ podil_tbl(diff_db, diff_file) }}
     </a>
-    <a href="/kontrola-podilu/{{ session.id }}?filtr=chybi_db{{ _back }}" style="flex:1" class="bg-orange-50 rounded-lg shadow px-2 py-1 text-center border border-orange-200 hover:ring-2 hover:ring-orange-300 {% if filtr == 'chybi_db' %}ring-2 ring-orange-400{% endif %}">
+    <a href="/kontrola-podilu/{{ session.id }}?filtr=chybi_db{{ _back }}{{ _q }}" style="flex:1" class="bg-orange-50 rounded-lg shadow px-2 py-1 text-center border border-orange-200 hover:ring-2 hover:ring-orange-300 {% if filtr == 'chybi_db' %}ring-2 ring-orange-400{% endif %}">
         <p class="text-sm font-bold text-orange-600">{{ total_missing_db }}</p>
         <p class="text-xs text-orange-600">Chybí v DB</p>
     </a>
-    <a href="/kontrola-podilu/{{ session.id }}?filtr=chybi_soubor{{ _back }}" style="flex:1" class="bg-gray-50 rounded-lg shadow px-2 py-1 text-center border border-gray-200 hover:ring-2 hover:ring-gray-300 {% if filtr == 'chybi_soubor' %}ring-2 ring-gray-400{% endif %}">
+    <a href="/kontrola-podilu/{{ session.id }}?filtr=chybi_soubor{{ _back }}{{ _q }}" style="flex:1" class="bg-gray-50 rounded-lg shadow px-2 py-1 text-center border border-gray-200 hover:ring-2 hover:ring-gray-300 {% if filtr == 'chybi_soubor' %}ring-2 ring-gray-400{% endif %}">
         <p class="text-sm font-bold text-gray-600">{{ total_missing_file }}</p>
         <p class="text-xs text-gray-600">Chybí v souboru</p>
     </a>
@@ -78,7 +92,7 @@
             <col style="width:16%">
         </colgroup>
         <thead class="bg-gray-50 border-b-2 border-gray-300 sticky top-0 z-10">
-            {% set _base = "/kontrola-podilu/" ~ session.id ~ "?filtr=" ~ filtr %}
+            {% set _base = "/kontrola-podilu/" ~ session.id ~ "?filtr=" ~ filtr ~ _q %}
             {% set _cols = [
                 ("Jedn.", "unit", "left"),
                 ("Vlastník", "", "left"),

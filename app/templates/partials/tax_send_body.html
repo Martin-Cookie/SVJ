@@ -1,0 +1,10 @@
+{% for r in recipients %}
+{% include "partials/tax_recipient_row.html" %}
+{% endfor %}
+{% if not recipients %}
+<tr>
+    <td colspan="4" class="px-6 py-8 text-center text-gray-500">
+        {% if q %}Žádní příjemci neodpovídají hledání „{{ q }}".{% else %}Žádní příjemci.{% endif %}
+    </td>
+</tr>
+{% endif %}

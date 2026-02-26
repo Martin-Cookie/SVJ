@@ -907,6 +907,9 @@ async def add_external_recipient(
 async def tax_send_preview(
     session_id: int,
     request: Request,
+    q: str = Query(""),
+    sort: str = Query("name"),
+    order: str = Query("asc"),
     back: str = Query("", alias="back"),
     db: Session = Depends(get_db),
 ):
@@ -932,13 +935,35 @@ async def tax_send_preview(
     with_email = sum(1 for r in recipients if r["email"])
     without_email = total_recipients - with_email
 
+    # Search filtering
+    if q:
+        q_lower = q.lower()
+        q_ascii = _strip_diacritics(q)
+        recipients = [
+            r for r in recipients
+            if q_lower in r["name"].lower()
+            or q_ascii in _strip_diacritics(r["name"])
+            or q_lower in (r["email"] or "").lower()
+            or any(q_lower in d["filename"].lower() for d in r["docs"])
+        ]
+
+    # Sorting
+    SEND_SORT_KEYS = {
+        "name": lambda r: _strip_diacritics(r["name"]),
+        "email": lambda r: (r["email"] or "").lower(),
+        "docs": lambda r: len(r["docs"]),
+        "status": lambda r: r["email_status"],
+    }
+    sort_fn = SEND_SORT_KEYS.get(sort, SEND_SORT_KEYS["name"])
+    recipients.sort(key=sort_fn, reverse=(order == "desc"))
+
     back_url = back or f"/dane/{session_id}"
 
     list_url = str(request.url.path)
     if request.url.query:
         list_url += "?" + str(request.url.query)
 
-    return templates.TemplateResponse("tax/send.html", {
+    ctx = {
         "request": request,
         "active_nav": "tax",
         "session": session,
@@ -948,7 +973,15 @@ async def tax_send_preview(
         "without_email": without_email,
         "back_url": back_url,
         "list_url": list_url,
-    })
+        "q": q,
+        "sort": sort,
+        "order": order,
+    }
+
+    if request.headers.get("HX-Request") and not request.headers.get("HX-Boosted"):
+        return templates.TemplateResponse("partials/tax_send_body.html", ctx)
+
+    return templates.TemplateResponse("tax/send.html", ctx)
 
 
 @router.post("/{session_id}/rozeslat/email/{dist_id}")

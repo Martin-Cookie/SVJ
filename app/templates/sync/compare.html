@@ -26,8 +26,22 @@
     </div>
 </div>
 
+<!-- Search -->
+<div class="flex items-center gap-3 mb-3 bg-white rounded-lg shadow px-3 py-2">
+    <div class="flex-1">
+        <input type="text" name="q" value="{{ q }}"
+               placeholder="Hledat jednotku, vlastníka, typ..."
+               class="w-full px-3 py-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs"
+               onkeydown="if(event.key==='Enter'){event.preventDefault(); var u=new URL(window.location); u.searchParams.set('q',this.value); window.location=u;}">
+    </div>
+    {% if q %}
+    <a href="{{ request.url.path }}?filtr={{ filtr }}{% if sort %}&sort={{ sort }}&order={{ order }}{% endif %}{{ '&back=' ~ (back_url|default('')|urlencode) if back_url else '' }}" class="text-xs text-gray-500 hover:text-gray-700">Zrušit</a>
+    {% endif %}
+</div>
+
 <!-- Stats - clickable filters -->
 {% set _back = "&back=" ~ (back_url|default('')|urlencode) if back_url else "" %}
+{% set _q = "&q=" ~ (q|default('')|urlencode) if q else "" %}
 {% set katastr = 4103391 %}
 {% macro podil_tbl(excel, csv) %}
 {% set d = excel - csv %}
@@ -42,7 +56,7 @@
     {% set pct_ev = "%.2f"|format(d_ev / katastr * 100) %}
     {% set d_kat = katastr - total_csv_podil %}
     {% set pct_kat = "%.2f"|format(d_kat / katastr * 100) %}
-    <a href="/synchronizace/{{ session.id }}{{ '?back=' ~ (back_url|urlencode) if back_url else '' }}" style="flex:1" class="bg-white rounded-lg shadow px-2 py-1 text-center hover:ring-2 hover:ring-gray-300 {% if not filtr %}ring-2 ring-gray-400{% endif %}">
+    <a href="/synchronizace/{{ session.id }}?{{ 'back=' ~ (back_url|urlencode) if back_url else '' }}{{ _q }}" style="flex:1" class="bg-white rounded-lg shadow px-2 py-1 text-center hover:ring-2 hover:ring-gray-300 {% if not filtr %}ring-2 ring-gray-400{% endif %}">
         <p class="text-sm font-bold text-gray-800">{{ session.total_records }}</p>
         <p class="text-xs text-gray-500">Vše</p>
         <table class="text-xs" style="border-spacing:0;border-collapse:collapse;margin:0 auto">
@@ -53,22 +67,22 @@
             <tr><td class="text-left pr-1 {% if d_kat != 0 %}text-red-500{% else %}text-green-500{% endif %}" style="white-space:nowrap">± K-C:</td><td class="text-right font-mono {% if d_kat != 0 %}text-red-500{% else %}text-green-500{% endif %}" style="white-space:nowrap">{{ "{:,}".format(d_kat).replace(",", " ") }} {{ pct_kat }}%</td></tr>
         </table>
     </a>
-    <a href="/synchronizace/{{ session.id }}?filtr=match{{ _back }}" style="flex:1" class="bg-green-50 rounded-lg shadow px-2 py-1 text-center border border-green-200 hover:ring-2 hover:ring-green-300 {% if filtr == 'match' %}ring-2 ring-green-400{% endif %}">
+    <a href="/synchronizace/{{ session.id }}?filtr=match{{ _back }}{{ _q }}" style="flex:1" class="bg-green-50 rounded-lg shadow px-2 py-1 text-center border border-green-200 hover:ring-2 hover:ring-green-300 {% if filtr == 'match' %}ring-2 ring-green-400{% endif %}">
         <p class="text-sm font-bold text-green-600">{{ total_full_match or 0 }}</p>
         <p class="text-xs text-green-600">Úplná shoda</p>
         {{ podil_tbl(match_excel, match_csv) }}
     </a>
-    <a href="/synchronizace/{{ session.id }}?filtr=partial{{ _back }}" style="flex:1" class="bg-green-50 rounded-lg shadow px-2 py-1 text-center border border-green-200 hover:ring-2 hover:ring-green-300 {% if filtr == 'partial' %}ring-2 ring-green-400{% endif %}">
+    <a href="/synchronizace/{{ session.id }}?filtr=partial{{ _back }}{{ _q }}" style="flex:1" class="bg-green-50 rounded-lg shadow px-2 py-1 text-center border border-green-200 hover:ring-2 hover:ring-green-300 {% if filtr == 'partial' %}ring-2 ring-green-400{% endif %}">
         <p class="text-sm font-bold text-orange-500">{{ total_partial or 0 }}</p>
         <p class="text-xs text-orange-500">Částečná shoda</p>
         {{ podil_tbl(partial_excel, partial_csv) }}
     </a>
-    <a href="/synchronizace/{{ session.id }}?filtr=name_order{{ _back }}" style="flex:1" class="bg-orange-50 rounded-lg shadow px-2 py-1 text-center border border-orange-200 hover:ring-2 hover:ring-orange-300 {% if filtr == 'name_order' %}ring-2 ring-orange-400{% endif %}">
+    <a href="/synchronizace/{{ session.id }}?filtr=name_order{{ _back }}{{ _q }}" style="flex:1" class="bg-orange-50 rounded-lg shadow px-2 py-1 text-center border border-orange-200 hover:ring-2 hover:ring-orange-300 {% if filtr == 'name_order' %}ring-2 ring-orange-400{% endif %}">
         <p class="text-sm font-bold text-red-600">{{ session.total_name_order or 0 }}</p>
         <p class="text-xs text-red-600">Přeházená jména</p>
         {{ podil_tbl(name_order_excel, name_order_csv) }}
     </a>
-    <a href="/synchronizace/{{ session.id }}?filtr=difference{{ _back }}" style="flex:1" class="bg-red-50 rounded-lg shadow px-2 py-1 text-center border border-red-200 hover:ring-2 hover:ring-red-300 {% if filtr == 'difference' %}ring-2 ring-red-400{% endif %}">
+    <a href="/synchronizace/{{ session.id }}?filtr=difference{{ _back }}{{ _q }}" style="flex:1" class="bg-red-50 rounded-lg shadow px-2 py-1 text-center border border-red-200 hover:ring-2 hover:ring-red-300 {% if filtr == 'difference' %}ring-2 ring-red-400{% endif %}">
         <p class="text-sm font-bold text-red-600">{{ session.total_differences }}</p>
         <p class="text-xs text-red-600">Rozdílní vlastníci</p>
         {{ podil_tbl(diff_excel, diff_csv) }}
@@ -77,7 +91,7 @@
     {% set pct_c = "%.2f"|format(podil_diff_csv / katastr * 100) %}
     {% set diff_abs = podil_diff_excel - podil_diff_csv %}
     {% set pct_d = "%.2f"|format(diff_abs / katastr * 100) %}
-    <a href="/synchronizace/{{ session.id }}?filtr=podil_diff{{ _back }}" style="flex:1" class="bg-red-50 rounded-lg shadow px-2 py-1 text-center border border-red-200 hover:ring-2 hover:ring-red-300 {% if filtr == 'podil_diff' %}ring-2 ring-red-400{% endif %}">
+    <a href="/synchronizace/{{ session.id }}?filtr=podil_diff{{ _back }}{{ _q }}" style="flex:1" class="bg-red-50 rounded-lg shadow px-2 py-1 text-center border border-red-200 hover:ring-2 hover:ring-red-300 {% if filtr == 'podil_diff' %}ring-2 ring-red-400{% endif %}">
         <p class="text-sm font-bold text-red-600">{{ total_podil_diff or 0 }}</p>
         <p class="text-xs text-red-600">Rozdílné podíly</p>
         <table class="text-xs" style="border-spacing:0;border-collapse:collapse;margin:0 auto">
@@ -86,7 +100,7 @@
             <tr><td class="text-left pr-1 {% if diff_abs != 0 %}text-red-500{% else %}text-green-500{% endif %}" style="white-space:nowrap">±</td><td class="text-right font-mono {% if diff_abs != 0 %}text-red-500{% else %}text-green-500{% endif %}" style="white-space:nowrap">{{ "{:,}".format(diff_abs).replace(",", " ") }}</td><td class="text-right font-mono pl-1 {% if diff_abs != 0 %}text-red-500{% else %}text-green-500{% endif %}" style="white-space:nowrap">{{ pct_d }}%</td></tr>
         </table>
     </a>
-    <a href="/synchronizace/{{ session.id }}?filtr=missing{{ _back }}" style="flex:1" class="bg-gray-50 rounded-lg shadow px-2 py-1 text-center border border-gray-200 hover:ring-2 hover:ring-gray-300 {% if filtr == 'missing' %}ring-2 ring-gray-400{% endif %}">
+    <a href="/synchronizace/{{ session.id }}?filtr=missing{{ _back }}{{ _q }}" style="flex:1" class="bg-gray-50 rounded-lg shadow px-2 py-1 text-center border border-gray-200 hover:ring-2 hover:ring-gray-300 {% if filtr == 'missing' %}ring-2 ring-gray-400{% endif %}">
         <p class="text-sm font-bold text-gray-600">{{ session.total_missing }}</p>
         <p class="text-xs text-gray-600">Chybí</p>
         {{ podil_tbl(missing_excel, missing_csv) }}
@@ -120,7 +134,7 @@
             {% macro sort_th(label, col, align="left") %}
             {% set next_order = "desc" if sort == col and order == "asc" else "asc" %}
             <th class="px-1 py-1.5 text-{{ align }} font-medium {% if sort == col %}text-blue-600{% else %}text-gray-500{% endif %}">
-                <a href="/synchronizace/{{ session.id }}?filtr={{ filtr }}&sort={{ col }}&order={{ next_order }}{{ _back }}"
+                <a href="/synchronizace/{{ session.id }}?filtr={{ filtr }}&sort={{ col }}&order={{ next_order }}{{ _back }}{{ _q }}"
                    class="inline-flex items-center gap-0.5 cursor-pointer hover:text-blue-600 select-none">
                     {{ label }}
                     {% if sort == col %}

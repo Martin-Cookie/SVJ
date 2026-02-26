@@ -17,6 +17,14 @@ from app.models import (
 from app.services.share_check_comparator import (
     compare_shares, get_file_headers, get_file_preview, parse_file, suggest_mapping,
 )
+from unicodedata import normalize, category as _ucd_category
+
+
+def _strip_diacritics(text: str) -> str:
+    """Remove diacritics and lowercase for search."""
+    nfkd = normalize("NFD", text)
+    return "".join(c for c in nfkd if _ucd_category(c) != "Mn").lower()
+
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -33,21 +41,54 @@ SORT_COLUMNS = {
 @router.get("/")
 async def share_check_list(
     request: Request,
+    q: str = Query(""),
+    sort: str = Query("date"),
+    order: str = Query("desc"),
     back: str = Query("", alias="back"),
     db: Session = Depends(get_db),
 ):
     sessions = db.query(ShareCheckSession).order_by(ShareCheckSession.created_at.desc()).all()
+
+    # Search filtering
+    if q:
+        q_lower = q.lower()
+        q_ascii = _strip_diacritics(q)
+        sessions = [
+            s for s in sessions
+            if q_lower in (s.filename or "").lower()
+            or q_ascii in _strip_diacritics(s.filename or "")
+            or q_lower in s.created_at.strftime("%d.%m.%Y %H:%M")
+        ]
+
+    # Sorting
+    SORT_KEYS = {
+        "filename": lambda s: (s.filename or "").lower(),
+        "date": lambda s: s.created_at,
+        "matches": lambda s: s.total_matches or 0,
+        "differences": lambda s: (s.total_differences or 0) + (s.total_missing_db or 0) + (s.total_missing_file or 0),
+    }
+    sort_fn = SORT_KEYS.get(sort, SORT_KEYS["date"])
+    sessions.sort(key=sort_fn, reverse=(order == "desc"))
+
     list_url = str(request.url.path)
     if request.url.query:
         list_url += "?" + str(request.url.query)
 
-    return templates.TemplateResponse("share_check/index.html", {
+    ctx = {
         "request": request,
         "active_nav": "share_check",
         "sessions": sessions,
         "back_url": back,
         "list_url": list_url,
-    })
+        "q": q,
+        "sort": sort,
+        "order": order,
+    }
+
+    if request.headers.get("HX-Request") and not request.headers.get("HX-Boosted"):
+        return templates.TemplateResponse("partials/share_check_list_body.html", ctx)
+
+    return templates.TemplateResponse("share_check/index.html", ctx)
 
 
 @router.post("/nova")
@@ -185,6 +226,7 @@ async def share_check_confirm_mapping(
 async def share_check_detail(
     session_id: int,
     request: Request,
+    q: str = Query(""),
     filtr: str = Query("", alias="filtr"),
     sort: str = Query("unit", alias="sort"),
     order: str = Query("asc", alias="order"),
@@ -242,6 +284,32 @@ async def share_check_detail(
 
     records = query.all()
 
+    # Search filtering
+    if q:
+        q_lower = q.lower()
+        q_ascii = _strip_diacritics(q)
+
+        # Pre-build owner_map for search (before the main owner_map build)
+        _owner_names: dict[int, list[str]] = {}
+        _ou = (
+            db.query(OwnerUnit.owner_id, Unit.unit_number, Owner.name_with_titles)
+            .join(OwnerUnit.unit)
+            .join(Owner, OwnerUnit.owner_id == Owner.id)
+            .filter(OwnerUnit.valid_to.is_(None))
+            .all()
+        )
+        for oid, unit_num, oname in _ou:
+            _owner_names.setdefault(unit_num, []).append(oname or "")
+
+        records = [
+            r for r in records
+            if q_lower in str(r.unit_number or "")
+            or any(
+                q_ascii in _strip_diacritics(n)
+                for n in _owner_names.get(r.unit_number, [])
+            )
+        ]
+
     # Build unit_number → unit_id and unit_number → [(owner_id, name)] mappings
     unit_map = {}
     units = db.query(Unit.unit_number, Unit.id).all()
@@ -270,6 +338,7 @@ async def share_check_detail(
         "filtr": filtr,
         "sort": sort,
         "order": order,
+        "q": q,
         "back_url": back_url,
         "back_label": back_label,
         "total_match": total_match,

@@ -1,10 +1,18 @@
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import case, func
 from sqlalchemy.orm import Session
+from unicodedata import normalize, category as _ucd_category
 
 from app.database import get_db
 from app.models import EmailLog, Owner, OwnerUnit, SvjInfo, Unit, Voting, VotingStatus
+
+
+def _strip_diacritics(text: str) -> str:
+    """Remove diacritics and lowercase for search."""
+    nfkd = normalize("NFD", text)
+    return "".join(c for c in nfkd if _ucd_category(c) != "Mn").lower()
+
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -73,7 +81,13 @@ async def shares_breakdown(request: Request, vse: int = 0, db: Session = Depends
 
 
 @router.get("/")
-async def home(request: Request, db: Session = Depends(get_db)):
+async def home(
+    request: Request,
+    q: str = Query(""),
+    sort: str = Query("date"),
+    order: str = Query("desc"),
+    db: Session = Depends(get_db),
+):
     owners_count = db.query(Owner).filter_by(is_active=True).count()
     units_count = db.query(Unit).count()
     active_votings_list = (
@@ -91,9 +105,33 @@ async def home(request: Request, db: Session = Depends(get_db)):
     recent_emails = (
         db.query(EmailLog)
         .order_by(EmailLog.created_at.desc())
-        .limit(10)
+        .limit(50)
         .all()
     )
+
+    # Search filtering
+    if q:
+        q_lower = q.lower()
+        q_ascii = _strip_diacritics(q)
+        recent_emails = [
+            e for e in recent_emails
+            if q_lower in (e.recipient_name or "").lower()
+            or q_ascii in _strip_diacritics(e.recipient_name or "")
+            or q_lower in (e.recipient_email or "").lower()
+            or q_lower in (e.subject or "").lower()
+            or q_lower in (e.module or "").lower()
+        ]
+
+    # Sorting
+    SORT_KEYS = {
+        "date": lambda e: e.created_at,
+        "module": lambda e: (e.module or "").lower(),
+        "recipient": lambda e: _strip_diacritics(e.recipient_name or e.recipient_email or ""),
+        "subject": lambda e: (e.subject or "").lower(),
+        "status": lambda e: e.status.value if e.status else "",
+    }
+    sort_fn = SORT_KEYS.get(sort, SORT_KEYS["date"])
+    recent_emails.sort(key=sort_fn, reverse=(order == "desc"))
 
     # Share statistics
     svj_info = db.query(SvjInfo).first()
@@ -101,7 +139,7 @@ async def home(request: Request, db: Session = Depends(get_db)):
     owners_scd = db.query(func.sum(OwnerUnit.votes)).filter(OwnerUnit.valid_to.is_(None)).scalar() or 0
     units_scd = db.query(func.sum(Unit.podil_scd)).scalar() or 0
 
-    return templates.TemplateResponse("dashboard.html", {
+    ctx = {
         "request": request,
         "active_nav": "dashboard",
         "owners_count": owners_count,
@@ -112,4 +150,12 @@ async def home(request: Request, db: Session = Depends(get_db)):
         "declared_shares": declared_shares,
         "owners_scd": owners_scd,
         "units_scd": units_scd,
-    })
+        "q": q,
+        "sort": sort,
+        "order": order,
+    }
+
+    if request.headers.get("HX-Request") and not request.headers.get("HX-Boosted"):
+        return templates.TemplateResponse("partials/dashboard_activity_body.html", ctx)
+
+    return templates.TemplateResponse("dashboard.html", ctx)

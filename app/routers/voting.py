@@ -21,6 +21,14 @@ from app.services.word_parser import extract_voting_items, extract_voting_metada
 from app.services.voting_import import (
     read_excel_headers, preview_voting_import, execute_voting_import,
 )
+from unicodedata import normalize, category as _ucd_category
+
+
+def _strip_diacritics(text: str) -> str:
+    """Remove diacritics and lowercase for search."""
+    nfkd = normalize("NFD", text)
+    return "".join(c for c in nfkd if _ucd_category(c) != "Mn").lower()
+
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -723,6 +731,8 @@ async def not_submitted(
     voting_id: int,
     request: Request,
     q: str = Query(""),
+    sort: str = Query("owner"),
+    order: str = Query("asc"),
     db: Session = Depends(get_db),
 ):
     voting = db.query(Voting).options(
@@ -739,11 +749,25 @@ async def not_submitted(
     # Search filter
     if q:
         q_lower = q.lower()
+        q_ascii = _strip_diacritics(q)
         missing = [
             b for b in missing
             if q_lower in (b.owner.display_name or "").lower()
+            or q_ascii in _strip_diacritics(b.owner.display_name or "")
             or q_lower in (b.units_text or "").lower()
+            or q_lower in (b.owner.email or "").lower()
         ]
+
+    # Sorting
+    SORT_KEYS = {
+        "owner": lambda b: _strip_diacritics(b.owner.display_name or ""),
+        "units": lambda b: (b.units_text or "").lower(),
+        "email": lambda b: (b.owner.email or "").lower(),
+        "votes": lambda b: b.total_votes or 0,
+        "status": lambda b: b.status.value,
+    }
+    sort_fn = SORT_KEYS.get(sort, SORT_KEYS["owner"])
+    missing.sort(key=sort_fn, reverse=(order == "desc"))
 
     list_url = str(request.url.path)
     if request.url.query:
@@ -756,6 +780,8 @@ async def not_submitted(
         "missing": missing,
         "active_bubble": "neodevzdane",
         "q": q,
+        "sort": sort,
+        "order": order,
         "list_url": list_url,
         **_ballot_stats(voting),
     }

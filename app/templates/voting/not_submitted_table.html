@@ -1,5 +1,5 @@
 {% set _back_base = (list_url or '/hlasovani/' ~ voting.id ~ '/neodevzdane') %}
-{% for ballot in missing | sort(attribute='owner.name_normalized') %}
+{% for ballot in missing %}
 {% set _anchor = '#ballot-' ~ ballot.id %}
 {% set _back = _back_base ~ _anchor %}
 <tr id="ballot-{{ ballot.id }}" class="hover:bg-gray-50">

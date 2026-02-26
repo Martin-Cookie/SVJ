@@ -1,0 +1,23 @@
+{% for session in sessions %}
+<tr id="session-{{ session.id }}" class="hover:bg-gray-50">
+    <td class="px-3 py-1.5">
+        <a href="/synchronizace/{{ session.id }}?back={{ ((list_url or '/synchronizace') ~ '#session-' ~ session.id)|urlencode }}" class="text-blue-600 hover:text-blue-800 hover:underline font-medium">{{ session.csv_filename }}</a>
+    </td>
+    <td class="px-3 py-1.5 text-gray-500 text-xs" style="white-space:nowrap">{{ session.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
+    <td class="px-3 py-1.5 text-green-600 text-right whitespace-nowrap">{{ session.total_matches }}</td>
+    <td class="px-3 py-1.5 text-red-600 text-right whitespace-nowrap">{{ session.total_differences + session.total_missing }}</td>
+    <td class="px-3 py-1.5 text-right">
+        <form action="/synchronizace/{{ session.id }}/smazat" method="post" style="display:inline"
+              onsubmit="return confirm('Smazat kontrolu {{ session.csv_filename }}?')">
+            <button type="submit" class="text-red-500 hover:text-red-700 text-xs font-medium">Smazat</button>
+        </form>
+    </td>
+</tr>
+{% endfor %}
+{% if not sessions %}
+<tr>
+    <td colspan="5" class="px-3 py-4 text-center text-gray-500 text-sm">
+        {% if q %}Žádné kontroly neodpovídají hledání „{{ q }}".{% else %}Zatím žádné kontroly.{% endif %}
+    </td>
+</tr>
+{% endif %}

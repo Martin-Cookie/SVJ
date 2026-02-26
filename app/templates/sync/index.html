@@ -45,16 +45,46 @@
         <div class="bg-white rounded-lg shadow flex flex-col min-h-0 h-full">
             <div class="px-4 pt-4 flex-none">
                 <h2 class="text-sm font-semibold text-gray-700 mb-2">Historie kontrol</h2>
+                <!-- Search -->
+                <div class="mb-2">
+                    <input type="hidden" name="sort" value="{{ sort }}">
+                    <input type="hidden" name="order" value="{{ order }}">
+                    <input type="hidden" name="back" value="{{ back_url|default('') }}">
+                    <input type="text" name="q" value="{{ q }}"
+                           placeholder="Hledat soubor, datum..."
+                           hx-get="/synchronizace"
+                           hx-trigger="keyup changed delay:300ms"
+                           hx-target="#sync-history-body"
+                           hx-include="[name='sort'],[name='order'],[name='back']"
+                           hx-push-url="true"
+                           class="w-full px-3 py-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs">
+                </div>
             </div>
-            {% if sessions %}
+            {% macro sort_th(label, col, align="left") %}
+            {% set next_order = "desc" if sort == col and order == "asc" else "asc" %}
+            <th class="px-3 py-1.5 text-{{ align }} font-medium {% if sort == col %}text-blue-600{% else %}text-gray-500{% endif %}">
+                <a href="/synchronizace?sort={{ col }}&order={{ next_order }}&q={{ q|default('')|urlencode }}&back={{ back_url|default('')|urlencode }}"
+                   class="inline-flex items-center gap-0.5 cursor-pointer hover:text-blue-600 select-none">
+                    {{ label }}
+                    {% if sort == col %}
+                        {% if order == "asc" %}
+                        <svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L10 6.414l-3.293 3.293a1 1 0 01-1.414 0z"/></svg>
+                        {% else %}
+                        <svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path d="M14.707 10.293a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L10 13.586l3.293-3.293a1 1 0 011.414 0z"/></svg>
+                        {% endif %}
+                    {% endif %}
+                </a>
+            </th>
+            {% endmacro %}
+            {% if sessions or q %}
             <div class="flex-none px-4">
                 <table class="w-full text-sm">
                     <thead class="border-b border-gray-200">
                         <tr>
-                            <th class="px-3 py-1.5 text-left font-medium text-gray-500 cursor-pointer hover:text-gray-800 select-none" data-col="0" data-type="text" data-sort-tbody="sync-history-body" onclick="sortTableCol(this)">Soubor <span class="sort-arrow"></span></th>
-                            <th class="px-3 py-1.5 text-left font-medium text-gray-500 cursor-pointer hover:text-gray-800 select-none" data-col="1" data-type="text" data-sort-tbody="sync-history-body" onclick="sortTableCol(this)">Datum <span class="sort-arrow"></span></th>
-                            <th class="px-3 py-1.5 text-right font-medium text-gray-500 cursor-pointer hover:text-gray-800 select-none" data-col="2" data-type="num" data-sort-tbody="sync-history-body" onclick="sortTableCol(this)">Shoda <span class="sort-arrow"></span></th>
-                            <th class="px-3 py-1.5 text-right font-medium text-gray-500 cursor-pointer hover:text-gray-800 select-none" data-col="3" data-type="num" data-sort-tbody="sync-history-body" onclick="sortTableCol(this)">Rozdíly <span class="sort-arrow"></span></th>
+                            {{ sort_th("Soubor", "filename") }}
+                            {{ sort_th("Datum", "date") }}
+                            {{ sort_th("Shoda", "matches", "right") }}
+                            {{ sort_th("Rozdíly", "differences", "right") }}
                             <th class="px-3 py-1.5"></th>
                         </tr>
                     </thead>
@@ -63,22 +93,7 @@
             <div class="flex-1 overflow-y-auto px-4 pb-4 min-h-0">
                 <table class="w-full text-sm">
                     <tbody id="sync-history-body" class="divide-y divide-gray-100">
-                        {% for session in sessions %}
-                        <tr id="session-{{ session.id }}" class="hover:bg-gray-50">
-                            <td class="px-3 py-1.5">
-                                <a href="/synchronizace/{{ session.id }}?back={{ ((list_url or '/synchronizace') ~ '#session-' ~ session.id)|urlencode }}" class="text-blue-600 hover:text-blue-800 hover:underline font-medium">{{ session.csv_filename }}</a>
-                            </td>
-                            <td class="px-3 py-1.5 text-gray-500 text-xs" style="white-space:nowrap" data-v="{{ session.created_at.isoformat() }}">{{ session.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
-                            <td class="px-3 py-1.5 text-green-600 text-right whitespace-nowrap">{{ session.total_matches }}</td>
-                            <td class="px-3 py-1.5 text-red-600 text-right whitespace-nowrap">{{ session.total_differences + session.total_missing }}</td>
-                            <td class="px-3 py-1.5 text-right">
-                                <form action="/synchronizace/{{ session.id }}/smazat" method="post" style="display:inline"
-                                      onsubmit="return confirm('Smazat kontrolu {{ session.csv_filename }}?')">
-                                    <button type="submit" class="text-red-500 hover:text-red-700 text-xs font-medium">Smazat</button>
-                                </form>
-                            </td>
-                        </tr>
-                        {% endfor %}
+                        {% include "partials/sync_list_body.html" %}
                     </tbody>
                 </table>
             </div>

@@ -19,25 +19,70 @@ from app.models import (
 from app.services.csv_comparator import compare_owners, parse_sousede_csv
 from app.services.owner_exchange import execute_exchange, prepare_exchange_preview
 from app.services.owner_matcher import normalize_for_matching
+from unicodedata import normalize as _unicode_normalize, category as _ucd_category
+
+
+def _strip_diacritics(text: str) -> str:
+    """Remove diacritics and lowercase for search."""
+    nfkd = _unicode_normalize("NFD", text)
+    return "".join(c for c in nfkd if _ucd_category(c) != "Mn").lower()
+
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
 
 
 @router.get("/")
-async def sync_list(request: Request, back: str = Query("", alias="back"), db: Session = Depends(get_db)):
+async def sync_list(
+    request: Request,
+    q: str = Query(""),
+    sort: str = Query("date"),
+    order: str = Query("desc"),
+    back: str = Query("", alias="back"),
+    db: Session = Depends(get_db),
+):
     sessions = db.query(SyncSession).order_by(SyncSession.created_at.desc()).all()
+
+    # Search filtering
+    if q:
+        q_lower = q.lower()
+        q_ascii = _strip_diacritics(q)
+        sessions = [
+            s for s in sessions
+            if q_lower in (s.csv_filename or "").lower()
+            or q_ascii in _strip_diacritics(s.csv_filename or "")
+            or q_lower in s.created_at.strftime("%d.%m.%Y %H:%M")
+        ]
+
+    # Sorting
+    SORT_KEYS = {
+        "filename": lambda s: (s.csv_filename or "").lower(),
+        "date": lambda s: s.created_at,
+        "matches": lambda s: s.total_matches or 0,
+        "differences": lambda s: (s.total_differences or 0) + (s.total_missing or 0),
+    }
+    sort_fn = SORT_KEYS.get(sort, SORT_KEYS["date"])
+    sessions.sort(key=sort_fn, reverse=(order == "desc"))
+
     list_url = str(request.url.path)
     if request.url.query:
         list_url += "?" + str(request.url.query)
 
-    return templates.TemplateResponse("sync/index.html", {
+    ctx = {
         "request": request,
         "active_nav": "sync",
         "sessions": sessions,
         "back_url": back,
         "list_url": list_url,
-    })
+        "q": q,
+        "sort": sort,
+        "order": order,
+    }
+
+    if request.headers.get("HX-Request") and not request.headers.get("HX-Boosted"):
+        return templates.TemplateResponse("partials/sync_list_body.html", ctx)
+
+    return templates.TemplateResponse("sync/index.html", ctx)
 
 
 @router.post("/{session_id}/smazat")
@@ -177,6 +222,7 @@ SYNC_SORT_COLUMNS = {
 async def sync_detail(
     session_id: int,
     request: Request,
+    q: str = Query(""),
     filtr: str = Query("", alias="filtr"),
     sort: str = Query("unit", alias="sort"),
     order: str = Query("asc", alias="order"),
@@ -262,6 +308,19 @@ async def sync_detail(
         query = query.order_by(cast(SyncRecord.unit_number, Integer).asc())
     records = query.all()
 
+    # Search filtering
+    if q:
+        q_lower = q.lower()
+        q_ascii = _strip_diacritics(q)
+        records = [
+            r for r in records
+            if q_lower in str(r.unit_number or "")
+            or q_ascii in _strip_diacritics(r.excel_owner_name or "")
+            or q_ascii in _strip_diacritics(r.csv_owner_name or "")
+            or q_lower in (r.excel_space_type or "").lower()
+            or q_lower in (r.excel_ownership_type or "").lower()
+        ]
+
     # Build unit_number → [(owner_id, owner_name), ...] mapping for clickable owner links
     # and unit_number → unit_id mapping for clickable unit links
     owner_map = {}
@@ -289,6 +348,7 @@ async def sync_detail(
         "filtr": filtr,
         "sort": sort,
         "order": order,
+        "q": q,
         "back_url": back_url,
         "back_label": back_label,
         "total_full_match": total_full_match,
