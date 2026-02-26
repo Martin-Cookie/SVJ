@@ -1037,6 +1037,7 @@ async def tax_send_preview(
         "filtr": filtr,
         "sort": sort,
         "order": order,
+        "test_email_value": session.test_email_address or "",
     }
 
     if request.headers.get("HX-Request") and not request.headers.get("HX-Boosted"):
@@ -1149,6 +1150,7 @@ async def send_test_email(
         flash_message = f"Testovací email odeslán na {test_email}"
         flash_type = "success"
         session.test_email_passed = True
+        session.test_email_address = test_email.strip()
         db.commit()
     else:
         flash_message = f"Chyba při odesílání: {result['error']}"
@@ -1204,6 +1206,7 @@ async def save_send_settings(
     send_batch_size: int = Form(10),
     send_batch_interval: int = Form(5),
     send_confirm_each_batch: bool = Form(False),
+    test_email_inline: str = Form(""),
     db: Session = Depends(get_db),
 ):
     session = db.query(TaxSession).get(session_id)
@@ -1215,6 +1218,8 @@ async def save_send_settings(
     session.send_batch_size = send_batch_size
     session.send_batch_interval = send_batch_interval
     session.send_confirm_each_batch = send_confirm_each_batch
+    if test_email_inline.strip():
+        session.test_email_address = test_email_inline.strip()
     session.send_status = SendStatus.READY
     db.commit()
 

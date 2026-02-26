@@ -110,6 +110,7 @@ def _migrate_tax_tables():
             ("send_scheduled_at", "ALTER TABLE tax_sessions ADD COLUMN send_scheduled_at DATETIME"),
             ("send_status", "ALTER TABLE tax_sessions ADD COLUMN send_status VARCHAR(20) DEFAULT 'DRAFT'"),
             ("test_email_passed", "ALTER TABLE tax_sessions ADD COLUMN test_email_passed BOOLEAN DEFAULT 0"),
+            ("test_email_address", "ALTER TABLE tax_sessions ADD COLUMN test_email_address VARCHAR"),
             ("send_confirm_each_batch", "ALTER TABLE tax_sessions ADD COLUMN send_confirm_each_batch BOOLEAN DEFAULT 0"),
         ]:
             if col not in columns:

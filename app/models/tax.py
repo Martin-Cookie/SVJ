@@ -48,6 +48,7 @@ class TaxSession(Base):
     send_scheduled_at = Column(DateTime, nullable=True)
     send_status = Column(Enum(SendStatus), default=SendStatus.DRAFT, index=True)
     test_email_passed = Column(Boolean, default=False)
+    test_email_address = Column(String, nullable=True)
     send_confirm_each_batch = Column(Boolean, default=False)
 
     documents = relationship(
