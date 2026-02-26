@@ -1,0 +1,10 @@
+{% for doc in documents %}
+{% include "partials/tax_match_row.html" %}
+{% endfor %}
+{% if not documents %}
+<tr>
+    <td colspan="7" class="px-6 py-8 text-center text-gray-500">
+        Žádné dokumenty nenalezeny.
+    </td>
+</tr>
+{% endif %}

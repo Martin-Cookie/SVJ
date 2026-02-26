@@ -5,6 +5,7 @@ import threading
 from datetime import date, datetime
 from pathlib import Path
 from typing import List
+from unicodedata import category, normalize
 
 from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -32,6 +33,12 @@ _processing_progress: dict[int, dict] = {}
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+def _strip_diacritics(text: str) -> str:
+    """Remove diacritics and lowercase for search."""
+    nfkd = normalize("NFD", text)
+    return "".join(c for c in nfkd if category(c) != "Mn").lower()
+
 
 def _session_stats(documents):
     """Compute stat card numbers for the matching page."""
@@ -513,6 +520,9 @@ async def tax_detail(
     request: Request,
     back: str = Query("", alias="back"),
     filtr: str = Query("", alias="filtr"),
+    q: str = Query("", alias="q"),
+    sort: str = Query("unit_number", alias="sort"),
+    order: str = Query("asc", alias="order"),
     db: Session = Depends(get_db),
 ):
     session = db.query(TaxSession).get(session_id)
@@ -584,6 +594,39 @@ async def tax_detail(
     else:
         documents = all_documents
 
+    # Search filtering
+    if q:
+        q_lower = q.lower()
+        q_ascii = _strip_diacritics(q)
+        documents = [
+            d for d in documents
+            if q_lower in (d.filename or "").lower()
+            or q_lower in (d.extracted_owner_name or "").lower()
+            or q_ascii in _strip_diacritics(d.extracted_owner_name or "")
+            or q_lower in str(d.unit_number or "")
+            or any(
+                q_ascii in _strip_diacritics(dist.owner.display_name)
+                for dist in d.distributions if dist.owner
+            )
+        ]
+
+    # Sorting
+    SORT_KEYS = {
+        "filename": lambda d: (d.filename or "").lower(),
+        "unit_number": lambda d: (d.unit_number or 0, d.unit_letter or ""),
+        "extracted": lambda d: (d.extracted_owner_name or "").lower(),
+        "owner": lambda d: next(
+            (_strip_diacritics(dist.owner.display_name) for dist in d.distributions if dist.owner),
+            "zzz"
+        ),
+        "confidence": lambda d: next(
+            (dist.match_confidence or 0 for dist in d.distributions if dist.match_confidence),
+            0
+        ),
+    }
+    sort_fn = SORT_KEYS.get(sort, SORT_KEYS["unit_number"])
+    documents.sort(key=sort_fn, reverse=(order == "desc"))
+
     owners = (
         db.query(Owner)
         .filter_by(is_active=True)
@@ -599,6 +642,21 @@ async def tax_detail(
     if request.url.query:
         list_url += "?" + str(request.url.query)
 
+    is_completed = session.send_status and session.send_status.value == "ready"
+
+    # HTMX partial response — return only tbody
+    is_htmx = request.headers.get("HX-Request")
+    is_boosted = request.headers.get("HX-Boosted")
+    if is_htmx and not is_boosted:
+        return templates.TemplateResponse("partials/tax_table_body.html", {
+            "request": request,
+            "documents": documents,
+            "owners": owners,
+            "is_completed": is_completed,
+            "list_url": list_url,
+            "unit_by_number": _unit_by_number(db),
+        })
+
     return templates.TemplateResponse("tax/matching.html", {
         "request": request,
         "active_nav": "tax",
@@ -609,6 +667,10 @@ async def tax_detail(
         "back_label": back_label,
         "list_url": list_url,
         "filtr": filtr,
+        "q": q,
+        "sort": sort,
+        "order": order,
+        "is_completed": is_completed,
         "unit_by_number": _unit_by_number(db),
         "missing_list": missing_list,
         **stats,
