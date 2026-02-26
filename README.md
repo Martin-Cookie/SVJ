@@ -557,7 +557,9 @@ LIBREOFFICE_PATH=/Applications/LibreOffice.app/Contents/MacOS/soffice
 - **Sidebar navigace** — fixní levý panel (w-44) s ikonami a sekcemi
 - **Filtrační bubliny** — klikací filtry nad tabulkou s počty záznamů, dynamicky roztažené na celou šířku, rozdělené bubliny (s/bez emailu, s/bez telefonu)
 - **Back URL řetěz** — zachování filtrů a šipky "Zpět na přehled" při navigaci dashboard → seznam → detail → zpět přes celý řetěz (parametr `back` propagován přes bubliny, hledání, řazení, HTMX a detailové odkazy)
-- **Sticky hlavičky** — záhlaví tabulek zůstává viditelné při scrollu
+- **Sticky hlavičky** — záhlaví tabulek zůstává viditelné při scrollu; jednotný styl `bg-gray-50 border-b-2 border-gray-300 sticky top-0 z-10`
 - **HTMX inline editace** — formuláře pro kontakty, adresy a údaje jednotek se přepínají bez reloadu
+- **HTMX upload formuláře** — všechny formuláře s `enctype="multipart/form-data"` mají `hx-boost="false"` pro spolehlivý upload souborů
+- **Normalizace vstupů** — všechny textové formulářové vstupy používají `.strip() or None` pro konzistentní uložení (bez mezer, prázdné = NULL)
 - **Dvousloupcový layout** — formulář vlevo + historie vpravo (import, kontrola)
 - **Flex layout s fixní hlavičkou** — `height:calc(100vh - 48px)` pro stránky kde scrolluje jen tělo tabulky
