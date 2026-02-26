@@ -135,7 +135,10 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
 
 ### D. Rozúčtování příjmů (`/dane`)
 
-- Nahrání daňových PDF dokumentů (jednotlivě nebo celý adresář)
+- Nahrání daňových PDF dokumentů (jednotlivě nebo celý adresář) s progress barem:
+  - Soubory se uloží na disk, zpracování běží na pozadí (vlákno)
+  - Progress bar s počtem zpracovaných/celkem, procentuální lištou a názvem aktuálního souboru
+  - HTMX polling (500ms), po dokončení automatický redirect na párování
 - Extrakce jmen z PDF (pdfplumber):
   - Primárně jednotlivá jména ze sekce „Údaje o vlastníkovi:" (SP řádky na str. 1)
   - Fallback na kombinované jméno ze sekce „Vlastník:" (str. 2)
@@ -343,6 +346,7 @@ app/
 │   ├── tax/                   #   Stránky daní
 │   │   ├── index.html         #     Seznam rozúčtování
 │   │   ├── upload.html        #     Nahrání PDF
+│   │   ├── processing.html    #     Progress bar zpracování PDF
 │   │   └── matching.html      #     Párování dokumentů
 │   ├── sync/                  #   Stránky synchronizace
 │   │   ├── index.html         #     Nahrání CSV + historie kontrol
@@ -373,6 +377,7 @@ app/
 │       ├── sync_row.html
 │       ├── share_check_row.html
 │       ├── tax_match_row.html
+│       ├── tax_progress.html
 │       └── ballot_processed.html
 └── static/                    # CSS, JS
     ├── css/custom.css
@@ -453,7 +458,9 @@ wheels/                        # Offline Python balíčky (gitignored)
 |--------|-------|-------|
 | GET | `/dane` | Seznam rozúčtování |
 | GET | `/dane/nova` | Formulář nového rozúčtování |
-| POST | `/dane/nova` | Vytvoření s nahráním PDF (multi-owner matching) |
+| POST | `/dane/nova` | Nahrání PDF + spuštění zpracování na pozadí → redirect na progress |
+| GET | `/dane/{id}/zpracovani` | Stránka s progress barem zpracování PDF |
+| GET | `/dane/{id}/zpracovani-stav` | HTMX polling: aktuální stav zpracování (nebo HX-Redirect po dokončení) |
 | GET | `/dane/{id}` | Detail s párováním dokumentů (stat karty, checkboxy) |
 | POST | `/dane/{id}/potvrdit/{dist_id}` | Potvrzení automatického párování |
 | POST | `/dane/{id}/prirazeni/{doc_id}` | Ruční přiřazení dokumentu (+ spoluvlastníci) |
