@@ -148,7 +148,8 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
   - Detekce spoluvlastníků dle jednotky s překrývajícím se obdobím v daňovém roce
   - Ruční přiřazení automaticky přidá spoluvlastníky
 - Redesignovaná stránka přiřazení:
-  - Fixní header se 4 stat kartami (celkem / potvrzeno / k potvrzení / nepřiřazeno)
+  - Fixní header s 5 stat kartami (celkem / potvrzeno / k potvrzení / nepřiřazeno / bez PDF)
+  - Bublina „Bez PDF" (oranžová) — jednotky s vlastníky, pro které nebyl nahrán žádný dokument; tabulka s prokliky na jednotku a vlastníky
   - Toolbar s checkboxy: vybrat/zrušit vše, potvrdit vybrané, potvrdit vše
   - Multi-owner zobrazení: barevné badge s X odebráním pro každého vlastníka
   - Dropdown přiřazení s `display_name (j. X, Y)` — zobrazuje čísla jednotek
