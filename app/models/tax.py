@@ -47,6 +47,8 @@ class TaxSession(Base):
     send_batch_interval = Column(Integer, default=5)
     send_scheduled_at = Column(DateTime, nullable=True)
     send_status = Column(Enum(SendStatus), default=SendStatus.DRAFT, index=True)
+    test_email_passed = Column(Boolean, default=False)
+    send_confirm_each_batch = Column(Boolean, default=False)
 
     documents = relationship(
         "TaxDocument", back_populates="session", cascade="all, delete-orphan"

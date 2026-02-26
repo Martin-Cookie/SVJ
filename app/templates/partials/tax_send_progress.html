@@ -1,0 +1,80 @@
+<div class="space-y-4">
+    <div class="flex justify-between items-center">
+        <span class="text-sm font-medium text-gray-700">Odesílání emailů</span>
+        <span class="text-sm text-gray-500">{{ sent + failed }} / {{ total }}</span>
+    </div>
+
+    {# Progress bar with green (sent) and red (failed) segments #}
+    <div class="w-full bg-gray-200 rounded-full h-3 overflow-hidden flex">
+        {% set sent_pct = (sent / total * 100) if total > 0 else 0 %}
+        {% set failed_pct = (failed / total * 100) if total > 0 else 0 %}
+        {% if sent_pct > 0 %}
+        <div class="bg-green-500 h-3 transition-all duration-300" style="width: {{ sent_pct }}%"></div>
+        {% endif %}
+        {% if failed_pct > 0 %}
+        <div class="bg-red-500 h-3 transition-all duration-300" style="width: {{ failed_pct }}%"></div>
+        {% endif %}
+    </div>
+
+    {# Stats row #}
+    <div class="flex items-center gap-4 text-xs">
+        <span class="text-green-600 font-medium">Odesláno: {{ sent }}</span>
+        {% if failed > 0 %}
+        <span class="text-red-600 font-medium">Chyby: {{ failed }}</span>
+        {% endif %}
+        <span class="text-gray-500">Celkem: {{ total }}</span>
+        {% if total_batches > 0 %}
+        <span class="text-gray-400">Dávka {{ batch_number }} z {{ total_batches }}</span>
+        {% endif %}
+    </div>
+
+    {# Current recipient #}
+    <div class="flex justify-between items-center">
+        {% if current_recipient %}
+        <p class="text-xs text-gray-400">Odesílám: {{ current_recipient }}</p>
+        {% elif paused %}
+        <p class="text-xs text-yellow-600 font-medium">Pozastaveno</p>
+        {% elif waiting_batch_confirm %}
+        <p class="text-xs text-blue-600 font-medium">Čeká na potvrzení dávky {{ batch_number }}</p>
+        {% else %}
+        <p class="text-xs text-gray-400">Připravuji...</p>
+        {% endif %}
+        <div class="text-xs text-gray-400 text-right">
+            <span>{{ elapsed }}</span>
+            {% if eta %}
+            <span class="mx-1">/</span>
+            <span class="text-gray-600 font-medium">zbývá {{ eta }}</span>
+            {% endif %}
+        </div>
+    </div>
+
+    {# Error message #}
+    {% if error %}
+    <div class="p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700">
+        {{ error }}
+    </div>
+    {% endif %}
+
+    {# Action buttons #}
+    <div class="flex items-center gap-2 pt-2">
+        {% if waiting_batch_confirm %}
+        <form method="post" action="/dane/{{ session_id }}/rozeslat/pokracovat" hx-boost="false">
+            <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm font-medium">
+                Pokračovat (další dávka)
+            </button>
+        </form>
+        {% elif paused %}
+        <form method="post" action="/dane/{{ session_id }}/rozeslat/pokracovat" hx-boost="false">
+            <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm font-medium">
+                Pokračovat
+            </button>
+        </form>
+        {% else %}
+        <form method="post" action="/dane/{{ session_id }}/rozeslat/pozastavit" hx-boost="false">
+            <button type="submit" class="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 text-sm font-medium">
+                Pozastavit
+            </button>
+        </form>
+        {% endif %}
+    </div>
+</div>

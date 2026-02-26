@@ -3,8 +3,10 @@
 {% endfor %}
 {% if not recipients %}
 <tr>
-    <td colspan="4" class="px-6 py-8 text-center text-gray-500">
-        {% if q %}Žádní příjemci neodpovídají hledání „{{ q }}".{% else %}Žádní příjemci.{% endif %}
+    <td colspan="5" class="px-6 py-8 text-center text-gray-500">
+        {% if q %}Žádní příjemci neodpovídají hledání „{{ q }}".
+        {% elif filtr %}Žádní příjemci v tomto filtru.
+        {% else %}Žádní příjemci.{% endif %}
     </td>
 </tr>
 {% endif %}

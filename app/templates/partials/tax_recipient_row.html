@@ -1,4 +1,13 @@
 <tr id="rcpt-{{ r.key }}" class="{% if not r.email %}bg-red-50{% endif %}">
+    {# Checkbox #}
+    <td class="px-2 py-3 text-center">
+        {% set can_send = r.email and r.email_status != 'sent' %}
+        <input type="checkbox" name="selected_keys" value="{{ r.key }}"
+               class="rcpt-cb rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+               {% if can_send %}checked{% endif %}
+               {% if not can_send %}disabled{% endif %}>
+    </td>
+
     {# Recipient name #}
     <td class="px-4 py-3 text-sm font-medium">
         {% if r.owner_id %}

@@ -17,11 +17,28 @@
                 <span class="px-2 py-0.5 bg-red-50 border border-red-200 rounded-full text-red-600"><strong>{{ without_email }}</strong> bez emailu</span>
                 {% endif %}
             </div>
-            <div class="ml-auto">
+            <div class="ml-auto flex items-center gap-2">
+                {% if count_failed|default(0) > 0 %}
+                <form method="post" action="/dane/{{ session.id }}/rozeslat/retry" hx-boost="false">
+                    <button type="submit" class="px-3 py-1.5 bg-orange-500 text-white rounded hover:bg-orange-600 text-xs font-medium">
+                        Zopakovat neúspěšné ({{ count_failed }})
+                    </button>
+                </form>
+                {% endif %}
+                <button type="button" id="send-btn" onclick="showSendConfirmModal()"
+                        class="px-4 py-1.5 bg-green-600 text-white rounded hover:bg-green-700 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                        {% if not session.test_email_passed %}disabled title="Nejdříve odešlete testovací email"{% endif %}>
+                    Rozeslat (<span id="send-count">0</span>)
+                </button>
                 {% if session.send_status and session.send_status.value == 'ready' %}
-                <span class="px-2.5 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">Připraveno k odeslání</span>
-                {% elif session.send_status and session.send_status.value == 'draft' %}
-                <span class="px-2.5 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-medium">Koncept</span>
+                <span class="px-2.5 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">Připraveno</span>
+                {% elif session.send_status and session.send_status.value == 'completed' %}
+                <span class="px-2.5 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">Dokončeno</span>
+                {% endif %}
+                {% if not session.test_email_passed %}
+                <span class="text-xs text-orange-500" title="Pro aktivaci tlačítka Rozeslat odešlete testovací email">Test neproveden</span>
+                {% else %}
+                <span class="text-xs text-green-600">Test OK</span>
                 {% endif %}
             </div>
         </div>
@@ -55,10 +72,16 @@
                                        class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                             </div>
                             <div>
-                                <label class="block text-xs font-medium text-gray-600 mb-0.5">Interval mezi dávkami (min)</label>
+                                <label class="block text-xs font-medium text-gray-600 mb-0.5">Interval mezi dávkami (s)</label>
                                 <input type="number" name="send_batch_interval" value="{{ session.send_batch_interval or 5 }}" min="1" max="60"
                                        class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                             </div>
+                            <label class="flex items-center gap-2 text-xs text-gray-600 mt-1">
+                                <input type="checkbox" name="send_confirm_each_batch" value="true"
+                                       {% if session.send_confirm_each_batch %}checked{% endif %}
+                                       class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                Potvrdit každou dávku
+                            </label>
                             <div class="flex items-center gap-2 mt-1">
                                 <input type="email" name="test_email_inline" placeholder="test@example.com"
                                        class="flex-1 border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
@@ -80,18 +103,58 @@
             </div>
         </details>
 
-        <!-- Search -->
+        <!-- Filter pills + Search -->
         <div class="flex items-center gap-3 mb-3 bg-white rounded-lg shadow px-3 py-2">
-            <input type="hidden" name="sort" value="{{ sort }}">
-            <input type="hidden" name="order" value="{{ order }}">
-            <input type="hidden" name="back" value="{{ back_url|default('') }}">
+            <div class="flex items-center gap-1">
+                {% set filter_base = "/dane/" ~ session.id ~ "/rozeslat" %}
+                {% set qs_base = "sort=" ~ sort ~ "&order=" ~ order ~ "&back=" ~ (back_url|default('')|urlencode) %}
+                <a href="{{ filter_base }}?{{ qs_base }}"
+                   hx-get="{{ filter_base }}?{{ qs_base }}"
+                   hx-target="#send-tbody" hx-push-url="true"
+                   class="px-2.5 py-1 rounded-full text-xs font-medium transition-colors
+                   {% if not filtr %}bg-blue-600 text-white{% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}">
+                    Vše ({{ total_recipients }})
+                </a>
+                <a href="{{ filter_base }}?filtr=with_email&{{ qs_base }}"
+                   hx-get="{{ filter_base }}?filtr=with_email&{{ qs_base }}"
+                   hx-target="#send-tbody" hx-push-url="true"
+                   class="px-2.5 py-1 rounded-full text-xs font-medium transition-colors
+                   {% if filtr == 'with_email' %}bg-blue-600 text-white{% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}">
+                    S emailem ({{ with_email }})
+                </a>
+                <a href="{{ filter_base }}?filtr=pending&{{ qs_base }}"
+                   hx-get="{{ filter_base }}?filtr=pending&{{ qs_base }}"
+                   hx-target="#send-tbody" hx-push-url="true"
+                   class="px-2.5 py-1 rounded-full text-xs font-medium transition-colors
+                   {% if filtr == 'pending' %}bg-yellow-500 text-white{% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}">
+                    Čekající ({{ count_pending|default(0) }})
+                </a>
+                <a href="{{ filter_base }}?filtr=sent&{{ qs_base }}"
+                   hx-get="{{ filter_base }}?filtr=sent&{{ qs_base }}"
+                   hx-target="#send-tbody" hx-push-url="true"
+                   class="px-2.5 py-1 rounded-full text-xs font-medium transition-colors
+                   {% if filtr == 'sent' %}bg-green-600 text-white{% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}">
+                    Odesláno ({{ count_sent|default(0) }})
+                </a>
+                <a href="{{ filter_base }}?filtr=failed&{{ qs_base }}"
+                   hx-get="{{ filter_base }}?filtr=failed&{{ qs_base }}"
+                   hx-target="#send-tbody" hx-push-url="true"
+                   class="px-2.5 py-1 rounded-full text-xs font-medium transition-colors
+                   {% if filtr == 'failed' %}bg-red-600 text-white{% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}">
+                    Chyba ({{ count_failed|default(0) }})
+                </a>
+            </div>
             <div class="flex-1">
+                <input type="hidden" name="sort" value="{{ sort }}">
+                <input type="hidden" name="order" value="{{ order }}">
+                <input type="hidden" name="back" value="{{ back_url|default('') }}">
+                <input type="hidden" name="filtr" value="{{ filtr }}">
                 <input type="text" name="q" value="{{ q }}"
                        placeholder="Hledat příjemce, email, soubor..."
                        hx-get="/dane/{{ session.id }}/rozeslat"
                        hx-trigger="keyup changed delay:300ms"
                        hx-target="#send-tbody"
-                       hx-include="[name='sort'],[name='order'],[name='back']"
+                       hx-include="[name='sort'],[name='order'],[name='back'],[name='filtr']"
                        hx-push-url="true"
                        class="w-full px-3 py-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs">
             </div>
@@ -100,18 +163,20 @@
 
     <!-- Scrollable recipients table -->
     <div class="flex-1 overflow-y-auto min-h-0 bg-white rounded-lg shadow">
+        <form id="send-form" method="post" action="/dane/{{ session.id }}/rozeslat/odeslat" hx-boost="false">
         <table class="min-w-full divide-y divide-gray-200" style="table-layout:fixed">
             <colgroup>
-                <col style="width:25%">
-                <col style="width:25%">
+                <col style="width:3%">
+                <col style="width:22%">
+                <col style="width:22%">
                 <col style="width:35%">
-                <col style="width:15%">
+                <col style="width:13%">
             </colgroup>
             <thead class="bg-gray-50 border-b-2 border-gray-300 sticky top-0 z-10">
                 {% macro sort_th(label, col) %}
                 {% set next_order = "desc" if sort == col and order == "asc" else "asc" %}
                 <th class="px-4 py-3 text-left text-xs font-medium {% if sort == col %}text-blue-600{% else %}text-gray-500{% endif %} uppercase">
-                    {% set _all = "q=" ~ (q|default('')|urlencode) ~ "&back=" ~ (back_url|default('')|urlencode) %}
+                    {% set _all = "q=" ~ (q|default('')|urlencode) ~ "&filtr=" ~ (filtr|default('')) ~ "&back=" ~ (back_url|default('')|urlencode) %}
                     <a href="/dane/{{ session.id }}/rozeslat?sort={{ col }}&order={{ next_order }}&{{ _all }}"
                        class="inline-flex items-center gap-0.5 cursor-pointer hover:text-blue-600 select-none">
                         {{ label }}
@@ -126,6 +191,10 @@
                 </th>
                 {% endmacro %}
                 <tr>
+                    <th class="px-2 py-3 text-center">
+                        <input type="checkbox" id="select-all-cb" onchange="toggleAllRecipients(this)"
+                               class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                    </th>
                     {{ sort_th("Příjemce", "name") }}
                     {{ sort_th("Email", "email") }}
                     {{ sort_th("Dokumenty", "docs") }}
@@ -136,6 +205,26 @@
                 {% include "partials/tax_send_body.html" %}
             </tbody>
         </table>
+        </form>
+    </div>
+</div>
+
+<!-- Send confirmation modal -->
+<div id="send-confirm-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center">
+    <div class="absolute inset-0 bg-black/50" onclick="closeSendConfirmModal()"></div>
+    <div class="relative bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+        <h3 class="text-lg font-bold text-gray-800 mb-3">Potvrdit odeslání</h3>
+        <div class="space-y-2 text-sm text-gray-600 mb-4">
+            <p>Bude odesláno <strong id="modal-count" class="text-blue-600">0</strong> emailů.</p>
+            <p>Předmět: <em id="modal-subject" class="text-gray-800"></em></p>
+            <p class="text-xs text-gray-400">Dávka: {{ session.send_batch_size or 10 }} emailů, interval: {{ session.send_batch_interval or 5 }}s</p>
+        </div>
+        <div class="flex justify-end gap-2">
+            <button type="button" onclick="closeSendConfirmModal()"
+                    class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm font-medium">Zrušit</button>
+            <button type="button" onclick="startBatchSend()"
+                    class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm font-medium">Odeslat</button>
+        </div>
     </div>
 </div>
 
@@ -155,5 +244,58 @@ function toggleEmailEdit(key) {
     if (display) display.classList.toggle('hidden');
     if (edit) edit.classList.toggle('hidden');
 }
+
+function toggleAllRecipients(master) {
+    var cbs = document.querySelectorAll('.rcpt-cb:not(:disabled)');
+    cbs.forEach(function(cb) { cb.checked = master.checked; });
+    updateSendButtonCount();
+}
+
+function updateSendButtonCount() {
+    var checked = document.querySelectorAll('.rcpt-cb:checked').length;
+    var span = document.getElementById('send-count');
+    if (span) span.textContent = checked;
+    var btn = document.getElementById('send-btn');
+    if (btn && !btn.hasAttribute('data-test-required')) {
+        btn.disabled = checked === 0;
+    }
+}
+
+function showSendConfirmModal() {
+    var checked = document.querySelectorAll('.rcpt-cb:checked');
+    if (checked.length === 0) return;
+    document.getElementById('modal-count').textContent = checked.length;
+    var subj = document.querySelector('input[name="email_subject"]');
+    document.getElementById('modal-subject').textContent = subj ? subj.value : '';
+    document.getElementById('send-confirm-modal').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeSendConfirmModal() {
+    document.getElementById('send-confirm-modal').classList.add('hidden');
+    document.body.style.overflow = '';
+}
+
+function startBatchSend() {
+    closeSendConfirmModal();
+    document.getElementById('send-form').submit();
+}
+
+// Update count on checkbox change (event delegation)
+document.addEventListener('change', function(e) {
+    if (e.target.classList.contains('rcpt-cb')) {
+        updateSendButtonCount();
+        // Uncheck select-all if any individual unchecked
+        var all = document.querySelectorAll('.rcpt-cb:not(:disabled)').length;
+        var checked = document.querySelectorAll('.rcpt-cb:checked').length;
+        var master = document.getElementById('select-all-cb');
+        if (master) master.checked = (all > 0 && all === checked);
+    }
+});
+
+// Initial count on page load
+document.addEventListener('DOMContentLoaded', function() { updateSendButtonCount(); });
+// Also update after HTMX swaps
+document.body.addEventListener('htmx:afterSwap', function() { updateSendButtonCount(); });
 </script>
 {% endblock %}

@@ -109,6 +109,8 @@ def _migrate_tax_tables():
             ("send_batch_interval", "ALTER TABLE tax_sessions ADD COLUMN send_batch_interval INTEGER DEFAULT 5"),
             ("send_scheduled_at", "ALTER TABLE tax_sessions ADD COLUMN send_scheduled_at DATETIME"),
             ("send_status", "ALTER TABLE tax_sessions ADD COLUMN send_status VARCHAR(20) DEFAULT 'DRAFT'"),
+            ("test_email_passed", "ALTER TABLE tax_sessions ADD COLUMN test_email_passed BOOLEAN DEFAULT 0"),
+            ("send_confirm_each_batch", "ALTER TABLE tax_sessions ADD COLUMN send_confirm_each_batch BOOLEAN DEFAULT 0"),
         ]:
             if col not in columns:
                 conn.execute(text(ddl))

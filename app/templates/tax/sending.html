@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Odesílání - {{ session.title }}{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <a href="/dane/{{ session.id }}/rozeslat" class="text-sm text-gray-500 hover:text-gray-700">&larr; Zpět na rozesílku</a>
+</div>
+
+<h1 class="text-2xl font-bold text-gray-800 mb-6">Odesílání &mdash; {{ session.title }}</h1>
+
+<div class="bg-white rounded-lg shadow p-6 max-w-xl">
+    <div id="send-progress-area"
+         hx-get="/dane/{{ session.id }}/rozeslat/prubeh-stav"
+         hx-trigger="every 500ms"
+         hx-swap="innerHTML">
+        {% include "partials/tax_send_progress.html" %}
+    </div>
+</div>
+{% endblock %}

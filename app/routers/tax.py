@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import logging
 import shutil
 import threading
+import time
 from datetime import date, datetime
 from pathlib import Path
 from typing import List
@@ -15,7 +17,8 @@ from sqlalchemy.orm import Session, joinedload
 from app.config import settings
 from app.database import SessionLocal, get_db
 from app.models import (
-    MatchStatus, Owner, OwnerUnit, SendStatus, TaxDistribution, TaxDocument, TaxSession, Unit,
+    EmailDeliveryStatus, MatchStatus, Owner, OwnerUnit, SendStatus,
+    TaxDistribution, TaxDocument, TaxSession, Unit,
 )
 from app.services.email_service import send_email
 from app.services.owner_matcher import match_name
@@ -28,6 +31,9 @@ templates = Jinja2Templates(directory="app/templates")
 
 # In-memory progress tracker for background PDF processing
 _processing_progress: dict[int, dict] = {}
+
+# In-memory progress tracker for background email sending
+_sending_progress: dict[int, dict] = {}
 
 
 # ---------------------------------------------------------------------------
@@ -931,6 +937,7 @@ async def tax_send_preview(
     session_id: int,
     request: Request,
     q: str = Query(""),
+    filtr: str = Query(""),
     sort: str = Query("name"),
     order: str = Query("asc"),
     back: str = Query("", alias="back"),
@@ -939,6 +946,16 @@ async def tax_send_preview(
     session = db.query(TaxSession).get(session_id)
     if not session:
         return RedirectResponse("/dane", status_code=302)
+
+    # If sending is in progress, redirect to progress page
+    progress = _sending_progress.get(session_id)
+    if progress and not progress.get("done"):
+        return RedirectResponse(f"/dane/{session_id}/rozeslat/prubeh", status_code=302)
+
+    # Edge case: DB says SENDING but no progress dict (server restart)
+    if session.send_status == SendStatus.SENDING and not progress:
+        session.send_status = SendStatus.PAUSED
+        db.commit()
 
     documents = (
         db.query(TaxDocument)
@@ -953,10 +970,27 @@ async def tax_send_preview(
         .all()
     )
 
-    recipients = _build_recipients(documents)
-    total_recipients = len(recipients)
-    with_email = sum(1 for r in recipients if r["email"])
+    all_recipients = _build_recipients(documents)
+    total_recipients = len(all_recipients)
+    with_email = sum(1 for r in all_recipients if r["email"])
     without_email = total_recipients - with_email
+
+    # Count by status for filter pills
+    count_pending = sum(1 for r in all_recipients if r["email_status"] in ("pending", "queued"))
+    count_sent = sum(1 for r in all_recipients if r["email_status"] == "sent")
+    count_failed = sum(1 for r in all_recipients if r["email_status"] == "failed")
+
+    # Filter by status
+    if filtr == "with_email":
+        recipients = [r for r in all_recipients if r["email"]]
+    elif filtr == "pending":
+        recipients = [r for r in all_recipients if r["email_status"] in ("pending", "queued")]
+    elif filtr == "sent":
+        recipients = [r for r in all_recipients if r["email_status"] == "sent"]
+    elif filtr == "failed":
+        recipients = [r for r in all_recipients if r["email_status"] == "failed"]
+    else:
+        recipients = all_recipients
 
     # Search filtering
     if q:
@@ -994,9 +1028,13 @@ async def tax_send_preview(
         "total_recipients": total_recipients,
         "with_email": with_email,
         "without_email": without_email,
+        "count_pending": count_pending,
+        "count_sent": count_sent,
+        "count_failed": count_failed,
         "back_url": back_url,
         "list_url": list_url,
         "q": q,
+        "filtr": filtr,
         "sort": sort,
         "order": order,
     }
@@ -1110,6 +1148,8 @@ async def send_test_email(
     if result["success"]:
         flash_message = f"Testovací email odeslán na {test_email}"
         flash_type = "success"
+        session.test_email_passed = True
+        db.commit()
     else:
         flash_message = f"Chyba při odesílání: {result['error']}"
         flash_type = "error"
@@ -1154,6 +1194,7 @@ async def save_send_settings(
     email_body: str = Form(""),
     send_batch_size: int = Form(10),
     send_batch_interval: int = Form(5),
+    send_confirm_each_batch: bool = Form(False),
     db: Session = Depends(get_db),
 ):
     session = db.query(TaxSession).get(session_id)
@@ -1164,6 +1205,7 @@ async def save_send_settings(
     session.email_body = email_body
     session.send_batch_size = send_batch_size
     session.send_batch_interval = send_batch_interval
+    session.send_confirm_each_batch = send_confirm_each_batch
     session.send_status = SendStatus.READY
     db.commit()
 
@@ -1193,3 +1235,396 @@ async def delete_session(
     db.commit()
 
     return RedirectResponse("/dane", status_code=302)
+
+
+# ---------------------------------------------------------------------------
+# Batch email sending
+# ---------------------------------------------------------------------------
+
+logger = logging.getLogger(__name__)
+
+
+def _sending_eta(progress: dict) -> dict:
+    """Compute ETA fields from sending progress dict."""
+    total = progress["total"]
+    sent = progress["sent"]
+    failed = progress["failed"]
+    current = sent + failed
+    pct = int(current / total * 100) if total > 0 else 0
+    elapsed = time.monotonic() - progress["started_at"]
+
+    eta_text = ""
+    if current > 0:
+        per_item = elapsed / current
+        remaining = (total - current) * per_item
+        if remaining >= 60:
+            mins = int(remaining // 60)
+            secs = int(remaining % 60)
+            eta_text = f"{mins} min {secs} s"
+        else:
+            eta_text = f"{int(remaining)} s"
+
+    elapsed_text = ""
+    if elapsed >= 60:
+        elapsed_text = f"{int(elapsed // 60)} min {int(elapsed % 60)} s"
+    else:
+        elapsed_text = f"{int(elapsed)} s"
+
+    return {
+        "total": total,
+        "sent": sent,
+        "failed": failed,
+        "current": current,
+        "pct": pct,
+        "elapsed": elapsed_text,
+        "eta": eta_text,
+        "current_recipient": progress.get("current_recipient", ""),
+        "done": progress.get("done", False),
+        "error": progress.get("error"),
+        "paused": progress.get("paused", False),
+        "waiting_batch_confirm": progress.get("waiting_batch_confirm", False),
+        "batch_number": progress.get("batch_number", 0),
+        "total_batches": progress.get("total_batches", 0),
+    }
+
+
+def _send_emails_batch(session_id: int, recipient_data: list, email_subject: str,
+                        email_body: str, batch_size: int, batch_interval: int,
+                        confirm_each_batch: bool):
+    """Background thread: send emails in batches."""
+    db = SessionLocal()
+    try:
+        # Split into batches
+        batches = []
+        for i in range(0, len(recipient_data), batch_size):
+            batches.append(recipient_data[i:i + batch_size])
+
+        _sending_progress[session_id]["total_batches"] = len(batches)
+
+        for batch_idx, batch in enumerate(batches):
+            _sending_progress[session_id]["batch_number"] = batch_idx + 1
+
+            for rcpt in batch:
+                # Check paused
+                while _sending_progress[session_id].get("paused"):
+                    time.sleep(0.5)
+                    if _sending_progress[session_id].get("done"):
+                        return
+
+                _sending_progress[session_id]["current_recipient"] = rcpt["name"]
+
+                # Gather attachment file paths
+                attachments = [d["file_path"] for d in rcpt["docs"]]
+
+                # Send email
+                result = send_email(
+                    to_email=rcpt["email"],
+                    to_name=rcpt["name"],
+                    subject=email_subject,
+                    body_html=email_body,
+                    attachments=attachments,
+                    module="tax",
+                    reference_id=session_id,
+                    db=db,
+                )
+
+                # Update distribution statuses in DB
+                for dist_id in rcpt["dist_ids"]:
+                    dist = db.query(TaxDistribution).get(dist_id)
+                    if dist:
+                        if result["success"]:
+                            dist.email_status = EmailDeliveryStatus.SENT
+                            dist.email_sent = True
+                            dist.email_sent_at = datetime.utcnow()
+                            dist.email_address_used = rcpt["email"]
+                            dist.email_error = None
+                        else:
+                            dist.email_status = EmailDeliveryStatus.FAILED
+                            dist.email_error = result.get("error", "Unknown error")
+                            dist.email_address_used = rcpt["email"]
+
+                db.commit()
+
+                if result["success"]:
+                    _sending_progress[session_id]["sent"] += 1
+                else:
+                    _sending_progress[session_id]["failed"] += 1
+
+            # After batch: wait for confirmation or interval
+            if batch_idx < len(batches) - 1:  # not last batch
+                if confirm_each_batch:
+                    _sending_progress[session_id]["waiting_batch_confirm"] = True
+                    while _sending_progress[session_id].get("waiting_batch_confirm"):
+                        time.sleep(0.5)
+                        if _sending_progress[session_id].get("done"):
+                            return
+                else:
+                    # Wait batch_interval seconds (but check for pause)
+                    for _ in range(batch_interval * 2):
+                        if _sending_progress[session_id].get("done"):
+                            return
+                        time.sleep(0.5)
+
+        # Complete
+        session = db.query(TaxSession).get(session_id)
+        if session:
+            session.send_status = SendStatus.COMPLETED
+            db.commit()
+
+    except Exception as e:
+        logger.exception("Error in batch email sending for session %s", session_id)
+        _sending_progress[session_id]["error"] = str(e)
+    finally:
+        _sending_progress[session_id]["done"] = True
+        _sending_progress[session_id]["current_recipient"] = ""
+        db.close()
+
+
+@router.post("/{session_id}/rozeslat/odeslat")
+async def start_batch_send(
+    session_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Start batch email sending for selected recipients."""
+    session = db.query(TaxSession).get(session_id)
+    if not session:
+        return RedirectResponse("/dane", status_code=302)
+
+    if not session.test_email_passed:
+        return RedirectResponse(f"/dane/{session_id}/rozeslat", status_code=302)
+
+    # Check no concurrent sending
+    progress = _sending_progress.get(session_id)
+    if progress and not progress.get("done"):
+        return RedirectResponse(f"/dane/{session_id}/rozeslat/prubeh", status_code=302)
+
+    # Get selected keys from form
+    form = await request.form()
+    selected_keys = form.getlist("selected_keys")
+    if not selected_keys:
+        return RedirectResponse(f"/dane/{session_id}/rozeslat", status_code=302)
+
+    # Build recipients
+    documents = (
+        db.query(TaxDocument)
+        .filter_by(session_id=session_id)
+        .options(
+            joinedload(TaxDocument.distributions)
+            .joinedload(TaxDistribution.owner)
+            .joinedload(Owner.units)
+            .joinedload(OwnerUnit.unit),
+        )
+        .all()
+    )
+    all_recipients = _build_recipients(documents)
+
+    # Filter to selected
+    selected_set = set(selected_keys)
+    recipients_to_send = [r for r in all_recipients if r["key"] in selected_set and r["email"]]
+
+    if not recipients_to_send:
+        return RedirectResponse(f"/dane/{session_id}/rozeslat", status_code=302)
+
+    # Mark distributions as QUEUED
+    for rcpt in recipients_to_send:
+        for dist_id in rcpt["dist_ids"]:
+            dist = db.query(TaxDistribution).get(dist_id)
+            if dist:
+                dist.email_status = EmailDeliveryStatus.QUEUED
+
+    session.send_status = SendStatus.SENDING
+    db.commit()
+
+    # Initialize progress
+    _sending_progress[session_id] = {
+        "total": len(recipients_to_send),
+        "sent": 0,
+        "failed": 0,
+        "current_recipient": "",
+        "done": False,
+        "error": None,
+        "started_at": time.monotonic(),
+        "paused": False,
+        "waiting_batch_confirm": False,
+        "batch_number": 0,
+        "total_batches": 0,
+    }
+
+    # Start background thread
+    thread = threading.Thread(
+        target=_send_emails_batch,
+        args=(
+            session_id,
+            recipients_to_send,
+            session.email_subject or "",
+            session.email_body or "",
+            session.send_batch_size or 10,
+            session.send_batch_interval or 5,
+            session.send_confirm_each_batch or False,
+        ),
+        daemon=True,
+    )
+    thread.start()
+
+    return RedirectResponse(f"/dane/{session_id}/rozeslat/prubeh", status_code=302)
+
+
+@router.get("/{session_id}/rozeslat/prubeh")
+async def sending_progress_page(
+    session_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Show progress page while emails are being sent."""
+    session = db.query(TaxSession).get(session_id)
+    if not session:
+        return RedirectResponse("/dane", status_code=302)
+
+    progress = _sending_progress.get(session_id)
+    if not progress or progress.get("done"):
+        _sending_progress.pop(session_id, None)
+        return RedirectResponse(f"/dane/{session_id}/rozeslat", status_code=302)
+
+    return templates.TemplateResponse("tax/sending.html", {
+        "request": request,
+        "active_nav": "tax",
+        "session": session,
+        **_sending_eta(progress),
+    })
+
+
+@router.get("/{session_id}/rozeslat/prubeh-stav")
+async def sending_progress_status(
+    session_id: int,
+    request: Request,
+):
+    """HTMX polling endpoint — returns progress partial or redirect when done."""
+    progress = _sending_progress.get(session_id)
+    if not progress or progress.get("done"):
+        _sending_progress.pop(session_id, None)
+        response = HTMLResponse("")
+        response.headers["HX-Redirect"] = f"/dane/{session_id}/rozeslat"
+        return response
+
+    return templates.TemplateResponse("partials/tax_send_progress.html", {
+        "request": request,
+        "session_id": session_id,
+        **_sending_eta(progress),
+    })
+
+
+@router.post("/{session_id}/rozeslat/pozastavit")
+async def pause_sending(
+    session_id: int,
+    db: Session = Depends(get_db),
+):
+    """Pause the sending process."""
+    progress = _sending_progress.get(session_id)
+    if progress and not progress.get("done"):
+        progress["paused"] = True
+
+    session = db.query(TaxSession).get(session_id)
+    if session:
+        session.send_status = SendStatus.PAUSED
+        db.commit()
+
+    return RedirectResponse(f"/dane/{session_id}/rozeslat/prubeh", status_code=302)
+
+
+@router.post("/{session_id}/rozeslat/pokracovat")
+async def resume_sending(
+    session_id: int,
+    db: Session = Depends(get_db),
+):
+    """Resume the sending process (also confirms batch)."""
+    progress = _sending_progress.get(session_id)
+    if progress and not progress.get("done"):
+        progress["paused"] = False
+        progress["waiting_batch_confirm"] = False
+
+    session = db.query(TaxSession).get(session_id)
+    if session:
+        session.send_status = SendStatus.SENDING
+        db.commit()
+
+    return RedirectResponse(f"/dane/{session_id}/rozeslat/prubeh", status_code=302)
+
+
+@router.post("/{session_id}/rozeslat/retry")
+async def retry_failed(
+    session_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Retry all failed recipients."""
+    session = db.query(TaxSession).get(session_id)
+    if not session:
+        return RedirectResponse("/dane", status_code=302)
+
+    # Check no concurrent sending
+    progress = _sending_progress.get(session_id)
+    if progress and not progress.get("done"):
+        return RedirectResponse(f"/dane/{session_id}/rozeslat/prubeh", status_code=302)
+
+    # Build recipients and filter to failed only
+    documents = (
+        db.query(TaxDocument)
+        .filter_by(session_id=session_id)
+        .options(
+            joinedload(TaxDocument.distributions)
+            .joinedload(TaxDistribution.owner)
+            .joinedload(Owner.units)
+            .joinedload(OwnerUnit.unit),
+        )
+        .all()
+    )
+    all_recipients = _build_recipients(documents)
+    failed_recipients = [r for r in all_recipients if r["email_status"] == "failed" and r["email"]]
+
+    if not failed_recipients:
+        return RedirectResponse(f"/dane/{session_id}/rozeslat", status_code=302)
+
+    # Reset failed distributions to QUEUED
+    for rcpt in failed_recipients:
+        for dist_id in rcpt["dist_ids"]:
+            dist = db.query(TaxDistribution).get(dist_id)
+            if dist and dist.email_status == EmailDeliveryStatus.FAILED:
+                dist.email_status = EmailDeliveryStatus.QUEUED
+                dist.email_error = None
+
+    session.send_status = SendStatus.SENDING
+    db.commit()
+
+    # Initialize progress
+    _sending_progress[session_id] = {
+        "total": len(failed_recipients),
+        "sent": 0,
+        "failed": 0,
+        "current_recipient": "",
+        "done": False,
+        "error": None,
+        "started_at": time.monotonic(),
+        "paused": False,
+        "waiting_batch_confirm": False,
+        "batch_number": 0,
+        "total_batches": 0,
+    }
+
+    # Start background thread
+    thread = threading.Thread(
+        target=_send_emails_batch,
+        args=(
+            session_id,
+            failed_recipients,
+            session.email_subject or "",
+            session.email_body or "",
+            session.send_batch_size or 10,
+            session.send_batch_interval or 5,
+            session.send_confirm_each_batch or False,
+        ),
+        daemon=True,
+    )
+    thread.start()
+
+    return RedirectResponse(f"/dane/{session_id}/rozeslat/prubeh", status_code=302)
