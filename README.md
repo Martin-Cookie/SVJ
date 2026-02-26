@@ -171,9 +171,11 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
   - „Pokračovat na rozesílku →" — přechod k odesílání emailů (pouze u dokončených)
   - Read-only mód: skryté checkboxy, assign dropdown, potvrdit/odebrat tlačítka, externí formulář; viditelné statusové štítky (Potvrzeno/Nepřiřazeno/Nepotvrzeno)
 - Rozesílka (`/dane/{id}/rozeslat`):
+  - Stat karty jako filtry (celkem, s emailem, čekající, odesláno, chyba) ve stylu shodném s matchingem — podmíněné zobrazení karet odesláno/chyba
+  - Samostatný search bar pod kartami s HTMX partial swapem
   - Vyhledávání příjemců (jméno, email, název souboru) s diacritics-insensitive porovnáním
   - Server-side řazení (příjemce, email, počet dokumentů, stav) s HTMX partial
-  - Bookmarkovatelné URL parametry (q, sort, order)
+  - Bookmarkovatelné URL parametry (q, filtr, sort, order)
 - Index stránka:
   - Progress bar „Potvrzeno X / Y" na každé kartě relace
   - Stavové badge: „Rozpracováno" (žlutá), „Dokončeno" (zelená), „Odesílá se" (modrá), „Odesláno" (modrá), „Pozastaveno" (žlutá)
@@ -602,7 +604,7 @@ LIBREOFFICE_PATH=/Applications/LibreOffice.app/Contents/MacOS/soffice
 
 ## UI vzory
 
-- **Dashboard** — přehled s klikacími bublinami (vlastníci, jednotky, hlasování) a modulovými kartami, vše dynamicky roztažené na šířku; bublina hlasování zobrazuje seznam aktivních/konceptových hlasování se stavem a názvem (truncate + tooltip); tabulka poslední aktivity s vyhledáváním (příjemce, email, předmět, modul) a řazením (datum, modul, příjemce, předmět, stav) přes HTMX partial
+- **Dashboard** — kompaktní přehled s 4 stat kartami (vlastníci, jednotky, hlasování, rozúčtování); karty hlasování a rozúčtování zobrazují počet kampaní per status s odkazem na poslední kampaň; fixní header (stat karty + search bar) se scrollovatelnou tabulkou poslední aktivity; vyhledávání (příjemce, email, předmět, modul) a řazení všech 5 sloupců (datum, modul, příjemce, předmět, stav) přes HTMX partial
 - **Sidebar navigace** — fixní levý panel (w-44) s ikonami a sekcemi
 - **Filtrační bubliny** — klikací filtry nad tabulkou s počty záznamů, dynamicky roztažené na celou šířku, rozdělené bubliny (s/bez emailu, s/bez telefonu)
 - **Back URL řetěz** — zachování filtrů a šipky "Zpět na přehled" při navigaci dashboard → seznam → detail → zpět přes celý řetěz (parametr `back` propagován přes bubliny, hledání, řazení, HTMX a detailové odkazy)
