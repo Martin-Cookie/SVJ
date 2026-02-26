@@ -157,8 +157,16 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
 - Odebrání vlastníka z dokumentu (pokud poslední → UNMATCHED)
 - Přidání externího příjemce (ad-hoc jméno + email)
 - Přejmenování relace (inline HTMX editace názvu — tlačítko „Uložit")
+- Workflow dokončení relace:
+  - „Uložit a zavřít" — nedestruktivní zavření, návrat na seznam
+  - „Dokončit" — uzamknutí relace (read-only mód, nelze měnit přiřazení)
+  - „Znovu otevřít" — odemknutí dokončené relace pro další úpravy
+  - „Pokračovat na rozesílku →" — přechod k odesílání emailů (pouze u dokončených)
+  - Read-only mód: skryté checkboxy, assign dropdown, potvrdit/odebrat tlačítka, externí formulář; viditelné statusové štítky (Potvrzeno/Nepřiřazeno/Nepotvrzeno)
+- Index stránka:
+  - Progress bar „Potvrzeno X / Y" na každé kartě relace
+  - Stavové badge: „Rozpracováno" (žlutá), „Dokončeno" (zelená), „Odesílá se" (modrá), „Odesláno" (modrá), „Pozastaveno" (žlutá)
 - Smazání celé relace (session + dokumenty + distribuce + soubory)
-- Připravené sloupce pro workflow odesílání emailů (Fáze 2–3)
 
 ### E. Kontrola vlastníků (`/synchronizace`)
 
@@ -471,6 +479,8 @@ wheels/                        # Offline Python balíčky (gitignored)
 | POST | `/dane/{id}/potvrdit-vybrane` | Potvrzení vybraných (z checkboxů) |
 | POST | `/dane/{id}/odebrat/{dist_id}` | Odebrání vlastníka z dokumentu |
 | POST | `/dane/{id}/pridat-externi/{doc_id}` | Přidání externího příjemce (jméno + email) |
+| POST | `/dane/{id}/dokoncit` | Uzamknutí relace (read-only mód) |
+| POST | `/dane/{id}/znovu-otevrit` | Odemknutí relace pro další úpravy |
 | POST | `/dane/{id}/smazat` | Smazání relace (session + dokumenty + soubory) |
 
 ### Kontrola vlastníků (`/synchronizace`)
