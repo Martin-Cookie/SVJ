@@ -8,11 +8,13 @@
     class="{% if all_confirmed %}bg-green-50{% elif has_unmatched %}bg-red-50{% elif has_auto %}bg-yellow-50{% endif %}">
     {# Checkbox column #}
     <td class="px-2 py-3 text-center">
+        {% if not is_completed %}
         {% for dist in doc.distributions %}
         {% if dist.match_status.value == 'auto_matched' %}
         <input type="checkbox" class="tax-cb rounded" value="{{ dist.id }}" onchange="updateSelectAll()">
         {% endif %}
         {% endfor %}
+        {% endif %}
     </td>
 
     {# Filename #}
@@ -47,6 +49,7 @@
                 {% elif dist.ad_hoc_name %}
                 {{ dist.ad_hoc_name }} <span class="text-gray-400">(externí)</span>
                 {% endif %}
+                {% if not is_completed %}
                 <button hx-post="/dane/{{ doc.session_id }}/odebrat/{{ dist.id }}"
                         hx-target="#tax-row-{{ doc.id }}" hx-swap="outerHTML"
                         hx-confirm="Odebrat tohoto vlastníka z dokumentu?"
@@ -55,6 +58,7 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                     </svg>
                 </button>
+                {% endif %}
             </span>
             {% else %}
             <span class="text-red-500 text-xs">Nepřiřazeno</span>
@@ -79,6 +83,16 @@
 
     {# Actions #}
     <td class="px-3 py-3 text-sm">
+        {# Status labels (always visible) #}
+        {% if all_confirmed %}
+        <span class="text-green-600 text-xs font-medium">Potvrzeno</span>
+        {% elif is_completed and has_unmatched %}
+        <span class="text-red-500 text-xs font-medium">Nepřiřazeno</span>
+        {% elif is_completed and has_auto %}
+        <span class="text-yellow-600 text-xs font-medium">Nepotvrzeno</span>
+        {% endif %}
+
+        {% if not is_completed %}
         {# Manual assign dropdown #}
         {% if has_unmatched or has_auto %}
         <form hx-post="/dane/{{ doc.session_id }}/prirazeni/{{ doc.id }}"
@@ -109,11 +123,6 @@
         {% endfor %}
         {% endif %}
 
-        {# Status labels #}
-        {% if all_confirmed %}
-        <span class="text-green-600 text-xs font-medium">Potvrzeno</span>
-        {% endif %}
-
         {# External recipient button + form #}
         <button type="button" onclick="toggleExternalForm({{ doc.id }})"
                 class="text-xs text-gray-500 hover:text-blue-600 mt-1 block">
@@ -132,5 +141,6 @@
                 </button>
             </form>
         </div>
+        {% endif %}
     </td>
 </tr>

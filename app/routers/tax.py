@@ -140,6 +140,8 @@ def _reload_doc_row(doc_id: int, session_id: int, request: Request, db: Session)
     # Unit lookup for clickable unit links
     unit_by_number = _unit_by_number(db)
 
+    is_completed = doc.session.send_status == SendStatus.READY if doc.session.send_status else False
+
     return templates.TemplateResponse("partials/tax_match_row.html", {
         "request": request,
         "doc": doc,
@@ -147,6 +149,7 @@ def _reload_doc_row(doc_id: int, session_id: int, request: Request, db: Session)
         "session": doc.session,
         "list_url": list_url,
         "unit_by_number": unit_by_number,
+        "is_completed": is_completed,
     })
 
 
@@ -209,10 +212,35 @@ def _build_recipients(documents):
 
 @router.get("/")
 async def tax_list(request: Request, back: str = Query("", alias="back"), db: Session = Depends(get_db)):
-    sessions = db.query(TaxSession).order_by(TaxSession.created_at.desc()).all()
+    sessions = (
+        db.query(TaxSession)
+        .options(
+            joinedload(TaxSession.documents)
+            .joinedload(TaxDocument.distributions),
+        )
+        .order_by(TaxSession.created_at.desc())
+        .all()
+    )
     list_url = str(request.url.path)
     if request.url.query:
         list_url += "?" + str(request.url.query)
+
+    # Compute per-session stats for progress display
+    session_stats = {}
+    for s in sessions:
+        total = len(s.documents)
+        confirmed = 0
+        for doc in s.documents:
+            if doc.distributions and all(
+                d.match_status in (MatchStatus.CONFIRMED, MatchStatus.MANUAL)
+                for d in doc.distributions
+            ):
+                confirmed += 1
+        session_stats[s.id] = {
+            "total": total,
+            "confirmed": confirmed,
+            "pct": int(confirmed / total * 100) if total > 0 else 0,
+        }
 
     return templates.TemplateResponse("tax/index.html", {
         "request": request,
@@ -220,6 +248,7 @@ async def tax_list(request: Request, back: str = Query("", alias="back"), db: Se
         "sessions": sessions,
         "back_url": back,
         "list_url": list_url,
+        "session_stats": session_stats,
     })
 
 
@@ -601,6 +630,32 @@ async def rename_session(
         f'<p class="text-sm text-green-600 mt-1">Uloženo</p>'
         f'</div>'
     )
+
+
+@router.post("/{session_id}/dokoncit")
+async def finalize_session(
+    session_id: int,
+    db: Session = Depends(get_db),
+):
+    """Lock the session — no more editing, can proceed to sending."""
+    session = db.query(TaxSession).get(session_id)
+    if session:
+        session.send_status = SendStatus.READY
+        db.commit()
+    return RedirectResponse(f"/dane/{session_id}", status_code=302)
+
+
+@router.post("/{session_id}/znovu-otevrit")
+async def reopen_session(
+    session_id: int,
+    db: Session = Depends(get_db),
+):
+    """Unlock the session for further editing."""
+    session = db.query(TaxSession).get(session_id)
+    if session:
+        session.send_status = SendStatus.DRAFT
+        db.commit()
+    return RedirectResponse(f"/dane/{session_id}", status_code=302)
 
 
 @router.post("/{session_id}/potvrdit/{dist_id}")
