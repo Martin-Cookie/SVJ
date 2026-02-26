@@ -123,10 +123,12 @@
         <div class="mt-1 space-y-0.5">
             {% for s in active_tax_sessions %}
             <div class="flex items-center gap-1 text-xs">
-                {% if s.send_status.value == 'ready' %}
+                {% if s.send_status.value == 'completed' %}
+                <span class="shrink-0 px-1 py-0.5 font-medium bg-blue-100 text-blue-800 rounded-full text-xs leading-none">Dokončeno</span>
+                {% elif s.send_status.value == 'ready' %}
                 <span class="shrink-0 px-1 py-0.5 font-medium bg-green-100 text-green-800 rounded-full text-xs leading-none">Připraveno</span>
                 {% elif s.send_status.value == 'sending' %}
-                <span class="shrink-0 px-1 py-0.5 font-medium bg-blue-100 text-blue-800 rounded-full text-xs leading-none">Odesílá se</span>
+                <span class="shrink-0 px-1 py-0.5 font-medium bg-orange-100 text-orange-800 rounded-full text-xs leading-none">Odesílá se</span>
                 {% elif s.send_status.value == 'paused' %}
                 <span class="shrink-0 px-1 py-0.5 font-medium bg-yellow-100 text-yellow-800 rounded-full text-xs leading-none">Pozastaveno</span>
                 {% else %}

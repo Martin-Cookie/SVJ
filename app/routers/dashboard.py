@@ -106,7 +106,6 @@ async def home(
     )
     active_tax_sessions = (
         db.query(TaxSession)
-        .filter(TaxSession.send_status != SendStatus.COMPLETED)
         .order_by(TaxSession.created_at.desc())
         .all()
     )
