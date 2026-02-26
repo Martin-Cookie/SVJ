@@ -509,3 +509,7 @@ Vzor se skládá ze dvou partials (info + form) a tří endpointů:
   - Reuse vlastník (už na jednotce) vs nový vlastník vs vlastník z jiné jednotky
   - Ověřit že se propisují VŠECHNA relevantní pole všem dotčeným záznamům (ownership_type, space_type, podíl, jméno)
   - Výstup analýzy scénářů nabízet uživateli při každé změně v datové logice
+
+<!-- PROMPT: UI-GUIDE.md
+Vytvoř soubor UI-GUIDE.md extrakcí čistě UI/frontend pravidel z CLAUDE.md (/Users/martinkoci/Projects/SVJ/CLAUDE.md). Zahrň pouze univerzální vzory (tabulky, layout, search bar, filtrační bubliny, formuláře, badge, prázdné stavy, formátování čísel, ikony v tabulkách, kolapsovatelné sekce, checkboxy, inline editace, HTMX vzory, back URL navigace, technologie). Vynech vše business-specific (SVJ modely, URL cesty, SQLAlchemy, routery, service layer, workflow, komunikace). Výstup musí být použitelný jako drop-in UI konvence pro libovolný nový projekt se stejným stackem (FastAPI + Jinja2 + HTMX + Tailwind CDN).
+-->
