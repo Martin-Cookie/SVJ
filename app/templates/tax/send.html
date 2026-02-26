@@ -230,13 +230,61 @@
 </div>
 
 <script>
+// --- Checked recipients state (persists across HTMX swaps) ---
+var _checkedKeys = new Set();
+
+function _saveCheckedState() {
+    _checkedKeys.clear();
+    document.querySelectorAll('.rcpt-cb:checked').forEach(function(cb) {
+        _checkedKeys.add(cb.value);
+    });
+}
+
+function _restoreCheckedState() {
+    document.querySelectorAll('.rcpt-cb').forEach(function(cb) {
+        if (!cb.disabled && _checkedKeys.has(cb.value)) {
+            cb.checked = true;
+        }
+    });
+    // Sync select-all
+    var all = document.querySelectorAll('.rcpt-cb:not(:disabled)').length;
+    var checked = document.querySelectorAll('.rcpt-cb:checked').length;
+    var master = document.getElementById('select-all-cb');
+    if (master) master.checked = (all > 0 && all === checked);
+    updateSendButtonCount();
+}
+
+// Save before HTMX replaces tbody, restore after
+document.body.addEventListener('htmx:beforeSwap', function(e) {
+    if (e.detail.target && e.detail.target.id === 'send-tbody') {
+        _saveCheckedState();
+    }
+});
+document.body.addEventListener('htmx:afterSwap', function(e) {
+    if (e.detail.target && e.detail.target.id === 'send-tbody') {
+        _restoreCheckedState();
+    }
+});
+
+// --- Test email: persist via localStorage ---
+var _testEmailKey = 'svj_test_email_{{ session.id }}';
+
 function sendTest(btn) {
     var email = btn.closest('.flex').querySelector('input[name="test_email_inline"]').value;
     if (!email) return;
+    try { localStorage.setItem(_testEmailKey, email); } catch(e) {}
     document.getElementById('test-email-hidden').value = email;
     document.getElementById('test-email-form').submit();
 }
 
+(function() {
+    var input = document.querySelector('input[name="test_email_inline"]');
+    if (input && !input.value) {
+        try { var saved = localStorage.getItem(_testEmailKey); if (saved) input.value = saved; } catch(e) {}
+    }
+})();
+
+// --- Email inline edit ---
 function toggleEmailEdit(key) {
     var cell = document.getElementById('email-cell-' + key);
     if (!cell) return;
@@ -246,6 +294,7 @@ function toggleEmailEdit(key) {
     if (edit) edit.classList.toggle('hidden');
 }
 
+// --- Select all / count ---
 function toggleAllRecipients(master) {
     var cbs = document.querySelectorAll('.rcpt-cb:not(:disabled)');
     cbs.forEach(function(cb) { cb.checked = master.checked; });
@@ -262,6 +311,7 @@ function updateSendButtonCount() {
     }
 }
 
+// --- Send confirmation modal ---
 function showSendConfirmModal() {
     var checked = document.querySelectorAll('.rcpt-cb:checked');
     if (checked.length === 0) return;
@@ -282,11 +332,10 @@ function startBatchSend() {
     document.getElementById('send-form').submit();
 }
 
-// Update count on checkbox change (event delegation)
+// Update count on individual checkbox change
 document.addEventListener('change', function(e) {
     if (e.target.classList.contains('rcpt-cb')) {
         updateSendButtonCount();
-        // Uncheck select-all if any individual unchecked
         var all = document.querySelectorAll('.rcpt-cb:not(:disabled)').length;
         var checked = document.querySelectorAll('.rcpt-cb:checked').length;
         var master = document.getElementById('select-all-cb');
@@ -296,7 +345,5 @@ document.addEventListener('change', function(e) {
 
 // Initial count on page load
 document.addEventListener('DOMContentLoaded', function() { updateSendButtonCount(); });
-// Also update after HTMX swaps
-document.body.addEventListener('htmx:afterSwap', function() { updateSendButtonCount(); });
 </script>
 {% endblock %}
