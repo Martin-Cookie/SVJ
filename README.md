@@ -137,7 +137,7 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
 
 - Nahrání daňových PDF dokumentů (jednotlivě nebo celý adresář) s progress barem:
   - Soubory se uloží na disk, zpracování běží na pozadí (vlákno)
-  - Progress bar s počtem zpracovaných/celkem, procentuální lištou a názvem aktuálního souboru
+  - Progress bar s počtem zpracovaných/celkem, procentuální lištou, názvem aktuálního souboru, uplynulým časem a odhadem zbývajícího (ETA)
   - HTMX polling (500ms), po dokončení automatický redirect na párování
 - Extrakce jmen z PDF (pdfplumber):
   - Primárně jednotlivá jména ze sekce „Údaje o vlastníkovi:" (SP řádky na str. 1)
