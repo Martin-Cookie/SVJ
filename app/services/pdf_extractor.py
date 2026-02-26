@@ -23,10 +23,64 @@ def extract_text_from_pdf(pdf_path: str) -> str:
 def extract_owner_from_tax_pdf(pdf_path: str) -> dict:
     text = extract_text_from_pdf(pdf_path)
     owner_name = parse_owner_name(text)
+    owner_names = parse_owner_names_from_details(text)
     return {
         "full_text": text,
         "owner_name": owner_name,
+        "owner_names": owner_names,
     }
+
+
+def _extract_name_from_sp_line(line: str) -> str | None:
+    """Extract owner name appended after SP fraction (e.g. 'SP 2 3108/907635 Kočí Martin')."""
+    m = re.match(r"SP\s+\S+\s+\d+/\d+\s+(.*)", line.strip())
+    if m:
+        name = m.group(1).strip()
+        # Filter out non-name text (must start with uppercase letter)
+        if name and re.match(r"[A-ZÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ]", name):
+            return name
+    return None
+
+
+def parse_owner_names_from_details(text: str) -> list[str]:
+    """Extract individual owner names from 'Údaje o vlastníkovi:' section.
+
+    In tax PDFs, the owner detail block appears on page 1 with names on the
+    right side of SP (spoluvlastnický podíl) lines:
+        SP 1 5615/4103391 Údaje o vlastníkovi:
+        SP 2 3108/907635  Kočí Martin
+        SP 2S 0/0
+        SP 3 0/0          Kočová Jana
+    """
+    lines = text.split("\n")
+    names = []
+    in_details = False
+
+    for line in lines:
+        stripped = line.strip()
+
+        # Detect start of owner details block
+        if re.search(r"[úu]daje o vlastn[ií]k", stripped, re.IGNORECASE):
+            in_details = True
+            # Check if a name is on the same line after the section header
+            # e.g. "Údaje o vlastníkovi: Kočí Martin"
+            m = re.search(r"[úu]daje o vlastn[ií]k[^:]*:\s*(.+)", stripped, re.IGNORECASE)
+            if m:
+                val = m.group(1).strip()
+                if val and re.match(r"[A-ZÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ]", val):
+                    names.append(val)
+            continue
+
+        if in_details:
+            # Stop at known section boundaries
+            if re.match(r"(Vlastn[ií]k:|Vyúčtov|Případné|Stavy|Typ vlastnictv)", stripped, re.IGNORECASE):
+                break
+            # Try to extract name from SP line
+            name = _extract_name_from_sp_line(stripped)
+            if name:
+                names.append(name)
+
+    return names
 
 
 def parse_owner_name(text: str) -> str | None:

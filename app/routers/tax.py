@@ -299,23 +299,33 @@ async def tax_create(
         matched_owner = None
         confidence = 0.0
 
+        # Build list of names to try: individual names first, then combined
+        names_to_try = []
+        for n in extracted.get("owner_names") or []:
+            if n:
+                names_to_try.append(n)
+        if extracted.get("owner_name"):
+            names_to_try.append(extracted["owner_name"])
+
         # First try: match by unit number + name
-        if unit_number in unit_to_owners and extracted.get("owner_name"):
-            matches = match_name(
-                extracted["owner_name"],
-                unit_to_owners[unit_number],
-                threshold=0.6,
-            )
-            if matches:
-                matched_owner = matches[0]
-                confidence = matches[0]["confidence"]
+        if unit_number in unit_to_owners and names_to_try:
+            for candidate in names_to_try:
+                matches = match_name(
+                    candidate,
+                    unit_to_owners[unit_number],
+                    threshold=0.6,
+                )
+                if matches and matches[0]["confidence"] > confidence:
+                    matched_owner = matches[0]
+                    confidence = matches[0]["confidence"]
 
         # Second try: match against all owners by name only
-        if not matched_owner and extracted.get("owner_name"):
-            matches = match_name(extracted["owner_name"], owner_dicts, threshold=0.75)
-            if matches:
-                matched_owner = matches[0]
-                confidence = matches[0]["confidence"]
+        if not matched_owner and names_to_try:
+            for candidate in names_to_try:
+                matches = match_name(candidate, owner_dicts, threshold=0.75)
+                if matches and matches[0]["confidence"] > confidence:
+                    matched_owner = matches[0]
+                    confidence = matches[0]["confidence"]
 
         if matched_owner:
             # Find co-owners on the same unit
