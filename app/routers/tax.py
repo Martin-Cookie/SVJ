@@ -372,7 +372,6 @@ def _process_tax_files(session_id: int, file_paths: list, tax_year):
             if not individual_names and extracted.get("owner_name"):
                 individual_names = [extracted["owner_name"]]
 
-            matched_any = False
             matched_ids = set()  # avoid duplicates
 
             for candidate in individual_names:
@@ -402,9 +401,17 @@ def _process_tax_files(session_id: int, file_paths: list, tax_year):
                         match_confidence=best["confidence"],
                     )
                     db.add(dist)
-                    matched_any = True
+                elif not best:
+                    # No match for this candidate name
+                    dist = TaxDistribution(
+                        document_id=doc.id,
+                        owner_id=None,
+                        match_status=MatchStatus.UNMATCHED,
+                        match_confidence=None,
+                    )
+                    db.add(dist)
 
-            if not matched_any:
+            if not individual_names:
                 dist = TaxDistribution(
                     document_id=doc.id,
                     owner_id=None,
