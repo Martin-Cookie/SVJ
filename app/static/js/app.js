@@ -20,21 +20,53 @@ document.addEventListener('keydown', function(event) {
     }
 });
 
-// PDF preview modal
+// PDF preview modal (pdf.js)
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
 function openPdfModal(url, title) {
     var modal = document.getElementById('pdf-modal');
     document.getElementById('pdf-modal-title').textContent = title || '';
     document.getElementById('pdf-modal-newtab').href = url;
-    document.getElementById('pdf-modal-iframe').src = url;
     modal.classList.remove('hidden');
     document.body.style.overflow = 'hidden';
+
+    var container = document.getElementById('pdf-modal-pages');
+    container.innerHTML = '<div class="text-center py-8 text-gray-400">Načítání…</div>';
+
+    // Compute available height: modal panel height minus header (~41px) minus padding
+    var panel = container.parentElement;
+    var availH = panel.clientHeight - 73;
+    var availW = panel.clientWidth - 32;
+
+    pdfjsLib.getDocument(url).promise.then(function(pdf) {
+        container.innerHTML = '';
+        var chain = Promise.resolve();
+        for (var i = 1; i <= pdf.numPages; i++) {
+            (function(pageNum) {
+                chain = chain.then(function() {
+                    return pdf.getPage(pageNum).then(function(page) {
+                        var base = page.getViewport({scale: 1});
+                        var scaleW = availW / base.width;
+                        var scaleH = availH / base.height;
+                        var viewport = page.getViewport({scale: Math.min(scaleW, scaleH)});
+                        var canvas = document.createElement('canvas');
+                        canvas.width = viewport.width;
+                        canvas.height = viewport.height;
+                        canvas.style.cssText = 'display:block;margin:0 auto 8px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.15)';
+                        container.appendChild(canvas);
+                        return page.render({canvasContext: canvas.getContext('2d'), viewport: viewport}).promise;
+                    });
+                });
+            })(i);
+        }
+    });
 }
 
 function closePdfModal() {
     var modal = document.getElementById('pdf-modal');
     if (!modal || modal.classList.contains('hidden')) return;
     modal.classList.add('hidden');
-    document.getElementById('pdf-modal-iframe').src = '';
+    document.getElementById('pdf-modal-pages').innerHTML = '';
     document.body.style.overflow = '';
 }
 
