@@ -26,19 +26,6 @@
     </div>
 </div>
 
-<!-- Search -->
-<div class="flex items-center gap-3 mb-3 bg-white rounded-lg shadow px-3 py-2">
-    <div class="flex-1">
-        <input type="text" name="q" value="{{ q }}"
-               placeholder="Hledat jednotku, vlastníka, typ..."
-               class="w-full px-3 py-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs"
-               onkeydown="if(event.key==='Enter'){event.preventDefault(); var u=new URL(window.location); u.searchParams.set('q',this.value); window.location=u;}">
-    </div>
-    {% if q %}
-    <a href="{{ request.url.path }}?filtr={{ filtr }}{% if sort %}&sort={{ sort }}&order={{ order }}{% endif %}{{ '&back=' ~ (back_url|default('')|urlencode) if back_url else '' }}" class="text-xs text-gray-500 hover:text-gray-700">Zrušit</a>
-    {% endif %}
-</div>
-
 <!-- Stats - clickable filters -->
 {% set _back = "&back=" ~ (back_url|default('')|urlencode) if back_url else "" %}
 {% set _q = "&q=" ~ (q|default('')|urlencode) if q else "" %}
@@ -105,6 +92,19 @@
         <p class="text-xs text-gray-600">Chybí</p>
         {{ podil_tbl(missing_excel, missing_csv) }}
     </a>
+</div>
+
+<!-- Search -->
+<div class="flex items-center gap-3 mb-3 bg-white rounded-lg shadow px-3 py-2">
+    <div class="flex-1">
+        <input type="text" name="q" value="{{ q }}"
+               placeholder="Hledat jednotku, vlastníka, typ..."
+               class="w-full px-3 py-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs"
+               onkeydown="if(event.key==='Enter'){event.preventDefault(); var u=new URL(window.location); u.searchParams.set('q',this.value); window.location=u;}">
+    </div>
+    {% if q %}
+    <a href="{{ request.url.path }}?filtr={{ filtr }}{% if sort %}&sort={{ sort }}&order={{ order }}{% endif %}{{ '&back=' ~ (back_url|default('')|urlencode) if back_url else '' }}" class="text-xs text-gray-500 hover:text-gray-700">Zrušit</a>
+    {% endif %}
 </div>
 
 <!-- Update toolbar -->
