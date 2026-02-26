@@ -10,17 +10,19 @@
 
 {% if voting.status.value != 'draft' %}
 <!-- Search -->
-<div class="mb-4">
-    <input type="text" name="q" value="{{ q }}" placeholder="Hledat v bodech hlasování..."
-           hx-get="/hlasovani/{{ voting.id }}"
-           hx-trigger="keyup changed delay:300ms"
-           hx-target="#detail-table-body"
-           hx-include="[name='sort'],[name='order'],[name='back']"
-           hx-push-url="true"
-           class="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+<div class="flex items-center gap-3 mb-3 bg-white rounded-lg shadow px-3 py-2">
     <input type="hidden" name="sort" value="{{ sort }}">
     <input type="hidden" name="order" value="{{ order }}">
     <input type="hidden" name="back" value="{{ back_url }}">
+    <div class="flex-1">
+        <input type="text" name="q" value="{{ q }}" placeholder="Hledat v bodech hlasování..."
+               hx-get="/hlasovani/{{ voting.id }}"
+               hx-trigger="keyup changed delay:300ms"
+               hx-target="#detail-table-body"
+               hx-include="[name='sort'],[name='order'],[name='back']"
+               hx-push-url="true"
+               class="w-full px-3 py-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs">
+    </div>
 </div>
 {% endif %}
 </div>

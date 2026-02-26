@@ -91,6 +91,16 @@
 - Rozdělené bubliny (s/bez emailu, s/bez telefonu) jsou uvnitř jednoho `flex-1` wrapperu s `<div class="w-px bg-gray-200">` oddělovačem
 - Aktivní bublina má `ring-2 ring-{color}-400`
 - Bubliny zobrazují počet záznamů (velký, bold) a popis (malý text pod číslem)
+
+## Search bar — kanonický styl
+
+- Wrapper: `<div class="flex items-center gap-3 mb-3 bg-white rounded-lg shadow px-3 py-2">`
+- Input: `w-full px-3 py-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs`
+- Hidden inputy (sort, order, filtr, back, stav) VEDLE inputu, NE uvnitř tbody
+- HTMX: `hx-trigger="keyup changed delay:300ms"`, `hx-push-url="true"`, `hx-target="#tbody-id"`
+- Pozice: vždy POD stat kartami / filtračními bublinami
+- Nikdy holý input bez wrapperu — vždy v shadow boxu
+
 - **Pod každou sekcí s bublinami** vždy přidat:
   - **Vyhledávání** — textový input s HTMX debounce (`keyup changed delay:300ms`) nebo query parametrem `q`
   - **Řazení sloupců** — klikací hlavičky tabulek přes macro `sort_th` s parametry `sort` a `order`
@@ -161,10 +171,12 @@
 
 ## Dashboard
 
-- Statistické bubliny i modulové karty jsou plně klikací (`<a>` tag, ne `<div>` s vnořeným odkazem)
-- Bublina hlasování zobrazuje seznam aktivních/konceptových hlasování se stavem (badge) a názvem (truncate + title tooltip)
-- Vše dynamicky roztažené přes `flex` + `flex-1`
-- Žádný text "Otevřít modul" — celá karta je klikací
+- 4 stat karty v jednom řádku: vlastníci, jednotky, hlasování, rozúčtování
+- Jednoduché karty (vlastníci, jednotky) — celá karta je `<a>` tag
+- Karty se sub-odkazy (hlasování, rozúčtování) — `<div>` wrapper s hlavním `<a>` a per-status linky uvnitř
+- Per-status řádky: count badge + `→ název poslední kampaně` (truncate + title tooltip)
+- Přehledové karty zobrazují VŽDY všechny stavy — nikdy nefiltrovat na „jen aktivní"
+- Fixní header (stat karty + search) se scrollovatelnou tabulkou poslední aktivity
 
 ## Inline editace (Upravit / Uložit / Zrušit)
 
@@ -292,6 +304,7 @@ Vzor se skládá ze dvou partials (info + form) a tří endpointů:
 - `func.distinct()` v agregacích pro počítání unikátních záznamů
 - `joinedload()` pro eager loading relací (předchází N+1 queries)
 - Číslo jednotky (`unit_number`) je INTEGER (ne string)
+- **Pozor:** `TaxDocument.unit_number` a `SyncRecord.unit_number` jsou `String(20)` (historicky z PDF/CSV). Při ORDER BY VŽDY `cast(col, Integer)`, při Python sort VŽDY `int(x)` s try/except fallback na 0
 
 ### Modely — konvence
 

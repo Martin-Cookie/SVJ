@@ -96,11 +96,21 @@
 
 <!-- Search -->
 <div class="flex items-center gap-3 mb-3 bg-white rounded-lg shadow px-3 py-2">
+    <input type="hidden" name="filtr" value="{{ filtr }}">
+    <input type="hidden" name="sort" value="{{ sort }}">
+    <input type="hidden" name="order" value="{{ order }}">
+    <input type="hidden" name="back" value="{{ back_url|default('') }}">
     <div class="flex-1">
-        <input type="text" name="q" value="{{ q }}"
+        <input type="text" id="sync-search-q" name="q" value="{{ q }}"
                placeholder="Hledat jednotku, vlastníka, typ..."
-               class="w-full px-3 py-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs"
-               onkeydown="if(event.key==='Enter'){event.preventDefault(); var u=new URL(window.location); u.searchParams.set('q',this.value); window.location=u;}">
+               hx-get="/synchronizace/{{ session.id }}"
+               hx-trigger="keyup changed delay:500ms"
+               hx-target="main"
+               hx-select="main"
+               hx-swap="outerHTML"
+               hx-include="[name='filtr'],[name='sort'],[name='order'],[name='back']"
+               hx-push-url="true"
+               class="w-full px-3 py-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs">
     </div>
     {% if q %}
     <a href="{{ request.url.path }}?filtr={{ filtr }}{% if sort %}&sort={{ sort }}&order={{ order }}{% endif %}{{ '&back=' ~ (back_url|default('')|urlencode) if back_url else '' }}" class="text-xs text-gray-500 hover:text-gray-700">Zrušit</a>
@@ -214,5 +224,18 @@ if (location.hash) {
     var el = document.querySelector(location.hash);
     if (el) el.scrollIntoView({block: 'center'});
 }
+// Restore focus to search input after HTMX swap
+(function() {
+    var q = new URLSearchParams(window.location.search).get('q');
+    if (q) {
+        var input = document.getElementById('sync-search-q');
+        if (input) {
+            setTimeout(function() {
+                input.focus();
+                input.selectionStart = input.selectionEnd = input.value.length;
+            }, 50);
+        }
+    }
+})();
 </script>
 {% endblock %}
