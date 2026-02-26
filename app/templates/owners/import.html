@@ -30,7 +30,7 @@
                 </p>
             </div>
 
-            <form action="/vlastnici/import" method="post" enctype="multipart/form-data">
+            <form action="/vlastnici/import" method="post" enctype="multipart/form-data" hx-boost="false">
                 <div class="mb-3">
                     <input type="file" name="file" accept=".xlsx,.xls" required
                            class="block w-full text-sm text-gray-500 file:mr-4 file:py-1.5 file:px-3
@@ -84,7 +84,7 @@
             </div>
             {% else %}
             <div class="px-4 pb-4">
-                <p class="text-sm text-gray-400">Zatím žádné importy.</p>
+                <p class="text-sm text-gray-500">Zatím žádné importy.</p>
             </div>
             {% endif %}
         </div>

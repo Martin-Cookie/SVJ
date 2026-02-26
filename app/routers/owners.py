@@ -523,11 +523,11 @@ async def owner_address_update(
     if not owner:
         return RedirectResponse("/vlastnici", status_code=302)
 
-    setattr(owner, f"{prefix}_street", street or None)
-    setattr(owner, f"{prefix}_district", district or None)
-    setattr(owner, f"{prefix}_city", city or None)
-    setattr(owner, f"{prefix}_zip", zip or None)
-    setattr(owner, f"{prefix}_country", country or None)
+    setattr(owner, f"{prefix}_street", street.strip() or None)
+    setattr(owner, f"{prefix}_district", district.strip() or None)
+    setattr(owner, f"{prefix}_city", city.strip() or None)
+    setattr(owner, f"{prefix}_zip", zip.strip() or None)
+    setattr(owner, f"{prefix}_country", country.strip() or None)
     owner.updated_at = datetime.utcnow()
     db.commit()
 
@@ -553,10 +553,10 @@ async def owner_update(
 ):
     owner = db.query(Owner).get(owner_id)
     if owner:
-        owner.email = email if email else None
-        owner.email_secondary = email_secondary if email_secondary else None
-        owner.phone = phone if phone else None
-        owner.phone_landline = phone_landline if phone_landline else None
+        owner.email = email.strip() or None
+        owner.email_secondary = email_secondary.strip() or None
+        owner.phone = phone.strip() or None
+        owner.phone_landline = phone_landline.strip() or None
         owner.updated_at = datetime.utcnow()
         db.commit()
 

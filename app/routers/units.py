@@ -79,14 +79,14 @@ async def unit_create(
 
     unit = Unit(
         unit_number=unit_number_int,
-        building_number=building_number or None,
-        space_type=space_type or None,
-        section=section or None,
-        address=address or None,
-        lv_number=int(lv_number) if lv_number else None,
-        room_count=room_count or None,
-        floor_area=float(floor_area) if floor_area else None,
-        podil_scd=int(podil_scd) if podil_scd else None,
+        building_number=building_number.strip() or None,
+        space_type=space_type.strip() or None,
+        section=section.strip() or None,
+        address=address.strip() or None,
+        lv_number=int(lv_number.strip()) if lv_number.strip() else None,
+        room_count=room_count.strip() or None,
+        floor_area=float(floor_area.strip()) if floor_area.strip() else None,
+        podil_scd=int(podil_scd.strip()) if podil_scd.strip() else None,
         created_at=datetime.utcnow(),
     )
     db.add(unit)
@@ -254,15 +254,15 @@ async def unit_update(
         })
 
     unit.unit_number = unit_number_int
-    unit.building_number = building_number or None
-    unit.space_type = space_type or None
-    unit.section = section or None
-    unit.orientation_number = int(orientation_number) if orientation_number else None
-    unit.address = address or None
-    unit.lv_number = int(lv_number) if lv_number else None
-    unit.room_count = room_count or None
-    unit.floor_area = float(floor_area) if floor_area else None
-    unit.podil_scd = int(podil_scd) if podil_scd else None
+    unit.building_number = building_number.strip() or None
+    unit.space_type = space_type.strip() or None
+    unit.section = section.strip() or None
+    unit.orientation_number = int(orientation_number.strip()) if orientation_number.strip() else None
+    unit.address = address.strip() or None
+    unit.lv_number = int(lv_number.strip()) if lv_number.strip() else None
+    unit.room_count = room_count.strip() or None
+    unit.floor_area = float(floor_area.strip()) if floor_area.strip() else None
+    unit.podil_scd = int(podil_scd.strip()) if podil_scd.strip() else None
 
     from app.services.owner_exchange import recalculate_unit_votes
     recalculate_unit_votes(unit, db)

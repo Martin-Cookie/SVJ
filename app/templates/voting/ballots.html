@@ -29,7 +29,7 @@
 {% set sortable_cols = [("Vlastník", "owner", "left"), ("Jednotky", "units", "left"), ("Hlasy", "votes", "right")] %}
 <div class="bg-white rounded-lg shadow overflow-x-auto">
     <table class="min-w-full divide-y divide-gray-200 text-sm">
-        <thead class="bg-gray-50 sticky top-0 z-10">
+        <thead class="bg-gray-50 border-b-2 border-gray-300 sticky top-0 z-10">
             <tr>
                 {% for label, col, align in sortable_cols %}
                 {% set next_order = "desc" if sort == col and order == "asc" else "asc" %}
