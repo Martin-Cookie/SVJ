@@ -4,98 +4,98 @@
 {% block content %}
 <div class="flex flex-col" style="height:calc(100vh - 3rem)">
 <div class="shrink-0">
-<h1 class="text-2xl font-bold text-gray-800 mb-6">Přehled</h1>
+<h1 class="text-lg font-bold text-gray-800 mb-2">Přehled</h1>
 
 <!-- Stats cards -->
-<div class="flex flex-col md:flex-row gap-6 mb-8">
-    <a href="/vlastnici?back=/" class="flex-1 block bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow">
+<div class="flex gap-3 mb-3">
+    <a href="/vlastnici?back=/" class="flex-1 block bg-white rounded-lg shadow p-3 hover:shadow-md transition-shadow">
         <div class="flex items-center">
-            <div class="p-3 bg-blue-100 rounded-lg">
-                <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div class="p-2 bg-blue-100 rounded-lg">
+                <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
                 </svg>
             </div>
-            <div class="ml-4">
-                <p class="text-sm text-gray-500">Vlastníci</p>
-                <p class="text-2xl font-bold text-gray-800">{{ owners_count }}</p>
+            <div class="ml-3">
+                <p class="text-xs text-gray-500">Vlastníci</p>
+                <p class="text-lg font-bold text-gray-800">{{ owners_count }}</p>
             </div>
         </div>
         {% if declared_shares %}
         {% set diff = owners_scd - declared_shares %}
         {% set diff_pct = ((diff / declared_shares) * 100) | round(2) if declared_shares else 0 %}
-        <table class="text-xs text-gray-500 mt-3 w-full" style="border-spacing:0">
+        <table class="text-xs text-gray-500 mt-1 w-full" style="border-spacing:0">
             <tr>
-                <td class="pr-2">Podíly dle prohlášení:</td>
+                <td class="pr-1">Prohlášení:</td>
                 <td class="text-right font-mono text-gray-700 whitespace-nowrap">{{ "{:,}".format(declared_shares).replace(",", " ") }}</td>
                 <td></td>
             </tr>
             <tr>
-                <td class="pr-2">Podíly v evidenci vlastníků:</td>
+                <td class="pr-1">Evidence:</td>
                 <td class="text-right font-mono text-gray-700 whitespace-nowrap">{{ "{:,}".format(owners_scd).replace(",", " ") }}</td>
                 <td></td>
             </tr>
             <tr class="{% if diff != 0 %}cursor-pointer hover:bg-blue-50 rounded{% endif %}" {% if diff != 0 %}onclick="event.preventDefault(); event.stopPropagation(); window.location.href='/prehled/rozdil-podilu';" title="Zobrazit rozpis rozdílu podílů"{% endif %}>
-                <td class="pr-2">Rozdíl podílů:</td>
+                <td class="pr-1">Rozdíl:</td>
                 <td class="text-right font-mono {% if diff < 0 %}text-red-600{% elif diff > 0 %}text-blue-600{% else %}text-green-600{% endif %} font-medium whitespace-nowrap">{{ "{:,}".format(diff).replace(",", " ") }}</td>
-                <td class="pl-2 font-mono {% if diff < 0 %}text-red-600{% elif diff > 0 %}text-blue-600{% else %}text-green-600{% endif %} whitespace-nowrap">{% if diff != 0 %}({{ "{:+.2f}".format(diff_pct) }} %){% endif %}</td>
+                <td class="pl-1 font-mono {% if diff < 0 %}text-red-600{% elif diff > 0 %}text-blue-600{% else %}text-green-600{% endif %} whitespace-nowrap">{% if diff != 0 %}({{ "{:+.2f}".format(diff_pct) }}%){% endif %}</td>
             </tr>
         </table>
         {% endif %}
     </a>
-    <a href="/jednotky?back=/" class="flex-1 block bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow">
+    <a href="/jednotky?back=/" class="flex-1 block bg-white rounded-lg shadow p-3 hover:shadow-md transition-shadow">
         <div class="flex items-center">
-            <div class="p-3 bg-green-100 rounded-lg">
-                <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div class="p-2 bg-green-100 rounded-lg">
+                <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
                 </svg>
             </div>
-            <div class="ml-4">
-                <p class="text-sm text-gray-500">Jednotky</p>
-                <p class="text-2xl font-bold text-gray-800">{{ units_count }}</p>
+            <div class="ml-3">
+                <p class="text-xs text-gray-500">Jednotky</p>
+                <p class="text-lg font-bold text-gray-800">{{ units_count }}</p>
             </div>
         </div>
         {% if declared_shares %}
         {% set diff = units_scd - declared_shares %}
         {% set diff_pct = ((diff / declared_shares) * 100) | round(2) if declared_shares else 0 %}
-        <table class="text-xs text-gray-500 mt-3 w-full" style="border-spacing:0">
+        <table class="text-xs text-gray-500 mt-1 w-full" style="border-spacing:0">
             <tr>
-                <td class="pr-2">Podíly dle prohlášení:</td>
+                <td class="pr-1">Prohlášení:</td>
                 <td class="text-right font-mono text-gray-700 whitespace-nowrap">{{ "{:,}".format(declared_shares).replace(",", " ") }}</td>
                 <td></td>
             </tr>
             <tr>
-                <td class="pr-2">Podíly v evidenci jednotek:</td>
+                <td class="pr-1">Evidence:</td>
                 <td class="text-right font-mono text-gray-700 whitespace-nowrap">{{ "{:,}".format(units_scd).replace(",", " ") }}</td>
                 <td></td>
             </tr>
             <tr class="{% if diff != 0 %}cursor-pointer hover:bg-green-50 rounded{% endif %}" {% if diff != 0 %}onclick="event.preventDefault(); event.stopPropagation(); window.location.href='/prehled/rozdil-podilu';" title="Zobrazit rozpis rozdílu podílů"{% endif %}>
-                <td class="pr-2">Rozdíl podílů:</td>
+                <td class="pr-1">Rozdíl:</td>
                 <td class="text-right font-mono {% if diff < 0 %}text-red-600{% elif diff > 0 %}text-blue-600{% else %}text-green-600{% endif %} font-medium whitespace-nowrap">{{ "{:,}".format(diff).replace(",", " ") }}</td>
-                <td class="pl-2 font-mono {% if diff < 0 %}text-red-600{% elif diff > 0 %}text-blue-600{% else %}text-green-600{% endif %} whitespace-nowrap">{% if diff != 0 %}({{ "{:+.2f}".format(diff_pct) }} %){% endif %}</td>
+                <td class="pl-1 font-mono {% if diff < 0 %}text-red-600{% elif diff > 0 %}text-blue-600{% else %}text-green-600{% endif %} whitespace-nowrap">{% if diff != 0 %}({{ "{:+.2f}".format(diff_pct) }}%){% endif %}</td>
             </tr>
         </table>
         {% endif %}
     </a>
-    <a href="/hlasovani?back=/" class="flex-1 block bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow">
+    <a href="/hlasovani?back=/" class="flex-1 block bg-white rounded-lg shadow p-3 hover:shadow-md transition-shadow">
         <div class="flex items-center">
-            <div class="p-3 bg-purple-100 rounded-lg">
-                <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div class="p-2 bg-purple-100 rounded-lg">
+                <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
                 </svg>
             </div>
-            <div class="ml-4">
-                <p class="text-sm text-gray-500">Hlasování</p>
-                <p class="text-2xl font-bold text-gray-800">{{ active_votings }}</p>
+            <div class="ml-3">
+                <p class="text-xs text-gray-500">Hlasování</p>
+                <p class="text-lg font-bold text-gray-800">{{ active_votings }}</p>
             </div>
         </div>
         {% if active_votings_list %}
-        <div class="mt-3 space-y-1.5">
+        <div class="mt-1 space-y-0.5">
             {% for v in active_votings_list %}
-            <div class="flex items-center gap-2 text-xs">
+            <div class="flex items-center gap-1 text-xs">
                 {% if v.status.value == 'active' %}
-                <span class="shrink-0 px-1.5 py-0.5 font-medium bg-green-100 text-green-800 rounded-full">Aktivní</span>
+                <span class="shrink-0 px-1 py-0.5 font-medium bg-green-100 text-green-800 rounded-full text-xs leading-none">Aktivní</span>
                 {% elif v.status.value == 'draft' %}
-                <span class="shrink-0 px-1.5 py-0.5 font-medium bg-gray-100 text-gray-700 rounded-full">Koncept</span>
+                <span class="shrink-0 px-1 py-0.5 font-medium bg-gray-100 text-gray-700 rounded-full text-xs leading-none">Koncept</span>
                 {% endif %}
                 <span class="text-gray-700 truncate" title="{{ v.title }}">{{ v.title }}</span>
             </div>
@@ -106,54 +106,45 @@
 </div>
 
 <!-- Module cards -->
-<h2 class="text-lg font-semibold text-gray-700 mb-4">Moduly</h2>
-<div class="flex flex-col md:flex-row gap-6">
-    <!-- Module A -->
-    <a href="/hlasovani?back=/" class="flex-1 block bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow">
-        <div class="flex items-center mb-4">
-            <div class="p-2 bg-indigo-100 rounded-lg">
-                <svg class="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<div class="flex gap-3 mb-3">
+    <a href="/hlasovani?back=/" class="flex-1 block bg-white rounded-lg shadow px-3 py-2 hover:shadow-md transition-shadow">
+        <div class="flex items-center">
+            <div class="p-1.5 bg-indigo-100 rounded">
+                <svg class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
                 </svg>
             </div>
-            <h3 class="ml-3 text-lg font-semibold text-gray-800">Hlasování per rollam</h3>
+            <h3 class="ml-2 text-sm font-semibold text-gray-800">Hlasování per rollam</h3>
         </div>
-        <p class="text-sm text-gray-600">Generování hlasovacích lístků, distribuce, zpracování výsledků a dashboard.</p>
     </a>
-
-    <!-- Module B -->
-    <a href="/dane?back=/" class="flex-1 block bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow">
-        <div class="flex items-center mb-4">
-            <div class="p-2 bg-emerald-100 rounded-lg">
-                <svg class="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <a href="/dane?back=/" class="flex-1 block bg-white rounded-lg shadow px-3 py-2 hover:shadow-md transition-shadow">
+        <div class="flex items-center">
+            <div class="p-1.5 bg-emerald-100 rounded">
+                <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z"/>
                 </svg>
             </div>
-            <h3 class="ml-3 text-lg font-semibold text-gray-800">Rozúčtování příjmů</h3>
+            <h3 class="ml-2 text-sm font-semibold text-gray-800">Rozúčtování příjmů</h3>
         </div>
-        <p class="text-sm text-gray-600">Přiřazení PDF s daňovými příjmy k vlastníkům a rozeslání emailem.</p>
     </a>
-
-    <!-- Module C -->
-    <a href="/synchronizace?back=/" class="flex-1 block bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow">
-        <div class="flex items-center mb-4">
-            <div class="p-2 bg-amber-100 rounded-lg">
-                <svg class="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <a href="/synchronizace?back=/" class="flex-1 block bg-white rounded-lg shadow px-3 py-2 hover:shadow-md transition-shadow">
+        <div class="flex items-center">
+            <div class="p-1.5 bg-amber-100 rounded">
+                <svg class="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
                 </svg>
             </div>
-            <h3 class="ml-3 text-lg font-semibold text-gray-800">Kontrola vlastníků</h3>
+            <h3 class="ml-2 text-sm font-semibold text-gray-800">Kontrola vlastníků</h3>
         </div>
-        <p class="text-sm text-gray-600">Porovnání vlastníků z CSV exportu se seznamem v Excelu, synchronizace změn.</p>
     </a>
 </div>
 
 <!-- Recent activity -->
 {% if recent_emails or q %}
-    <h2 class="text-lg font-semibold text-gray-700 mt-8 mb-4">Poslední aktivita</h2>
+    <h2 class="text-sm font-semibold text-gray-700 mb-2">Poslední aktivita</h2>
 
     <!-- Search -->
-    <div class="flex items-center gap-3 mb-3 bg-white rounded-lg shadow px-3 py-2">
+    <div class="flex items-center gap-3 mb-2 bg-white rounded-lg shadow px-3 py-1.5">
         <input type="hidden" name="sort" value="{{ sort }}">
         <input type="hidden" name="order" value="{{ order }}">
         <div class="flex-1">
@@ -164,7 +155,7 @@
                    hx-target="#activity-tbody"
                    hx-include="[name='sort'],[name='order']"
                    hx-push-url="true"
-                   class="w-full px-3 py-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs">
+                   class="w-full px-3 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs">
         </div>
     </div>
 {% endif %}
