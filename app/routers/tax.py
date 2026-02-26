@@ -351,13 +351,17 @@ def _process_tax_files(session_id: int, file_paths: list, tax_year):
             unit_number, unit_letter = parse_unit_from_filename(basename)
             extracted = extract_owner_from_tax_pdf(file_path)
 
+            # Prefer individual names from details section over combined "Vlastník:" line
+            individual_names = [n for n in (extracted.get("owner_names") or []) if n]
+            display_name = ", ".join(individual_names) if individual_names else extracted.get("owner_name")
+
             doc = TaxDocument(
                 session_id=session_id,
                 filename=basename,
                 unit_number=unit_number,
                 unit_letter=unit_letter,
                 file_path=file_path,
-                extracted_owner_name=extracted.get("owner_name"),
+                extracted_owner_name=display_name,
             )
             db.add(doc)
             db.flush()

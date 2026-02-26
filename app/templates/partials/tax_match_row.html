@@ -49,7 +49,7 @@
                 {% elif dist.ad_hoc_name %}
                 {{ dist.ad_hoc_name }} <span class="text-gray-400">(externí)</span>
                 {% endif %}
-                {% if not is_completed %}
+                {% if not is_completed and dist.match_status.value not in ('confirmed', 'manual') and (not dist.match_confidence or dist.match_confidence < 1.0) %}
                 <button hx-post="/dane/{{ doc.session_id }}/odebrat/{{ dist.id }}"
                         hx-target="#tax-row-{{ doc.id }}" hx-swap="outerHTML"
                         hx-confirm="Odebrat tohoto vlastníka z dokumentu?"
