@@ -264,7 +264,19 @@ function closeSendConfirmModal() {
 
 function startBatchSend() {
     closeSendConfirmModal();
+    // Build a dynamic form with selected keys (no outer <form> wrapping table)
+    var form = document.createElement('form');
+    form.method = 'POST';
+    form.action = document.getElementById('send-tbody').dataset.sendUrl;
+    document.querySelectorAll('.rcpt-cb:checked').forEach(function(cb) {
+        var inp = document.createElement('input');
+        inp.type = 'hidden';
+        inp.name = 'selected_keys';
+        inp.value = cb.value;
+        form.appendChild(inp);
+    });
+    document.body.appendChild(form);
     // Clear selection after sending
     try { sessionStorage.removeItem(_SS_KEY); } catch(e) {}
-    document.getElementById('send-form').submit();
+    form.submit();
 }

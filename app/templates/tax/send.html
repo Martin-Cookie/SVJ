@@ -163,7 +163,6 @@
 
     <!-- Scrollable recipients table -->
     <div class="flex-1 overflow-y-auto min-h-0 bg-white rounded-lg shadow">
-        <form id="send-form" method="post" action="/dane/{{ session.id }}/rozeslat/odeslat" hx-boost="false">
         <table class="min-w-full divide-y divide-gray-200" style="table-layout:fixed">
             <colgroup>
                 <col style="width:3%">
@@ -201,11 +200,10 @@
                     {{ sort_th("Stav", "status") }}
                 </tr>
             </thead>
-            <tbody id="send-tbody" class="divide-y divide-gray-200">
+            <tbody id="send-tbody" class="divide-y divide-gray-200" data-send-url="/dane/{{ session.id }}/rozeslat/odeslat">
                 {% include "partials/tax_send_body.html" %}
             </tbody>
         </table>
-        </form>
     </div>
 </div>
 
