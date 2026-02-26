@@ -66,6 +66,11 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
 - RČ/IČ viditelné v seznamu i detailu
 - Porovnání podílů: prohlášení vlastníka vs evidence s barevným rozdílem a %
 - Detail vlastníka:
+  - Inline editace identity přes HTMX (typ osoby, jméno/příjmení/titul, RČ/IČ, název firmy)
+  - Přepínání fyzická/právnická osoba s dynamickým zobrazením relevantních polí
+  - Automatická detekce duplicitních záznamů po uložení identity (podle name_normalized)
+  - Sloučení duplicit: přesun jednotek pod hlavního vlastníka, doplnění kontaktů/adres, deaktivace duplikátů
+  - OOB aktualizace záhlaví stránky (jméno + badge typ/RČ/IČ) a sekce Jednotky po sloučení
   - Inline editace kontaktů (email, telefon) přes HTMX
   - Inline editace trvalé a korespondenční adresy přes HTMX
   - Správa přiřazených jednotek (přidat z dropdownu, odebrat s valid_to datem)
@@ -376,6 +381,8 @@ app/
 │   └── partials/              #   HTMX komponenty
 │       ├── owner_row.html
 │       ├── owner_table_body.html
+│       ├── owner_identity_form.html
+│       ├── owner_identity_info.html
 │       ├── owner_contact_form.html
 │       ├── owner_contact_info.html
 │       ├── owner_address_form.html
@@ -424,6 +431,10 @@ wheels/                        # Offline Python balíčky (gitignored)
 | GET | `/vlastnici/{id}/adresa/{prefix}/upravit-formular` | HTMX: formulář adresy (perm/corr) |
 | GET | `/vlastnici/{id}/adresa/{prefix}/info` | HTMX: zobrazení adresy |
 | POST | `/vlastnici/{id}/adresa/{prefix}/upravit` | Uložení adresy |
+| GET | `/vlastnici/{id}/identita-formular` | HTMX: formulář editace identity |
+| GET | `/vlastnici/{id}/identita-info` | HTMX: zobrazení identity |
+| POST | `/vlastnici/{id}/identita-upravit` | Uložení identity (+ detekce duplicit) |
+| POST | `/vlastnici/{id}/sloucit` | Sloučení duplicitních vlastníků |
 | POST | `/vlastnici/{id}/jednotky/pridat` | Přidat jednotku vlastníkovi |
 | POST | `/vlastnici/{id}/jednotky/{ou_id}/odebrat` | Odebrat jednotku vlastníkovi |
 
