@@ -406,7 +406,7 @@ def _process_tax_files(session_id: int, file_paths: list, tax_year):
                         document_id=doc.id,
                         owner_id=oid,
                         match_status=MatchStatus.AUTO_MATCHED,
-                        match_confidence=confidence if oid == matched_owner["owner_id"] else None,
+                        match_confidence=confidence,
                     )
                     db.add(dist)
             else:
@@ -714,7 +714,7 @@ async def manual_assign(
             document_id=doc_id,
             owner_id=oid,
             match_status=MatchStatus.MANUAL,
-            match_confidence=1.0 if oid == owner_id else None,
+            match_confidence=1.0,
         )
         db.add(dist)
 
