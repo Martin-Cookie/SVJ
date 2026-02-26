@@ -388,11 +388,10 @@ def _process_tax_files(session_id: int, file_paths: list, tax_year):
                     if matches:
                         best = matches[0]
 
-                # Second try: match against all owners
-                if not best:
-                    matches = match_name(candidate, owner_dicts, threshold=0.75)
-                    if matches:
-                        best = matches[0]
+                # Also try global match — use the better result
+                global_matches = match_name(candidate, owner_dicts, threshold=0.75)
+                if global_matches and (not best or global_matches[0]["confidence"] > best["confidence"]):
+                    best = global_matches[0]
 
                 if best and best["owner_id"] not in matched_ids:
                     matched_ids.add(best["owner_id"])

@@ -66,6 +66,9 @@ def match_name(
         seq_ratio = SequenceMatcher(None, candidate_norm, owner_norm).ratio()
         # Parts-based ratio
         parts_ratio = name_parts_match(candidate, owner["name"])
+        # No shared words → skip (prevents false positives like Jarošová/Jaroš)
+        if parts_ratio == 0:
+            continue
         # Use the better of the two
         confidence = max(seq_ratio, parts_ratio)
 
