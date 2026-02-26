@@ -7,9 +7,18 @@
         <div class="bg-blue-600 h-3 rounded-full transition-all duration-300"
              style="width: {{ pct }}%"></div>
     </div>
-    {% if current_file %}
-    <p class="text-xs text-gray-400">Zpracovávám: {{ current_file }}</p>
-    {% else %}
-    <p class="text-xs text-gray-400">Připravuji zpracování...</p>
-    {% endif %}
+    <div class="flex justify-between items-center">
+        {% if current_file %}
+        <p class="text-xs text-gray-400">Zpracovávám: {{ current_file }}</p>
+        {% else %}
+        <p class="text-xs text-gray-400">Připravuji zpracování...</p>
+        {% endif %}
+        <div class="text-xs text-gray-400 text-right">
+            <span>{{ elapsed }}</span>
+            {% if eta %}
+            <span class="mx-1">/</span>
+            <span class="text-gray-600 font-medium">zbývá {{ eta }}</span>
+            {% endif %}
+        </div>
+    </div>
 </div>

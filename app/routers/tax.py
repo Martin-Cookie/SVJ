@@ -272,12 +272,14 @@ async def tax_create(
     db.commit()
 
     # Initialize progress tracker
+    import time as _time
     _processing_progress[session.id] = {
         "total": len(saved_files),
         "current": 0,
         "current_file": "",
         "done": False,
         "error": None,
+        "started_at": _time.monotonic(),
     }
 
     # Start background processing thread
@@ -394,6 +396,42 @@ def _process_tax_files(session_id: int, file_paths: list, tax_year):
         db.close()
 
 
+def _progress_eta(progress: dict) -> dict:
+    """Compute ETA fields from progress dict."""
+    import time as _time
+
+    total = progress["total"]
+    current = progress["current"]
+    pct = int(current / total * 100) if total > 0 else 0
+    elapsed = _time.monotonic() - progress["started_at"]
+
+    eta_text = ""
+    if current > 0:
+        per_file = elapsed / current
+        remaining = (total - current) * per_file
+        if remaining >= 60:
+            mins = int(remaining // 60)
+            secs = int(remaining % 60)
+            eta_text = f"{mins} min {secs} s"
+        else:
+            eta_text = f"{int(remaining)} s"
+
+    elapsed_text = ""
+    if elapsed >= 60:
+        elapsed_text = f"{int(elapsed // 60)} min {int(elapsed % 60)} s"
+    else:
+        elapsed_text = f"{int(elapsed)} s"
+
+    return {
+        "total": total,
+        "current": current,
+        "current_file": progress["current_file"],
+        "pct": pct,
+        "elapsed": elapsed_text,
+        "eta": eta_text,
+    }
+
+
 @router.get("/{session_id}/zpracovani")
 async def tax_processing(
     session_id: int,
@@ -410,17 +448,11 @@ async def tax_processing(
     if not session:
         return RedirectResponse("/dane", status_code=302)
 
-    total = progress["total"]
-    current = progress["current"]
-
     return templates.TemplateResponse("tax/processing.html", {
         "request": request,
         "active_nav": "tax",
         "session": session,
-        "total": total,
-        "current": current,
-        "current_file": progress["current_file"],
-        "pct": int(current / total * 100) if total > 0 else 0,
+        **_progress_eta(progress),
     })
 
 
@@ -434,15 +466,9 @@ async def tax_processing_status(session_id: int, request: Request):
         response.headers["HX-Redirect"] = f"/dane/{session_id}"
         return response
 
-    total = progress["total"]
-    current = progress["current"]
-
     return templates.TemplateResponse("partials/tax_progress.html", {
         "request": request,
-        "total": total,
-        "current": current,
-        "current_file": progress["current_file"],
-        "pct": int(current / total * 100) if total > 0 else 0,
+        **_progress_eta(progress),
     })
 
 
