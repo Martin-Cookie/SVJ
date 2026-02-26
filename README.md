@@ -142,6 +142,7 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
 - Extrakce jmen z PDF (pdfplumber):
   - Primárně jednotlivá jména ze sekce „Údaje o vlastníkovi:" (SP řádky na str. 1)
   - Fallback na kombinované jméno ze sekce „Vlastník:" (str. 2)
+  - Slučování firemních názvů rozlomených přes více SP řádků (detekce suffixů s.r.o., a.s., z.s. atd. a all-uppercase fragmentů)
 - Fuzzy párování jmen na vlastníky v databázi — každé jméno z PDF se páruje zvlášť:
   - Nejdřív shoda na vlastníky dané jednotky (práh 0.6), pak globální hledání (práh 0.75)
   - Sloupec „Jméno z PDF" zobrazuje všechna individuální jména oddělená čárkou
