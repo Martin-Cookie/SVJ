@@ -166,22 +166,21 @@ function _syncSelectAll() {
     if (master) master.checked = (all > 0 && all === checked);
 }
 
-// Save before any HTMX request that targets send-tbody
-document.body.addEventListener('htmx:beforeRequest', function(e) {
-    var target = e.detail.target || (e.detail.elt && e.detail.elt.getAttribute && document.getElementById(e.detail.elt.getAttribute('hx-target')));
-    if (target && ((typeof target === 'string' && target === '#send-tbody') || (target.id === 'send-tbody'))) {
+// Save checked state before ANY htmx request (partial swap or boost)
+document.body.addEventListener('htmx:beforeRequest', function() {
+    if (document.getElementById('send-tbody')) {
         _saveCheckedKeys();
     }
 });
 
-// Restore after any swap into send-tbody
-document.body.addEventListener('htmx:afterSettle', function(e) {
-    if (e.detail.target && e.detail.target.id === 'send-tbody') {
-        _restoreCheckedKeys();
-    }
+// Restore after ANY htmx settle (partial swap into tbody OR full boost page swap)
+document.body.addEventListener('htmx:afterSettle', function() {
+    _restoreCheckedKeys();
+    _loadTestEmail();
+    updateSendButtonCount();
 });
 
-// Also restore on full page load (hx-boost replaces body, then app.js runs again)
+// Initial page load
 document.addEventListener('DOMContentLoaded', function() {
     _restoreCheckedKeys();
     _loadTestEmail();
