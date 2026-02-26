@@ -1,17 +1,18 @@
 from __future__ import annotations
 
 import shutil
+import threading
 from datetime import date, datetime
 from pathlib import Path
 from typing import List
 
 from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
-from fastapi.responses import RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session, joinedload
 
 from app.config import settings
-from app.database import get_db
+from app.database import SessionLocal, get_db
 from app.models import (
     MatchStatus, Owner, OwnerUnit, SendStatus, TaxDistribution, TaxDocument, TaxSession, Unit,
 )
@@ -23,6 +24,9 @@ from app.services.pdf_extractor import (
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
+
+# In-memory progress tracker for background PDF processing
+_processing_progress: dict[int, dict] = {}
 
 
 # ---------------------------------------------------------------------------
@@ -247,111 +251,199 @@ async def tax_create(
     db.add(session)
     db.flush()
 
-    # Save PDF files and process them
+    # Save PDF files to disk (fast I/O only — no extraction yet)
     upload_dir = settings.upload_dir / "tax_pdfs" / f"session_{session.id}"
     upload_dir.mkdir(parents=True, exist_ok=True)
 
-    # Get all owners for matching
-    owners = db.query(Owner).filter_by(is_active=True).all()
-    owner_dicts = [
-        {"id": o.id, "name": o.display_name, "name_normalized": o.name_normalized}
-        for o in owners
-    ]
-
-    # Build unit->owner mapping (only current)
-    owner_units = db.query(OwnerUnit).filter(OwnerUnit.valid_to.is_(None)).all()
-    unit_to_owners = {}
-    for ou in owner_units:
-        unit_num = str(ou.unit.unit_number)
-        if unit_num not in unit_to_owners:
-            unit_to_owners[unit_num] = []
-        owner_data = next((o for o in owner_dicts if o["id"] == ou.owner_id), None)
-        if owner_data:
-            unit_to_owners[unit_num].append(owner_data)
-
+    saved_files = []
     for file in files:
         if not file.filename or not file.filename.lower().endswith(".pdf"):
             continue
-
-        # webkitdirectory sends relative paths (e.g. "dir/9A.pdf") — use basename only
         basename = Path(file.filename).name
         dest = upload_dir / basename
         with open(dest, "wb") as f:
             shutil.copyfileobj(file.file, f)
+        saved_files.append(str(dest))
 
-        unit_number, unit_letter = parse_unit_from_filename(basename)
-
-        # Extract owner name from PDF
-        extracted = extract_owner_from_tax_pdf(str(dest))
-
-        doc = TaxDocument(
-            session_id=session.id,
-            filename=basename,
-            unit_number=unit_number,
-            unit_letter=unit_letter,
-            file_path=str(dest),
-            extracted_owner_name=extracted.get("owner_name"),
-        )
-        db.add(doc)
-        db.flush()
-
-        # Try auto-matching
-        matched_owner = None
-        confidence = 0.0
-
-        # Build list of names to try: individual names first, then combined
-        names_to_try = []
-        for n in extracted.get("owner_names") or []:
-            if n:
-                names_to_try.append(n)
-        if extracted.get("owner_name"):
-            names_to_try.append(extracted["owner_name"])
-
-        # First try: match by unit number + name
-        if unit_number in unit_to_owners and names_to_try:
-            for candidate in names_to_try:
-                matches = match_name(
-                    candidate,
-                    unit_to_owners[unit_number],
-                    threshold=0.6,
-                )
-                if matches and matches[0]["confidence"] > confidence:
-                    matched_owner = matches[0]
-                    confidence = matches[0]["confidence"]
-
-        # Second try: match against all owners by name only
-        if not matched_owner and names_to_try:
-            for candidate in names_to_try:
-                matches = match_name(candidate, owner_dicts, threshold=0.75)
-                if matches and matches[0]["confidence"] > confidence:
-                    matched_owner = matches[0]
-                    confidence = matches[0]["confidence"]
-
-        if matched_owner:
-            # Find co-owners on the same unit
-            coowner_ids = _find_coowners(
-                matched_owner["owner_id"], unit_number, session.year, db
-            )
-            for oid in coowner_ids:
-                dist = TaxDistribution(
-                    document_id=doc.id,
-                    owner_id=oid,
-                    match_status=MatchStatus.AUTO_MATCHED,
-                    match_confidence=confidence if oid == matched_owner["owner_id"] else None,
-                )
-                db.add(dist)
-        else:
-            # No match — create single UNMATCHED placeholder
-            dist = TaxDistribution(
-                document_id=doc.id,
-                owner_id=None,
-                match_status=MatchStatus.UNMATCHED,
-                match_confidence=None,
-            )
-            db.add(dist)
+    if not saved_files:
+        db.rollback()
+        return RedirectResponse("/dane", status_code=302)
 
     db.commit()
-    return RedirectResponse(f"/dane/{session.id}", status_code=302)
+
+    # Initialize progress tracker
+    _processing_progress[session.id] = {
+        "total": len(saved_files),
+        "current": 0,
+        "current_file": "",
+        "done": False,
+        "error": None,
+    }
+
+    # Start background processing thread
+    thread = threading.Thread(
+        target=_process_tax_files,
+        args=(session.id, saved_files, year),
+        daemon=True,
+    )
+    thread.start()
+
+    return RedirectResponse(f"/dane/{session.id}/zpracovani", status_code=302)
+
+
+def _process_tax_files(session_id: int, file_paths: list, tax_year):
+    """Background thread: extract text from PDFs and match owners."""
+    db = SessionLocal()
+    try:
+        # Load owners for matching
+        owners = db.query(Owner).filter_by(is_active=True).all()
+        owner_dicts = [
+            {"id": o.id, "name": o.display_name, "name_normalized": o.name_normalized}
+            for o in owners
+        ]
+
+        # Build unit->owner mapping (only current)
+        owner_units = db.query(OwnerUnit).filter(OwnerUnit.valid_to.is_(None)).all()
+        unit_to_owners = {}
+        for ou in owner_units:
+            unit_num = str(ou.unit.unit_number)
+            if unit_num not in unit_to_owners:
+                unit_to_owners[unit_num] = []
+            owner_data = next((o for o in owner_dicts if o["id"] == ou.owner_id), None)
+            if owner_data:
+                unit_to_owners[unit_num].append(owner_data)
+
+        for i, file_path in enumerate(file_paths):
+            basename = Path(file_path).name
+            _processing_progress[session_id]["current_file"] = basename
+
+            unit_number, unit_letter = parse_unit_from_filename(basename)
+            extracted = extract_owner_from_tax_pdf(file_path)
+
+            doc = TaxDocument(
+                session_id=session_id,
+                filename=basename,
+                unit_number=unit_number,
+                unit_letter=unit_letter,
+                file_path=file_path,
+                extracted_owner_name=extracted.get("owner_name"),
+            )
+            db.add(doc)
+            db.flush()
+
+            # Try auto-matching
+            matched_owner = None
+            confidence = 0.0
+
+            names_to_try = []
+            for n in extracted.get("owner_names") or []:
+                if n:
+                    names_to_try.append(n)
+            if extracted.get("owner_name"):
+                names_to_try.append(extracted["owner_name"])
+
+            # First try: match by unit number + name
+            if unit_number in unit_to_owners and names_to_try:
+                for candidate in names_to_try:
+                    matches = match_name(
+                        candidate,
+                        unit_to_owners[unit_number],
+                        threshold=0.6,
+                    )
+                    if matches and matches[0]["confidence"] > confidence:
+                        matched_owner = matches[0]
+                        confidence = matches[0]["confidence"]
+
+            # Second try: match against all owners by name only
+            if not matched_owner and names_to_try:
+                for candidate in names_to_try:
+                    matches = match_name(candidate, owner_dicts, threshold=0.75)
+                    if matches and matches[0]["confidence"] > confidence:
+                        matched_owner = matches[0]
+                        confidence = matches[0]["confidence"]
+
+            if matched_owner:
+                coowner_ids = _find_coowners(
+                    matched_owner["owner_id"], unit_number, tax_year, db
+                )
+                for oid in coowner_ids:
+                    dist = TaxDistribution(
+                        document_id=doc.id,
+                        owner_id=oid,
+                        match_status=MatchStatus.AUTO_MATCHED,
+                        match_confidence=confidence if oid == matched_owner["owner_id"] else None,
+                    )
+                    db.add(dist)
+            else:
+                dist = TaxDistribution(
+                    document_id=doc.id,
+                    owner_id=None,
+                    match_status=MatchStatus.UNMATCHED,
+                    match_confidence=None,
+                )
+                db.add(dist)
+
+            _processing_progress[session_id]["current"] = i + 1
+
+        db.commit()
+    except Exception as e:
+        _processing_progress[session_id]["error"] = str(e)
+        db.rollback()
+    finally:
+        _processing_progress[session_id]["done"] = True
+        db.close()
+
+
+@router.get("/{session_id}/zpracovani")
+async def tax_processing(
+    session_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Show progress page while PDFs are being processed in background."""
+    progress = _processing_progress.get(session_id)
+    if not progress or progress.get("done"):
+        _processing_progress.pop(session_id, None)
+        return RedirectResponse(f"/dane/{session_id}", status_code=302)
+
+    session = db.query(TaxSession).get(session_id)
+    if not session:
+        return RedirectResponse("/dane", status_code=302)
+
+    total = progress["total"]
+    current = progress["current"]
+
+    return templates.TemplateResponse("tax/processing.html", {
+        "request": request,
+        "active_nav": "tax",
+        "session": session,
+        "total": total,
+        "current": current,
+        "current_file": progress["current_file"],
+        "pct": int(current / total * 100) if total > 0 else 0,
+    })
+
+
+@router.get("/{session_id}/zpracovani-stav")
+async def tax_processing_status(session_id: int, request: Request):
+    """HTMX polling endpoint — returns progress partial or redirect when done."""
+    progress = _processing_progress.get(session_id)
+    if not progress or progress.get("done"):
+        _processing_progress.pop(session_id, None)
+        response = HTMLResponse("")
+        response.headers["HX-Redirect"] = f"/dane/{session_id}"
+        return response
+
+    total = progress["total"]
+    current = progress["current"]
+
+    return templates.TemplateResponse("partials/tax_progress.html", {
+        "request": request,
+        "total": total,
+        "current": current,
+        "current_file": progress["current_file"],
+        "pct": int(current / total * 100) if total > 0 else 0,
+    })
 
 
 @router.get("/{session_id}")
