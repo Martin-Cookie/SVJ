@@ -554,6 +554,29 @@ async def tax_detail(
     })
 
 
+@router.post("/{session_id}/prejmenovat")
+async def rename_session(
+    session_id: int,
+    request: Request,
+    title: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    session = db.query(TaxSession).get(session_id)
+    if not session:
+        return RedirectResponse("/dane", status_code=302)
+
+    session.title = title.strip()
+    db.commit()
+
+    from html import escape
+    return HTMLResponse(
+        f'<div id="session-title-area">'
+        f'<h1 class="text-2xl font-bold text-gray-800">{escape(session.title)}</h1>'
+        f'<p class="text-sm text-green-600 mt-1">Uloženo</p>'
+        f'</div>'
+    )
+
+
 @router.post("/{session_id}/potvrdit/{dist_id}")
 async def confirm_match(
     session_id: int,

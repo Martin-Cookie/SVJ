@@ -8,16 +8,33 @@
         <a href="{{ back_url|default('/dane') }}" class="text-sm text-gray-500 hover:text-gray-700">&larr; {{ back_label|default('Zpět na rozúčtování') }}</a>
 
         <div class="flex items-center justify-between mt-2 mb-4">
-            <div>
+            <div id="session-title-area">
                 <h1 class="text-2xl font-bold text-gray-800">{{ session.title }}</h1>
                 <p class="text-sm text-gray-500 mt-1">Zkontrolujte přiřazení PDF k vlastníkům</p>
             </div>
-            <form method="post" action="/dane/{{ session.id }}/smazat" hx-boost="false"
-                  onsubmit="return confirm('Opravdu smazat celou relaci včetně všech PDF?')">
-                <button type="submit" class="px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium">
-                    Smazat relaci
+            <div id="session-title-edit" class="hidden flex-1 mr-4">
+                <form hx-post="/dane/{{ session.id }}/prejmenovat" hx-target="#session-title-area" hx-swap="outerHTML"
+                      hx-on::after-swap="hideTitleEdit()"
+                      class="flex items-center gap-2">
+                    <input type="text" name="title" value="{{ session.title }}" required
+                           class="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-lg font-bold focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                           id="title-input">
+                    <button type="submit" class="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">Uložit</button>
+                    <button type="button" onclick="hideTitleEdit()" class="px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">Zrušit</button>
+                </form>
+            </div>
+            <div class="flex items-center gap-2">
+                <button type="button" onclick="showTitleEdit()"
+                        class="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
+                    Uložit
                 </button>
-            </form>
+                <form method="post" action="/dane/{{ session.id }}/smazat" hx-boost="false"
+                      onsubmit="return confirm('Opravdu smazat celou relaci včetně všech PDF?')">
+                    <button type="submit" class="px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium">
+                        Smazat relaci
+                    </button>
+                </form>
+            </div>
         </div>
 
         <!-- Stat cards (clickable filter bubbles) -->
@@ -211,5 +228,23 @@ function toggleExternalForm(docId) {
 document.body.addEventListener('htmx:afterSwap', function() {
     updateSelectAll();
 });
+
+function showTitleEdit() {
+    // Sync input value with current title
+    var h1 = document.querySelector('#session-title-area h1');
+    if (h1) document.getElementById('title-input').value = h1.textContent;
+    document.getElementById('session-title-area').classList.add('hidden');
+    var edit = document.getElementById('session-title-edit');
+    edit.classList.remove('hidden');
+    edit.classList.add('flex');
+    document.getElementById('title-input').focus();
+    document.getElementById('title-input').select();
+}
+function hideTitleEdit() {
+    document.getElementById('session-title-area').classList.remove('hidden');
+    var edit = document.getElementById('session-title-edit');
+    edit.classList.add('hidden');
+    edit.classList.remove('flex');
+}
 </script>
 {% endblock %}
