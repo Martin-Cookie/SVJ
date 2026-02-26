@@ -120,7 +120,7 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
 - Klikací vlastníci a jednotky v seznamu lístků i neodevzdaných — prokliky s back URL a scroll restoration
 - Detail hlasovacího lístku s prokliky na vlastníka (back URL chain pro zanoření)
 - Zpracování lístků: zadání hlasů (PRO/PROTI/Zdržel se) s vyhledáváním vlastníka
-- Neodevzdané lístky s vyhledáváním vlastníka, klikací vlastníci a jednotky s back URL
+- Neodevzdané lístky s vyhledáváním (diacritics-insensitive, jméno, email), server-side řazení (vlastník, jednotky, email, hlasy, stav), klikací vlastníci a jednotky s back URL
 - Sčítání hlasů a výpočet kvóra (vstup v %, uložení jako podíl 0–1)
 - Podpora hlasování v zastoupení (plné moci)
 - Stavy hlasování: koncept → aktivní → uzavřené / zrušené
@@ -170,6 +170,10 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
   - „Znovu otevřít" — odemknutí dokončené relace pro další úpravy
   - „Pokračovat na rozesílku →" — přechod k odesílání emailů (pouze u dokončených)
   - Read-only mód: skryté checkboxy, assign dropdown, potvrdit/odebrat tlačítka, externí formulář; viditelné statusové štítky (Potvrzeno/Nepřiřazeno/Nepotvrzeno)
+- Rozesílka (`/dane/{id}/rozeslat`):
+  - Vyhledávání příjemců (jméno, email, název souboru) s diacritics-insensitive porovnáním
+  - Server-side řazení (příjemce, email, počet dokumentů, stav) s HTMX partial
+  - Bookmarkovatelné URL parametry (q, sort, order)
 - Index stránka:
   - Progress bar „Potvrzeno X / Y" na každé kartě relace
   - Stavové badge: „Rozpracováno" (žlutá), „Dokončeno" (zelená), „Odesílá se" (modrá), „Odesláno" (modrá), „Pozastaveno" (žlutá)
@@ -177,7 +181,7 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
 
 ### E. Kontrola vlastníků (`/synchronizace`)
 
-- Nahrání CSV exportu (sousede.cz nebo interní export aplikace) — stránka s formulářem a historií kontrol
+- Nahrání CSV exportu (sousede.cz nebo interní export aplikace) — stránka s formulářem a historií kontrol (search + sort s HTMX partial)
 - Automatická detekce formátu CSV: sousede.cz (Vlastníci jednotky) i interní export (Příjmení + Jméno)
 - BOM stripping pro korektní parsování UTF-8 souborů s BOM
 - Sloučení spoluvlastníků z interního exportu (řádek na vlastníka → jeden záznam na jednotku)
@@ -189,6 +193,7 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
   - Bublina „Vše" zobrazuje i katastrální podíl (4 103 391) s procentuálními rozdíly
   - Bublina „Rozdílné podíly" filtruje záznamy kde se liší pouze podíl SČD
   - Bubliny i řazení zachovávají back URL pro správnou navigaci zpět
+- Vyhledávání v porovnání (jednotka, vlastník, typ — diacritics-insensitive, full page swap)
 - Třídění kliknutím na hlavičky sloupců (jednotka, vlastník, typ, vlastnictví, podíl, shoda)
 - Selektivní aktualizace dat z CSV do databáze:
   - Checkboxy u lišících se polí (jméno, typ, vlastnictví, podíl)
@@ -283,9 +288,10 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
 - Filtrační bubliny s dynamickými počty a souhrny podílů (DB, soubor, rozdíl)
 - Klikací jména vlastníků s proklikem na detail a návratem zpět
 - Klikací čísla jednotek s proklikem na detail a návratem zpět
+- Vyhledávání v porovnání (jednotka, vlastník — diacritics-insensitive, full page swap)
 - Třídění kliknutím na hlavičky sloupců
 - Selektivní aktualizace: checkboxy u rozdílů → batch update Unit.podil_scd
-- Historie kontrol s možností smazání (cascade smaže záznamy i soubor)
+- Historie kontrol s vyhledáváním a řazením (soubor, datum, shoda, rozdíly) s HTMX partial
 
 ### H. Nastavení (`/nastaveni`)
 
@@ -364,7 +370,8 @@ app/
 │   │   ├── index.html         #     Seznam rozúčtování
 │   │   ├── upload.html        #     Nahrání PDF
 │   │   ├── processing.html    #     Progress bar zpracování PDF
-│   │   └── matching.html      #     Párování dokumentů
+│   │   ├── matching.html      #     Párování dokumentů
+│   │   └── send.html          #     Rozesílka emailů (search + sort)
 │   ├── sync/                  #   Stránky synchronizace
 │   │   ├── index.html         #     Nahrání CSV + historie kontrol
 │   │   ├── compare.html       #     Porovnání s filtry a bublinami
@@ -396,7 +403,12 @@ app/
 │       ├── sync_row.html
 │       ├── share_check_row.html
 │       ├── tax_match_row.html
+│       ├── tax_send_body.html
 │       ├── tax_progress.html
+│       ├── tax_recipient_row.html
+│       ├── sync_list_body.html
+│       ├── share_check_list_body.html
+│       ├── dashboard_activity_body.html
 │       └── ballot_processed.html
 └── static/                    # CSS, JS
     ├── css/custom.css
@@ -469,7 +481,7 @@ wheels/                        # Offline Python balíčky (gitignored)
 | GET | `/hlasovani/{id}/zpracovani` | Stránka zpracování lístků (search, sort, HTMX partial) |
 | POST | `/hlasovani/{id}/zpracovat/{ballot_id}` | Zpracování jednoho lístku |
 | POST | `/hlasovani/{id}/zpracovat-hromadne` | Hromadné zpracování vybraných lístků |
-| GET | `/hlasovani/{id}/neodevzdane` | Neodevzdané lístky |
+| GET | `/hlasovani/{id}/neodevzdane` | Neodevzdané lístky (search, sort) |
 | GET | `/hlasovani/{id}/import` | Stránka importu výsledků z Excelu |
 | POST | `/hlasovani/{id}/import` | Nahrání Excel souboru → mapování sloupců |
 | POST | `/hlasovani/{id}/import/nahled` | Náhled importu (přiřazení + statistika) |
@@ -495,15 +507,16 @@ wheels/                        # Offline Python balíčky (gitignored)
 | POST | `/dane/{id}/dokoncit` | Uzamknutí relace (read-only mód) |
 | POST | `/dane/{id}/znovu-otevrit` | Odemknutí relace pro další úpravy |
 | POST | `/dane/{id}/smazat` | Smazání relace (session + dokumenty + soubory) |
+| GET | `/dane/{id}/rozeslat` | Rozesílka — preview příjemců (search, sort) |
 
 ### Kontrola vlastníků (`/synchronizace`)
 
 | Metoda | Cesta | Popis |
 |--------|-------|-------|
-| GET | `/synchronizace` | Nahrání CSV + historie kontrol |
+| GET | `/synchronizace` | Nahrání CSV + historie kontrol (search, sort) |
 | POST | `/synchronizace/nova` | Nahrání a porovnání CSV |
 | POST | `/synchronizace/{id}/smazat` | Smazání kontroly (záznamy + CSV) |
-| GET | `/synchronizace/{id}` | Porovnání s filtry a bublinami |
+| GET | `/synchronizace/{id}` | Porovnání s filtry, bublinami a search |
 | POST | `/synchronizace/{id}/aktualizovat` | Aplikace vybraných změn z CSV |
 | POST | `/synchronizace/{id}/aplikovat-kontakty` | Přenos kontaktů z CSV |
 | POST | `/synchronizace/{id}/exportovat` | Export filtrovaného pohledu do Excelu (se zvýrazněním rozdílů) |
@@ -519,11 +532,11 @@ wheels/                        # Offline Python balíčky (gitignored)
 
 | Metoda | Cesta | Popis |
 |--------|-------|-------|
-| GET | `/kontrola-podilu` | Historie kontrol + upload formulář |
+| GET | `/kontrola-podilu` | Historie kontrol + upload formulář (search, sort) |
 | POST | `/kontrola-podilu/nova` | Nahrání souboru → redirect na mapování |
 | GET | `/kontrola-podilu/mapovani` | Mapování sloupců (auto-detekce + preview) |
 | POST | `/kontrola-podilu/potvrdit-mapovani` | Porovnání → uložení → redirect na detail |
-| GET | `/kontrola-podilu/{id}` | Výsledky s filtry a bublinami |
+| GET | `/kontrola-podilu/{id}` | Výsledky s filtry, bublinami a search |
 | POST | `/kontrola-podilu/{id}/smazat` | Smazání kontroly (záznamy + soubor) |
 | POST | `/kontrola-podilu/{id}/aktualizovat` | Batch update Unit.podil_scd z vybraných |
 
@@ -589,7 +602,7 @@ LIBREOFFICE_PATH=/Applications/LibreOffice.app/Contents/MacOS/soffice
 
 ## UI vzory
 
-- **Dashboard** — přehled s klikacími bublinami (vlastníci, jednotky, hlasování) a modulovými kartami, vše dynamicky roztažené na šířku; bublina hlasování zobrazuje seznam aktivních/konceptových hlasování se stavem a názvem (truncate + tooltip)
+- **Dashboard** — přehled s klikacími bublinami (vlastníci, jednotky, hlasování) a modulovými kartami, vše dynamicky roztažené na šířku; bublina hlasování zobrazuje seznam aktivních/konceptových hlasování se stavem a názvem (truncate + tooltip); tabulka poslední aktivity s vyhledáváním (příjemce, email, předmět, modul) a řazením (datum, modul, příjemce, předmět, stav) přes HTMX partial
 - **Sidebar navigace** — fixní levý panel (w-44) s ikonami a sekcemi
 - **Filtrační bubliny** — klikací filtry nad tabulkou s počty záznamů, dynamicky roztažené na celou šířku, rozdělené bubliny (s/bez emailu, s/bez telefonu)
 - **Back URL řetěz** — zachování filtrů a šipky "Zpět na přehled" při navigaci dashboard → seznam → detail → zpět přes celý řetěz (parametr `back` propagován přes bubliny, hledání, řazení, HTMX a detailové odkazy)
@@ -597,5 +610,6 @@ LIBREOFFICE_PATH=/Applications/LibreOffice.app/Contents/MacOS/soffice
 - **HTMX inline editace** — formuláře pro kontakty, adresy a údaje jednotek se přepínají bez reloadu
 - **HTMX upload formuláře** — všechny formuláře s `enctype="multipart/form-data"` mají `hx-boost="false"` pro spolehlivý upload souborů
 - **Normalizace vstupů** — všechny textové formulářové vstupy používají `.strip() or None` pro konzistentní uložení (bez mezer, prázdné = NULL)
+- **Server-side search + sort** — konzistentní vzor na všech výpisových stránkách: `_strip_diacritics` pro case+diacritics-insensitive hledání, `sort_th` Jinja2 makro pro klikací hlavičky s šipkami a modrým zvýrazněním aktivního sloupce, HTMX partials (kde možné) pro live filtrování `keyup changed delay:300ms`, bookmarkovatelné URL parametry (`q`, `sort`, `order`), prázdný stav při 0 výsledcích
 - **Dvousloupcový layout** — formulář vlevo + historie vpravo (import, kontrola)
 - **Flex layout s fixní hlavičkou** — `height:calc(100vh - 48px)` pro stránky kde scrolluje jen tělo tabulky
