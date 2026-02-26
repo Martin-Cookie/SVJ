@@ -109,6 +109,23 @@ async def home(
         .order_by(TaxSession.created_at.desc())
         .all()
     )
+
+    # Group votings by status: {status_value: {"count": N, "latest": Voting}}
+    voting_by_status = {}
+    for v in active_votings_list:
+        s = v.status.value
+        if s not in voting_by_status:
+            voting_by_status[s] = {"count": 0, "latest": v}
+        voting_by_status[s]["count"] += 1
+
+    # Group tax sessions by status
+    tax_by_status = {}
+    for t in active_tax_sessions:
+        s = t.send_status.value
+        if s not in tax_by_status:
+            tax_by_status[s] = {"count": 0, "latest": t}
+        tax_by_status[s]["count"] += 1
+
     recent_emails = (
         db.query(EmailLog)
         .order_by(EmailLog.created_at.desc())
@@ -152,9 +169,9 @@ async def home(
         "owners_count": owners_count,
         "units_count": units_count,
         "active_votings": len(active_votings_list),
-        "active_votings_list": active_votings_list,
+        "voting_by_status": voting_by_status,
         "active_tax_count": len(active_tax_sessions),
-        "active_tax_sessions": active_tax_sessions,
+        "tax_by_status": tax_by_status,
         "recent_emails": recent_emails,
         "declared_shares": declared_shares,
         "owners_scd": owners_scd,

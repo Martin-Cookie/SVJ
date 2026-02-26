@@ -76,8 +76,8 @@
         </table>
         {% endif %}
     </a>
-    <a href="/hlasovani?back=/" class="flex-1 block bg-white rounded-lg shadow p-3 hover:shadow-md transition-shadow">
-        <div class="flex items-center">
+    <div class="flex-1 block bg-white rounded-lg shadow p-3 hover:shadow-md transition-shadow">
+        <a href="/hlasovani?back=/" class="flex items-center">
             <div class="p-2 bg-purple-100 rounded-lg">
                 <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
@@ -87,28 +87,24 @@
                 <p class="text-xs text-gray-500">Hlasování</p>
                 <p class="text-lg font-bold text-gray-800">{{ active_votings }}</p>
             </div>
-        </div>
-        {% if active_votings_list %}
+        </a>
+        {% if voting_by_status %}
         <div class="mt-1 space-y-0.5">
-            {% for v in active_votings_list %}
-            <div class="flex items-center gap-1 text-xs">
-                {% if v.status.value == 'active' %}
-                <span class="shrink-0 px-1 py-0.5 font-medium bg-green-100 text-green-800 rounded-full text-xs leading-none">Aktivní</span>
-                {% elif v.status.value == 'draft' %}
-                <span class="shrink-0 px-1 py-0.5 font-medium bg-gray-100 text-gray-700 rounded-full text-xs leading-none">Koncept</span>
-                {% elif v.status.value == 'closed' %}
-                <span class="shrink-0 px-1 py-0.5 font-medium bg-blue-100 text-blue-800 rounded-full text-xs leading-none">Uzavřeno</span>
-                {% elif v.status.value == 'cancelled' %}
-                <span class="shrink-0 px-1 py-0.5 font-medium bg-red-100 text-red-800 rounded-full text-xs leading-none">Zrušeno</span>
-                {% endif %}
-                <span class="text-gray-700 truncate" title="{{ v.title }}">{{ v.title }}</span>
-            </div>
+            {% set vs_map = {'active': {'label': 'Aktivní', 'bg': 'bg-green-100 text-green-800'}, 'draft': {'label': 'Koncept', 'bg': 'bg-gray-100 text-gray-700'}, 'closed': {'label': 'Uzavřeno', 'bg': 'bg-blue-100 text-blue-800'}, 'cancelled': {'label': 'Zrušeno', 'bg': 'bg-red-100 text-red-800'}} %}
+            {% for status in ['active', 'draft', 'closed', 'cancelled'] %}
+            {% if status in voting_by_status %}
+            {% set info = voting_by_status[status] %}
+            <a href="/hlasovani/{{ info.latest.id }}?back=/" class="flex items-center gap-1 text-xs hover:bg-gray-50 rounded -mx-1 px-1" onclick="event.stopPropagation()">
+                <span class="shrink-0 px-1 py-0.5 font-medium {{ vs_map[status].bg }} rounded-full text-xs leading-none">{{ info.count }} {{ vs_map[status].label }}</span>
+                <span class="text-gray-500 truncate" title="{{ info.latest.title }}">&rarr; {{ info.latest.title }}</span>
+            </a>
+            {% endif %}
             {% endfor %}
         </div>
         {% endif %}
-    </a>
-    <a href="/dane?back=/" class="flex-1 block bg-white rounded-lg shadow p-3 hover:shadow-md transition-shadow">
-        <div class="flex items-center">
+    </div>
+    <div class="flex-1 block bg-white rounded-lg shadow p-3 hover:shadow-md transition-shadow">
+        <a href="/dane?back=/" class="flex items-center">
             <div class="p-2 bg-emerald-100 rounded-lg">
                 <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z"/>
@@ -118,28 +114,22 @@
                 <p class="text-xs text-gray-500">Rozúčtování</p>
                 <p class="text-lg font-bold text-gray-800">{{ active_tax_count }}</p>
             </div>
-        </div>
-        {% if active_tax_sessions %}
+        </a>
+        {% if tax_by_status %}
         <div class="mt-1 space-y-0.5">
-            {% for s in active_tax_sessions %}
-            <div class="flex items-center gap-1 text-xs">
-                {% if s.send_status.value == 'completed' %}
-                <span class="shrink-0 px-1 py-0.5 font-medium bg-blue-100 text-blue-800 rounded-full text-xs leading-none">Dokončeno</span>
-                {% elif s.send_status.value == 'ready' %}
-                <span class="shrink-0 px-1 py-0.5 font-medium bg-green-100 text-green-800 rounded-full text-xs leading-none">Připraveno</span>
-                {% elif s.send_status.value == 'sending' %}
-                <span class="shrink-0 px-1 py-0.5 font-medium bg-orange-100 text-orange-800 rounded-full text-xs leading-none">Odesílá se</span>
-                {% elif s.send_status.value == 'paused' %}
-                <span class="shrink-0 px-1 py-0.5 font-medium bg-yellow-100 text-yellow-800 rounded-full text-xs leading-none">Pozastaveno</span>
-                {% else %}
-                <span class="shrink-0 px-1 py-0.5 font-medium bg-gray-100 text-gray-700 rounded-full text-xs leading-none">Koncept</span>
-                {% endif %}
-                <span class="text-gray-700 truncate" title="{{ s.title }}">{{ s.title }}</span>
-            </div>
+            {% set ts_map = {'draft': {'label': 'Koncept', 'bg': 'bg-gray-100 text-gray-700'}, 'ready': {'label': 'Připraveno', 'bg': 'bg-green-100 text-green-800'}, 'sending': {'label': 'Odesílá se', 'bg': 'bg-orange-100 text-orange-800'}, 'paused': {'label': 'Pozastaveno', 'bg': 'bg-yellow-100 text-yellow-800'}, 'completed': {'label': 'Dokončeno', 'bg': 'bg-blue-100 text-blue-800'}} %}
+            {% for status in ['sending', 'paused', 'ready', 'draft', 'completed'] %}
+            {% if status in tax_by_status %}
+            {% set info = tax_by_status[status] %}
+            <a href="/dane/{{ info.latest.id }}?back=/" class="flex items-center gap-1 text-xs hover:bg-gray-50 rounded -mx-1 px-1" onclick="event.stopPropagation()">
+                <span class="shrink-0 px-1 py-0.5 font-medium {{ ts_map[status].bg }} rounded-full text-xs leading-none">{{ info.count }} {{ ts_map[status].label }}</span>
+                <span class="text-gray-500 truncate" title="{{ info.latest.title }}">&rarr; {{ info.latest.title }}</span>
+            </a>
+            {% endif %}
             {% endfor %}
         </div>
         {% endif %}
-    </a>
+    </div>
 </div>
 
 <!-- Recent activity -->
