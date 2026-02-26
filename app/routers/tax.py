@@ -474,6 +474,24 @@ async def tax_detail(
     # Stats are always computed from ALL documents (unfiltered)
     stats = _session_stats(all_documents)
 
+    # Compute missing units: units with current owners but no document in this session
+    doc_unit_numbers = {d.unit_number for d in all_documents if d.unit_number}
+    current_ous = (
+        db.query(OwnerUnit)
+        .filter(OwnerUnit.valid_to.is_(None))
+        .options(joinedload(OwnerUnit.unit), joinedload(OwnerUnit.owner))
+        .all()
+    )
+    missing_units = {}  # unit_number -> {"unit": Unit, "owners": [Owner]}
+    for ou in current_ous:
+        unum = str(ou.unit.unit_number)
+        if unum not in doc_unit_numbers:
+            if unum not in missing_units:
+                missing_units[unum] = {"unit": ou.unit, "owners": []}
+            missing_units[unum]["owners"].append(ou.owner)
+    missing_list = sorted(missing_units.values(), key=lambda m: m["unit"].unit_number)
+    stats["stat_missing"] = len(missing_list)
+
     # Apply filter
     if filtr == "confirmed":
         documents = [
@@ -500,6 +518,8 @@ async def tax_detail(
                 x.match_status == MatchStatus.UNMATCHED for x in d.distributions
             )
         ]
+    elif filtr == "missing":
+        documents = []
     else:
         documents = all_documents
 
@@ -529,6 +549,7 @@ async def tax_detail(
         "list_url": list_url,
         "filtr": filtr,
         "unit_by_number": _unit_by_number(db),
+        "missing_list": missing_list,
         **stats,
     })
 
