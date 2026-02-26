@@ -425,6 +425,243 @@ async def owner_detail(
     })
 
 
+@router.get("/{owner_id}/identita-formular")
+async def owner_identity_edit_form(
+    owner_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    owner = db.query(Owner).get(owner_id)
+    if not owner:
+        return RedirectResponse("/vlastnici", status_code=302)
+    return templates.TemplateResponse("partials/owner_identity_form.html", {
+        "request": request,
+        "owner": owner,
+    })
+
+
+@router.get("/{owner_id}/identita-info")
+async def owner_identity_info(
+    owner_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    owner = db.query(Owner).get(owner_id)
+    if not owner:
+        return RedirectResponse("/vlastnici", status_code=302)
+    return templates.TemplateResponse("partials/owner_identity_info.html", {
+        "request": request,
+        "owner": owner,
+    })
+
+
+def _rebuild_owner_name(owner: Owner) -> None:
+    """Rebuild name_with_titles and name_normalized from identity fields."""
+    parts_wt = []
+    if owner.title:
+        parts_wt.append(owner.title)
+    if owner.last_name:
+        parts_wt.append(owner.last_name)
+    if owner.first_name:
+        parts_wt.append(owner.first_name)
+    owner.name_with_titles = " ".join(parts_wt)
+
+    parts_norm = []
+    if owner.last_name:
+        parts_norm.append(owner.last_name)
+    if owner.first_name:
+        parts_norm.append(owner.first_name)
+    owner.name_normalized = _strip_diacritics(" ".join(parts_norm))
+
+
+def _find_duplicate_owners(db: Session, owner: Owner) -> list[Owner]:
+    """Find other active owners with the same name_normalized (potential duplicates)."""
+    if not owner.name_normalized:
+        return []
+    return (
+        db.query(Owner)
+        .filter(
+            Owner.id != owner.id,
+            Owner.is_active == True,
+            Owner.name_normalized == owner.name_normalized,
+        )
+        .options(joinedload(Owner.units).joinedload(OwnerUnit.unit))
+        .all()
+    )
+
+
+def _header_oob_html(owner: Owner) -> str:
+    """Build OOB swap HTML for owner display name + badges in page header."""
+    from markupsafe import escape
+    name_html = (
+        f'<h1 id="owner-display-name" hx-swap-oob="true"'
+        f' class="text-2xl font-bold text-gray-800">{escape(owner.display_name)}</h1>'
+    )
+    type_badge = (
+        '<span class="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">Právnická osoba</span>'
+        if owner.owner_type == OwnerType.LEGAL_ENTITY
+        else '<span class="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">Fyzická osoba</span>'
+    )
+    extra_badges = ""
+    if owner.birth_number:
+        extra_badges += f'<span class="px-2 py-1 text-xs font-medium bg-gray-50 text-gray-700 rounded border border-gray-200">RČ: {escape(owner.birth_number)}</span>'
+    if owner.company_id:
+        extra_badges += f'<span class="px-2 py-1 text-xs font-medium bg-gray-50 text-gray-700 rounded border border-gray-200">IČ: {escape(owner.company_id)}</span>'
+    badges_html = f'<div id="owner-badges" hx-swap-oob="true" class="mt-1 flex items-center gap-2">{type_badge}{extra_badges}</div>'
+    return name_html + badges_html
+
+
+@router.post("/{owner_id}/identita-upravit")
+async def owner_identity_update(
+    owner_id: int,
+    request: Request,
+    owner_type: str = Form("physical"),
+    title: str = Form(""),
+    last_name: str = Form(""),
+    first_name_physical: str = Form(""),
+    first_name_legal: str = Form(""),
+    birth_number: str = Form(""),
+    company_id: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    owner = db.query(Owner).options(
+        joinedload(Owner.units).joinedload(OwnerUnit.unit)
+    ).get(owner_id)
+    if not owner:
+        return RedirectResponse("/vlastnici", status_code=302)
+
+    # Remember old normalized name to find duplicates BEFORE changing
+    old_normalized = owner.name_normalized
+
+    owner.owner_type = OwnerType(owner_type)
+
+    if owner_type == "legal":
+        owner.first_name = first_name_legal.strip()
+        owner.last_name = None
+        owner.title = None
+        owner.birth_number = None
+        owner.company_id = company_id.strip() or None
+    else:
+        owner.first_name = first_name_physical.strip()
+        owner.last_name = last_name.strip() or None
+        owner.title = title.strip() or None
+        owner.birth_number = birth_number.strip() or None
+        owner.company_id = None
+
+    _rebuild_owner_name(owner)
+    owner.updated_at = datetime.utcnow()
+    db.commit()
+
+    # Find duplicates by OLD name (before edit)
+    duplicates = []
+    if old_normalized:
+        duplicates = (
+            db.query(Owner)
+            .filter(
+                Owner.id != owner.id,
+                Owner.is_active == True,
+                Owner.name_normalized == old_normalized,
+            )
+            .options(joinedload(Owner.units).joinedload(OwnerUnit.unit))
+            .all()
+        )
+
+    if request.headers.get("HX-Request"):
+        from fastapi.responses import HTMLResponse
+        identity_html = templates.TemplateResponse("partials/owner_identity_info.html", {
+            "request": request,
+            "owner": owner,
+            "saved": True,
+            "duplicates": duplicates,
+        })
+        body = identity_html.body.decode() + _header_oob_html(owner)
+        return HTMLResponse(body)
+    return RedirectResponse(f"/vlastnici/{owner_id}", status_code=302)
+
+
+@router.post("/{owner_id}/sloucit")
+async def owner_merge(
+    owner_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Merge duplicate owners into this one. Move their units, deactivate them."""
+    form = await request.form()
+    merge_ids = [int(v) for v in form.getlist("merge_ids")]
+    if not merge_ids:
+        return RedirectResponse(f"/vlastnici/{owner_id}", status_code=302)
+
+    owner = db.query(Owner).options(
+        joinedload(Owner.units).joinedload(OwnerUnit.unit)
+    ).get(owner_id)
+    if not owner:
+        return RedirectResponse("/vlastnici", status_code=302)
+
+    existing_unit_ids = {ou.unit_id for ou in owner.current_units}
+
+    for dup_id in merge_ids:
+        dup = db.query(Owner).options(
+            joinedload(Owner.units).joinedload(OwnerUnit.unit)
+        ).get(dup_id)
+        if not dup or dup.id == owner.id:
+            continue
+
+        # Transfer unit assignments
+        for ou in list(dup.units):
+            if ou.unit_id not in existing_unit_ids or ou.valid_to is not None:
+                ou.owner_id = owner.id
+                existing_unit_ids.add(ou.unit_id)
+            else:
+                # Duplicate unit assignment — deactivate the duplicate's
+                ou.valid_to = date.today()
+
+        # Copy contact info if the target is missing it
+        for field in ("email", "email_secondary", "phone", "phone_landline"):
+            if not getattr(owner, field) and getattr(dup, field):
+                setattr(owner, field, getattr(dup, field))
+
+        # Copy addresses if target is missing
+        for prefix in ("perm", "corr"):
+            if not getattr(owner, f"{prefix}_street") and getattr(dup, f"{prefix}_street"):
+                for suffix in ("street", "district", "city", "zip", "country"):
+                    setattr(owner, f"{prefix}_{suffix}", getattr(dup, f"{prefix}_{suffix}"))
+
+        # Deactivate the duplicate
+        dup.is_active = False
+        dup.updated_at = datetime.utcnow()
+
+    owner.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(owner)
+
+    if request.headers.get("HX-Request"):
+        from fastapi.responses import HTMLResponse
+        from app.routers.administration import _get_all_code_lists
+        # Refresh identity section (no more duplicates)
+        identity_html = templates.TemplateResponse("partials/owner_identity_info.html", {
+            "request": request,
+            "owner": owner,
+            "saved": True,
+            "duplicates": [],
+        })
+        # Also refresh units section via OOB (new units were merged in)
+        available_units, declared_shares = _owner_units_context(owner, db)
+        units_html = templates.TemplateResponse("partials/owner_units_section.html", {
+            "request": request,
+            "owner": owner,
+            "available_units": available_units,
+            "declared_shares": declared_shares,
+            "code_lists": _get_all_code_lists(db),
+        })
+        units_oob = (
+            f'<div id="owner-units-section" hx-swap-oob="true">'
+            f'{units_html.body.decode()}</div>'
+        )
+        body = identity_html.body.decode() + _header_oob_html(owner) + units_oob
+        return HTMLResponse(body)
+    return RedirectResponse(f"/vlastnici/{owner_id}", status_code=302)
+
+
 @router.get("/{owner_id}/upravit-formular")
 async def owner_edit_form(
     owner_id: int,

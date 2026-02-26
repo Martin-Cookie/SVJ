@@ -1,0 +1,72 @@
+<div class="space-y-3 text-sm">
+    {% if owner.owner_type.value == 'legal' %}
+    <div class="flex justify-between">
+        <dt class="text-gray-500">Typ</dt>
+        <dd><span class="px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">Právnická osoba</span></dd>
+    </div>
+    <div class="flex justify-between">
+        <dt class="text-gray-500">Název firmy</dt>
+        <dd class="text-gray-900">{{ owner.first_name or '—' }}</dd>
+    </div>
+    <div class="flex justify-between">
+        <dt class="text-gray-500">IČ</dt>
+        <dd class="text-gray-900">{{ owner.company_id or '—' }}</dd>
+    </div>
+    {% else %}
+    <div class="flex justify-between">
+        <dt class="text-gray-500">Typ</dt>
+        <dd><span class="px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">Fyzická osoba</span></dd>
+    </div>
+    <div class="flex justify-between">
+        <dt class="text-gray-500">Titul</dt>
+        <dd class="text-gray-900">{{ owner.title or '—' }}</dd>
+    </div>
+    <div class="flex justify-between">
+        <dt class="text-gray-500">Příjmení</dt>
+        <dd class="text-gray-900">{{ owner.last_name or '—' }}</dd>
+    </div>
+    <div class="flex justify-between">
+        <dt class="text-gray-500">Jméno</dt>
+        <dd class="text-gray-900">{{ owner.first_name or '—' }}</dd>
+    </div>
+    <div class="flex justify-between">
+        <dt class="text-gray-500">Rodné číslo</dt>
+        <dd class="text-gray-900">{{ owner.birth_number or '—' }}</dd>
+    </div>
+    {% endif %}
+</div>
+<div class="mt-4 flex items-center gap-2">
+    <button hx-get="/vlastnici/{{ owner.id }}/identita-formular" hx-target="#identity-section" hx-swap="innerHTML"
+            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
+        Upravit
+    </button>
+    {% if saved %}
+    <span class="text-sm text-green-600">Uloženo</span>
+    {% endif %}
+</div>
+
+{% if duplicates is defined and duplicates %}
+<div class="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+    <p class="text-sm font-medium text-yellow-800 mb-2">
+        Nalezeny duplicitní záznamy ({{ duplicates|length }}) se stejným původním jménem:
+    </p>
+    <form hx-post="/vlastnici/{{ owner.id }}/sloucit" hx-target="#identity-section" hx-swap="innerHTML"
+          hx-confirm="Sloučit vybrané záznamy? Jejich jednotky se přesunou pod tohoto vlastníka a duplikáty budou deaktivovány.">
+        <ul class="space-y-1 mb-3">
+            {% for dup in duplicates %}
+            <li class="flex items-center gap-2 text-sm">
+                <input type="checkbox" name="merge_ids" value="{{ dup.id }}" checked class="rounded">
+                <span class="text-gray-700">{{ dup.display_name }}</span>
+                <span class="text-gray-400 text-xs">
+                    ({% if dup.current_units %}j. {{ dup.current_units|map(attribute='unit')|map(attribute='unit_number')|join(', ') }}{% else %}bez jednotky{% endif %})
+                </span>
+            </li>
+            {% endfor %}
+        </ul>
+        <button type="submit"
+                class="px-3 py-1.5 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 text-sm font-medium">
+            Sloučit vybrané
+        </button>
+    </form>
+</div>
+{% endif %}
