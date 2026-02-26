@@ -6,6 +6,7 @@ from unicodedata import normalize, category as _ucd_category
 
 from app.database import get_db
 from app.models import EmailLog, Owner, OwnerUnit, SvjInfo, Unit, Voting, VotingStatus
+from app.models.tax import TaxSession, SendStatus
 
 
 def _strip_diacritics(text: str) -> str:
@@ -102,6 +103,12 @@ async def home(
         )
         .all()
     )
+    active_tax_sessions = (
+        db.query(TaxSession)
+        .filter(TaxSession.send_status != SendStatus.COMPLETED)
+        .order_by(TaxSession.created_at.desc())
+        .all()
+    )
     recent_emails = (
         db.query(EmailLog)
         .order_by(EmailLog.created_at.desc())
@@ -146,6 +153,8 @@ async def home(
         "units_count": units_count,
         "active_votings": len(active_votings_list),
         "active_votings_list": active_votings_list,
+        "active_tax_count": len(active_tax_sessions),
+        "active_tax_sessions": active_tax_sessions,
         "recent_emails": recent_emails,
         "declared_shares": declared_shares,
         "owners_scd": owners_scd,
