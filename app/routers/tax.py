@@ -1170,6 +1170,11 @@ async def send_test_email(
     total_recipients = len(recipients)
     with_email = sum(1 for r in recipients if r["email"])
 
+    all_recipients = recipients
+    count_pending = sum(1 for r in all_recipients if r["email_status"] in ("pending", "queued"))
+    count_sent = sum(1 for r in all_recipients if r["email_status"] == "sent")
+    count_failed = sum(1 for r in all_recipients if r["email_status"] == "failed")
+
     back_url = f"/dane/{session_id}/rozeslat"
     return templates.TemplateResponse("tax/send.html", {
         "request": request,
@@ -1179,10 +1184,14 @@ async def send_test_email(
         "total_recipients": total_recipients,
         "with_email": with_email,
         "without_email": total_recipients - with_email,
+        "count_pending": count_pending,
+        "count_sent": count_sent,
+        "count_failed": count_failed,
         "back_url": f"/dane/{session_id}",
         "list_url": back_url,
         "flash_message": flash_message,
         "flash_type": flash_type,
+        "test_email_value": test_email.strip(),
     })
 
 

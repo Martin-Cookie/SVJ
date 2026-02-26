@@ -84,6 +84,7 @@
                             </label>
                             <div class="flex items-center gap-2 mt-1">
                                 <input type="email" name="test_email_inline" placeholder="test@example.com"
+                                       value="{{ test_email_value|default('') }}"
                                        class="flex-1 border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                                 <button type="button" onclick="sendTest(this)"
                                         class="px-2.5 py-1 bg-yellow-500 text-white rounded hover:bg-yellow-600 text-xs font-medium whitespace-nowrap">

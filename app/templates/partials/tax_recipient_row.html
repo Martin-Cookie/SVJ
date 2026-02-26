@@ -4,7 +4,6 @@
         {% set can_send = r.email and r.email_status != 'sent' %}
         <input type="checkbox" name="selected_keys" value="{{ r.key }}"
                class="rcpt-cb rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-               {% if can_send %}checked{% endif %}
                {% if not can_send %}disabled{% endif %}>
     </td>
 
