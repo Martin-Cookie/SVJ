@@ -136,8 +136,11 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
 ### D. Rozúčtování příjmů (`/dane`)
 
 - Nahrání daňových PDF dokumentů (jednotlivě nebo celý adresář)
-- Extrakce jmen z PDF (pdfplumber)
+- Extrakce jmen z PDF (pdfplumber):
+  - Primárně jednotlivá jména ze sekce „Údaje o vlastníkovi:" (SP řádky na str. 1)
+  - Fallback na kombinované jméno ze sekce „Vlastník:" (str. 2)
 - Fuzzy párování jmen na vlastníky v databázi (práh 0.6 pro jednotku, 0.75 globálně)
+- Párování zkouší nejdřív jednotlivá jména (vyšší přesnost), pak kombinované
 - **Multi-owner matching**: automatické přiřazení spoluvlastníků (SJM) na stejné jednotce
   - Detekce spoluvlastníků dle jednotky s překrývajícím se obdobím v daňovém roce
   - Ruční přiřazení automaticky přidá spoluvlastníky
@@ -298,7 +301,7 @@ app/
 │   ├── excel_export.py        #   Export do Excelu
 │   ├── word_parser.py         #   Extrakce bodů a metadat z .docx šablony
 │   ├── pdf_generator.py       #   Generování PDF lístků
-│   ├── pdf_extractor.py       #   Extrakce textu z PDF
+│   ├── pdf_extractor.py       #   Extrakce textu a jmen vlastníků z PDF
 │   ├── owner_matcher.py       #   Fuzzy párování jmen
 │   ├── voting_import.py       #   Import výsledků hlasování z Excelu
 │   ├── csv_comparator.py      #   Porovnání CSV vs Excel
