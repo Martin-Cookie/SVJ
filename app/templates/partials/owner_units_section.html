@@ -4,7 +4,7 @@
     <div>
         <div id="add-unit-btn">
             <button type="button" onclick="document.getElementById('add-unit-btn').classList.add('hidden'); document.getElementById('add-unit-actions').classList.remove('hidden'); document.getElementById('add-unit-form').classList.remove('hidden');"
-                    class="inline-flex items-center gap-1 px-3 py-1.5 text-sm text-gray-600 hover:text-blue-600 border border-gray-300 rounded-lg hover:border-blue-300 transition-colors">
+                    class="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
                 </svg>
@@ -12,7 +12,7 @@
             </button>
         </div>
         <div id="add-unit-actions" class="hidden flex items-center gap-2">
-            <button type="submit" form="add-unit-form-el" class="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">Uložit</button>
+            <button type="submit" form="add-unit-form-el" class="px-3 py-1.5 text-sm font-medium text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors">Uložit</button>
             <button type="button" onclick="document.getElementById('add-unit-actions').classList.add('hidden'); document.getElementById('add-unit-btn').classList.remove('hidden'); document.getElementById('add-unit-form').classList.add('hidden');"
                     class="px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm font-medium">Zrušit</button>
         </div>

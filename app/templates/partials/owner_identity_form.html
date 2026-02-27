@@ -2,7 +2,7 @@
     <div class="flex items-center justify-between mb-4">
         <h2 class="text-lg font-semibold text-gray-700">Identifikace</h2>
         <div class="flex items-center gap-2">
-            <button type="submit" class="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">Uložit</button>
+            <button type="submit" class="px-3 py-1.5 text-sm font-medium text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors">Uložit</button>
             <button type="button" hx-get="/vlastnici/{{ owner.id }}/identita-info" hx-target="#identity-section" hx-swap="innerHTML"
                     class="px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm font-medium">Zrušit</button>
         </div>

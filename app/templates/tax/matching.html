@@ -33,7 +33,7 @@
                         <input type="text" name="title" value="{{ session.title }}" required
                                class="px-3 py-1.5 border border-gray-300 rounded-lg text-lg font-bold focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                id="title-input">
-                        <button type="submit" class="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">Uložit</button>
+                        <button type="submit" class="px-3 py-1.5 text-sm font-medium text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors">Uložit</button>
                         <button type="button" onclick="hideTitleEdit()" class="px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">Zrušit</button>
                     </form>
                 </div>
@@ -59,7 +59,7 @@
                    class="px-3 py-1.5 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 text-sm font-medium">
                     Nahrát další PDF
                 </a>
-                <a href="/dane" class="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
+                <a href="/dane" class="px-3 py-1.5 text-sm font-medium text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors">
                     Uložit a zavřít
                 </a>
                 <form method="post" action="/dane/{{ session.id }}/dokoncit" hx-boost="false"

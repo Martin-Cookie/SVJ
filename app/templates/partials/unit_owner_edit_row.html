@@ -12,7 +12,7 @@
         <button hx-post="/jednotky/{{ unit.id }}/vlastnik/{{ ou.id }}/upravit"
                 hx-include="closest tr"
                 hx-target="#unit-owners" hx-swap="outerHTML"
-                class="px-2 py-1 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700">Uložit</button>
+                class="px-2 py-1 text-xs font-medium text-blue-600 border border-blue-300 rounded hover:bg-blue-50">Uložit</button>
         <button hx-get="/jednotky/{{ unit.id }}/vlastnici-sekce"
                 hx-target="#unit-owners" hx-swap="outerHTML"
                 class="px-2 py-1 text-xs font-medium text-gray-600 bg-gray-200 rounded hover:bg-gray-300 ml-1">Zrušit</button>
