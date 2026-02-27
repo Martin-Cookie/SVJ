@@ -73,7 +73,8 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
   - OOB aktualizace záhlaví stránky (jméno + badge typ/RČ/IČ) a sekce Jednotky po sloučení
   - Inline editace kontaktů (email, telefon) přes HTMX
   - Inline editace trvalé a korespondenční adresy přes HTMX
-  - Správa přiřazených jednotek (přidat z dropdownu, odebrat s valid_to datem)
+  - Uložit/Zrušit tlačítka nahoře vedle nadpisu sekce (ne dole pod formulářem)
+  - Správa přiřazených jednotek (přidat z dropdownu s „Uložit" + „Zrušit", odebrat ikonou koše)
   - Sloupec Podíl % (podíl SČD / celkový počet podílů z administrace)
   - Souhrnný řádek Celkem (podíl SČD, podíl %, plocha)
   - Proklik na detail jednotky
@@ -90,7 +91,8 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
 - Vytvoření nové jednotky (inline HTMX formulář)
 - Detail jednotky:
   - Inline editace všech polí přes HTMX (číslo, budova, typ, sekce, adresa, LV, místnosti, plocha, podíl)
-  - Seznam vlastníků s prokliky (aktuální modře, historičtí šedě)
+  - Uložit/Zrušit tlačítka nahoře vedle nadpisu sekce
+  - Seznam vlastníků s prokliky (aktuální modře, historičtí šedě), editace ikonou tužky
   - Kolapsovatelná sekce „Předchozí vlastníci" — historické záznamy s daty od/do, prokliky s back URL chain
   - Smazání jednotky (cascade smaže přiřazení)
 - Číslo jednotky uloženo jako INTEGER
@@ -110,6 +112,7 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
 - Generování personalizovaných PDF lístků pro každého vlastníka
 - Smazání hlasování z přehledu (cascade smaže body, lístky, hlasy + soubory) s potvrzovacím dialogem
 - Seznam hlasování s výsledky po bodech (PRO/PROTI/Zdržel se s procenty)
+- Wizard stepper: kompaktní kroky (Nastavení → Generování → Zpracování → Výsledky → Uzavření) na kartách i detail stránkách; po uzavření hlasování všechny kroky zelené
 - Filtrační bubliny dle stavu hlasování (vše, koncept, aktivní, uzavřeno, zrušeno)
 - Sdílený header na všech stránkách hlasování (partial `_voting_header.html`) s popisem hlasování
 - Status bubliny fixně nahoře (celkem, zbývá zpracovat, odesláno, zpracováno, neodevzdané, kvórum) — nescrollují se
@@ -167,8 +170,10 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
 - Workflow dokončení relace:
   - „Uložit a zavřít" — nedestruktivní zavření, návrat na seznam
   - „Dokončit" — uzamknutí relace (read-only mód, nelze měnit přiřazení)
-  - „Znovu otevřít" — odemknutí dokončené relace pro další úpravy
+  - „Znovu otevřít" — odemknutí dokončené relace pro další úpravy (krok 1 zůstane zelený pokud existují dokumenty)
   - „Pokračovat na rozesílku →" — přechod k odesílání emailů (pouze u dokončených)
+  - „+ Nahrát další PDF" — odkaz na stránce přiřazení pro doplnění/přepsání dokumentů
+  - Re-import: volba režimu „Doplnit k existujícím" / „Přepsat stávající" (smaže staré PDF + přiřazení)
   - Read-only mód: skryté checkboxy, assign dropdown, potvrdit/odebrat tlačítka, externí formulář; viditelné statusové štítky (Potvrzeno/Nepřiřazeno/Nepotvrzeno)
 - Rozesílka (`/dane/{id}/rozeslat`):
   - Stat karty jako filtry (celkem, s emailem, čekající, odesláno, chyba) ve stylu shodném s matchingem — podmíněné zobrazení karet odesláno/chyba
@@ -176,7 +181,9 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
   - Vyhledávání příjemců (jméno, email, název souboru) s diacritics-insensitive porovnáním
   - Server-side řazení (příjemce, email, počet dokumentů, stav) s HTMX partial
   - Bookmarkovatelné URL parametry (q, filtr, sort, order)
+- Wizard stepper: kompaktní kroky (Upload PDF → Přiřazení → Rozesílka → Dokončeno) na kartách i detail stránkách; po dokončení workflow všechny kroky zelené
 - Index stránka:
+  - Compact wizard stepper na kartě každé relace
   - Progress bar „Potvrzeno X / Y" na každé kartě relace
   - Stavové badge: „Rozpracováno" (žlutá), „Dokončeno" (zelená), „Odesílá se" (modrá), „Odesláno" (modrá), „Pozastaveno" (žlutá)
 - Smazání celé relace (session + dokumenty + distribuce + soubory)
@@ -370,9 +377,11 @@ app/
 │   │   └── import_result.html #     Import: výsledek importu
 │   ├── tax/                   #   Stránky daní
 │   │   ├── index.html         #     Seznam rozúčtování
-│   │   ├── upload.html        #     Nahrání PDF
+│   │   ├── upload.html        #     Nahrání PDF (nová relace)
+│   │   ├── upload_additional.html #  Nahrání dalších PDF (append/overwrite)
 │   │   ├── processing.html    #     Progress bar zpracování PDF
 │   │   ├── matching.html      #     Párování dokumentů
+│   │   ├── sending.html       #     Progress rozesílky emailů
 │   │   └── send.html          #     Rozesílka emailů (search + sort)
 │   ├── sync/                  #   Stránky synchronizace
 │   │   ├── index.html         #     Nahrání CSV + historie kontrol
@@ -411,10 +420,16 @@ app/
 │       ├── sync_list_body.html
 │       ├── share_check_list_body.html
 │       ├── dashboard_activity_body.html
-│       └── ballot_processed.html
+│       ├── ballot_processed.html
+│       ├── wizard_stepper.html
+│       ├── wizard_stepper_compact.html
+│       ├── unit_owners.html
+│       └── unit_owner_edit_row.html
 └── static/                    # CSS, JS
     ├── css/custom.css
     └── js/app.js
+docs/
+└── UI_GUIDE.md                # UI/frontend konvence (layout, tabulky, formuláře, HTMX vzory)
 data/
 ├── svj.db                     # SQLite databáze
 ├── uploads/                   # Nahrané soubory (Excel, CSV, PDF)
@@ -508,6 +523,8 @@ wheels/                        # Offline Python balíčky (gitignored)
 | POST | `/dane/{id}/pridat-externi/{doc_id}` | Přidání externího příjemce (jméno + email) |
 | POST | `/dane/{id}/dokoncit` | Uzamknutí relace (read-only mód) |
 | POST | `/dane/{id}/znovu-otevrit` | Odemknutí relace pro další úpravy |
+| GET | `/dane/{id}/upload` | Formulář pro nahrání dalších PDF (append/overwrite) |
+| POST | `/dane/{id}/upload` | Nahrání dalších PDF + zpracování na pozadí |
 | POST | `/dane/{id}/smazat` | Smazání relace (session + dokumenty + soubory) |
 | GET | `/dane/{id}/rozeslat` | Rozesílka — preview příjemců (search, sort) |
 
@@ -609,7 +626,9 @@ LIBREOFFICE_PATH=/Applications/LibreOffice.app/Contents/MacOS/soffice
 - **Filtrační bubliny** — klikací filtry nad tabulkou s počty záznamů, dynamicky roztažené na celou šířku, rozdělené bubliny (s/bez emailu, s/bez telefonu)
 - **Back URL řetěz** — zachování filtrů a šipky "Zpět na přehled" při navigaci dashboard → seznam → detail → zpět přes celý řetěz (parametr `back` propagován přes bubliny, hledání, řazení, HTMX a detailové odkazy)
 - **Sticky hlavičky** — záhlaví tabulek zůstává viditelné při scrollu; jednotný styl `bg-gray-50 border-b-2 border-gray-300 sticky top-0 z-10`
-- **HTMX inline editace** — formuláře pro kontakty, adresy a údaje jednotek se přepínají bez reloadu
+- **HTMX inline editace** — formuláře pro kontakty, adresy a údaje jednotek se přepínají bez reloadu; Uložit/Zrušit tlačítka nahoře vedle nadpisu sekce
+- **Akční ikony** — tužka (upravit), koš (smazat/odebrat), stáhnout; SVG `w-4 h-4` s `p-1 rounded` a hover efektem
+- **Wizard stepper** — vizuální kroky workflow (done zelený / active modrý / pending šedý); compact verze na kartách seznamu; po dokončení workflow všechny kroky zelené
 - **HTMX upload formuláře** — všechny formuláře s `enctype="multipart/form-data"` mají `hx-boost="false"` pro spolehlivý upload souborů
 - **Normalizace vstupů** — všechny textové formulářové vstupy používají `.strip() or None` pro konzistentní uložení (bez mezer, prázdné = NULL)
 - **Search bar — kanonický styl** — všechny search bary mají jednotný wrapper (`bg-white rounded-lg shadow`), `text-xs` input, hidden inputy vedle search inputu (ne v tbody); HTMX `keyup changed delay:300ms` s `hx-push-url`; sync/share_check compare používají `hx-target="main"` + `hx-select="main"` full-page swap (delay 500ms) s auto-refocusem
