@@ -53,7 +53,8 @@ def _voting_wizard(voting, current_step: int) -> dict:
     if status == "closed":
         max_done = 5
     elif status == "active":
-        max_done = 2  # generation done
+        has_processed = any(b.status.value == "processed" for b in voting.ballots)
+        max_done = 3 if has_processed else 2
     else:
         max_done = 0  # draft
 
@@ -391,6 +392,14 @@ async def voting_detail(
     back_url = back or "/hlasovani"
     back_label = "Zpět na přehled" if back == "/" else "Zpět na hlasování"
 
+    has_processed = any(b.status.value == "processed" for b in voting.ballots)
+    if voting.status.value == "active":
+        detail_step = 4 if has_processed else 3
+    elif voting.status.value == "closed":
+        detail_step = 5
+    else:
+        detail_step = 1
+
     ctx = {
         "request": request,
         "active_nav": "voting",
@@ -399,11 +408,12 @@ async def voting_detail(
         "back_url": back_url,
         "back_label": back_label,
         "active_bubble": "",
+        "show_close_voting": has_processed,
         "q": q,
         "sort": sort,
         "order": order,
         **_ballot_stats(voting),
-        **_voting_wizard(voting, 4 if voting.status.value == 'active' else 5 if voting.status.value == 'closed' else 1),
+        **_voting_wizard(voting, detail_step),
     }
 
     # HTMX partial: return only the results table
@@ -525,6 +535,7 @@ async def ballot_list(
     if request.url.query:
         list_url += "?" + str(request.url.query)
 
+    has_processed = any(b.status.value == "processed" for b in voting.ballots)
     ctx = {
         "request": request,
         "active_nav": "voting",
@@ -532,12 +543,13 @@ async def ballot_list(
         "ballots": ballots,
         "current_stav": stav,
         "active_bubble": stav or "all",
+        "show_close_voting": has_processed,
         "q": q,
         "sort": sort,
         "order": order,
         "list_url": list_url,
         **_ballot_stats(voting),
-        **_voting_wizard(voting, 3),
+        **_voting_wizard(voting, 4 if has_processed else 3),
     }
 
     # HTMX partial: return only the table
@@ -859,18 +871,20 @@ async def not_submitted(
     if request.url.query:
         list_url += "?" + str(request.url.query)
 
+    has_processed = any(b.status.value == "processed" for b in voting.ballots)
     ctx = {
         "request": request,
         "active_nav": "voting",
         "voting": voting,
         "missing": missing,
         "active_bubble": "neodevzdane",
+        "show_close_voting": has_processed,
         "q": q,
         "sort": sort,
         "order": order,
         "list_url": list_url,
         **_ballot_stats(voting),
-        **_voting_wizard(voting, 3),
+        **_voting_wizard(voting, 4 if has_processed else 3),
     }
 
     if request.headers.get("HX-Request") and not request.headers.get("HX-Boosted"):
@@ -937,6 +951,7 @@ async def import_upload(
             "flash_message": "Nahrajte soubor ve formátu .xlsx",
             "flash_type": "error",
             **_ballot_stats(voting),
+            **_voting_wizard(voting, 3),
         })
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -965,6 +980,7 @@ async def import_upload(
         "saved_mapping": saved_mapping,
         "active_bubble": "",
         **_ballot_stats(voting),
+        **_voting_wizard(voting, 3),
     })
 
 
@@ -1009,6 +1025,7 @@ async def import_preview(
         "item_lookup": item_lookup,
         "active_bubble": "",
         **_ballot_stats(voting),
+        **_voting_wizard(voting, 3),
     })
 
 
@@ -1035,11 +1052,14 @@ async def import_confirm(
 
     result = execute_voting_import(file_path, mapping, voting, db)
 
+    has_processed = any(b.status.value == "processed" for b in voting.ballots)
     return templates.TemplateResponse("voting/import_result.html", {
         "request": request,
         "active_nav": "voting",
         "voting": voting,
         "result": result,
         "active_bubble": "",
+        "show_close_voting": has_processed,
         **_ballot_stats(voting),
+        **_voting_wizard(voting, 4),
     })

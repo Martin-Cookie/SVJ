@@ -20,7 +20,7 @@
         <p class="mt-2 text-sm text-gray-600">{{ voting.description }}</p>
         {% endif %}
     </div>
-    <div class="flex gap-2">
+    <div class="flex flex-col gap-2">
         {% if voting.status.value == 'draft' %}
         <form action="/hlasovani/{{ voting.id }}/generovat" method="post">
             <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium">
@@ -29,12 +29,23 @@
         </form>
         {% endif %}
         {% if voting.status.value == 'active' %}
-        <a href="/hlasovani/{{ voting.id }}/import" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
-            Importovat výsledky
-        </a>
-        <a href="/hlasovani/{{ voting.id }}/zpracovani" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">
-            Zpracovat ručně
-        </a>
+        <div class="flex gap-2">
+            <a href="/hlasovani/{{ voting.id }}/import" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
+                Importovat výsledky
+            </a>
+            <a href="/hlasovani/{{ voting.id }}/zpracovani" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">
+                Zpracovat ručně
+            </a>
+        </div>
+        {% if show_close_voting is defined and show_close_voting %}
+        <form action="/hlasovani/{{ voting.id }}/stav" method="post"
+              onsubmit="return confirm('Opravdu uzavřít hlasování?')" hx-boost="false">
+            <input type="hidden" name="status" value="closed">
+            <button type="submit" class="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium">
+                Uzavřít hlasování
+            </button>
+        </form>
+        {% endif %}
         {% endif %}
     </div>
 </div>

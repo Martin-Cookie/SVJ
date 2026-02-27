@@ -15,7 +15,7 @@
         {% set is_done = step.status == 'done' %}
         {% set is_active = step.status == 'active' %}
         {# Step circle #}
-        <div class="flex items-center">
+        <div class="flex items-center" title="{{ loop.index }}. {{ step.label }}">
             <div class="flex items-center justify-center w-7 h-7 rounded-full text-xs font-medium
                 {% if is_done %}bg-green-100 text-green-700 border-2 border-green-400
                 {% elif is_active %}bg-blue-600 text-white border-2 border-blue-600
@@ -38,8 +38,10 @@
             {% endif %}">{{ step.label }}</span>
         {# Connector line (not after last step) #}
         {% if not loop.last %}
+        {% set next_step = wizard_steps[loop.index] %}
+        {% set next_is_done_or_active = next_step.status in ('done', 'active') %}
         <div class="mx-2 flex-shrink-0 w-8 h-0.5
-            {% if is_done %}bg-green-400
+            {% if is_done and next_is_done_or_active %}bg-green-400
             {% else %}bg-gray-200
             {% endif %}"></div>
         {% endif %}
