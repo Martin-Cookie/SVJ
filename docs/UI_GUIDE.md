@@ -63,12 +63,19 @@ Tento soubor shrnuje UI/frontend vzory a konvence používané v projektu. Stack
 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500
 ```
 
-### Tlačítka
-| Typ | CSS |
-|-----|-----|
-| Primary | `bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium` |
-| Cancel | `bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm font-medium` |
-| Danger | `bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium` |
+### Tlačítka — kanonické styly
+
+| Typ | CSS | Použití |
+|-----|-----|---------|
+| **Akce (světle modré)** | `px-3 py-1.5 text-sm font-medium text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors` | Upravit, Přidat, Uložit |
+| **Akce malá (inline)** | `px-2 py-1 text-xs font-medium text-blue-600 border border-blue-300 rounded hover:bg-blue-50` | Uložit/Přidat v tabulkách |
+| **Akce s ikonou** | + `inline-flex items-center gap-1` | Upravit/Přidat s SVG ikonou |
+| **Zrušit** | `px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm font-medium` | Zrušit (cancel) |
+| **Danger** | `px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium` | Smazat |
+| **Success** | `px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium` | Dokončit, Vytvořit, Potvrdit |
+
+- Upravit, Přidat a Uložit musí být **vždy** světle modré (obrysové) — na všech úrovních
+- Zelená (success) pouze pro finální akce (Dokončit, Vytvořit, Potvrdit)
 
 ### Uložit/Zrušit — nahoře vedle nadpisu
 V edit formulářích se tlačítka umísťují **nahoře vedle nadpisu sekce**, ne dole:
@@ -77,7 +84,7 @@ V edit formulářích se tlačítka umísťují **nahoře vedle nadpisu sekce**,
     <div class="flex items-center justify-between mb-4">
         <h2 class="text-lg font-semibold text-gray-700">Nadpis sekce</h2>
         <div class="flex items-center gap-2">
-            <button type="submit" class="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">Uložit</button>
+            <button type="submit" class="px-3 py-1.5 text-sm font-medium text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors">Uložit</button>
             <button type="button" hx-get="/cancel-url" hx-target="..." hx-swap="innerHTML"
                     class="px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm font-medium">Zrušit</button>
         </div>
@@ -85,7 +92,6 @@ V edit formulářích se tlačítka umísťují **nahoře vedle nadpisu sekce**,
     <!-- inputs -->
 </form>
 ```
-Tlačítka menší: `py-1.5 px-3` (ne `py-2 px-4`).
 
 ---
 
@@ -142,20 +148,33 @@ Tlačítka menší: `py-1.5 px-3` (ne `py-2 px-4`).
 ## 6. Formulář přidání (toggle hidden)
 
 Vzor pro "přidat novou položku" bez přechodu na jinou stránku:
-1. Tlačítko `+ Přidat` togglene `hidden` třídu na formuláři
-2. Submit button textu = **"Uložit"** (ne "Přidat" — zamezení duplicitního textu)
-3. Vedle submit: **"Zrušit"** button, který skryje formulář zpět
+1. Tlačítko `+ Přidat` (světle modré) — klik skryje Přidat a odkryje Uložit+Zrušit + formulář
+2. **Uložit** a **Zrušit** se zobrazí na stejném místě (nahoře) — nahradí tlačítko Přidat
+3. Po uložení/zrušení se Přidat vrátí zpět (HTMX swap nebo toggle)
 
 ```html
-<button onclick="document.getElementById('add-form').classList.toggle('hidden')"
-        class="text-sm text-blue-600 hover:text-blue-800">+ Přidat</button>
+<div class="flex items-center justify-between mb-4">
+    <h2 class="text-lg font-semibold text-gray-700">Nadpis</h2>
+    <div>
+        <div id="add-btn">
+            <button type="button" onclick="..."
+                    class="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors">
+                <svg class="w-3.5 h-3.5"><!-- plus icon --></svg>
+                Přidat
+            </button>
+        </div>
+        <div id="add-actions" class="hidden flex items-center gap-2">
+            <button type="submit" form="add-form-el"
+                    class="px-3 py-1.5 text-sm font-medium text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors">Uložit</button>
+            <button type="button" onclick="..."
+                    class="px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm font-medium">Zrušit</button>
+        </div>
+    </div>
+</div>
 
 <div id="add-form" class="hidden mt-4 pt-4 border-t border-gray-200">
-    <form ...>
-        <!-- fields -->
-        <button type="submit" class="px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm font-medium">Uložit</button>
-        <button type="button" onclick="document.getElementById('add-form').classList.add('hidden')"
-                class="px-3 py-1.5 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm font-medium">Zrušit</button>
+    <form id="add-form-el" ...>
+        <!-- fields (submit button je nahoře přes form="add-form-el") -->
     </form>
 </div>
 ```

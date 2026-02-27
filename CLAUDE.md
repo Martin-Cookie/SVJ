@@ -158,9 +158,21 @@
 ## Formulářové styly
 
 - Inputy: `border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500`
-- Primary button: `bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium`
-- Cancel button: `bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm font-medium`
-- Danger button: `bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium`
+
+### Tlačítka — kanonické styly
+
+| Typ | CSS | Použití |
+|-----|-----|---------|
+| **Akce (světle modré)** | `px-3 py-1.5 text-sm font-medium text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors` | Upravit, Přidat, Uložit |
+| **Akce malá (inline)** | `px-2 py-1 text-xs font-medium text-blue-600 border border-blue-300 rounded hover:bg-blue-50` | Uložit/Přidat v tabulkách |
+| **Akce s ikonou** | + `inline-flex items-center gap-1` | Upravit/Přidat s SVG ikonou |
+| **Zrušit** | `px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm font-medium` | Zrušit (cancel) |
+| **Danger** | `px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium` | Smazat, destruktivní akce |
+| **Success** | `px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium` | Dokončit, Vytvořit, Potvrdit |
+
+- Upravit, Přidat a Uložit musí být **vždy** světle modré (obrysové) — na všech úrovních projektu
+- Zrušit zůstává šedé
+- Zelená (success) pouze pro finální akce (Dokončit, Vytvořit, Potvrdit)
 
 ## Statistiky podílů
 
@@ -197,7 +209,7 @@ Vzor se skládá ze dvou partials (info + form) a tří endpointů:
       <div class="flex items-center justify-between mb-4">
           <h2 class="text-lg font-semibold text-gray-700">Nadpis</h2>
           <div class="flex items-center gap-2">
-              <button type="submit" class="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">Uložit</button>
+              <button type="submit" class="px-3 py-1.5 text-sm font-medium text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors">Uložit</button>
               <button type="button" hx-get="/entita/{id}/info"
                       hx-target="#section-id" hx-swap="innerHTML"
                       class="px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm font-medium">Zrušit</button>
