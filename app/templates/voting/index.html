@@ -70,6 +70,9 @@
                         Kvórum: {{ stats.quorum_pct }}%{% if stats.quorum_reached %} ✓{% endif %}
                     </span>
                 </div>
+                <div class="mt-1 text-xs text-gray-400">
+                    Krok {{ stats.wizard_step }}/5: {{ stats.wizard_label }}
+                </div>
             </div>
             <div class="flex items-center gap-2">
                 {% if voting.status.value == 'draft' %}

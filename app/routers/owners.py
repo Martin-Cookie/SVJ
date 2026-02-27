@@ -696,6 +696,7 @@ def _address_context(owner, prefix):
     """Extract address fields for a given prefix (perm/corr)."""
     return {
         "prefix": prefix,
+        "address_label": "Trvalá adresa" if prefix == "perm" else "Korespondenční adresa",
         "street": getattr(owner, f"{prefix}_street"),
         "district": getattr(owner, f"{prefix}_district"),
         "city": getattr(owner, f"{prefix}_city"),

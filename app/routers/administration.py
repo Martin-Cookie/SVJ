@@ -797,11 +797,31 @@ async def purge_data(request: Request, db: Session = Depends(get_db)):
 
 
 @router.get("/hromadne-upravy")
-async def bulk_edit_page(request: Request):
+async def bulk_edit_page(request: Request, db: Session = Depends(get_db)):
+    # Compute stats for each field
+    field_stats = {}
+    for key, info in _BULK_FIELDS.items():
+        model = Unit if info["model"] == "unit" else OwnerUnit
+        col = getattr(model, info["column"])
+        base = db.query(model)
+        if model == OwnerUnit:
+            base = base.filter(OwnerUnit.valid_to.is_(None))
+        total_count = base.count()
+        unique_count = db.query(_sa_func.count(_sa_func.distinct(col))).select_from(model)
+        if model == OwnerUnit:
+            unique_count = unique_count.filter(OwnerUnit.valid_to.is_(None))
+        unique_count = unique_count.filter(col.isnot(None)).scalar() or 0
+        field_stats[key] = {
+            "unique_count": unique_count,
+            "total_count": total_count,
+            "model_label": "jednotek" if info["model"] == "unit" else "vazeb",
+        }
+
     return templates.TemplateResponse("administration/bulk_edit.html", {
         "request": request,
         "active_nav": "administration",
         "fields": _BULK_FIELDS,
+        "field_stats": field_stats,
     })
 
 

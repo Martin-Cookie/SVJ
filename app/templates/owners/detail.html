@@ -28,23 +28,20 @@
 <div class="grid grid-cols-1 md:grid-cols-6 gap-6">
     <!-- Row 1: Identity | Contact | Permanent address -->
     <div class="bg-white rounded-lg shadow p-6 md:col-span-2">
-        <h2 class="text-lg font-semibold text-gray-700 mb-4">Identifikace</h2>
         <div id="identity-section">
             {% include "partials/owner_identity_info.html" %}
         </div>
     </div>
 
     <div class="bg-white rounded-lg shadow p-6 md:col-span-2">
-        <h2 class="text-lg font-semibold text-gray-700 mb-4">Kontaktní údaje</h2>
         <div id="contact-form">
             {% include "partials/owner_contact_info.html" %}
         </div>
     </div>
 
     <div class="bg-white rounded-lg shadow p-6 md:col-span-2">
-        <h2 class="text-lg font-semibold text-gray-700 mb-4">Trvalá adresa</h2>
         <div id="perm-address-section">
-            {% with prefix="perm", street=owner.perm_street, district=owner.perm_district, city=owner.perm_city, zip=owner.perm_zip, country=owner.perm_country %}
+            {% with prefix="perm", address_label="Trvalá adresa", street=owner.perm_street, district=owner.perm_district, city=owner.perm_city, zip=owner.perm_zip, country=owner.perm_country %}
             {% include "partials/owner_address_info.html" %}
             {% endwith %}
         </div>
@@ -52,16 +49,26 @@
 
     <!-- Row 2: Correspondence address | Units -->
     <div class="bg-white rounded-lg shadow p-6 md:col-span-3">
-        <h2 class="text-lg font-semibold text-gray-700 mb-4">Korespondenční adresa</h2>
         <div id="corr-address-section">
-            {% with prefix="corr", street=owner.corr_street, district=owner.corr_district, city=owner.corr_city, zip=owner.corr_zip, country=owner.corr_country %}
+            {% with prefix="corr", address_label="Korespondenční adresa", street=owner.corr_street, district=owner.corr_district, city=owner.corr_city, zip=owner.corr_zip, country=owner.corr_country %}
             {% include "partials/owner_address_info.html" %}
             {% endwith %}
         </div>
     </div>
 
     <div class="bg-white rounded-lg shadow p-6 md:col-span-3">
-        <h2 class="text-lg font-semibold text-gray-700 mb-4">Jednotky</h2>
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-semibold text-gray-700">Jednotky</h2>
+            {% if available_units %}
+            <a href="#add-unit-form" class="inline-flex items-center gap-1 px-3 py-1.5 text-sm text-gray-600 hover:text-blue-600 border border-gray-300 rounded-lg hover:border-blue-300 transition-colors"
+               onclick="document.getElementById('add-unit-form').scrollIntoView({behavior:'smooth'}); return false;">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                </svg>
+                Přidat
+            </a>
+            {% endif %}
+        </div>
         <div id="owner-units-section">
             {% include "partials/owner_units_section.html" %}
         </div>

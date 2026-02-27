@@ -98,7 +98,7 @@
                 <span class="shrink-0 px-1 py-0.5 font-medium {{ vs_map[status].bg }} rounded-full text-xs leading-none">{{ info.count }} {{ vs_map[status].label }}</span>
                 <span class="text-gray-500 truncate" title="{{ info.latest.title }}">&rarr; {{ info.latest.title }}</span>
                 {% if info.total_ballots > 0 %}
-                <span class="shrink-0 text-gray-400 text-xs">{{ info.progress_pct }}%</span>
+                <span class="shrink-0 px-1.5 py-0.5 text-xs font-semibold bg-purple-100 text-purple-700 rounded-full">{{ info.progress_pct }}%</span>
                 {% endif %}
             </a>
             {% endif %}
@@ -128,7 +128,7 @@
                 <span class="shrink-0 px-1 py-0.5 font-medium {{ ts_map[status].bg }} rounded-full text-xs leading-none">{{ info.count }} {{ ts_map[status].label }}</span>
                 <span class="text-gray-500 truncate" title="{{ info.latest.title }}">&rarr; {{ info.latest.title }}</span>
                 {% if info.total_dists > 0 %}
-                <span class="shrink-0 text-gray-400 text-xs">{{ info.sent }}/{{ info.total_dists }}</span>
+                <span class="shrink-0 px-1.5 py-0.5 text-xs font-semibold bg-emerald-100 text-emerald-700 rounded-full">{{ info.sent }}/{{ info.total_dists }}</span>
                 {% endif %}
             </a>
             {% endif %}

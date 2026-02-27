@@ -150,12 +150,32 @@ async def voting_list(
                 "pct_against": round(votes_against / total * 100, 2) if total else 0,
             })
 
+        # Determine wizard step for list view
+        status = voting.status.value
+        has_items = len(voting.items) > 0
+        has_ballots = len(voting.ballots) > 0
+        all_processed = has_ballots and all(
+            b.status == BallotStatus.PROCESSED for b in voting.ballots
+        )
+        if status == "closed":
+            wizard_step, wizard_label = 5, "Uzavření"
+        elif status == "active" and all_processed:
+            wizard_step, wizard_label = 4, "Výsledky"
+        elif status == "active":
+            wizard_step, wizard_label = 3, "Zpracování"
+        elif status == "draft" and has_items:
+            wizard_step, wizard_label = 2, "Generování lístků"
+        else:
+            wizard_step, wizard_label = 1, "Nastavení"
+
         voting_stats[voting.id] = {
             "processed_count": len(processed),
             "processed_votes": processed_votes,
             "quorum_pct": round(processed_votes / total * 100, 2) if total else 0,
             "quorum_reached": processed_votes / total >= voting.quorum_threshold if total else False,
             "item_results": item_results,
+            "wizard_step": wizard_step,
+            "wizard_label": wizard_label,
         }
 
     list_url = str(request.url.path)

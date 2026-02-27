@@ -291,10 +291,25 @@ async def tax_list(request: Request, back: str = Query("", alias="back"), db: Se
                 for d in doc.distributions
             ):
                 confirmed += 1
+        # Determine wizard step for list view
+        send_status = s.send_status.value if s.send_status else "draft"
+        if send_status == "completed":
+            wizard_step, wizard_label = 4, "Dokončeno"
+        elif send_status in ("sending", "paused", "ready"):
+            wizard_step, wizard_label = 3, "Rozesílka"
+        elif total > 0 and confirmed < total:
+            wizard_step, wizard_label = 2, "Přiřazení"
+        elif total == 0:
+            wizard_step, wizard_label = 1, "Upload PDF"
+        else:
+            wizard_step, wizard_label = 3, "Rozesílka"
+
         session_stats[s.id] = {
             "total": total,
             "confirmed": confirmed,
             "pct": int(confirmed / total * 100) if total > 0 else 0,
+            "wizard_step": wizard_step,
+            "wizard_label": wizard_label,
         }
 
     return templates.TemplateResponse("tax/index.html", {
