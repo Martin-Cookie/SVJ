@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.config import settings
 from app.database import get_db
 from app.models import (
-    Ballot, BallotStatus, BallotVote, Owner, OwnerUnit, Voting,
+    Ballot, BallotStatus, BallotVote, Owner, OwnerUnit, SvjInfo, Voting,
     VotingItem, VotingStatus, VoteValue,
 )
 from app.services.word_parser import extract_voting_items, extract_voting_metadata
@@ -77,24 +77,33 @@ def _voting_wizard(voting, current_step: int) -> dict:
     }
 
 
-def _ballot_stats(voting):
+def _get_declared_shares(db: Session) -> int:
+    """Get total declared shares from SVJ administration settings."""
+    svj_info = db.query(SvjInfo).first()
+    return svj_info.total_shares if svj_info and svj_info.total_shares else 0
+
+
+def _ballot_stats(voting, db: Session):
     """Compute ballot statistics for status bubbles."""
     total_ballots = len(voting.ballots)
     status_counts = {s.value: 0 for s in BallotStatus}
     for b in voting.ballots:
         status_counts[b.status.value] += 1
     total_processed_votes = sum(
-        b.total_votes for b in voting.ballots if b.status == BallotStatus.PROCESSED
+        b.total_votes for b in voting.ballots
+        if b.status == BallotStatus.PROCESSED and any(bv.vote is not None for bv in b.votes)
     )
+    declared_shares = _get_declared_shares(db)
     quorum_reached = (
-        total_processed_votes / voting.total_votes_possible >= voting.quorum_threshold
-        if voting.total_votes_possible
+        total_processed_votes / declared_shares >= voting.quorum_threshold
+        if declared_shares
         else False
     )
     return {
         "total_ballots": total_ballots,
         "status_counts": status_counts,
         "total_processed_votes": total_processed_votes,
+        "declared_shares": declared_shares,
         "quorum_reached": quorum_reached,
     }
 
@@ -121,11 +130,13 @@ async def voting_list(
         status_counts[v.status.value] = status_counts.get(v.status.value, 0) + 1
 
     # Compute stats per voting
+    declared_shares = _get_declared_shares(db)
     voting_stats = {}
     for voting in votings:
-        total = voting.total_votes_possible or 1
+        total = declared_shares or 1
         processed = [b for b in voting.ballots if b.status == BallotStatus.PROCESSED]
-        processed_votes = sum(b.total_votes for b in processed)
+        voted = [b for b in processed if any(bv.vote is not None for bv in b.votes)]
+        processed_votes = sum(b.total_votes for b in voted)
 
         # Per-item results
         item_results = []
@@ -190,8 +201,8 @@ async def voting_list(
         voting_stats[voting.id] = {
             "processed_count": len(processed),
             "processed_votes": processed_votes,
-            "quorum_pct": round(processed_votes / total * 100, 2) if total else 0,
-            "quorum_reached": processed_votes / total >= voting.quorum_threshold if total else False,
+            "quorum_pct": round(processed_votes / declared_shares * 100, 2) if declared_shares else 0,
+            "quorum_reached": processed_votes / declared_shares >= voting.quorum_threshold if declared_shares else False,
             "item_results": item_results,
             "wizard_step": wizard_step,
             "wizard_label": wizard_label,
@@ -347,6 +358,7 @@ async def voting_detail(
         return RedirectResponse("/hlasovani", status_code=302)
 
     # Calculate results per item
+    declared = _get_declared_shares(db) or 1
     results = []
     for item in voting.items:
         votes_for = 0
@@ -361,15 +373,14 @@ async def voting_detail(
                     elif bv.vote == VoteValue.AGAINST:
                         votes_against += bv.votes_count
 
-        total = voting.total_votes_possible or 1
         results.append({
             "item": item,
             "votes_for": votes_for,
             "votes_against": votes_against,
-            "pct_for": round(votes_for / total * 100, 2) if total else 0,
-            "pct_against": round(votes_against / total * 100, 2) if total else 0,
-            "votes_missing": total - votes_for - votes_against,
-            "pct_missing": round((total - votes_for - votes_against) / total * 100, 2) if total else 0,
+            "pct_for": round(votes_for / declared * 100, 2) if declared else 0,
+            "pct_against": round(votes_against / declared * 100, 2) if declared else 0,
+            "votes_missing": declared - votes_for - votes_against,
+            "pct_missing": round((declared - votes_for - votes_against) / declared * 100, 2) if declared else 0,
         })
 
     # Search filter
@@ -412,7 +423,7 @@ async def voting_detail(
         "q": q,
         "sort": sort,
         "order": order,
-        **_ballot_stats(voting),
+        **_ballot_stats(voting, db),
         **_voting_wizard(voting, detail_step),
     }
 
@@ -548,7 +559,7 @@ async def ballot_list(
         "sort": sort,
         "order": order,
         "list_url": list_url,
-        **_ballot_stats(voting),
+        **_ballot_stats(voting, db),
         **_voting_wizard(voting, 4 if has_processed else 3),
     }
 
@@ -659,7 +670,7 @@ async def process_page(
         "q": q,
         "sort": sort,
         "order": order,
-        **_ballot_stats(voting),
+        **_ballot_stats(voting, db),
         **_voting_wizard(voting, 3),
     }
 
@@ -883,7 +894,7 @@ async def not_submitted(
         "sort": sort,
         "order": order,
         "list_url": list_url,
-        **_ballot_stats(voting),
+        **_ballot_stats(voting, db),
         **_voting_wizard(voting, 4 if has_processed else 3),
     }
 
@@ -922,7 +933,7 @@ async def import_upload_page(
         "voting": voting,
         "saved_mapping": saved_mapping,
         "active_bubble": "",
-        **_ballot_stats(voting),
+        **_ballot_stats(voting, db),
         **_voting_wizard(voting, 3),
     })
 
@@ -950,7 +961,7 @@ async def import_upload(
             "active_bubble": "",
             "flash_message": "Nahrajte soubor ve formátu .xlsx",
             "flash_type": "error",
-            **_ballot_stats(voting),
+            **_ballot_stats(voting, db),
             **_voting_wizard(voting, 3),
         })
 
@@ -979,7 +990,7 @@ async def import_upload(
         "filename": file.filename,
         "saved_mapping": saved_mapping,
         "active_bubble": "",
-        **_ballot_stats(voting),
+        **_ballot_stats(voting, db),
         **_voting_wizard(voting, 3),
     })
 
@@ -1024,7 +1035,7 @@ async def import_preview(
         "file_path": file_path,
         "item_lookup": item_lookup,
         "active_bubble": "",
-        **_ballot_stats(voting),
+        **_ballot_stats(voting, db),
         **_voting_wizard(voting, 3),
     })
 
@@ -1060,6 +1071,6 @@ async def import_confirm(
         "result": result,
         "active_bubble": "",
         "show_close_voting": has_processed,
-        **_ballot_stats(voting),
+        **_ballot_stats(voting, db),
         **_voting_wizard(voting, 4),
     })

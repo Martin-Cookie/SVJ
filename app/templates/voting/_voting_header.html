@@ -88,9 +88,9 @@
         <p class="text-xs text-gray-500 mt-1">Neodevzdané</p>
     </a>
     <div class="flex-1 bg-white rounded-lg shadow p-4 text-center">
-        {% set quorum_pct = (total_processed_votes / voting.total_votes_possible * 100)|round(2) if voting.total_votes_possible else 0 %}
+        {% set quorum_pct = (total_processed_votes / declared_shares * 100)|round(2) if declared_shares else 0 %}
         <p class="text-2xl font-bold {% if quorum_reached %}text-green-600{% else %}text-red-600{% endif %}">
-            {{ quorum_pct }}%
+            {{ "%.2f"|format(quorum_pct) }}%
         </p>
         <p class="text-xs text-gray-500 mt-1">
             Kvórum ({{ (voting.quorum_threshold * 100)|round(0)|int }}%)

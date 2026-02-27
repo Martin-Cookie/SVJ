@@ -67,7 +67,7 @@
                     {% endif %}
                     <span>Lístků: {{ stats.processed_count }}/{{ voting.ballots|length }}</span>
                     <span class="{% if stats.quorum_reached %}text-green-600 font-medium{% else %}text-gray-500{% endif %}">
-                        Kvórum: {{ stats.quorum_pct }}%{% if stats.quorum_reached %} ✓{% endif %}
+                        Kvórum: {{ "%.2f"|format(stats.quorum_pct) }}%{% if stats.quorum_reached %} ✓{% endif %}
                     </span>
                 </div>
                 <div class="mt-1">
@@ -117,8 +117,8 @@
                 {% for r in stats.item_results %}
                 <tr>
                     <td class="px-2 py-1 text-gray-700"><span class="font-medium">{{ r.item.order }}.</span> {{ r.item.title }}</td>
-                    <td class="px-2 py-1 text-right font-mono" style="white-space:nowrap"><span class="text-green-600">{{ "{:,}".format(r.votes_for).replace(",", " ") }}</span><br><span class="text-gray-400">{{ r.pct_for }}%</span></td>
-                    <td class="px-2 py-1 text-right font-mono" style="white-space:nowrap"><span class="text-red-600">{{ "{:,}".format(r.votes_against).replace(",", " ") }}</span><br><span class="text-gray-400">{{ r.pct_against }}%</span></td>
+                    <td class="px-2 py-1 text-right font-mono" style="white-space:nowrap"><span class="text-green-600">{{ "{:,}".format(r.votes_for).replace(",", " ") }}</span><br><span class="text-gray-400">{{ "%.2f"|format(r.pct_for) }}%</span></td>
+                    <td class="px-2 py-1 text-right font-mono" style="white-space:nowrap"><span class="text-red-600">{{ "{:,}".format(r.votes_against).replace(",", " ") }}</span><br><span class="text-gray-400">{{ "%.2f"|format(r.pct_against) }}%</span></td>
                     <td class="px-2 py-1 text-right text-gray-400 font-mono" style="white-space:nowrap">{{ "{:,}".format(r.votes_abstain).replace(",", " ") }}</td>
                 </tr>
                 {% endfor %}

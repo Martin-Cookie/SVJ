@@ -343,7 +343,7 @@ def execute_voting_import(file_path: str, mapping: dict, voting: Voting, db: Ses
                 bv.vote = None
                 has_votes = True
 
-        if has_votes or entry["votes"]:
+        if has_votes:
             ballot.status = BallotStatus.PROCESSED
             ballot.processed_at = datetime.utcnow()
             processed_count += 1
