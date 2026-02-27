@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import shutil
 import threading
 import time
@@ -574,34 +575,40 @@ def _process_tax_files(session_id: int, file_paths: list, tax_year):
             matched_ids = set()  # avoid duplicates
 
             for candidate in individual_names:
-                best = None
+                is_sjm = bool(re.match(r"^SJM?\s", candidate, re.IGNORECASE))
 
                 # First try: match against owners on this unit
+                local_matches = []
                 if unit_number in unit_to_owners:
                     matches = match_name(
                         candidate,
                         unit_to_owners[unit_number],
                         threshold=0.6,
                     )
-                    if matches:
-                        best = matches[0]
+                    if is_sjm:
+                        local_matches = matches      # SJM → all matches above threshold
+                    elif matches:
+                        local_matches = [matches[0]]  # Normal → best only
 
-                # Also try global match — use the better result
-                global_matches = match_name(candidate, owner_dicts, threshold=0.75)
-                if global_matches and (not best or global_matches[0]["confidence"] > best["confidence"]):
-                    best = global_matches[0]
+                # For non-SJM: also try global match
+                if not is_sjm:
+                    global_matches = match_name(candidate, owner_dicts, threshold=0.75)
+                    if global_matches:
+                        if not local_matches or global_matches[0]["confidence"] > local_matches[0]["confidence"]:
+                            local_matches = [global_matches[0]]
 
-                if best and best["owner_id"] not in matched_ids:
-                    matched_ids.add(best["owner_id"])
-                    dist = TaxDistribution(
-                        document_id=doc.id,
-                        owner_id=best["owner_id"],
-                        match_status=MatchStatus.AUTO_MATCHED,
-                        match_confidence=best["confidence"],
-                    )
-                    db.add(dist)
-                elif not best:
-                    # No match for this candidate name
+                for m in local_matches:
+                    if m["owner_id"] not in matched_ids:
+                        matched_ids.add(m["owner_id"])
+                        dist = TaxDistribution(
+                            document_id=doc.id,
+                            owner_id=m["owner_id"],
+                            match_status=MatchStatus.AUTO_MATCHED,
+                            match_confidence=m["confidence"],
+                        )
+                        db.add(dist)
+
+                if not local_matches:
                     dist = TaxDistribution(
                         document_id=doc.id,
                         owner_id=None,

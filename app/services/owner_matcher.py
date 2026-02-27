@@ -16,18 +16,35 @@ TITLE_PATTERNS = [
     r",?\s*MBA\s*", r"\bDiS\.\s*",
 ]
 
+_CZECH_SURNAME_SUFFIXES = [
+    # Sorted longest-first; must be ASCII (applied after unidecode)
+    "kovou", "kovi", "kove", "kova", "ovou", "ovi", "ove", "ova", "kem", "ek",
+]
+
+
+def _stem_czech_surname(word: str) -> str:
+    """Reduce Czech surname to rough stem for matching."""
+    for s in _CZECH_SURNAME_SUFFIXES:
+        if word.endswith(s) and len(word) - len(s) >= 3:
+            return word[: -len(s)]
+    return word
+
 
 def normalize_for_matching(name: str) -> str:
     result = name.strip()
     for pattern in TITLE_PATTERNS:
         result = re.sub(pattern, " ", result, flags=re.IGNORECASE)
-    # Remove SJ/SJM suffix
+    # Remove SJ/SJM prefix and suffix
+    result = re.sub(r"^SJM?\s+", "", result, flags=re.IGNORECASE)
     result = re.sub(r"\s+SJM?\s*$", "", result, flags=re.IGNORECASE)
     # Remove parenthetical notes
     result = re.sub(r"\([^)]*\)", "", result)
     result = " ".join(result.split()).strip(" ,")
     result = result.lower()
-    return unidecode(result)
+    result = unidecode(result)
+    # Apply Czech surname stemming to each word
+    result = " ".join(_stem_czech_surname(w) for w in result.split())
+    return result
 
 
 def name_parts_match(name1: str, name2: str) -> float:
@@ -43,8 +60,13 @@ def name_parts_match(name1: str, name2: str) -> float:
     if not parts1 or not parts2:
         return 0.0
     intersection = parts1 & parts2
+    if not intersection:
+        return 0.0
     union = parts1 | parts2
-    return len(intersection) / len(union) if union else 0.0
+    jaccard = len(intersection) / len(union)
+    # Overlap coefficient: if all parts of the shorter name match, score high
+    overlap = len(intersection) / min(len(parts1), len(parts2))
+    return max(jaccard, overlap * 0.8)
 
 
 def match_name(
@@ -64,10 +86,10 @@ def match_name(
         owner_norm = normalize_for_matching(owner.get("name_normalized", owner["name"]))
         # Sequence matcher ratio
         seq_ratio = SequenceMatcher(None, candidate_norm, owner_norm).ratio()
-        # Parts-based ratio
+        # Parts-based ratio (uses stemmed forms)
         parts_ratio = name_parts_match(candidate, owner["name"])
-        # No shared words → skip (prevents false positives like Jarošová/Jaroš)
-        if parts_ratio == 0:
+        # No shared stemmed parts and low sequence similarity → skip
+        if parts_ratio == 0 and seq_ratio < 0.75:
             continue
         # Use the better of the two
         confidence = max(seq_ratio, parts_ratio)

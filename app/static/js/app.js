@@ -208,6 +208,8 @@ function updateSendButtonCount() {
     var checked = document.querySelectorAll('.rcpt-cb:checked').length;
     var span = document.getElementById('send-count');
     if (span) span.textContent = checked;
+    var bubble = document.getElementById('selected-count-bubble');
+    if (bubble) bubble.textContent = checked;
 }
 
 // --- Test email: persist via sessionStorage ---

@@ -4,6 +4,7 @@ from __future__ import annotations
 Email sending service using smtplib with attachment support.
 """
 import smtplib
+import socket
 from datetime import datetime
 from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
@@ -60,6 +61,15 @@ def send_email(
         db.add(log)
         db.flush()
 
+    # Validate SMTP configuration
+    if settings.smtp_host in ("smtp.example.com", ""):
+        error_msg = "SMTP server není nakonfigurován. Nastavte SMTP_HOST v souboru .env"
+        if log:
+            log.status = EmailStatus.FAILED
+            log.error_message = error_msg
+            db.commit()
+        return {"success": False, "error": error_msg}
+
     try:
         if settings.smtp_use_tls:
             server = smtplib.SMTP(settings.smtp_host, settings.smtp_port)
@@ -79,6 +89,14 @@ def send_email(
             db.commit()
 
         return {"success": True, "error": None}
+
+    except socket.gaierror:
+        error_msg = f"SMTP server '{settings.smtp_host}' není dostupný. Zkontrolujte nastavení v souboru .env"
+        if log:
+            log.status = EmailStatus.FAILED
+            log.error_message = error_msg
+            db.commit()
+        return {"success": False, "error": error_msg}
 
     except Exception as e:
         if log:

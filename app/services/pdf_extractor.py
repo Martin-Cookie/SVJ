@@ -39,19 +39,33 @@ _COMPANY_SUFFIXES = re.compile(
 
 
 def _is_company_suffix(name: str) -> bool:
-    """Return True if the text looks like a continuation of a company name."""
-    if _COMPANY_SUFFIXES.search(name.strip()):
+    """Return True if the text looks like a short continuation fragment of a company name.
+
+    A fragment is e.g. "GROUP s.r.o." (1 word + suffix) or just "s.r.o.".
+    A full standalone company name like "NOTABENE ART s.r.o." (2+ words + suffix) is NOT a fragment.
+    """
+    stripped = name.strip()
+    if _COMPANY_SUFFIXES.search(stripped):
+        # If 2+ substantive words before the suffix, it's a standalone company name
+        before_suffix = _COMPANY_SUFFIXES.sub("", stripped).strip()
+        if len(before_suffix.split()) >= 2:
+            return False
         return True
-    # All-uppercase fragment without a normal name pattern (e.g. "GROUP s.r.o.")
-    words = name.strip().split()
-    if words and all(w.isupper() or w.endswith(".") for w in words):
+    # Single all-uppercase word (e.g. "GROUP") — likely a fragment
+    words = stripped.split()
+    if len(words) == 1 and words[0].isupper():
         return True
     return False
 
 
 def _extract_name_from_sp_line(line: str) -> str | None:
-    """Extract owner name appended after SP fraction (e.g. 'SP 2 3108/907635 Kočí Martin')."""
-    m = re.match(r"SP\s+\S+\s+\d+/\d+\s+(.*)", line.strip())
+    """Extract owner name appended after SP fraction(s).
+
+    Handles single fraction (e.g. 'SP 2 3108/907635 Kočí Martin')
+    and multiple comma-separated fractions (e.g. 'SP 6 1/515, 1/524, 1/525, 1/526 NOTABENE ART s.r.o.').
+    """
+    # Match SP label, then one or more fractions (comma-separated), then optional name
+    m = re.match(r"SP\s+\S+\s+\d+/\d+(?:,\s*\d+/\d+)*\s*(.*)", line.strip())
     if m:
         name = m.group(1).strip()
         # Filter out non-name text (must start with uppercase letter)
@@ -110,12 +124,16 @@ def parse_owner_names_from_details(text: str) -> list[str]:
 
         if in_details:
             # Stop at known section boundaries
-            if re.match(r"(Vlastn[ií]k:|Vyúčtov|Případné|Stavy|Typ vlastnictv)", stripped, re.IGNORECASE):
+            if re.match(r"(Vlastn[ií]k:|Vyúčtov|Případné|Stavy|Typ vlastnictv|Služba|Celkem)", stripped, re.IGNORECASE):
                 break
             # Try to extract name from SP line
             name = _extract_name_from_sp_line(stripped)
             if name:
                 names.append(name)
+            # Standalone name line (not an SP line) — e.g. "SJM Kočovi" between SP rows
+            elif not re.match(r"^SP\s", stripped) and stripped:
+                if re.match(r"(?:SJM?\s|[A-ZÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ][a-záčďéěíňóřšťúůýž])", stripped):
+                    names.append(stripped)
 
     return _merge_company_fragments(names)
 
