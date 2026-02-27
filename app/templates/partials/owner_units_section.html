@@ -1,3 +1,25 @@
+<div class="flex items-center justify-between mb-4">
+    <h2 class="text-lg font-semibold text-gray-700">Jednotky</h2>
+    {% if available_units %}
+    <div>
+        <div id="add-unit-btn">
+            <button type="button" onclick="document.getElementById('add-unit-btn').classList.add('hidden'); document.getElementById('add-unit-actions').classList.remove('hidden'); document.getElementById('add-unit-form').classList.remove('hidden');"
+                    class="inline-flex items-center gap-1 px-3 py-1.5 text-sm text-gray-600 hover:text-blue-600 border border-gray-300 rounded-lg hover:border-blue-300 transition-colors">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                </svg>
+                Přidat
+            </button>
+        </div>
+        <div id="add-unit-actions" class="hidden flex items-center gap-2">
+            <button type="submit" form="add-unit-form-el" class="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">Uložit</button>
+            <button type="button" onclick="document.getElementById('add-unit-actions').classList.add('hidden'); document.getElementById('add-unit-btn').classList.remove('hidden'); document.getElementById('add-unit-form').classList.add('hidden');"
+                    class="px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm font-medium">Zrušit</button>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
 <div class="overflow-x-auto">
     <table class="min-w-full divide-y divide-gray-200 text-sm">
         <thead>
@@ -56,7 +78,7 @@
 <!-- Add unit form -->
 {% if available_units %}
 <div id="add-unit-form" class="hidden mt-4 pt-4 border-t border-gray-200">
-    <form hx-post="/vlastnici/{{ owner.id }}/jednotky/pridat" hx-target="#owner-units-section"
+    <form id="add-unit-form-el" hx-post="/vlastnici/{{ owner.id }}/jednotky/pridat" hx-target="#owner-units-section"
           class="flex items-end gap-2 flex-wrap">
         <div>
             <label class="block text-xs text-gray-500 mb-1">Jednotka</label>
@@ -87,13 +109,6 @@
             <input type="text" name="votes" value="0" placeholder="0"
                    class="w-20 px-2 py-1.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500">
         </div>
-        <button type="submit" class="px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm font-medium">
-            Uložit
-        </button>
-        <button type="button" onclick="document.getElementById('add-unit-form').classList.add('hidden')"
-                class="px-3 py-1.5 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm font-medium">
-            Zrušit
-        </button>
     </form>
 </div>
 {% endif %}

@@ -42,7 +42,7 @@ _sending_progress: dict[int, dict] = {}
 # ---------------------------------------------------------------------------
 
 _TAX_WIZARD_STEPS = [
-    {"label": "Upload PDF"},
+    {"label": "Nahrání PDF"},
     {"label": "Přiřazení"},
     {"label": "Rozesílka"},
     {"label": "Dokončeno"},
@@ -61,7 +61,7 @@ def _tax_wizard(session, current_step: int, has_documents: bool = False) -> dict
         max_done = 2
     else:
         max_done = 0  # draft
-    # If documents exist, step 1 (Upload PDF) is always done
+    # If documents exist, step 1 (Nahrání PDF) is always done
     if has_documents and max_done < 1:
         max_done = 1
 
@@ -303,7 +303,7 @@ async def tax_list(request: Request, back: str = Query("", alias="back"), db: Se
         elif total > 0 and confirmed < total:
             wizard_step, wizard_label = 2, "Přiřazení"
         elif total == 0:
-            wizard_step, wizard_label = 1, "Upload PDF"
+            wizard_step, wizard_label = 1, "Nahrání PDF"
         else:
             wizard_step, wizard_label = 3, "Rozesílka"
 
@@ -314,7 +314,7 @@ async def tax_list(request: Request, back: str = Query("", alias="back"), db: Se
             list_max_done = 2
         else:
             list_max_done = 0
-        # If documents exist, step 1 is always done
+        # If documents exist, step 1 (Nahrání PDF) is always done
         if total > 0 and list_max_done < 1:
             list_max_done = 1
 
