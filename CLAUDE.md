@@ -83,25 +83,31 @@
 - Předvyplní se pouze prázdná pole — uživatelem vyplněné hodnoty se nepřepisují
 - Server-side prefill (v POST handleru) jako fallback pro případ, že JS selže
 
-## Filtrační bubliny
+## Filtrační bubliny + search bar (společný kontejner)
 
-- Bubliny jsou vždy dynamické: `flex` + `flex-1` (nikdy ne `grid` ani `flex-wrap`)
+Bubliny a search bar jsou vizuálně sjednoceny v jednom bílém kontejneru:
+- Wrapper: `<div class="bg-white rounded-lg shadow mb-2">` obaluje bubliny i search bar
+- Bubliny **nemají vlastní `shadow` ani `rounded-lg`** — styl: `flex-1 block rounded p-2 text-center hover:bg-gray-50 transition-colors`
+- Barevné varianty bublin (bg-gray-50, bg-blue-50, bg-orange-50) zachovat
+- Aktivní bublina: `ring-2 ring-{color}-400`
+- Split bubliny (s/bez emailu): bez shadow, s vnitřním dividerem `w-px bg-gray-200`
+- Bubliny jsou vždy dynamické: `flex gap-2` + `flex-1` (nikdy ne `grid` ani `flex-wrap`)
 - Roztahují se na celou šířku obrazovky
 - Pokud existují dvě řady bublin nad sebou:
   - Klik na bublinu v prvním řádku resetuje druhý řádek na "Vše" (a obráceně)
   - Toho se dosáhne tím, že `_base` (pro řádek 1) neobsahuje parametry řádku 2 a naopak
-- Rozdělené bubliny (s/bez emailu, s/bez telefonu) jsou uvnitř jednoho `flex-1` wrapperu s `<div class="w-px bg-gray-200">` oddělovačem
-- Aktivní bublina má `ring-2 ring-{color}-400`
+  - První řádek: `<div class="flex gap-2 p-3 pb-2">`, další řádky: `<div class="flex gap-2 px-3 pb-2">`
 - Bubliny zobrazují počet záznamů (velký, bold) a popis (malý text pod číslem)
 
-## Search bar — kanonický styl
+### Search bar — uvnitř společného kontejneru
 
-- Wrapper: `<div class="flex items-center gap-3 mb-3 bg-white rounded-lg shadow px-3 py-2">`
+- Oddělený od bublin tenkou čarou: `<div class="border-t border-gray-100"></div>`
+- **Bez vlastního** `bg-white rounded-lg shadow` — je uvnitř wrapperu
+- Wrapper: `<div class="flex items-center gap-3 px-3 py-2">`
 - Input: `w-full px-3 py-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs`
+- Select dropdown: `h-[30px]` pro shodnou výšku s inputem
 - Hidden inputy (sort, order, filtr, back, stav) VEDLE inputu, NE uvnitř tbody
 - HTMX: `hx-trigger="keyup changed delay:300ms"`, `hx-push-url="true"`, `hx-target="#tbody-id"`
-- Pozice: vždy POD stat kartami / filtračními bublinami
-- Nikdy holý input bez wrapperu — vždy v shadow boxu
 
 - **Pod každou sekcí s bublinami** vždy přidat:
   - **Vyhledávání** — textový input s HTMX debounce (`keyup changed delay:300ms`) nebo query parametrem `q`

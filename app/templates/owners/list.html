@@ -53,21 +53,22 @@
 {% set _base = "q=" ~ q ~ "&sekce=" ~ sekce ~ "&sort=" ~ sort ~ "&order=" ~ order ~ _back %}
 {% set _base2 = "q=" ~ q ~ "&sekce=" ~ sekce ~ "&sort=" ~ sort ~ "&order=" ~ order ~ _back %}
 {% if stats %}
+<div class="bg-white rounded-lg shadow mb-2">
 <!-- Type filter bubbles -->
-<div class="flex gap-2 mb-2">
-    <a href="/vlastnici?{{ _base }}" class="flex-1 block bg-white rounded-lg shadow p-2 text-center hover:ring-2 hover:ring-gray-300 {% if not owner_type and not kontakt and not stav %}ring-2 ring-gray-400{% endif %}">
+<div class="flex gap-2 p-3 pb-2">
+    <a href="/vlastnici?{{ _base }}" class="flex-1 block rounded p-2 text-center hover:bg-gray-50 transition-colors {% if not owner_type and not kontakt and not stav %}ring-2 ring-gray-400{% endif %}">
         <p class="text-lg font-bold text-gray-800">{{ stats.total_owners }}</p>
         <p class="text-xs text-gray-500">Vše</p>
     </a>
-    <a href="/vlastnici?typ=physical&{{ _base }}" class="flex-1 block bg-gray-50 rounded-lg shadow p-2 text-center border border-gray-200 hover:ring-2 hover:ring-gray-300 {% if owner_type == 'physical' %}ring-2 ring-gray-400{% endif %}">
+    <a href="/vlastnici?typ=physical&{{ _base }}" class="flex-1 block bg-gray-50 rounded p-2 text-center border border-gray-200 hover:bg-gray-100 transition-colors {% if owner_type == 'physical' %}ring-2 ring-gray-400{% endif %}">
         <p class="text-lg font-bold text-gray-600">{{ stats.type_counts.get('physical', 0) }}</p>
         <p class="text-xs text-gray-600">Fyzická os.</p>
     </a>
-    <a href="/vlastnici?typ=legal&{{ _base }}" class="flex-1 block bg-blue-50 rounded-lg shadow p-2 text-center border border-blue-200 hover:ring-2 hover:ring-blue-300 {% if owner_type == 'legal' %}ring-2 ring-blue-400{% endif %}">
+    <a href="/vlastnici?typ=legal&{{ _base }}" class="flex-1 block bg-blue-50 rounded p-2 text-center border border-blue-200 hover:bg-blue-100 transition-colors {% if owner_type == 'legal' %}ring-2 ring-blue-400{% endif %}">
         <p class="text-lg font-bold text-blue-600">{{ stats.type_counts.get('legal', 0) }}</p>
         <p class="text-xs text-blue-600">Právnická os.</p>
     </a>
-    <div class="flex-1 bg-white rounded-lg shadow p-2 text-center flex">
+    <div class="flex-1 rounded p-2 text-center flex">
         <a href="/vlastnici?kontakt=s_emailem&{{ _base }}" class="flex-1 hover:bg-teal-50 rounded-l px-1 {% if kontakt == 's_emailem' %}ring-2 ring-teal-400{% endif %}">
             <p class="text-lg font-bold text-teal-600">{{ stats.emails_count }}</p>
             <p class="text-xs text-teal-600">S&nbsp;emailem</p>
@@ -78,7 +79,7 @@
             <p class="text-xs text-red-400">Bez&nbsp;emailu</p>
         </a>
     </div>
-    <div class="flex-1 bg-white rounded-lg shadow p-2 text-center flex">
+    <div class="flex-1 rounded p-2 text-center flex">
         <a href="/vlastnici?kontakt=s_telefonem&{{ _base }}" class="flex-1 hover:bg-teal-50 rounded-l px-1 {% if kontakt == 's_telefonem' %}ring-2 ring-teal-400{% endif %}">
             <p class="text-lg font-bold text-teal-600">{{ stats.phones_count }}</p>
             <p class="text-xs text-teal-600">S&nbsp;tel.</p>
@@ -90,7 +91,7 @@
         </a>
     </div>
     {% if stats.no_units_count %}
-    <a href="/vlastnici?stav=bez_jednotky&{{ _base }}" class="flex-1 block bg-gray-50 rounded-lg shadow p-2 text-center border border-gray-200 hover:ring-2 hover:ring-gray-300 {% if stav == 'bez_jednotky' %}ring-2 ring-gray-400{% endif %}">
+    <a href="/vlastnici?stav=bez_jednotky&{{ _base }}" class="flex-1 block bg-gray-50 rounded p-2 text-center border border-gray-200 hover:bg-gray-100 transition-colors {% if stav == 'bez_jednotky' %}ring-2 ring-gray-400{% endif %}">
         <p class="text-lg font-bold text-gray-400">{{ stats.no_units_count }}</p>
         <p class="text-xs text-gray-400">Bez&nbsp;jednotky</p>
     </a>
@@ -99,31 +100,33 @@
 
 <!-- Ownership type filter bubbles -->
 {% if stats.ownership_counts %}
-<div class="flex gap-2 mb-3">
-    <a href="/vlastnici?{{ _base2 }}" class="flex-1 block bg-white rounded-lg shadow p-2 text-center hover:ring-2 hover:ring-gray-300 {% if not vlastnictvi %}ring-2 ring-gray-400{% endif %}">
+<div class="flex gap-2 px-3 pb-2">
+    <a href="/vlastnici?{{ _base2 }}" class="flex-1 block rounded p-2 text-center hover:bg-gray-50 transition-colors {% if not vlastnictvi %}ring-2 ring-gray-400{% endif %}">
         <p class="text-lg font-bold text-gray-800">{{ stats.total_owners }}</p>
         <p class="text-xs text-gray-500">Vše</p>
     </a>
     {% for ot, cnt in stats.ownership_counts.items()|sort(attribute='0') %}
     {% if ot %}
-    <a href="/vlastnici?vlastnictvi={{ ot|urlencode }}&{{ _base2 }}" class="flex-1 block bg-orange-50 rounded-lg shadow p-2 text-center border border-orange-200 hover:ring-2 hover:ring-orange-300 {% if vlastnictvi == ot %}ring-2 ring-orange-400{% endif %}">
+    <a href="/vlastnici?vlastnictvi={{ ot|urlencode }}&{{ _base2 }}" class="flex-1 block bg-orange-50 rounded p-2 text-center border border-orange-200 hover:bg-orange-100 transition-colors {% if vlastnictvi == ot %}ring-2 ring-orange-400{% endif %}">
         <p class="text-lg font-bold text-orange-600">{{ cnt }}</p>
         <p class="text-xs text-orange-600">{{ ot }}</p>
     </a>
     {% endif %}
     {% endfor %}
     {% if stats.ownership_counts.get('', 0) > 0 %}
-    <a href="/vlastnici?vlastnictvi=_empty&{{ _base2 }}" class="flex-1 block bg-gray-50 rounded-lg shadow p-2 text-center border border-gray-200 hover:ring-2 hover:ring-gray-300 {% if vlastnictvi == '_empty' %}ring-2 ring-gray-400{% endif %}">
+    <a href="/vlastnici?vlastnictvi=_empty&{{ _base2 }}" class="flex-1 block bg-gray-50 rounded p-2 text-center border border-gray-200 hover:bg-gray-100 transition-colors {% if vlastnictvi == '_empty' %}ring-2 ring-gray-400{% endif %}">
         <p class="text-lg font-bold text-gray-500">{{ stats.ownership_counts.get('', 0) }}</p>
         <p class="text-xs text-gray-500">Neuvedeno</p>
     </a>
     {% endif %}
 </div>
 {% endif %}
-{% endif %}
+
+<!-- Separator -->
+<div class="border-t border-gray-100"></div>
 
 <!-- Search & section filter -->
-<div class="flex items-center gap-3 mb-2 bg-white rounded-lg shadow px-3 py-2">
+<div class="flex items-center gap-3 px-3 py-2">
     <input type="hidden" name="sort" value="{{ sort }}">
     <input type="hidden" name="order" value="{{ order }}">
     <input type="hidden" name="typ" value="{{ owner_type }}">
@@ -143,7 +146,7 @@
             hx-get="/vlastnici" hx-trigger="change"
             hx-target="#owner-table-body" hx-include="[name='q'],[name='typ'],[name='vlastnictvi'],[name='kontakt'],[name='stav'],[name='sort'],[name='order'],[name='back']"
             hx-push-url="true"
-            class="px-3 py-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 text-xs">
+            class="px-3 py-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 text-xs h-[30px]">
         <option value="">Všechny sekce</option>
         {% for s in stats.sections %}
         <option value="{{ s }}" {% if sekce == s %}selected{% endif %}>Sekce {{ s }}</option>
@@ -151,6 +154,8 @@
     </select>
     {% endif %}
 </div>
+</div>
+{% endif %}
 
 <!-- Owner table -->
 </div>

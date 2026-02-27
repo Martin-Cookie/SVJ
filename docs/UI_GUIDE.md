@@ -181,46 +181,54 @@ Vzor pro "přidat novou položku" bez přechodu na jinou stránku:
 
 ---
 
-## 7. Filtrační bubliny
+## 7. Filtrační bubliny + search bar (společný kontejner)
 
-- Layout: `flex` + `flex-1` (každá bublina roztažená)
-- Aktivní bublina: `ring-2 ring-{color}-400`
-- Dynamické počty: `<p class="text-2xl font-bold text-{color}-600">{{ count }}</p>`
-- Popis: `<p class="text-xs text-gray-500 mt-1">Label</p>`
-- Pokud dvě řady: klik na bublinu v 1. řadě resetuje 2. řadu na "Vše" (a naopak)
+Bubliny a search bar jsou vizuálně sjednoceny v jednom bílém kontejneru se stínem:
 
 ```html
-<a href="..." style="flex:1"
-   class="bg-white rounded-lg shadow p-3 text-center border border-gray-200
-          hover:ring-2 hover:ring-gray-300
-          {% if active %}ring-2 ring-gray-400{% endif %}">
-    <p class="text-2xl font-bold text-gray-800">{{ count }}</p>
-    <p class="text-xs text-gray-500 mt-1">Celkem</p>
-</a>
-```
+<div class="bg-white rounded-lg shadow mb-2">
+    <!-- Bubliny -->
+    <div class="flex gap-2 p-3 pb-2">
+        <a href="..." class="flex-1 block rounded p-2 text-center hover:bg-gray-50 transition-colors
+                  {% if active %}ring-2 ring-gray-400{% endif %}">
+            <p class="text-lg font-bold text-gray-800">{{ count }}</p>
+            <p class="text-xs text-gray-500">Celkem</p>
+        </a>
+        <!-- Barevné varianty (bg-gray-50, bg-blue-50, bg-orange-50) zachovat -->
+    </div>
 
----
+    <!-- Druhý řádek bublin (volitelný) -->
+    <div class="flex gap-2 px-3 pb-2">...</div>
 
-## 8. Search bar
+    <!-- Oddělovač -->
+    <div class="border-t border-gray-100"></div>
 
-```html
-<div class="flex items-center gap-3 mb-3 bg-white rounded-lg shadow px-3 py-2">
-    <input type="hidden" name="sort" value="{{ sort }}">
-    <input type="hidden" name="order" value="{{ order }}">
-    <input type="hidden" name="back" value="{{ back_url|default('') }}">
-    <div class="flex-1">
-        <input type="text" name="q" value="{{ q }}"
-               placeholder="Hledat..."
-               hx-get="/endpoint"
-               hx-trigger="keyup changed delay:300ms"
-               hx-target="#tbody-id"
-               hx-include="[name='sort'],[name='order'],[name='back']"
-               hx-push-url="true"
-               class="w-full px-3 py-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs">
+    <!-- Search bar -->
+    <div class="flex items-center gap-3 px-3 py-2">
+        <div class="flex-1">
+            <input type="text" name="q" ...
+                   class="w-full px-3 py-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs">
+        </div>
+        <select name="sekce" ...
+                class="px-3 py-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 text-xs h-[30px]">
+        </select>
     </div>
 </div>
 ```
-- Pozice: vždy **pod** stat kartami / filtračními bublinami
+
+### Bubliny — pravidla
+- Layout: `flex gap-2` + `flex-1` (každá bublina roztažená)
+- Bubliny **nemají vlastní `shadow` ani `rounded-lg`** — kontejner řeší obojí
+- Styl bublin: `flex-1 block rounded p-2 text-center hover:bg-gray-50 transition-colors`
+- Barevné varianty (bg-gray-50, bg-blue-50, bg-orange-50) zachovat — dávají vizuální rozlišení
+- Aktivní bublina: `ring-2 ring-{color}-400`
+- Split bubliny (s/bez emailu): bez shadow, s vnitřním dividerem `w-px bg-gray-200`
+- Pokud dvě řady: klik na bublinu v 1. řadě resetuje 2. řadu na "Vše" (a naopak)
+
+### Search bar — pravidla
+- Uvnitř společného kontejneru — **bez vlastního** `bg-white rounded-lg shadow`
+- Oddělený od bublin tenkou čarou `border-t border-gray-100`
+- Select dropdown: `h-[30px]` pro shodnou výšku s inputem
 - Hidden inputy vedle inputu, **ne** uvnitř tbody
 - HTMX: `hx-trigger="keyup changed delay:300ms"`, `hx-push-url="true"`
 

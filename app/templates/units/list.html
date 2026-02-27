@@ -52,23 +52,26 @@
 {% if stats %}
 {% set _back = "&back=" ~ (back_url|default('')|urlencode) if back_url else "" %}
 {% set _ubase = "q=" ~ q ~ "&sekce=" ~ sekce ~ "&sort=" ~ sort ~ "&order=" ~ order ~ _back %}
+<div class="bg-white rounded-lg shadow mb-2">
 <!-- Type filter bubbles -->
-<div class="flex gap-2 mb-3">
-    <a href="/jednotky?{{ _ubase }}" class="flex-1 block bg-white rounded-lg shadow p-2 text-center hover:ring-2 hover:ring-gray-300 {% if not typ %}ring-2 ring-gray-400{% endif %}">
+<div class="flex gap-2 p-3 pb-2">
+    <a href="/jednotky?{{ _ubase }}" class="flex-1 block rounded p-2 text-center hover:bg-gray-50 transition-colors {% if not typ %}ring-2 ring-gray-400{% endif %}">
         <p class="text-lg font-bold text-gray-800">{{ stats.total_units }}</p>
         <p class="text-xs text-gray-500">Vše</p>
     </a>
     {% for space_type, count in stats.type_counts.items()|sort(attribute='0') %}
-    <a href="/jednotky?typ={{ space_type|urlencode }}&{{ _ubase }}" class="flex-1 block bg-blue-50 rounded-lg shadow p-2 text-center border border-blue-200 hover:ring-2 hover:ring-blue-300 {% if typ == space_type %}ring-2 ring-blue-400{% endif %}">
+    <a href="/jednotky?typ={{ space_type|urlencode }}&{{ _ubase }}" class="flex-1 block bg-blue-50 rounded p-2 text-center border border-blue-200 hover:bg-blue-100 transition-colors {% if typ == space_type %}ring-2 ring-blue-400{% endif %}">
         <p class="text-lg font-bold text-blue-600">{{ count }}</p>
         <p class="text-xs text-blue-600 truncate" title="{{ space_type }}">{{ space_type }}</p>
     </a>
     {% endfor %}
 </div>
-{% endif %}
+
+<!-- Separator -->
+<div class="border-t border-gray-100"></div>
 
 <!-- Search & section filter -->
-<div class="flex items-center gap-3 mb-2 bg-white rounded-lg shadow px-3 py-2">
+<div class="flex items-center gap-3 px-3 py-2">
     <input type="hidden" name="sort" value="{{ sort }}">
     <input type="hidden" name="order" value="{{ order }}">
     <input type="hidden" name="typ" value="{{ typ }}">
@@ -85,7 +88,7 @@
             hx-get="/jednotky" hx-trigger="change"
             hx-target="#unit-table-body" hx-include="[name='q'],[name='typ'],[name='sort'],[name='order'],[name='back']"
             hx-push-url="true"
-            class="px-3 py-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 text-xs">
+            class="px-3 py-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 text-xs h-[30px]">
         <option value="">Všechny sekce</option>
         {% for s in stats.sections %}
         <option value="{{ s }}" {% if sekce == s %}selected{% endif %}>Sekce {{ s }}</option>
@@ -93,6 +96,8 @@
     </select>
     {% endif %}
 </div>
+</div>
+{% endif %}
 
 <!-- Unit table -->
 </div>
