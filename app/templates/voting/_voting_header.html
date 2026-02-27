@@ -28,7 +28,7 @@
             </button>
         </form>
         {% endif %}
-        {% if voting.status.value != 'draft' %}
+        {% if voting.status.value == 'active' %}
         <a href="/hlasovani/{{ voting.id }}/import" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
             Importovat výsledky
         </a>
@@ -38,6 +38,10 @@
         {% endif %}
     </div>
 </div>
+
+{% if wizard_steps is defined and wizard_steps %}
+{% include "partials/wizard_stepper.html" %}
+{% endif %}
 
 {% if voting.status.value != 'draft' %}
 <!-- Status overview -->

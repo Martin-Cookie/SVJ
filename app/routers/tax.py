@@ -41,6 +41,46 @@ _sending_progress: dict[int, dict] = {}
 # Helpers
 # ---------------------------------------------------------------------------
 
+_TAX_WIZARD_STEPS = [
+    {"label": "Upload PDF"},
+    {"label": "Přiřazení"},
+    {"label": "Rozesílka"},
+    {"label": "Dokončeno"},
+]
+
+
+def _tax_wizard(session, current_step: int) -> dict:
+    """Build wizard stepper context for tax workflow."""
+    status = session.send_status.value
+    # Determine max completed step based on session status
+    if status == "completed":
+        max_done = 4
+    elif status in ("sending", "paused"):
+        max_done = 2
+    elif status == "ready":
+        max_done = 2
+    else:
+        max_done = 0  # draft
+
+    steps = []
+    for i, s in enumerate(_TAX_WIZARD_STEPS, 1):
+        if i < current_step and i <= max_done:
+            step_status = "done"
+        elif i == current_step:
+            step_status = "active"
+        elif i <= max_done:
+            step_status = "done"
+        else:
+            step_status = "pending"
+        steps.append({"label": s["label"], "status": step_status})
+
+    return {
+        "wizard_steps": steps,
+        "wizard_current": current_step,
+        "wizard_total": len(_TAX_WIZARD_STEPS),
+    }
+
+
 def _strip_diacritics(text: str) -> str:
     """Remove diacritics and lowercase for search."""
     nfkd = normalize("NFD", text)
@@ -269,10 +309,15 @@ async def tax_list(request: Request, back: str = Query("", alias="back"), db: Se
 
 @router.get("/nova")
 async def tax_create_page(request: Request):
+    # Wizard step 1 for new session (no session object yet, build manually)
+    steps = [{"label": s["label"], "status": "active" if i == 0 else "pending"} for i, s in enumerate(_TAX_WIZARD_STEPS)]
     return templates.TemplateResponse("tax/upload.html", {
         "request": request,
         "active_nav": "tax",
         "current_year": datetime.now().year,
+        "wizard_steps": steps,
+        "wizard_current": 1,
+        "wizard_total": len(_TAX_WIZARD_STEPS),
     })
 
 
@@ -682,6 +727,7 @@ async def tax_detail(
         "unit_by_number": _unit_by_number(db),
         "missing_list": missing_list,
         **stats,
+        **_tax_wizard(session, 2),
     })
 
 
@@ -1039,6 +1085,7 @@ async def tax_send_preview(
         "sort": sort,
         "order": order,
         "test_email_value": session.test_email_address or "",
+        **_tax_wizard(session, 3),
     }
 
     if request.headers.get("HX-Request") and not request.headers.get("HX-Boosted"):
@@ -1195,6 +1242,7 @@ async def send_test_email(
         "flash_message": flash_message,
         "flash_type": flash_type,
         "test_email_value": test_email.strip(),
+        **_tax_wizard(session, 3),
     })
 
 
@@ -1506,6 +1554,7 @@ async def sending_progress_page(
         "active_nav": "tax",
         "session": session,
         **_sending_eta(progress),
+        **_tax_wizard(session, 3),
     })
 
 

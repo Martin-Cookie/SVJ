@@ -121,7 +121,42 @@ def _get_or_create_svj_info(db: Session) -> SvjInfo:
 
 
 @router.get("/")
-async def administration_page(request: Request, sekce: str = Query(""), chyba: str = Query(""), db: Session = Depends(get_db)):
+async def administration_page(request: Request, db: Session = Depends(get_db)):
+    info = db.query(SvjInfo).first()
+    board_count = db.query(BoardMember).filter_by(group="board").count()
+    control_count = db.query(BoardMember).filter_by(group="control").count()
+
+    # Backup summary
+    backup_count = 0
+    last_backup = None
+    if BACKUP_DIR.is_dir():
+        backup_files = sorted(
+            [f for f in BACKUP_DIR.iterdir() if f.suffix == ".zip"],
+            key=lambda f: f.stat().st_mtime,
+            reverse=True,
+        )
+        backup_count = len(backup_files)
+        if backup_files:
+            last_backup = datetime.fromtimestamp(backup_files[0].stat().st_mtime).strftime("%d.%m.%Y")
+
+    # Code list total
+    code_list_total = db.query(CodeListItem).count()
+
+    return templates.TemplateResponse("administration/index.html", {
+        "request": request,
+        "active_nav": "administration",
+        "info": info,
+        "board_count": board_count,
+        "control_count": control_count,
+        "backup_count": backup_count,
+        "last_backup": last_backup,
+        "code_list_total": code_list_total,
+        "code_list_categories": _CODE_LIST_CATEGORIES,
+    })
+
+
+@router.get("/svj-info")
+async def svj_info_page(request: Request, db: Session = Depends(get_db)):
     info = db.query(SvjInfo).options(joinedload(SvjInfo.addresses)).first()
     if not info:
         info = SvjInfo()
@@ -132,7 +167,35 @@ async def administration_page(request: Request, sekce: str = Query(""), chyba: s
     board_members = db.query(BoardMember).filter_by(group="board").order_by(_ROLE_SORT, BoardMember.name).all()
     control_members = db.query(BoardMember).filter_by(group="control").order_by(_ROLE_SORT, BoardMember.name).all()
 
-    # Backup files list
+    return templates.TemplateResponse("administration/svj_info.html", {
+        "request": request,
+        "active_nav": "administration",
+        "info": info,
+        "board_members": board_members,
+        "control_members": control_members,
+    })
+
+
+@router.get("/ciselniky")
+async def code_lists_page(request: Request, db: Session = Depends(get_db)):
+    code_lists = _get_all_code_lists(db)
+    code_list_usage = {}
+    for cat in _CODE_LIST_ORDER:
+        for item in code_lists.get(cat, []):
+            code_list_usage[item.id] = _get_usage_count(db, cat, item.value)
+
+    return templates.TemplateResponse("administration/code_lists.html", {
+        "request": request,
+        "active_nav": "administration",
+        "code_lists": code_lists,
+        "code_list_usage": code_list_usage,
+        "code_list_categories": _CODE_LIST_CATEGORIES,
+        "code_list_order": _CODE_LIST_ORDER,
+    })
+
+
+@router.get("/zalohy")
+async def backups_page(request: Request, chyba: str = Query(""), db: Session = Depends(get_db)):
     backups = []
     if BACKUP_DIR.is_dir():
         for f in sorted(BACKUP_DIR.iterdir(), reverse=True):
@@ -144,37 +207,41 @@ async def administration_page(request: Request, sekce: str = Query(""), chyba: s
                     "created": datetime.fromtimestamp(stat.st_mtime),
                 })
 
-    purge_counts = _purge_counts(db)
     default_backup_name = f"svj_backup_{datetime.now().strftime('%Y-%m-%d_%H%M%S')}"
     restore_log = read_restore_log(str(BACKUP_DIR))
 
-    # Code lists
-    code_lists = _get_all_code_lists(db)
-    code_list_usage = {}
-    for cat in _CODE_LIST_ORDER:
-        for item in code_lists.get(cat, []):
-            code_list_usage[item.id] = _get_usage_count(db, cat, item.value)
-
-    return templates.TemplateResponse("administration/index.html", {
+    return templates.TemplateResponse("administration/backups.html", {
         "request": request,
         "active_nav": "administration",
-        "info": info,
-        "board_members": board_members,
-        "control_members": control_members,
         "backups": backups,
         "restore_log": restore_log,
+        "default_backup_name": default_backup_name,
+        "chyba": chyba,
+    })
+
+
+@router.get("/smazat")
+async def purge_page(request: Request, db: Session = Depends(get_db)):
+    purge_counts = _purge_counts(db)
+    return templates.TemplateResponse("administration/purge.html", {
+        "request": request,
+        "active_nav": "administration",
         "purge_categories": _PURGE_CATEGORIES,
         "purge_order": _PURGE_ORDER,
         "purge_counts": purge_counts,
+    })
+
+
+@router.get("/export")
+async def export_page(request: Request, db: Session = Depends(get_db)):
+    purge_counts = _purge_counts(db)
+    return templates.TemplateResponse("administration/export.html", {
+        "request": request,
+        "active_nav": "administration",
         "export_categories": EXPORT_CATEGORIES,
         "export_order": EXPORT_ORDER,
-        "sekce": sekce,
-        "chyba": chyba,
-        "default_backup_name": default_backup_name,
-        "code_lists": code_lists,
-        "code_list_usage": code_list_usage,
-        "code_list_categories": _CODE_LIST_CATEGORIES,
-        "code_list_order": _CODE_LIST_ORDER,
+        "purge_categories": _PURGE_CATEGORIES,
+        "purge_counts": purge_counts,
     })
 
 
@@ -192,7 +259,7 @@ async def update_svj_info(
     info.total_shares = int(total_shares) if total_shares.strip() else None
     info.updated_at = datetime.utcnow()
     db.commit()
-    return RedirectResponse("/sprava", status_code=302)
+    return RedirectResponse("/sprava/svj-info", status_code=302)
 
 
 @router.post("/adresa/pridat")
@@ -210,7 +277,7 @@ async def add_address(
     )
     db.add(addr)
     db.commit()
-    return RedirectResponse("/sprava", status_code=302)
+    return RedirectResponse("/sprava/svj-info", status_code=302)
 
 
 @router.post("/adresa/{addr_id}/upravit")
@@ -223,7 +290,7 @@ async def edit_address(
     if addr:
         addr.address = address.strip()
         db.commit()
-    return RedirectResponse("/sprava", status_code=302)
+    return RedirectResponse("/sprava/svj-info", status_code=302)
 
 
 @router.post("/adresa/{addr_id}/smazat")
@@ -232,7 +299,7 @@ async def delete_address(addr_id: int, db: Session = Depends(get_db)):
     if addr:
         db.delete(addr)
         db.commit()
-    return RedirectResponse("/sprava", status_code=302)
+    return RedirectResponse("/sprava/svj-info", status_code=302)
 
 
 @router.post("/clen/pridat")
@@ -256,7 +323,7 @@ async def add_member(
     )
     db.add(member)
     db.commit()
-    return RedirectResponse("/sprava", status_code=302)
+    return RedirectResponse("/sprava/svj-info", status_code=302)
 
 
 @router.post("/clen/{member_id}/upravit")
@@ -275,7 +342,7 @@ async def edit_member(
         member.email = email.strip() or None
         member.phone = phone.strip() or None
         db.commit()
-    return RedirectResponse("/sprava", status_code=302)
+    return RedirectResponse("/sprava/svj-info", status_code=302)
 
 
 @router.post("/clen/{member_id}/smazat")
@@ -284,7 +351,7 @@ async def delete_member(member_id: int, db: Session = Depends(get_db)):
     if member:
         db.delete(member)
         db.commit()
-    return RedirectResponse("/sprava", status_code=302)
+    return RedirectResponse("/sprava/svj-info", status_code=302)
 
 
 # ---- Code list endpoints ----
@@ -299,18 +366,18 @@ async def code_list_add(
 ):
     value = value.strip()
     if not value or category not in _CODE_LIST_CATEGORIES:
-        return RedirectResponse("/sprava?sekce=ciselniky", status_code=302)
+        return RedirectResponse("/sprava/ciselniky", status_code=302)
 
     # Check duplicate
     existing = db.query(CodeListItem).filter_by(category=category, value=value).first()
     if existing:
-        return RedirectResponse("/sprava?sekce=ciselniky", status_code=302)
+        return RedirectResponse("/sprava/ciselniky", status_code=302)
 
     max_order = db.query(CodeListItem).filter_by(category=category).count()
     item = CodeListItem(category=category, value=value, order=max_order)
     db.add(item)
     db.commit()
-    return RedirectResponse("/sprava?sekce=ciselniky", status_code=302)
+    return RedirectResponse("/sprava/ciselniky", status_code=302)
 
 
 @router.post("/ciselnik/{item_id}/upravit")
@@ -321,16 +388,16 @@ async def code_list_edit(
 ):
     item = db.query(CodeListItem).get(item_id)
     if not item:
-        return RedirectResponse("/sprava?sekce=ciselniky", status_code=302)
+        return RedirectResponse("/sprava/ciselniky", status_code=302)
 
     # Only allow edit if unused
     usage = _get_usage_count(db, item.category, item.value)
     if usage > 0:
-        return RedirectResponse("/sprava?sekce=ciselniky", status_code=302)
+        return RedirectResponse("/sprava/ciselniky", status_code=302)
 
     new_value = new_value.strip()
     if not new_value:
-        return RedirectResponse("/sprava?sekce=ciselniky", status_code=302)
+        return RedirectResponse("/sprava/ciselniky", status_code=302)
 
     if new_value != item.value:
         # Check duplicate
@@ -338,12 +405,12 @@ async def code_list_edit(
             category=item.category, value=new_value
         ).first()
         if dup:
-            return RedirectResponse("/sprava?sekce=ciselniky", status_code=302)
+            return RedirectResponse("/sprava/ciselniky", status_code=302)
 
         item.value = new_value
 
     db.commit()
-    return RedirectResponse("/sprava?sekce=ciselniky", status_code=302)
+    return RedirectResponse("/sprava/ciselniky", status_code=302)
 
 
 @router.post("/ciselnik/{item_id}/smazat")
@@ -353,14 +420,14 @@ async def code_list_delete(
 ):
     item = db.query(CodeListItem).get(item_id)
     if not item:
-        return RedirectResponse("/sprava?sekce=ciselniky", status_code=302)
+        return RedirectResponse("/sprava/ciselniky", status_code=302)
 
     # Only delete if unused
     usage = _get_usage_count(db, item.category, item.value)
     if usage == 0:
         db.delete(item)
         db.commit()
-    return RedirectResponse("/sprava?sekce=ciselniky", status_code=302)
+    return RedirectResponse("/sprava/ciselniky", status_code=302)
 
 
 # ---- Backup endpoints ----
@@ -380,18 +447,18 @@ async def backup_create(filename: str = Form(""), db: Session = Depends(get_db))
         for m in (Owner, Unit, Voting, TaxSession, SyncSession, EmailLog, ImportLog, BoardMember)
     )
     if total == 0:
-        return RedirectResponse("/sprava?sekce=zalohy&chyba=prazdna", status_code=302)
+        return RedirectResponse("/sprava/zalohy?chyba=prazdna", status_code=302)
 
     name = filename.strip() or None
     create_backup(str(DB_PATH), str(UPLOADS_DIR), str(GENERATED_DIR), str(BACKUP_DIR), custom_name=name)
-    return RedirectResponse("/sprava?sekce=zalohy", status_code=302)
+    return RedirectResponse("/sprava/zalohy", status_code=302)
 
 
 @router.get("/zaloha/{filename}/stahnout")
 async def backup_download(filename: str):
     file_path = BACKUP_DIR / filename
     if not file_path.is_file() or not filename.endswith(".zip"):
-        return RedirectResponse("/sprava", status_code=302)
+        return RedirectResponse("/sprava/zalohy", status_code=302)
     return FileResponse(
         path=str(file_path),
         filename=filename,
@@ -404,7 +471,7 @@ async def backup_delete(filename: str):
     file_path = BACKUP_DIR / filename
     if file_path.is_file() and filename.endswith(".zip"):
         file_path.unlink()
-    return RedirectResponse("/sprava?sekce=zalohy", status_code=302)
+    return RedirectResponse("/sprava/zalohy", status_code=302)
 
 
 @router.post("/zaloha/obnovit")
@@ -432,7 +499,7 @@ async def backup_restore(file: UploadFile = File(...)):
             temp_path.unlink()
 
     run_post_restore_migrations()
-    return RedirectResponse("/sprava?sekce=zalohy", status_code=302)
+    return RedirectResponse("/sprava/zalohy", status_code=302)
 
 
 @router.post("/zaloha/obnovit-adresar")
@@ -440,7 +507,7 @@ async def backup_restore_directory(dir_path: str = Form(...)):
     """Restore from an unzipped backup directory on local disk."""
     dir_path = dir_path.strip()
     if not dir_path or not Path(dir_path).is_dir():
-        return RedirectResponse("/sprava?sekce=zalohy", status_code=302)
+        return RedirectResponse("/sprava/zalohy", status_code=302)
 
     existing = set(p.name for p in BACKUP_DIR.glob("*.zip")) if BACKUP_DIR.is_dir() else set()
     restore_from_directory(
@@ -451,14 +518,14 @@ async def backup_restore_directory(dir_path: str = Form(...)):
     safety = next(iter(new_backups), "")
     log_restore(str(BACKUP_DIR), dir_path, "Adresář", safety_backup=safety)
     run_post_restore_migrations()
-    return RedirectResponse("/sprava?sekce=zalohy", status_code=302)
+    return RedirectResponse("/sprava/zalohy", status_code=302)
 
 
 @router.post("/zaloha/obnovit-soubor")
 async def backup_restore_db_file(file: UploadFile = File(...)):
     """Restore from an uploaded svj.db file (from an unzipped backup)."""
     if not file.filename or not file.filename.endswith(".db"):
-        return RedirectResponse("/sprava?sekce=zalohy", status_code=302)
+        return RedirectResponse("/sprava/zalohy", status_code=302)
 
     safety = _safety_backup()
 
@@ -468,7 +535,7 @@ async def backup_restore_db_file(file: UploadFile = File(...)):
 
     log_restore(str(BACKUP_DIR), file.filename or "svj.db", "DB soubor", safety_backup=safety)
     run_post_restore_migrations()
-    return RedirectResponse("/sprava?sekce=zalohy", status_code=302)
+    return RedirectResponse("/sprava/zalohy", status_code=302)
 
 
 @router.post("/zaloha/obnovit-slozku")
@@ -505,7 +572,7 @@ async def backup_restore_folder(files: List[UploadFile] = File(...)):
                 db_found = True
 
         if not db_found:
-            return RedirectResponse("/sprava?sekce=zalohy", status_code=302)
+            return RedirectResponse("/sprava/zalohy", status_code=302)
 
         safety = _safety_backup()
 
@@ -531,7 +598,7 @@ async def backup_restore_folder(files: List[UploadFile] = File(...)):
         shutil.rmtree(tmp, ignore_errors=True)
 
     run_post_restore_migrations()
-    return RedirectResponse("/sprava?sekce=zalohy", status_code=302)
+    return RedirectResponse("/sprava/zalohy", status_code=302)
 
 
 # ---- Export data ----
@@ -541,7 +608,7 @@ async def backup_restore_folder(files: List[UploadFile] = File(...)):
 async def export_data(category: str, fmt: str, db: Session = Depends(get_db)):
     """Download a data export in xlsx or csv format."""
     if category not in EXPORT_CATEGORIES or fmt not in ("xlsx", "csv"):
-        return RedirectResponse("/sprava", status_code=302)
+        return RedirectResponse("/sprava/export", status_code=302)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"{category}_{timestamp}.{fmt}"
@@ -574,7 +641,7 @@ async def export_bulk(request: Request, db: Session = Depends(get_db)):
 
     categories = [c for c in categories if c in EXPORT_CATEGORIES]
     if not categories:
-        return RedirectResponse("/sprava", status_code=302)
+        return RedirectResponse("/sprava/export", status_code=302)
 
     # Single category — download directly
     if len(categories) == 1:
@@ -687,7 +754,7 @@ async def purge_data(request: Request, db: Session = Depends(get_db)):
     categories = form_data.getlist("categories")
 
     if confirmation != "DELETE" or not categories:
-        return RedirectResponse("/sprava", status_code=302)
+        return RedirectResponse("/sprava/smazat", status_code=302)
 
     # Delete in safe order — children before parents
     for key in _PURGE_ORDER:

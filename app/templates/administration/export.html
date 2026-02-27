@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Export dat - SVJ Správa{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <a href="/sprava" class="text-sm text-gray-500 hover:text-gray-700">&larr; Zpět na administraci</a>
+</div>
+
+<h1 class="text-2xl font-bold text-gray-800 mb-6">Export dat</h1>
+
+<div class="bg-white rounded-lg shadow p-6 max-w-2xl">
+    <p class="text-sm text-gray-500 mb-4">Stáhněte data z jednotlivých částí systému ve formátu Excel nebo CSV.</p>
+
+    <form action="/sprava/export/hromadny" method="post" hx-boost="false" id="export-form">
+        <div class="space-y-2 mb-4">
+            <!-- Select all -->
+            <label class="flex items-center gap-3 p-2 rounded-lg bg-gray-50 border border-gray-200 cursor-pointer select-none">
+                <input type="checkbox" id="export-select-all"
+                       onchange="exportToggleAll(this.checked)"
+                       class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                <div>
+                    <span class="text-sm font-medium text-gray-800">Vybrat/Zrušit vše</span>
+                </div>
+            </label>
+
+            {% for key in export_order %}
+            {% set cat = export_categories[key] %}
+            {% set count = purge_counts.get(key, 0) %}
+            <label class="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 cursor-pointer select-none">
+                <input type="checkbox" name="categories" value="{{ key }}"
+                       class="export-cb w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                       onchange="exportUpdateSelectAll()">
+                <div class="flex-1 min-w-0">
+                    <span class="text-sm font-medium text-gray-800">{{ cat.label }}</span>
+                    <span class="text-xs text-gray-400 ml-1">({{ count }} záznamů)</span>
+                    <p class="text-xs text-gray-500">{{ purge_categories[key].description }}</p>
+                </div>
+            </label>
+            {% endfor %}
+        </div>
+
+        <div class="flex items-center gap-3">
+            <button type="submit" name="fmt" value="xlsx" id="export-xlsx-btn" disabled
+                    class="inline-flex items-center gap-1 px-4 py-2 text-sm font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                Stáhnout Excel
+            </button>
+            <button type="submit" name="fmt" value="csv" id="export-csv-btn" disabled
+                    class="inline-flex items-center gap-1 px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                Stáhnout CSV
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+function exportToggleAll(checked) {
+    document.querySelectorAll('.export-cb').forEach(function(cb) { cb.checked = checked; });
+    exportUpdateButtons();
+}
+function exportUpdateSelectAll() {
+    var cbs = document.querySelectorAll('.export-cb');
+    var all = document.getElementById('export-select-all');
+    if (all) all.checked = Array.from(cbs).every(function(cb) { return cb.checked; });
+    exportUpdateButtons();
+}
+function exportUpdateButtons() {
+    var anyChecked = Array.from(document.querySelectorAll('.export-cb')).some(function(cb) { return cb.checked; });
+    document.getElementById('export-xlsx-btn').disabled = !anyChecked;
+    document.getElementById('export-csv-btn').disabled = !anyChecked;
+}
+</script>
+{% endblock %}

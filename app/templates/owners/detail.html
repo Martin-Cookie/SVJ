@@ -25,8 +25,8 @@
     </div>
 </div>
 
-<div class="grid grid-cols-1 md:grid-cols-5 gap-6">
-    <!-- Identity -->
+<div class="grid grid-cols-1 md:grid-cols-6 gap-6">
+    <!-- Row 1: Identity | Contact | Permanent address -->
     <div class="bg-white rounded-lg shadow p-6 md:col-span-2">
         <h2 class="text-lg font-semibold text-gray-700 mb-4">Identifikace</h2>
         <div id="identity-section">
@@ -34,23 +34,13 @@
         </div>
     </div>
 
-    <!-- Contact info -->
-    <div class="bg-white rounded-lg shadow p-6 md:col-span-3">
+    <div class="bg-white rounded-lg shadow p-6 md:col-span-2">
         <h2 class="text-lg font-semibold text-gray-700 mb-4">Kontaktní údaje</h2>
         <div id="contact-form">
             {% include "partials/owner_contact_info.html" %}
         </div>
     </div>
 
-    <!-- Units -->
-    <div class="bg-white rounded-lg shadow p-6 md:col-span-3">
-        <h2 class="text-lg font-semibold text-gray-700 mb-4">Jednotky</h2>
-        <div id="owner-units-section">
-            {% include "partials/owner_units_section.html" %}
-        </div>
-    </div>
-
-    <!-- Permanent address -->
     <div class="bg-white rounded-lg shadow p-6 md:col-span-2">
         <h2 class="text-lg font-semibold text-gray-700 mb-4">Trvalá adresa</h2>
         <div id="perm-address-section">
@@ -60,7 +50,7 @@
         </div>
     </div>
 
-    <!-- Correspondence address -->
+    <!-- Row 2: Correspondence address | Units -->
     <div class="bg-white rounded-lg shadow p-6 md:col-span-3">
         <h2 class="text-lg font-semibold text-gray-700 mb-4">Korespondenční adresa</h2>
         <div id="corr-address-section">
@@ -70,7 +60,14 @@
         </div>
     </div>
 
-    <!-- Notes -->
+    <div class="bg-white rounded-lg shadow p-6 md:col-span-3">
+        <h2 class="text-lg font-semibold text-gray-700 mb-4">Jednotky</h2>
+        <div id="owner-units-section">
+            {% include "partials/owner_units_section.html" %}
+        </div>
+    </div>
+
+    <!-- Row 3: Notes -->
     {% if owner.note or owner.owner_since %}
     <div class="bg-white rounded-lg shadow p-6 md:col-span-2">
         <h2 class="text-lg font-semibold text-gray-700 mb-4">Poznámky</h2>

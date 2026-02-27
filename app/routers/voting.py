@@ -34,6 +34,48 @@ router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
 
 
+_VOTING_WIZARD_STEPS = [
+    {"label": "Nastavení"},
+    {"label": "Generování lístků"},
+    {"label": "Zpracování"},
+    {"label": "Výsledky"},
+    {"label": "Uzavření"},
+]
+
+
+def _voting_wizard(voting, current_step: int) -> dict:
+    """Build wizard stepper context for voting workflow.
+    current_step: 1-based step number for the current page.
+    Auto-determines done/active/pending status from voting state + current_step.
+    """
+    status = voting.status.value
+    # Determine max completed step based on voting status
+    if status == "closed":
+        max_done = 5
+    elif status == "active":
+        max_done = 2  # generation done
+    else:
+        max_done = 0  # draft
+
+    steps = []
+    for i, s in enumerate(_VOTING_WIZARD_STEPS, 1):
+        if i < current_step and i <= max_done:
+            step_status = "done"
+        elif i == current_step:
+            step_status = "active"
+        elif i <= max_done:
+            step_status = "done"
+        else:
+            step_status = "pending"
+        steps.append({"label": s["label"], "status": step_status})
+
+    return {
+        "wizard_steps": steps,
+        "wizard_current": current_step,
+        "wizard_total": len(_VOTING_WIZARD_STEPS),
+    }
+
+
 def _ballot_stats(voting):
     """Compute ballot statistics for status bubbles."""
     total_ballots = len(voting.ballots)
@@ -320,6 +362,7 @@ async def voting_detail(
         "sort": sort,
         "order": order,
         **_ballot_stats(voting),
+        **_voting_wizard(voting, 4 if voting.status.value == 'active' else 5 if voting.status.value == 'closed' else 1),
     }
 
     # HTMX partial: return only the results table
@@ -453,6 +496,7 @@ async def ballot_list(
         "order": order,
         "list_url": list_url,
         **_ballot_stats(voting),
+        **_voting_wizard(voting, 3),
     }
 
     # HTMX partial: return only the table
@@ -563,6 +607,7 @@ async def process_page(
         "sort": sort,
         "order": order,
         **_ballot_stats(voting),
+        **_voting_wizard(voting, 3),
     }
 
     if request.headers.get("HX-Request") and not request.headers.get("HX-Boosted"):
@@ -784,6 +829,7 @@ async def not_submitted(
         "order": order,
         "list_url": list_url,
         **_ballot_stats(voting),
+        **_voting_wizard(voting, 3),
     }
 
     if request.headers.get("HX-Request") and not request.headers.get("HX-Boosted"):
@@ -822,6 +868,7 @@ async def import_upload_page(
         "saved_mapping": saved_mapping,
         "active_bubble": "",
         **_ballot_stats(voting),
+        **_voting_wizard(voting, 3),
     })
 
 

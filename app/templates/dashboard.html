@@ -97,6 +97,9 @@
             <a href="/hlasovani/{{ info.latest.id }}?back=/" class="flex items-center gap-1 text-xs hover:bg-gray-50 rounded -mx-1 px-1" onclick="event.stopPropagation()">
                 <span class="shrink-0 px-1 py-0.5 font-medium {{ vs_map[status].bg }} rounded-full text-xs leading-none">{{ info.count }} {{ vs_map[status].label }}</span>
                 <span class="text-gray-500 truncate" title="{{ info.latest.title }}">&rarr; {{ info.latest.title }}</span>
+                {% if info.total_ballots > 0 %}
+                <span class="shrink-0 text-gray-400 text-xs">{{ info.progress_pct }}%</span>
+                {% endif %}
             </a>
             {% endif %}
             {% endfor %}
@@ -124,6 +127,9 @@
             <a href="/dane/{{ info.latest.id }}?back=/" class="flex items-center gap-1 text-xs hover:bg-gray-50 rounded -mx-1 px-1" onclick="event.stopPropagation()">
                 <span class="shrink-0 px-1 py-0.5 font-medium {{ ts_map[status].bg }} rounded-full text-xs leading-none">{{ info.count }} {{ ts_map[status].label }}</span>
                 <span class="text-gray-500 truncate" title="{{ info.latest.title }}">&rarr; {{ info.latest.title }}</span>
+                {% if info.total_dists > 0 %}
+                <span class="shrink-0 text-gray-400 text-xs">{{ info.sent }}/{{ info.total_dists }}</span>
+                {% endif %}
             </a>
             {% endif %}
             {% endfor %}

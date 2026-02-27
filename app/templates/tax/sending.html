@@ -6,6 +6,10 @@
     <a href="/dane/{{ session.id }}/rozeslat" class="text-sm text-gray-500 hover:text-gray-700">&larr; Zpět na rozesílku</a>
 </div>
 
+{% if wizard_steps is defined and wizard_steps %}
+{% include "partials/wizard_stepper.html" %}
+{% endif %}
+
 <h1 class="text-2xl font-bold text-gray-800 mb-6">Odesílání &mdash; {{ session.title }}</h1>
 
 <div class="bg-white rounded-lg shadow p-6 max-w-xl">

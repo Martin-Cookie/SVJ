@@ -6,7 +6,8 @@ from unicodedata import normalize, category as _ucd_category
 
 from app.database import get_db
 from app.models import EmailLog, Owner, OwnerUnit, SvjInfo, Unit, Voting, VotingStatus
-from app.models.tax import TaxSession, SendStatus
+from app.models.voting import Ballot, BallotStatus
+from app.models.tax import TaxSession, TaxDistribution, EmailDeliveryStatus, SendStatus
 
 
 def _strip_diacritics(text: str) -> str:
@@ -110,12 +111,25 @@ async def home(
         .all()
     )
 
-    # Group votings by status: {status_value: {"count": N, "latest": Voting}}
+    # Group votings by status: {status_value: {"count": N, "latest": Voting, "date": ..., "progress": ...}}
     voting_by_status = {}
     for v in active_votings_list:
         s = v.status.value
         if s not in voting_by_status:
-            voting_by_status[s] = {"count": 0, "latest": v}
+            # Calculate progress for the latest voting of this status
+            total_ballots = db.query(Ballot).filter_by(voting_id=v.id).count()
+            processed_ballots = db.query(Ballot).filter_by(
+                voting_id=v.id, status=BallotStatus.PROCESSED
+            ).count()
+            pct = round(processed_ballots / total_ballots * 100) if total_ballots else 0
+            voting_by_status[s] = {
+                "count": 0,
+                "latest": v,
+                "date": v.start_date or v.created_at,
+                "processed": processed_ballots,
+                "total_ballots": total_ballots,
+                "progress_pct": pct,
+            }
         voting_by_status[s]["count"] += 1
 
     # Group tax sessions by status
@@ -123,7 +137,21 @@ async def home(
     for t in active_tax_sessions:
         s = t.send_status.value
         if s not in tax_by_status:
-            tax_by_status[s] = {"count": 0, "latest": t}
+            # Calculate send progress for the latest tax session of this status
+            total_dists = db.query(TaxDistribution).join(TaxDistribution.document).filter(
+                TaxDistribution.document.has(session_id=t.id)
+            ).count()
+            sent_dists = db.query(TaxDistribution).join(TaxDistribution.document).filter(
+                TaxDistribution.document.has(session_id=t.id),
+                TaxDistribution.email_status == EmailDeliveryStatus.SENT,
+            ).count()
+            tax_by_status[s] = {
+                "count": 0,
+                "latest": t,
+                "date": t.created_at,
+                "sent": sent_dists,
+                "total_dists": total_dists,
+            }
         tax_by_status[s]["count"] += 1
 
     recent_emails = (
