@@ -70,8 +70,10 @@
                         Kvórum: {{ stats.quorum_pct }}%{% if stats.quorum_reached %} ✓{% endif %}
                     </span>
                 </div>
-                <div class="mt-1 text-xs text-gray-400">
-                    Krok {{ stats.wizard_step }}/5: {{ stats.wizard_label }}
+                <div class="mt-1">
+                    {% with wizard_steps=stats.wizard_steps, wizard_current=stats.wizard_current, wizard_total=stats.wizard_total %}
+                    {% include "partials/wizard_stepper_compact.html" %}
+                    {% endwith %}
                 </div>
             </div>
             <div class="flex items-center gap-2">
@@ -84,11 +86,12 @@
                 {% else %}
                 <span class="px-3 py-1 text-xs font-medium bg-red-100 text-red-800 rounded-full">Zrušeno</span>
                 {% endif %}
-                <form action="/hlasovani/{{ voting.id }}/smazat" method="post"
+                <form action="/hlasovani/{{ voting.id }}/smazat" method="post" class="inline"
                       onsubmit="return confirm('Smazat hlasování „{{ voting.title }}"?')">
-                    <button type="submit"
-                            class="px-3 py-1 text-xs font-medium bg-red-100 text-red-700 rounded-full hover:bg-red-200 transition-colors">
-                        Smazat
+                    <button type="submit" title="Smazat" class="p-1 text-gray-400 hover:text-red-600 rounded hover:bg-red-50">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                        </svg>
                     </button>
                 </form>
             </div>

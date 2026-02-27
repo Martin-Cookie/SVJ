@@ -1,0 +1,38 @@
+{# Compact wizard stepper for list cards
+   Usage: {% include "partials/wizard_stepper_compact.html" %}
+   Required context variables:
+     - wizard_steps: list of {"label": "...", "status": "done"|"active"|"pending"}
+     - wizard_current: int (1-based current step number)
+     - wizard_total: int (total number of steps)
+#}
+{% if wizard_steps is defined and wizard_steps %}
+<div class="mb-2">
+    <div class="flex items-center gap-0">
+        {% for step in wizard_steps %}
+        {% set is_done = step.status == 'done' %}
+        {% set is_active = step.status == 'active' %}
+        <div class="flex items-center">
+            <div class="flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-medium
+                {% if is_done %}bg-green-100 text-green-700 border-2 border-green-400
+                {% elif is_active %}bg-blue-600 text-white border-2 border-blue-600
+                {% else %}bg-gray-100 text-gray-400 border-2 border-gray-200
+                {% endif %}" title="{{ step.label }}">
+                {% if is_done %}
+                <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
+                </svg>
+                {% else %}
+                {{ loop.index }}
+                {% endif %}
+            </div>
+        </div>
+        {% if not loop.last %}
+        <div class="mx-1 flex-shrink-0 w-4 h-0.5
+            {% if is_done %}bg-green-400
+            {% else %}bg-gray-200
+            {% endif %}"></div>
+        {% endif %}
+        {% endfor %}
+    </div>
+</div>
+{% endif %}

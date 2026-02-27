@@ -28,7 +28,12 @@
                     <button hx-post="/vlastnici/{{ owner.id }}/jednotky/{{ ou.id }}/odebrat"
                             hx-target="#owner-units-section"
                             hx-confirm="Opravdu odebrat jednotku {{ ou.unit.unit_number }} od tohoto vlastníka?"
-                            class="text-xs text-red-600 hover:text-red-800 hover:underline">Odebrat</button>
+                            title="Odebrat"
+                            class="p-1 text-gray-400 hover:text-red-600 rounded hover:bg-red-50">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                        </svg>
+                    </button>
                 </td>
             </tr>
             {% endfor %}
@@ -50,8 +55,7 @@
 
 <!-- Add unit form -->
 {% if available_units %}
-<div id="add-unit-form" class="mt-4 pt-4 border-t border-gray-200">
-    <h3 class="text-sm font-medium text-gray-700 mb-2">Přidat jednotku</h3>
+<div id="add-unit-form" class="hidden mt-4 pt-4 border-t border-gray-200">
     <form hx-post="/vlastnici/{{ owner.id }}/jednotky/pridat" hx-target="#owner-units-section"
           class="flex items-end gap-2 flex-wrap">
         <div>
@@ -84,7 +88,11 @@
                    class="w-20 px-2 py-1.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500">
         </div>
         <button type="submit" class="px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm font-medium">
-            Přidat
+            Uložit
+        </button>
+        <button type="button" onclick="document.getElementById('add-unit-form').classList.add('hidden')"
+                class="px-3 py-1.5 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm font-medium">
+            Zrušit
         </button>
     </form>
 </div>

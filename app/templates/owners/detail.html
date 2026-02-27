@@ -61,7 +61,7 @@
             <h2 class="text-lg font-semibold text-gray-700">Jednotky</h2>
             {% if available_units %}
             <a href="#add-unit-form" class="inline-flex items-center gap-1 px-3 py-1.5 text-sm text-gray-600 hover:text-blue-600 border border-gray-300 rounded-lg hover:border-blue-300 transition-colors"
-               onclick="document.getElementById('add-unit-form').scrollIntoView({behavior:'smooth'}); return false;">
+               onclick="var f=document.getElementById('add-unit-form'); f.classList.toggle('hidden'); if(!f.classList.contains('hidden')) f.scrollIntoView({behavior:'smooth'}); return false;">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
                 </svg>

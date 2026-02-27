@@ -49,7 +49,7 @@ _TAX_WIZARD_STEPS = [
 ]
 
 
-def _tax_wizard(session, current_step: int) -> dict:
+def _tax_wizard(session, current_step: int, has_documents: bool = False) -> dict:
     """Build wizard stepper context for tax workflow."""
     status = session.send_status.value
     # Determine max completed step based on session status
@@ -61,13 +61,16 @@ def _tax_wizard(session, current_step: int) -> dict:
         max_done = 2
     else:
         max_done = 0  # draft
+    # If documents exist, step 1 (Upload PDF) is always done
+    if has_documents and max_done < 1:
+        max_done = 1
 
     steps = []
     for i, s in enumerate(_TAX_WIZARD_STEPS, 1):
         if i < current_step and i <= max_done:
             step_status = "done"
         elif i == current_step:
-            step_status = "active"
+            step_status = "done" if i <= max_done else "active"
         elif i <= max_done:
             step_status = "done"
         else:
@@ -304,12 +307,36 @@ async def tax_list(request: Request, back: str = Query("", alias="back"), db: Se
         else:
             wizard_step, wizard_label = 3, "Rozesílka"
 
+        # Determine max_done for list wizard
+        if send_status == "completed":
+            list_max_done = 4
+        elif send_status in ("sending", "paused", "ready"):
+            list_max_done = 2
+        else:
+            list_max_done = 0
+        # If documents exist, step 1 is always done
+        if total > 0 and list_max_done < 1:
+            list_max_done = 1
+
+        # Build wizard steps for compact stepper
+        wiz_steps = []
+        for i, ws in enumerate(_TAX_WIZARD_STEPS, 1):
+            if i < wizard_step:
+                wiz_steps.append({"label": ws["label"], "status": "done"})
+            elif i == wizard_step:
+                wiz_steps.append({"label": ws["label"], "status": "done" if i <= list_max_done else "active"})
+            else:
+                wiz_steps.append({"label": ws["label"], "status": "pending"})
+
         session_stats[s.id] = {
             "total": total,
             "confirmed": confirmed,
             "pct": int(confirmed / total * 100) if total > 0 else 0,
             "wizard_step": wizard_step,
             "wizard_label": wizard_label,
+            "wizard_steps": wiz_steps,
+            "wizard_current": wizard_step,
+            "wizard_total": len(_TAX_WIZARD_STEPS),
         }
 
     return templates.TemplateResponse("tax/index.html", {
@@ -395,6 +422,103 @@ async def tax_create(
     thread.start()
 
     return RedirectResponse(f"/dane/{session.id}/zpracovani", status_code=302)
+
+
+@router.get("/{session_id}/upload")
+async def tax_upload_page(
+    session_id: int,
+    request: Request,
+    back: str = Query("", alias="back"),
+    db: Session = Depends(get_db),
+):
+    """Upload additional PDFs to an existing session."""
+    session = db.query(TaxSession).options(
+        joinedload(TaxSession.documents),
+    ).get(session_id)
+    if not session:
+        return RedirectResponse("/dane", status_code=302)
+
+    has_documents = len(session.documents) > 0
+    return templates.TemplateResponse("tax/upload_additional.html", {
+        "request": request,
+        "active_nav": "tax",
+        "session": session,
+        "has_documents": has_documents,
+        "back_url": back or f"/dane/{session_id}",
+        **_tax_wizard(session, 1, has_documents=has_documents),
+    })
+
+
+@router.post("/{session_id}/upload")
+async def tax_upload_additional(
+    session_id: int,
+    request: Request,
+    import_mode: str = Form("append"),
+    files: List[UploadFile] = File(...),
+    db: Session = Depends(get_db),
+):
+    """Upload additional PDFs to an existing session with append/overwrite mode."""
+    session = db.query(TaxSession).options(
+        joinedload(TaxSession.documents).joinedload(TaxDocument.distributions),
+    ).get(session_id)
+    if not session:
+        return RedirectResponse("/dane", status_code=302)
+
+    # If overwrite mode, delete existing documents and files
+    if import_mode == "overwrite":
+        upload_dir = settings.upload_dir / "tax_pdfs" / f"session_{session_id}"
+        for doc in session.documents:
+            # Delete file from disk
+            if doc.file_path:
+                try:
+                    Path(doc.file_path).unlink()
+                except Exception:
+                    pass
+            # Delete distributions
+            for dist in doc.distributions:
+                db.delete(dist)
+            db.delete(doc)
+        db.flush()
+
+    # Save new PDF files to disk
+    upload_dir = settings.upload_dir / "tax_pdfs" / f"session_{session_id}"
+    upload_dir.mkdir(parents=True, exist_ok=True)
+
+    saved_files = []
+    for file in files:
+        if not file.filename or not file.filename.lower().endswith(".pdf"):
+            continue
+        basename = Path(file.filename).name
+        dest = upload_dir / basename
+        with open(dest, "wb") as f:
+            shutil.copyfileobj(file.file, f)
+        saved_files.append(str(dest))
+
+    if not saved_files:
+        return RedirectResponse(f"/dane/{session_id}", status_code=302)
+
+    db.commit()
+
+    # Initialize progress tracker
+    import time as _time
+    _processing_progress[session_id] = {
+        "total": len(saved_files),
+        "current": 0,
+        "current_file": "",
+        "done": False,
+        "error": None,
+        "started_at": _time.monotonic(),
+    }
+
+    # Start background processing thread
+    thread = threading.Thread(
+        target=_process_tax_files,
+        args=(session_id, saved_files, session.year),
+        daemon=True,
+    )
+    thread.start()
+
+    return RedirectResponse(f"/dane/{session_id}/zpracovani", status_code=302)
 
 
 def _process_tax_files(session_id: int, file_paths: list, tax_year):
@@ -742,7 +866,7 @@ async def tax_detail(
         "unit_by_number": _unit_by_number(db),
         "missing_list": missing_list,
         **stats,
-        **_tax_wizard(session, 2),
+        **_tax_wizard(session, 2, has_documents=len(documents) > 0),
     })
 
 

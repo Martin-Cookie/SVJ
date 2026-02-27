@@ -62,7 +62,7 @@ def _voting_wizard(voting, current_step: int) -> dict:
         if i < current_step and i <= max_done:
             step_status = "done"
         elif i == current_step:
-            step_status = "active"
+            step_status = "done" if i <= max_done else "active"
         elif i <= max_done:
             step_status = "done"
         else:
@@ -168,6 +168,24 @@ async def voting_list(
         else:
             wizard_step, wizard_label = 1, "Nastavení"
 
+        # Build wizard steps for compact stepper
+        # Determine max_done for list wizard
+        if status == "closed":
+            list_max_done = 5
+        elif status == "active":
+            list_max_done = 2
+        else:
+            list_max_done = 0
+
+        wiz_steps = []
+        for i, ws in enumerate(_VOTING_WIZARD_STEPS, 1):
+            if i < wizard_step:
+                wiz_steps.append({"label": ws["label"], "status": "done"})
+            elif i == wizard_step:
+                wiz_steps.append({"label": ws["label"], "status": "done" if i <= list_max_done else "active"})
+            else:
+                wiz_steps.append({"label": ws["label"], "status": "pending"})
+
         voting_stats[voting.id] = {
             "processed_count": len(processed),
             "processed_votes": processed_votes,
@@ -176,6 +194,9 @@ async def voting_list(
             "item_results": item_results,
             "wizard_step": wizard_step,
             "wizard_label": wizard_label,
+            "wizard_steps": wiz_steps,
+            "wizard_current": wizard_step,
+            "wizard_total": len(_VOTING_WIZARD_STEPS),
         }
 
     list_url = str(request.url.path)

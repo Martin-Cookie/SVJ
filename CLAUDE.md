@@ -1,5 +1,7 @@
 # SVJ Projekt — pravidla pro vývoj
 
+> **UI/frontend konvence** jsou podrobně popsány v [docs/UI_GUIDE.md](docs/UI_GUIDE.md).
+
 ## URL konvence
 
 - Všechny URL cesty používají **české slugy bez diakritiky**: `/vlastnici`, `/jednotky`, `/hlasovani`, `/dane`, `/synchronizace`, `/sprava`, `/nastaveni`
@@ -189,19 +191,25 @@ Vzor se skládá ze dvou partials (info + form) a tří endpointů:
           hx-target="#section-id" hx-swap="innerHTML">Upravit</button>
   ```
   Po úspěšném uložení zobrazí `{% if saved %}<span class="text-green-600">Uloženo</span>{% endif %}`
-- **Form partial** (`partials/*_form.html`) — editační formulář + "Uložit" a "Zrušit":
+- **Form partial** (`partials/*_form.html`) — editační formulář, **Uložit/Zrušit nahoře vedle nadpisu**:
   ```html
   <form hx-post="/entita/{id}/upravit" hx-target="#section-id" hx-swap="innerHTML">
+      <div class="flex items-center justify-between mb-4">
+          <h2 class="text-lg font-semibold text-gray-700">Nadpis</h2>
+          <div class="flex items-center gap-2">
+              <button type="submit" class="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">Uložit</button>
+              <button type="button" hx-get="/entita/{id}/info"
+                      hx-target="#section-id" hx-swap="innerHTML"
+                      class="px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm font-medium">Zrušit</button>
+          </div>
+      </div>
       <!-- inputy -->
-      <button type="submit">Uložit</button>
-      <button type="button" hx-get="/entita/{id}/info"
-              hx-target="#section-id" hx-swap="innerHTML">Zrušit</button>
   </form>
   ```
 
 ### Detail stránka
 - Wrapper `<div id="section-id">` obsahuje pouze `{% include %}` partials — žádný extra markup
-- Nadpis sekce (`<h2>`) je VNĚ wrapperu, aby se neměnil při přepínání
+- Nadpis sekce (`<h2>`) je SOUČÁSTÍ form partialu — v flex kontejneru s Uložit/Zrušit tlačítky
 
 ### Backend endpointy (3 pro každou sekci)
 | Endpoint | Účel | Vrací |
