@@ -74,7 +74,7 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
   - Inline editace kontaktů (email, telefon) přes HTMX
   - Inline editace trvalé a korespondenční adresy přes HTMX
   - Uložit/Zrušit tlačítka nahoře vedle nadpisu sekce (ne dole pod formulářem)
-  - Správa přiřazených jednotek (přidat z dropdownu s „Uložit" + „Zrušit", odebrat ikonou koše)
+  - Správa přiřazených jednotek (klik „+ Přidat" → Uložit/Zrušit nahoře nahradí tlačítko, formulář dole; odebrat ikonou koše)
   - Sloupec Podíl % (podíl SČD / celkový počet podílů z administrace)
   - Souhrnný řádek Celkem (podíl SČD, podíl %, plocha)
   - Proklik na detail jednotky
@@ -172,7 +172,7 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
   - „Dokončit" — uzamknutí relace (read-only mód, nelze měnit přiřazení)
   - „Znovu otevřít" — odemknutí dokončené relace pro další úpravy (krok 1 zůstane zelený pokud existují dokumenty)
   - „Pokračovat na rozesílku →" — přechod k odesílání emailů (pouze u dokončených)
-  - „+ Nahrát další PDF" — odkaz na stránce přiřazení pro doplnění/přepsání dokumentů
+  - „Nahrát další PDF" — obrysové tlačítko na stránce přiřazení pro doplnění/přepsání dokumentů
   - Re-import: volba režimu „Doplnit k existujícím" / „Přepsat stávající" (smaže staré PDF + přiřazení)
   - Read-only mód: skryté checkboxy, assign dropdown, potvrdit/odebrat tlačítka, externí formulář; viditelné statusové štítky (Potvrzeno/Nepřiřazeno/Nepotvrzeno)
 - Rozesílka (`/dane/{id}/rozeslat`):
@@ -181,7 +181,7 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
   - Vyhledávání příjemců (jméno, email, název souboru) s diacritics-insensitive porovnáním
   - Server-side řazení (příjemce, email, počet dokumentů, stav) s HTMX partial
   - Bookmarkovatelné URL parametry (q, filtr, sort, order)
-- Wizard stepper: kompaktní kroky (Upload PDF → Přiřazení → Rozesílka → Dokončeno) na kartách i detail stránkách; po dokončení workflow všechny kroky zelené
+- Wizard stepper: kompaktní kroky (Nahrání PDF → Přiřazení → Rozesílka → Dokončeno) na kartách i detail stránkách; po dokončení workflow všechny kroky zelené
 - Index stránka:
   - Compact wizard stepper na kartě každé relace
   - Progress bar „Potvrzeno X / Y" na každé kartě relace
