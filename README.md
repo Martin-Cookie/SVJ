@@ -310,6 +310,8 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
   - Řaditelné sloupce (datum, modul, příjemce, předmět, stav) s šipkami
   - Hledání (příjemce, email, předmět, modul — diacritics-insensitive)
   - Prokliky na detail vlastníka u příjemců nalezených v DB
+  - Klikací přílohy — náhled/stažení PDF a dalších souborů přímo z email logu (`target="_blank"`)
+  - Plné cesty příloh uložené v DB (zpětně kompatibilní se starými záznamy bez cest)
   - Status badge: OK (zelená), Chyba (červená s tooltip), Čeká (žlutá)
   - HTMX partial pro live search, flex layout s fixní hlavičkou
 
