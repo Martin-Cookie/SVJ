@@ -446,8 +446,9 @@ app/
 └── static/                    # CSS, JS
     ├── css/custom.css
     └── js/app.js
+CLAUDE.md                          # Pravidla pro vývoj (backend, routery, modely, workflow)
 docs/
-└── UI_GUIDE.md                # UI/frontend konvence (layout, tabulky, formuláře, HTMX vzory)
+└── UI_GUIDE.md                # UI/frontend konvence — jediný zdroj pravdy pro UI vzory
 data/
 ├── svj.db                     # SQLite databáze
 ├── uploads/                   # Nahrané soubory (Excel, CSV, PDF)

@@ -29,6 +29,8 @@ Tento soubor je **jediný zdroj pravdy** pro UI/frontend vzory a konvence. Stack
 
 ## 2. Tabulky
 
+> **Kdy použít tabulku vs karty:** Tabulkový layout (sort, search, bubliny, HTMX partial) je pro datové seznamy s desítkami/stovkami řádků (vlastníci, jednotky, lístky, logy). Pro malé admin seznamy (~5–15 položek, např. číselníky, emailové šablony, členové výboru) použít kompaktní layout — karty s inline edit (viz § 4 alternativní vzor).
+
 ### Sticky hlavičky
 ```html
 <thead class="bg-gray-50 border-b-2 border-gray-300 sticky top-0 z-10">

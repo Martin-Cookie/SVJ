@@ -48,8 +48,11 @@
   if (hodnota) { /* najít a kliknout na řádek s data-hodnota == hodnota */ }
   ```
 - **Obnova scroll pozice při návratu** — viz [UI_GUIDE.md § 13](docs/UI_GUIDE.md). Shrnutí: řádky mají `id`, back URL obsahuje `#hash`, stránka volá `scrollIntoView`
+- **Kontrola při přidání `<a href>` na entitu** — VŽDY ověřit 3 věci: (1) odkaz má `?back=`, (2) router předává `list_url` do kontextu, (3) cílová stránka má odpovídající `back_label` větev
 
 ## Tabulky — povinný checklist
+
+> **Tento checklist platí pro datové tabulky** (desítky/stovky řádků — vlastníci, jednotky, lístky, logy). Pro malé admin seznamy (~5–15 položek, např. číselníky, emailové šablony, členové výboru) použít kompaktní layout — karty s inline edit, toggle hidden. Před implementací zvážit objem dat.
 
 > **Při JAKÉKOLIV úpravě stránky s tabulkou (nová stránka, redesign, přidání sloupce) VŽDY zkontrolovat a doplnit VŠECHNY body:**
 
@@ -288,9 +291,11 @@
 - Po dokončení změn: commit + push (pokud uživatel požádá)
 - **Po pushi VŽDY rovnou aktualizovat README.md** — neptyat se, rovnou zapsat změny do README a commitnout+pushnout
 - Commit message v češtině, stručný, popisuje "co a proč"
+- **Dokumentace — jeden zdroj pravdy**: UI vzory → `docs/UI_GUIDE.md`, backend pravidla → `CLAUDE.md`, projektová dokumentace → `README.md`. Při změně/přidání vzoru zapsat na jedno místo, z ostatních jen odkázat. Při přejmenování modulu/funkce projít VŠECHNY tři soubory
 
 ## Komunikace s uživatelem
 
+- **UI rozhodnutí s více přístupy**: nabídnout 2–3 mockupy (přes AskUserQuestion s markdown preview) místo rovnou implementovat první nápad. Ušetří čas — přepsat template je dražší než ukázat mockup
 - NEPTÁT SE na přístup/implementaci, pokud je vzor již zavedený v projektu — použít existující vzor
 - Pokud uživatel řekne "commit this and push" — udělat commit a push bez dalších otázek
 - Pokud uživatel řekne "dokumentaci" — aktualizovat README.md bez ptaní se co přidat
