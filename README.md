@@ -328,6 +328,7 @@ app/
 ├── main.py                    # FastAPI aplikace
 ├── config.py                  # Nastavení (Pydantic)
 ├── database.py                # SQLAlchemy engine + session
+├── utils.py                   # Sdílené utility (strip_diacritics, build_list_url, is_htmx_partial)
 ├── models/                    # Databázové modely
 │   ├── owner.py               #   Owner, Unit, OwnerUnit, Proxy
 │   ├── voting.py              #   Voting, VotingItem, Ballot, BallotVote
@@ -360,7 +361,8 @@ app/
 │   ├── owner_exchange.py      #   Výměna vlastníků při synchronizaci
 │   ├── backup_service.py      #   Zálohování a obnova dat (ZIP)
 │   ├── data_export.py         #   Export dat do Excel/CSV (6 kategorií)
-│   └── email_service.py       #   SMTP odesílání emailů
+│   ├── email_service.py       #   SMTP odesílání emailů
+│   └── code_list_service.py   #   Sdílený přístup k číselníkům
 ├── templates/                 # Jinja2 šablony
 │   ├── base.html              #   Layout se sidebar navigací
 │   ├── dashboard.html         #   Přehled (statistiky vlastníků, jednotek, podílů)
