@@ -10,6 +10,15 @@
 
 <div class="bg-white rounded-lg shadow p-6">
 
+    {% if zprava == 'obnoveno' %}
+    <div class="mb-4 px-4 py-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-800">
+        Data byla úspěšně obnovena ze zálohy. Před obnovou byla vytvořena pojistná záloha.
+    </div>
+    {% elif zprava == 'vytvoreno' %}
+    <div class="mb-4 px-4 py-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-800">
+        Záloha byla úspěšně vytvořena.
+    </div>
+    {% endif %}
     {% if chyba == 'prazdna' %}
     <div class="mb-4 px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
         V systému nejsou žádná data k zálohování.

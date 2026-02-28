@@ -13,8 +13,10 @@ from app.models import (
     Voting, VotingItem, Ballot, BallotVote,
     TaxSession, TaxDocument, TaxDistribution,
     SyncSession, SyncRecord,
+    ShareCheckSession, ShareCheckRecord,
     EmailLog, ImportLog,
     SvjInfo, SvjAddress, BoardMember,
+    CodeListItem, EmailTemplate,
 )
 
 # ── Column definitions per export category ──────────────────────────
@@ -65,6 +67,14 @@ _EXPORTS: dict[str, dict] = {
             "Stav", "Řešení", "Opravené jméno", "Poznámka",
         ],
     },
+    "share_check": {
+        "label": "Kontrola podílu",
+        "headers": [
+            "Relace", "Datum", "Soubor",
+            "Jednotka", "Podíl v DB", "Podíl v souboru",
+            "Stav", "Řešení", "Poznámka",
+        ],
+    },
     "logs": {
         "label": "Logy",
         "headers": [
@@ -82,7 +92,7 @@ _EXPORTS: dict[str, dict] = {
     },
 }
 
-EXPORT_ORDER = ["owners", "votings", "tax", "sync", "logs", "administration"]
+EXPORT_ORDER = ["owners", "votings", "tax", "sync", "share_check", "logs", "administration"]
 
 
 def _fmt(val) -> str:
@@ -208,6 +218,25 @@ def _rows_sync(db: Session):
             ]
 
 
+def _rows_share_check(db: Session):
+    sessions = (
+        db.query(ShareCheckSession)
+        .options(joinedload(ShareCheckSession.records))
+        .order_by(ShareCheckSession.created_at.desc())
+        .all()
+    )
+    for s in sessions:
+        for r in s.records:
+            yield [
+                s.filename, _fmt(s.created_at), s.filename,
+                r.unit_number or "",
+                r.db_share, r.file_share,
+                r.status.value if r.status else "",
+                r.resolution.value if r.resolution else "",
+                r.admin_note or "",
+            ]
+
+
 def _rows_logs(db: Session):
     for e in db.query(EmailLog).order_by(EmailLog.created_at.desc()).all():
         yield [
@@ -239,6 +268,13 @@ def _rows_administration(db: Session):
             "Výbor" if m.group == "board" else "Kontrolní orgán",
             m.name, m.role or "", m.email or "", m.phone or "",
         ]
+    for item in db.query(CodeListItem).order_by(CodeListItem.category, CodeListItem.order).all():
+        yield ["Číselník", item.category, item.value, "", ""]
+    for tpl in db.query(EmailTemplate).order_by(EmailTemplate.order, EmailTemplate.name).all():
+        yield [
+            "Emailová šablona", tpl.name,
+            tpl.subject_template or "", tpl.body_template or "", "",
+        ]
 
 
 _ROW_GENERATORS = {
@@ -246,6 +282,7 @@ _ROW_GENERATORS = {
     "votings": _rows_votings,
     "tax": _rows_tax,
     "sync": _rows_sync,
+    "share_check": _rows_share_check,
     "logs": _rows_logs,
     "administration": _rows_administration,
 }

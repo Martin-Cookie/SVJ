@@ -196,7 +196,7 @@ async def code_lists_page(request: Request, db: Session = Depends(get_db)):
 
 
 @router.get("/zalohy")
-async def backups_page(request: Request, chyba: str = Query(""), db: Session = Depends(get_db)):
+async def backups_page(request: Request, chyba: str = Query(""), zprava: str = Query(""), db: Session = Depends(get_db)):
     backups = []
     if BACKUP_DIR.is_dir():
         for f in sorted(BACKUP_DIR.iterdir(), reverse=True):
@@ -218,6 +218,7 @@ async def backups_page(request: Request, chyba: str = Query(""), db: Session = D
         "restore_log": restore_log,
         "default_backup_name": default_backup_name,
         "chyba": chyba,
+        "zprava": zprava,
     })
 
 
@@ -527,7 +528,7 @@ async def backup_create(filename: str = Form(""), db: Session = Depends(get_db))
 
     name = filename.strip() or None
     create_backup(str(DB_PATH), str(UPLOADS_DIR), str(GENERATED_DIR), str(BACKUP_DIR), custom_name=name)
-    return RedirectResponse("/sprava/zalohy", status_code=302)
+    return RedirectResponse("/sprava/zalohy?zprava=vytvoreno", status_code=302)
 
 
 @router.get("/zaloha/{filename}/stahnout")
@@ -575,7 +576,7 @@ async def backup_restore(file: UploadFile = File(...)):
             temp_path.unlink()
 
     run_post_restore_migrations()
-    return RedirectResponse("/sprava/zalohy", status_code=302)
+    return RedirectResponse("/sprava/zalohy?zprava=obnoveno", status_code=302)
 
 
 @router.post("/zaloha/obnovit-adresar")
@@ -594,7 +595,7 @@ async def backup_restore_directory(dir_path: str = Form(...)):
     safety = next(iter(new_backups), "")
     log_restore(str(BACKUP_DIR), dir_path, "Adresář", safety_backup=safety)
     run_post_restore_migrations()
-    return RedirectResponse("/sprava/zalohy", status_code=302)
+    return RedirectResponse("/sprava/zalohy?zprava=obnoveno", status_code=302)
 
 
 @router.post("/zaloha/obnovit-soubor")
@@ -611,7 +612,7 @@ async def backup_restore_db_file(file: UploadFile = File(...)):
 
     log_restore(str(BACKUP_DIR), file.filename or "svj.db", "DB soubor", safety_backup=safety)
     run_post_restore_migrations()
-    return RedirectResponse("/sprava/zalohy", status_code=302)
+    return RedirectResponse("/sprava/zalohy?zprava=obnoveno", status_code=302)
 
 
 @router.post("/zaloha/obnovit-slozku")
@@ -674,7 +675,7 @@ async def backup_restore_folder(files: List[UploadFile] = File(...)):
         shutil.rmtree(tmp, ignore_errors=True)
 
     run_post_restore_migrations()
-    return RedirectResponse("/sprava/zalohy", status_code=302)
+    return RedirectResponse("/sprava/zalohy?zprava=obnoveno", status_code=302)
 
 
 # ---- Export data ----
@@ -847,12 +848,31 @@ async def purge_data(request: Request, db: Session = Depends(get_db)):
         for model in _PURGE_CATEGORIES["sync"]["models"]:
             db.query(model).delete()
 
-    # Clean uploaded / generated files if owners or votings are wiped
-    if "owners" in categories or "votings" in categories:
-        for dirname in (UPLOADS_DIR, GENERATED_DIR):
-            if dirname.is_dir():
-                shutil.rmtree(dirname, ignore_errors=True)
-                dirname.mkdir(parents=True, exist_ok=True)
+    # Clean uploaded files per category (only delete subdirectories of deleted categories)
+    _CATEGORY_UPLOAD_DIRS = {
+        "owners": ["excel"],
+        "votings": ["word_templates", "scanned_ballots"],
+        "tax": ["tax_pdfs"],
+        "sync": ["csv"],
+        "share_check": ["share_check"],
+    }
+    for cat_key in categories:
+        for subdir in _CATEGORY_UPLOAD_DIRS.get(cat_key, []):
+            target = UPLOADS_DIR / subdir
+            if target.is_dir():
+                shutil.rmtree(target, ignore_errors=True)
+                target.mkdir(parents=True, exist_ok=True)
+    # Cascade: owners purge also cleans sync files
+    if "owners" in categories and "sync" not in categories:
+        csv_dir = UPLOADS_DIR / "csv"
+        if csv_dir.is_dir():
+            shutil.rmtree(csv_dir, ignore_errors=True)
+            csv_dir.mkdir(parents=True, exist_ok=True)
+
+    # Clean generated files (ballot PDFs etc.) only if votings are deleted
+    if "votings" in categories and GENERATED_DIR.is_dir():
+        shutil.rmtree(GENERATED_DIR, ignore_errors=True)
+        GENERATED_DIR.mkdir(parents=True, exist_ok=True)
 
     # Delete backup ZIP files
     if "backups" in categories and BACKUP_DIR.is_dir():

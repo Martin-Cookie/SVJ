@@ -31,11 +31,17 @@
             <label class="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 cursor-pointer select-none">
                 <input type="checkbox" name="categories" value="{{ key }}"
                        class="purge-cb w-4 h-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
-                       onchange="purgeUpdateSelectAll()">
+                       onchange="purgeUpdateSelectAll()" data-key="{{ key }}">
                 <div class="flex-1 min-w-0">
                     <span class="text-sm font-medium text-gray-800">{{ cat.label }}</span>
                     <span class="text-xs text-gray-400 ml-1">({{ count }} záznamů)</span>
                     <p class="text-xs text-gray-500">{{ cat.description }}</p>
+                    {% if key == 'owners' %}
+                    <p class="text-xs text-amber-600 hidden" id="purge-cascade-warn">Automaticky smaže i synchronizační data a soubory (Excel, CSV)</p>
+                    {% endif %}
+                    {% if key == 'backups' and purge_counts['backups'] > 0 %}
+                    <p class="text-xs text-gray-400">{{ purge_counts['backups'] }} ZIP {% if purge_counts['backups'] == 1 %}soubor{% elif purge_counts['backups'] < 5 %}soubory{% else %}souborů{% endif %}</p>
+                    {% endif %}
                 </div>
             </label>
             {% endfor %}
@@ -67,6 +73,12 @@ function purgeUpdateSelectAll() {
     var all = document.getElementById('purge-select-all');
     if (all) all.checked = Array.from(cbs).every(function(cb) { return cb.checked; });
     purgeUpdateButton();
+    // Show cascade warning when owners is checked
+    var ownersCb = document.querySelector('.purge-cb[data-key="owners"]');
+    var warn = document.getElementById('purge-cascade-warn');
+    if (warn && ownersCb) {
+        warn.classList.toggle('hidden', !ownersCb.checked);
+    }
 }
 function purgeUpdateButton() {
     var anyChecked = Array.from(document.querySelectorAll('.purge-cb')).some(function(cb) { return cb.checked; });
