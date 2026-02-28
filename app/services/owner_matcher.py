@@ -18,7 +18,7 @@ TITLE_PATTERNS = [
 
 _CZECH_SURNAME_SUFFIXES = [
     # Sorted longest-first; must be ASCII (applied after unidecode)
-    "kovou", "kovi", "kove", "kova", "ovou", "ovi", "ove", "ova", "kem", "ek",
+    "kovou", "kovi", "kove", "kova", "ovou", "ovi", "ove", "ova", "kem", "ek", "i",
 ]
 
 

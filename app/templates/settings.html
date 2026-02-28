@@ -9,34 +9,50 @@
     <div class="lg:col-span-1">
         <div class="bg-white rounded-lg shadow p-6">
             <h2 class="text-lg font-semibold text-gray-700 mb-4">SMTP nastavení emailu</h2>
-            <p class="text-sm text-gray-500 mb-4">
-                Konfigurace se nastavuje v souboru <code class="bg-gray-100 px-1 rounded">.env</code> v kořenovém adresáři aplikace.
-            </p>
-            <div class="space-y-3 text-sm">
-                <div class="flex justify-between py-2 border-b border-gray-100">
-                    <span class="text-gray-600">SMTP Server</span>
-                    <span class="font-mono text-gray-800">{{ settings.smtp_host }}</span>
+            <form action="/nastaveni/smtp" method="post" class="space-y-4 text-sm" hx-boost="false">
+                <div>
+                    <label for="smtp_host" class="block text-gray-600 mb-1">SMTP Server</label>
+                    <input type="text" id="smtp_host" name="smtp_host" value="{{ settings.smtp_host }}"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                 </div>
-                <div class="flex justify-between py-2 border-b border-gray-100">
-                    <span class="text-gray-600">Port</span>
-                    <span class="font-mono text-gray-800">{{ settings.smtp_port }}</span>
+                <div>
+                    <label for="smtp_port" class="block text-gray-600 mb-1">Port</label>
+                    <input type="number" id="smtp_port" name="smtp_port" value="{{ settings.smtp_port }}"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                 </div>
-                <div class="flex justify-between py-2 border-b border-gray-100">
-                    <span class="text-gray-600">Uživatel</span>
-                    <span class="font-mono text-gray-800">{{ settings.smtp_user or '(nenastaveno)' }}</span>
+                <div>
+                    <label for="smtp_user" class="block text-gray-600 mb-1">Uživatel</label>
+                    <input type="text" id="smtp_user" name="smtp_user" value="{{ settings.smtp_user }}"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                 </div>
-                <div class="flex justify-between py-2 border-b border-gray-100">
-                    <span class="text-gray-600">Odesílatel</span>
-                    <span class="font-mono text-gray-800">{{ settings.smtp_from_name }} &lt;{{ settings.smtp_from_email }}&gt;</span>
+                <div>
+                    <label for="smtp_password" class="block text-gray-600 mb-1">Heslo</label>
+                    <input type="password" id="smtp_password" name="smtp_password"
+                        placeholder="{{ '••••••••' if settings.smtp_password else '' }}"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <p class="text-xs text-gray-400 mt-1">Ponechte prázdné pro zachování stávajícího hesla</p>
                 </div>
-                <div class="flex justify-between py-2 border-b border-gray-100">
-                    <span class="text-gray-600">TLS</span>
-                    <span class="font-mono text-gray-800">{{ 'Ano' if settings.smtp_use_tls else 'Ne' }}</span>
+                <div>
+                    <label for="smtp_from_name" class="block text-gray-600 mb-1">Jméno odesílatele</label>
+                    <input type="text" id="smtp_from_name" name="smtp_from_name" value="{{ settings.smtp_from_name }}"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                 </div>
-            </div>
-            <div class="mt-4 p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
-                Pro změnu nastavení upravte proměnné prostředí v <code>.env</code> souboru a restartujte aplikaci.
-            </div>
+                <div>
+                    <label for="smtp_from_email" class="block text-gray-600 mb-1">Email odesílatele</label>
+                    <input type="email" id="smtp_from_email" name="smtp_from_email" value="{{ settings.smtp_from_email }}"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div class="flex items-center gap-2">
+                    <input type="checkbox" id="smtp_use_tls" name="smtp_use_tls" value="true"
+                        {{ 'checked' if settings.smtp_use_tls else '' }}
+                        class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                    <label for="smtp_use_tls" class="text-gray-600">Použít TLS</label>
+                </div>
+                <button type="submit"
+                    class="w-full px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
+                    Uložit nastavení
+                </button>
+            </form>
         </div>
     </div>
 

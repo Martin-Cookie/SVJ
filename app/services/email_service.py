@@ -90,6 +90,14 @@ def send_email(
 
         return {"success": True, "error": None}
 
+    except smtplib.SMTPAuthenticationError:
+        error_msg = "Přihlášení k SMTP serveru selhalo. Zkontrolujte uživatelské jméno a heslo v Nastavení. Pro Gmail použijte App Password."
+        if log:
+            log.status = EmailStatus.FAILED
+            log.error_message = error_msg
+            db.commit()
+        return {"success": False, "error": error_msg}
+
     except socket.gaierror:
         error_msg = f"SMTP server '{settings.smtp_host}' není dostupný. Zkontrolujte nastavení v souboru .env"
         if log:
