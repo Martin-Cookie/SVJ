@@ -1,37 +1,37 @@
 <form hx-post="/vlastnici/{{ owner.id }}/adresa/{{ prefix }}/upravit" hx-target="#{{ prefix }}-address-section" hx-swap="innerHTML">
-    <div class="flex items-center justify-between mb-4">
-        <h2 class="text-lg font-semibold text-gray-700">{{ address_label|default("Trvalá adresa" if prefix == "perm" else "Korespondenční adresa") }}</h2>
-        <div class="flex items-center gap-2">
-            <button type="submit" class="px-3 py-1.5 text-sm font-medium text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors">Uložit</button>
+    <div class="flex items-center justify-between mb-2">
+        <h2 class="text-sm font-semibold text-gray-700">{{ address_label|default("Trvalá adresa" if prefix == "perm" else "Koresp. adresa") }}</h2>
+        <div class="flex items-center gap-1">
+            <button type="submit" class="px-2 py-1 text-xs font-medium text-blue-600 border border-blue-300 rounded hover:bg-blue-50 transition-colors">Uložit</button>
             <button type="button" hx-get="/vlastnici/{{ owner.id }}/adresa/{{ prefix }}/info" hx-target="#{{ prefix }}-address-section" hx-swap="innerHTML"
-                    class="px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm font-medium">Zrušit</button>
+                    class="px-2 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-xs font-medium">Zrušit</button>
         </div>
     </div>
-    <div class="space-y-3">
-        <div class="flex items-center">
-            <label class="w-24 text-sm font-medium text-gray-700">Ulice</label>
+    <div class="space-y-2">
+        <div>
+            <label class="block text-xs text-gray-500 mb-0.5">Ulice</label>
             <input type="text" name="street" value="{{ street or '' }}"
-                   class="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+                   class="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-blue-500">
         </div>
-        <div class="flex items-center">
-            <label class="w-24 text-sm font-medium text-gray-700">Část obce</label>
+        <div>
+            <label class="block text-xs text-gray-500 mb-0.5">Část obce</label>
             <input type="text" name="district" value="{{ district or '' }}"
-                   class="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+                   class="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-blue-500">
         </div>
-        <div class="flex items-center">
-            <label class="w-24 text-sm font-medium text-gray-700">Město</label>
+        <div>
+            <label class="block text-xs text-gray-500 mb-0.5">Město</label>
             <input type="text" name="city" value="{{ city or '' }}"
-                   class="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+                   class="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-blue-500">
         </div>
-        <div class="flex items-center">
-            <label class="w-24 text-sm font-medium text-gray-700">PSČ</label>
+        <div>
+            <label class="block text-xs text-gray-500 mb-0.5">PSČ</label>
             <input type="text" name="zip" value="{{ zip or '' }}"
-                   class="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+                   class="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-blue-500">
         </div>
-        <div class="flex items-center">
-            <label class="w-24 text-sm font-medium text-gray-700">Země</label>
+        <div>
+            <label class="block text-xs text-gray-500 mb-0.5">Země</label>
             <input type="text" name="country" value="{{ country or '' }}"
-                   class="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+                   class="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-blue-500">
         </div>
     </div>
 </form>

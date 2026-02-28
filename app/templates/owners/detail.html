@@ -2,79 +2,63 @@
 {% block title %}{{ owner.display_name }} - SVJ Správa{% endblock %}
 
 {% block content %}
-<div class="mb-6">
-    <a href="{{ back_url }}" class="text-sm text-gray-500 hover:text-gray-700">&larr; {{ back_label }}</a>
-</div>
+<div class="flex flex-col" style="height:calc(100vh - 3rem)">
+    <!-- Fixed header: back + title + badges + info strip -->
+    <div class="shrink-0">
+        <a href="{{ back_url }}" class="text-sm text-gray-500 hover:text-gray-700">&larr; {{ back_label }}</a>
 
-<div class="flex items-start justify-between mb-6">
-    <div>
-        <h1 id="owner-display-name" class="text-2xl font-bold text-gray-800">{{ owner.display_name }}</h1>
-        <div id="owner-badges" class="mt-1 flex items-center gap-2">
-            {% if owner.owner_type.value == 'legal' %}
-            <span class="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">Právnická osoba</span>
-            {% else %}
-            <span class="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">Fyzická osoba</span>
-            {% endif %}
-            {% if owner.birth_number %}
-            <span class="px-2 py-1 text-xs font-medium bg-gray-50 text-gray-700 rounded border border-gray-200">RČ: {{ owner.birth_number }}</span>
-            {% endif %}
-            {% if owner.company_id %}
-            <span class="px-2 py-1 text-xs font-medium bg-gray-50 text-gray-700 rounded border border-gray-200">IČ: {{ owner.company_id }}</span>
-            {% endif %}
+        <div class="flex items-center gap-3 mt-1 mb-3">
+            <h1 id="owner-display-name" class="text-2xl font-bold text-gray-800">{{ owner.display_name }}</h1>
+            <div id="owner-badges" class="flex items-center gap-2">
+                {% if owner.owner_type.value == 'legal' %}
+                <span class="px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">Právnická osoba</span>
+                {% else %}
+                <span class="px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">Fyzická osoba</span>
+                {% endif %}
+                {% if owner.birth_number %}
+                <span class="px-2 py-0.5 text-xs font-medium bg-gray-50 text-gray-700 rounded border border-gray-200">RČ: {{ owner.birth_number }}</span>
+                {% endif %}
+                {% if owner.company_id %}
+                <span class="px-2 py-0.5 text-xs font-medium bg-gray-50 text-gray-700 rounded border border-gray-200">IČ: {{ owner.company_id }}</span>
+                {% endif %}
+            </div>
         </div>
-    </div>
-</div>
 
-<div class="grid grid-cols-1 md:grid-cols-6 gap-6">
-    <!-- Row 1: Identity | Contact | Permanent address -->
-    <div class="bg-white rounded-lg shadow p-6 md:col-span-2">
-        <div id="identity-section">
-            {% include "partials/owner_identity_info.html" %}
+        <!-- Info strip: 4-column grid -->
+        <div class="bg-white rounded-lg shadow mb-3">
+            <div class="grid grid-cols-4 divide-x divide-gray-100">
+                <div class="p-3" id="identity-section">
+                    {% include "partials/owner_identity_info.html" %}
+                </div>
+                <div class="p-3" id="contact-form">
+                    {% include "partials/owner_contact_info.html" %}
+                </div>
+                <div class="p-3" id="perm-address-section">
+                    {% with prefix="perm", address_label="Trvalá adresa", street=owner.perm_street, district=owner.perm_district, city=owner.perm_city, zip=owner.perm_zip, country=owner.perm_country %}
+                    {% include "partials/owner_address_info.html" %}
+                    {% endwith %}
+                </div>
+                <div class="p-3" id="corr-address-section">
+                    {% with prefix="corr", address_label="Koresp. adresa", street=owner.corr_street, district=owner.corr_district, city=owner.corr_city, zip=owner.corr_zip, country=owner.corr_country %}
+                    {% include "partials/owner_address_info.html" %}
+                    {% endwith %}
+                </div>
+            </div>
         </div>
-    </div>
 
-    <div class="bg-white rounded-lg shadow p-6 md:col-span-2">
-        <div id="contact-form">
-            {% include "partials/owner_contact_info.html" %}
+        {% if owner.note or owner.owner_since %}
+        <div class="bg-white rounded-lg shadow p-3 mb-3 text-xs text-gray-600 flex gap-4">
+            {% if owner.owner_since %}<span><span class="font-medium">Vlastník od:</span> {{ owner.owner_since }}</span>{% endif %}
+            {% if owner.note %}<span>{{ owner.note }}</span>{% endif %}
         </div>
-    </div>
-
-    <div class="bg-white rounded-lg shadow p-6 md:col-span-2">
-        <div id="perm-address-section">
-            {% with prefix="perm", address_label="Trvalá adresa", street=owner.perm_street, district=owner.perm_district, city=owner.perm_city, zip=owner.perm_zip, country=owner.perm_country %}
-            {% include "partials/owner_address_info.html" %}
-            {% endwith %}
-        </div>
-    </div>
-
-    <!-- Row 2: Correspondence address | Units -->
-    <div class="bg-white rounded-lg shadow p-6 md:col-span-3">
-        <div id="corr-address-section">
-            {% with prefix="corr", address_label="Korespondenční adresa", street=owner.corr_street, district=owner.corr_district, city=owner.corr_city, zip=owner.corr_zip, country=owner.corr_country %}
-            {% include "partials/owner_address_info.html" %}
-            {% endwith %}
-        </div>
+        {% endif %}
     </div>
 
-    <div class="bg-white rounded-lg shadow p-6 md:col-span-3">
+    <!-- Scrollable units table -->
+    <div class="flex-1 overflow-y-auto min-h-0 bg-white rounded-lg shadow p-4">
         <div id="owner-units-section">
             {% include "partials/owner_units_section.html" %}
         </div>
     </div>
-
-    <!-- Row 3: Notes -->
-    {% if owner.note or owner.owner_since %}
-    <div class="bg-white rounded-lg shadow p-6 md:col-span-2">
-        <h2 class="text-lg font-semibold text-gray-700 mb-4">Poznámky</h2>
-        <div class="text-sm text-gray-600 space-y-2">
-            {% if owner.owner_since %}
-            <p><span class="font-medium">Vlastník od:</span> {{ owner.owner_since }}</p>
-            {% endif %}
-            {% if owner.note %}
-            <p>{{ owner.note }}</p>
-            {% endif %}
-        </div>
-    </div>
-    {% endif %}
 </div>
 {% endblock %}
