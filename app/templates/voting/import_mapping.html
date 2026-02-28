@@ -5,6 +5,7 @@
 <div class="flex flex-col" style="height:calc(100vh - 3rem)">
 <div class="shrink-0">
 {% include "voting/_voting_header.html" %}
+</div><!-- /bubble+search kontejner -->
 
 <div class="flex items-center justify-between mb-3">
     <div>
@@ -23,50 +24,40 @@
 </div>
 
 <div class="flex-1 overflow-y-auto min-h-0">
-<div class="max-w-3xl">
     <form action="/hlasovani/{{ voting.id }}/import/nahled" method="post" id="mapping-form">
         <input type="hidden" name="file_path" value="{{ file_path }}">
 
-        <div class="bg-white rounded-lg shadow p-6 mb-4">
-            <h3 class="text-sm font-semibold text-gray-700 mb-3">Nastavení importu</h3>
-            <div class="grid grid-cols-2 gap-4 mb-4">
+        <div class="bg-white rounded-lg shadow p-4 mb-4">
+            <h3 class="text-sm font-semibold text-gray-700 mb-2">Nastavení importu</h3>
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
                 <div>
                     <label class="block text-xs font-medium text-gray-600 mb-1">Data začínají od řádku</label>
                     <input type="number" id="start_row" min="1" value="{{ saved_mapping.start_row if saved_mapping and saved_mapping.start_row else 2 }}"
-                           class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
-                    <p class="text-xs text-gray-400 mt-1">Řádek 1 = hlavičky, řádek 2 = první data</p>
+                           class="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
                 </div>
                 <div>
                     <label class="block text-xs font-medium text-gray-600 mb-1">Režim importu</label>
-                    <select id="clear_existing" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
-                        <option value="0" {% if not saved_mapping or not saved_mapping.get('clear_existing') %}selected{% endif %}>Doplnit data (ponechat existující)</option>
-                        <option value="1" {% if saved_mapping and saved_mapping.get('clear_existing') %}selected{% endif %}>Vyčistit a přepsat vše</option>
+                    <select id="clear_existing" class="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+                        <option value="0" {% if not saved_mapping or not saved_mapping.get('clear_existing') %}selected{% endif %}>Doplnit data</option>
+                        <option value="1" {% if saved_mapping and saved_mapping.get('clear_existing') %}selected{% endif %}>Vyčistit a přepsat</option>
                     </select>
-                    <p class="text-xs text-gray-400 mt-1">Doplnit = zapíše jen tam, kde ještě není hlas. Vyčistit = přepíše všechny lístky.</p>
                 </div>
-            </div>
-            <div class="grid grid-cols-2 gap-4">
                 <div>
                     <label class="block text-xs font-medium text-gray-600 mb-1">Hodnoty pro PRO</label>
                     <input type="text" id="for_values" value="{{ saved_mapping.for_values if saved_mapping and saved_mapping.for_values else '1, ANO, YES, X, PRO' }}"
-                           class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
-                    <p class="text-xs text-gray-400 mt-1">Čárkou oddělené hodnoty nebo porovnání, např. 1, ANO, YES, >0</p>
+                           class="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
                 </div>
                 <div>
                     <label class="block text-xs font-medium text-gray-600 mb-1">Hodnoty pro PROTI</label>
                     <input type="text" id="against_values" value="{{ saved_mapping.against_values if saved_mapping and saved_mapping.against_values else '0, NE, NO, PROTI' }}"
-                           class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
-                    <p class="text-xs text-gray-400 mt-1">Čárkou oddělené hodnoty nebo porovnání, např. 0, NE, NO, <0</p>
+                           class="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
                 </div>
             </div>
-        </div>
-
-        <div class="bg-white rounded-lg shadow p-6 mb-4">
-            <h3 class="text-sm font-semibold text-gray-700 mb-3">Základní sloupce</h3>
-            <div class="grid grid-cols-2 gap-4">
+            <h3 class="text-sm font-semibold text-gray-700 mb-2 pt-2 border-t border-gray-100">Základní sloupce</h3>
+            <div class="grid grid-cols-2 gap-3">
                 <div>
                     <label class="block text-xs font-medium text-gray-600 mb-1">Vlastník (jméno)</label>
-                    <select id="owner_col" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+                    <select id="owner_col" class="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
                         <option value="">-- Vyberte --</option>
                         {% for h in headers %}
                         <option value="{{ loop.index0 }}" {% if saved_mapping and saved_mapping.owner_col == loop.index0 %}selected{% endif %}>{{ h }}</option>
@@ -75,7 +66,7 @@
                 </div>
                 <div>
                     <label class="block text-xs font-medium text-gray-600 mb-1">Číslo jednotky</label>
-                    <select id="unit_col" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+                    <select id="unit_col" class="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
                         <option value="">-- Vyberte --</option>
                         {% for h in headers %}
                         <option value="{{ loop.index0 }}" {% if saved_mapping and saved_mapping.unit_col == loop.index0 %}selected{% endif %}>{{ h }}</option>
@@ -85,8 +76,8 @@
             </div>
         </div>
 
-        <div class="bg-white rounded-lg shadow p-6 mb-4">
-            <h3 class="text-sm font-semibold text-gray-700 mb-3">Body hlasování</h3>
+        <div class="bg-white rounded-lg shadow p-4 mb-4">
+            <h3 class="text-sm font-semibold text-gray-700 mb-2">Body hlasování</h3>
             {% for item in voting.items %}
             {% set saved_item = namespace(for_col='', against_col='') %}
             {% if saved_mapping and saved_mapping['item_mappings'] is defined %}
@@ -97,27 +88,21 @@
                     {% endif %}
                 {% endfor %}
             {% endif %}
-            <div class="mb-4 pb-4 {% if not loop.last %}border-b border-gray-100{% endif %}">
-                <p class="text-sm font-medium text-gray-800 mb-2">{{ item.order }}. {{ item.title }}</p>
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">Sloupec hlasování (1=PRO, 0=PROTI)</label>
-                        <select class="item-for-col w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500" data-item-id="{{ item.id }}">
-                            <option value="">-- Vyberte --</option>
-                            {% for h in headers %}
-                            <option value="{{ loop.index0 }}" {% if saved_item.for_col is not none and saved_item.for_col == loop.index0 %}selected{% endif %}>{{ h }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">Sloupec PROTI (volitelné, pokud je zvlášť)</label>
-                        <select class="item-against-col w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500" data-item-id="{{ item.id }}">
-                            <option value="">-- Nepoužívat --</option>
-                            {% for h in headers %}
-                            <option value="{{ loop.index0 }}" {% if saved_item.against_col is not none and saved_item.against_col == loop.index0 %}selected{% endif %}>{{ h }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
+            <div class="flex items-center gap-3 py-2 {% if not loop.last %}border-b border-gray-100{% endif %}">
+                <p class="text-sm font-medium text-gray-800 w-1/3 min-w-0 truncate" title="{{ item.title }}">{{ item.order }}. {{ item.title }}</p>
+                <div class="flex-1 grid grid-cols-2 gap-3">
+                    <select class="item-for-col w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500" data-item-id="{{ item.id }}">
+                        <option value="">-- Sloupec PRO --</option>
+                        {% for h in headers %}
+                        <option value="{{ loop.index0 }}" {% if saved_item.for_col is not none and saved_item.for_col == loop.index0 %}selected{% endif %}>{{ h }}</option>
+                        {% endfor %}
+                    </select>
+                    <select class="item-against-col w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500" data-item-id="{{ item.id }}">
+                        <option value="">-- Sloupec PROTI --</option>
+                        {% for h in headers %}
+                        <option value="{{ loop.index0 }}" {% if saved_item.against_col is not none and saved_item.against_col == loop.index0 %}selected{% endif %}>{{ h }}</option>
+                        {% endfor %}
+                    </select>
                 </div>
             </div>
             {% endfor %}
@@ -125,7 +110,6 @@
 
         <input type="hidden" name="mapping_json" id="mapping_json" value="">
     </form>
-</div>
 </div>
 </div>
 

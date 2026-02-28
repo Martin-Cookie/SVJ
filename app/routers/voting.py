@@ -54,7 +54,7 @@ def _voting_wizard(voting, current_step: int) -> dict:
         max_done = 5
     elif status == "active":
         has_processed = any(b.status.value == "processed" for b in voting.ballots)
-        max_done = 3 if has_processed else 2
+        max_done = 4 if has_processed else 2
     else:
         max_done = 0  # draft
 
@@ -172,7 +172,7 @@ async def voting_list(
         if status == "closed":
             wizard_step, wizard_label = 5, "Uzavření"
         elif status == "active" and all_processed:
-            wizard_step, wizard_label = 4, "Výsledky"
+            wizard_step, wizard_label = 5, "Uzavření"
         elif status == "active":
             wizard_step, wizard_label = 3, "Zpracování"
         elif status == "draft" and has_items:
@@ -185,7 +185,7 @@ async def voting_list(
         if status == "closed":
             list_max_done = 5
         elif status == "active":
-            list_max_done = 2
+            list_max_done = 4 if any(b.status == BallotStatus.PROCESSED for b in voting.ballots) else 2
         else:
             list_max_done = 0
 
@@ -229,9 +229,18 @@ async def voting_list(
 
 @router.get("/nova")
 async def voting_create_page(request: Request):
+    wizard = {
+        "wizard_steps": [
+            {"label": s["label"], "status": "active" if i == 0 else "pending"}
+            for i, s in enumerate(_VOTING_WIZARD_STEPS)
+        ],
+        "wizard_current": 1,
+        "wizard_total": len(_VOTING_WIZARD_STEPS),
+    }
     return templates.TemplateResponse("voting/create.html", {
         "request": request,
         "active_nav": "voting",
+        **wizard,
     })
 
 
@@ -405,7 +414,7 @@ async def voting_detail(
 
     has_processed = any(b.status.value == "processed" for b in voting.ballots)
     if voting.status.value == "active":
-        detail_step = 4 if has_processed else 3
+        detail_step = 5 if has_processed else 3
     elif voting.status.value == "closed":
         detail_step = 5
     else:
@@ -610,7 +619,7 @@ async def process_page(
 ):
     voting = db.query(Voting).options(
         joinedload(Voting.items),
-        joinedload(Voting.ballots).joinedload(Ballot.owner),
+        joinedload(Voting.ballots).joinedload(Ballot.owner).joinedload(Owner.units),
         joinedload(Voting.ballots).joinedload(Ballot.votes),
     ).get(voting_id)
     if not voting:
@@ -641,6 +650,12 @@ async def process_page(
         b for b in voting.ballots
         if b.status in (BallotStatus.GENERATED, BallotStatus.SENT, BallotStatus.RECEIVED)
         and b.id not in ballots_with_votes
+    ]
+
+    # Hide ballots for inactive owners with no current units
+    unprocessed = [
+        b for b in unprocessed
+        if not (not b.owner.is_active and not b.owner.current_units)
     ]
 
     # Search filter
