@@ -707,33 +707,54 @@ async def apply_selected_updates(
                 new_count = len(matched_pairs) + len(unmatched_csv)
                 votes_each = total_votes // new_count if new_count > 0 else 0
 
+                from app.models import OwnerType
                 for cn in unmatched_csv:
-                    name_parts = cn.split(None, 1)
-                    is_legal = re.search(
-                        r'\b(s\.r\.o\.|a\.s\.|spol\.|z\.s\.|v\.o\.s\.)\b',
-                        cn, re.IGNORECASE,
+                    # Search entire DB for existing owner before creating new
+                    cn_simple = _strip_diacritics(cn.strip())
+                    existing_global = (
+                        db.query(Owner)
+                        .filter(Owner.name_normalized == cn_simple, Owner.is_active == True)
+                        .first()
                     )
-                    from app.models import OwnerType
-                    new_owner = Owner(
-                        first_name=name_parts[1] if len(name_parts) == 2 else name_parts[0],
-                        last_name=name_parts[0] if len(name_parts) == 2 else None,
-                        name_with_titles=cn,
-                        name_normalized=normalize_for_matching(cn),
-                        owner_type=OwnerType.LEGAL_ENTITY if is_legal else OwnerType.PHYSICAL,
-                        data_source="csv_sync",
-                        is_active=True,
-                    )
-                    db.add(new_owner)
-                    db.flush()
+                    if not existing_global:
+                        # Also try stemmed match (csv_sync owners use normalize_for_matching)
+                        cn_stemmed = normalize_for_matching(cn)
+                        existing_global = (
+                            db.query(Owner)
+                            .filter(Owner.name_normalized == cn_stemmed, Owner.is_active == True)
+                            .first()
+                        )
+
+                    if existing_global:
+                        owner = existing_global
+                        changes.append(f"přidán (existující): {cn}")
+                    else:
+                        name_parts = cn.split(None, 1)
+                        is_legal = re.search(
+                            r'\b(s\.r\.o\.|a\.s\.|spol\.|z\.s\.|v\.o\.s\.)\b',
+                            cn, re.IGNORECASE,
+                        )
+                        owner = Owner(
+                            first_name=name_parts[1] if len(name_parts) == 2 else name_parts[0],
+                            last_name=name_parts[0] if len(name_parts) == 2 else None,
+                            name_with_titles=cn,
+                            name_normalized=_strip_diacritics(cn.strip()),
+                            owner_type=OwnerType.LEGAL_ENTITY if is_legal else OwnerType.PHYSICAL,
+                            data_source="csv_sync",
+                            is_active=True,
+                        )
+                        db.add(owner)
+                        db.flush()
+                        changes.append(f"přidán: {cn}")
+
                     new_ou = OwnerUnit(
-                        owner_id=new_owner.id,
+                        owner_id=owner.id,
                         unit_id=unit.id,
                         ownership_type=record.csv_ownership_type or "",
                         share=1.0 / new_count if new_count > 1 else 1.0,
                         votes=votes_each,
                     )
                     db.add(new_ou)
-                    changes.append(f"přidán: {cn}")
 
                 # Recalculate votes for remaining owners if count changed
                 if unmatched_db or unmatched_csv:

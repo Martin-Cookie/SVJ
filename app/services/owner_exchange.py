@@ -73,6 +73,13 @@ def _split_csv_names(csv_owner_name: str) -> list[str]:
     return [n.strip() for n in names if n.strip()]
 
 
+def _strip_diacritics_simple(text: str) -> str:
+    """Remove diacritics and lowercase — no stemming, no title stripping."""
+    from unicodedata import category, normalize
+    nfkd = normalize("NFD", text)
+    return "".join(c for c in nfkd if category(c) != "Mn").lower()
+
+
 def _find_existing_owner(
     db: Session,
     csv_name: str,
@@ -85,7 +92,7 @@ def _find_existing_owner(
     """
     norm = normalize_for_matching(csv_name)
 
-    # 1. Exact normalized match among active owners
+    # 1. Exact stemmed match (matches csv_sync-created owners)
     exact = (
         db.query(Owner)
         .filter(Owner.name_normalized == norm, Owner.is_active == True)
@@ -94,7 +101,17 @@ def _find_existing_owner(
     if exact:
         return ("reuse", exact, 1.0)
 
-    # 2. Fuzzy match via match_name with threshold 0.90
+    # 2. Simple normalized match without stemming (matches excel/manual owners)
+    simple_norm = _strip_diacritics_simple(csv_name.strip())
+    simple_match = (
+        db.query(Owner)
+        .filter(Owner.name_normalized == simple_norm, Owner.is_active == True)
+        .first()
+    )
+    if simple_match:
+        return ("reuse", simple_match, 0.99)
+
+    # 3. Fuzzy match via match_name with threshold 0.90
     matches = match_name(csv_name, active_owners, threshold=0.90)
     if matches:
         best = matches[0]
@@ -102,7 +119,7 @@ def _find_existing_owner(
         if owner:
             return ("possible", owner, best["confidence"])
 
-    # 3. Not found
+    # 4. Not found
     return ("new", None, 0.0)
 
 
@@ -317,7 +334,7 @@ def execute_exchange(
                     first_name=first_name or csv_name,
                     last_name=last_name,
                     name_with_titles=csv_name,
-                    name_normalized=normalize_for_matching(csv_name),
+                    name_normalized=_strip_diacritics_simple(csv_name.strip()),
                     owner_type=OwnerType.LEGAL_ENTITY if is_legal else OwnerType.PHYSICAL,
                     data_source="csv_sync",
                     is_active=True,

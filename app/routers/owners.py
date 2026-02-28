@@ -597,40 +597,16 @@ async def owner_merge(
     if not owner:
         return RedirectResponse("/vlastnici", status_code=302)
 
-    existing_unit_ids = {ou.unit_id for ou in owner.current_units}
-
+    duplicates = []
     for dup_id in merge_ids:
         dup = db.query(Owner).options(
             joinedload(Owner.units).joinedload(OwnerUnit.unit)
         ).get(dup_id)
-        if not dup or dup.id == owner.id:
-            continue
+        if dup and dup.id != owner.id:
+            duplicates.append(dup)
 
-        # Transfer unit assignments
-        for ou in list(dup.units):
-            if ou.unit_id not in existing_unit_ids or ou.valid_to is not None:
-                ou.owner_id = owner.id
-                existing_unit_ids.add(ou.unit_id)
-            else:
-                # Duplicate unit assignment — deactivate the duplicate's
-                ou.valid_to = date.today()
-
-        # Copy contact info if the target is missing it
-        for field in ("email", "email_secondary", "phone", "phone_landline"):
-            if not getattr(owner, field) and getattr(dup, field):
-                setattr(owner, field, getattr(dup, field))
-
-        # Copy addresses if target is missing
-        for prefix in ("perm", "corr"):
-            if not getattr(owner, f"{prefix}_street") and getattr(dup, f"{prefix}_street"):
-                for suffix in ("street", "district", "city", "zip", "country"):
-                    setattr(owner, f"{prefix}_{suffix}", getattr(dup, f"{prefix}_{suffix}"))
-
-        # Deactivate the duplicate
-        dup.is_active = False
-        dup.updated_at = datetime.utcnow()
-
-    owner.updated_at = datetime.utcnow()
+    from app.services.owner_service import merge_owners
+    merge_owners(owner, duplicates, db)
     db.commit()
     db.refresh(owner)
 

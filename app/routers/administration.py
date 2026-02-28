@@ -142,6 +142,20 @@ async def administration_page(request: Request, db: Session = Depends(get_db)):
     # Code list total
     code_list_total = db.query(CodeListItem).count()
 
+    # Duplicate owner groups count
+    from sqlalchemy import func as sa_func
+    duplicate_count = (
+        db.query(sa_func.count())
+        .select_from(
+            db.query(Owner.name_normalized)
+            .filter(Owner.is_active == True, Owner.name_normalized != "")
+            .group_by(Owner.name_normalized)
+            .having(sa_func.count(Owner.id) > 1)
+            .subquery()
+        )
+        .scalar()
+    ) or 0
+
     return templates.TemplateResponse("administration/index.html", {
         "request": request,
         "active_nav": "administration",
@@ -152,6 +166,7 @@ async def administration_page(request: Request, db: Session = Depends(get_db)):
         "last_backup": last_backup,
         "code_list_total": code_list_total,
         "code_list_categories": _CODE_LIST_CATEGORIES,
+        "duplicate_count": duplicate_count,
     })
 
 
@@ -987,3 +1002,100 @@ async def bulk_edit_apply(
     return RedirectResponse(
         f"/sprava/hromadne-upravy?pole={pole}", status_code=302
     )
+
+
+# ---------------------------------------------------------------------------
+# Deduplikace vlastníků
+# ---------------------------------------------------------------------------
+
+@router.get("/duplicity")
+async def duplicates_page(
+    request: Request,
+    db: Session = Depends(get_db),
+    back: str = Query(""),
+):
+    from app.services.owner_service import find_duplicate_groups
+
+    groups = find_duplicate_groups(db)
+    back_url = back or "/sprava"
+
+    return templates.TemplateResponse("administration/duplicates.html", {
+        "request": request,
+        "active_nav": "administration",
+        "groups": groups,
+        "total_groups": len(groups),
+        "total_extra": sum(len(g["owners"]) - 1 for g in groups),
+        "back_url": back_url,
+    })
+
+
+@router.post("/duplicity/sloucit")
+async def merge_duplicate_group(
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Merge a single duplicate group — target_id + dup_ids from form."""
+    form = await request.form()
+    target_id = int(form.get("target_id", 0))
+    dup_ids = [int(v) for v in form.getlist("dup_ids")]
+
+    if not target_id or not dup_ids:
+        return RedirectResponse("/sprava/duplicity", status_code=302)
+
+    from app.services.owner_service import merge_owners
+
+    target = db.query(Owner).options(
+        joinedload(Owner.units).joinedload(OwnerUnit.unit)
+    ).get(target_id)
+    if not target:
+        return RedirectResponse("/sprava/duplicity", status_code=302)
+
+    duplicates = []
+    for did in dup_ids:
+        dup = db.query(Owner).options(
+            joinedload(Owner.units).joinedload(OwnerUnit.unit)
+        ).get(did)
+        if dup and dup.id != target.id:
+            duplicates.append(dup)
+
+    merge_owners(target, duplicates, db)
+    db.commit()
+
+    return RedirectResponse("/sprava/duplicity", status_code=302)
+
+
+@router.post("/duplicity/sloucit-vse")
+async def merge_all_duplicates(
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Merge ALL duplicate groups at once using recommended targets."""
+    from app.services.owner_service import find_duplicate_groups, merge_owners
+
+    groups = find_duplicate_groups(db)
+    merged_count = 0
+
+    for group in groups:
+        rec_id = group["recommended_id"]
+        target = db.query(Owner).options(
+            joinedload(Owner.units).joinedload(OwnerUnit.unit)
+        ).get(rec_id)
+        if not target:
+            continue
+
+        duplicates = []
+        for o in group["owners"]:
+            if o.id != rec_id:
+                dup = db.query(Owner).options(
+                    joinedload(Owner.units).joinedload(OwnerUnit.unit)
+                ).get(o.id)
+                if dup:
+                    duplicates.append(dup)
+
+        if duplicates:
+            merge_owners(target, duplicates, db)
+            merged_count += 1
+
+    db.commit()
+
+    return RedirectResponse("/sprava/duplicity", status_code=302)
