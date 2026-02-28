@@ -305,7 +305,13 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
 
 ### H. Nastavení (`/nastaveni`)
 
-- Přehled odeslaných emailů (posledních 50)
+- SMTP konfigurace — read-only přehled (4-sloupcový grid) + inline editace (HTMX)
+- Historie odeslaných emailů (posledních 100):
+  - Řaditelné sloupce (datum, modul, příjemce, předmět, stav) s šipkami
+  - Hledání (příjemce, email, předmět, modul — diacritics-insensitive)
+  - Prokliky na detail vlastníka u příjemců nalezených v DB
+  - Status badge: OK (zelená), Chyba (červená s tooltip), Čeká (žlutá)
+  - HTMX partial pro live search, flex layout s fixní hlavičkou
 
 ## Struktura projektu
 
@@ -339,6 +345,7 @@ app/
 │   ├── pdf_generator.py       #   Generování PDF lístků
 │   ├── pdf_extractor.py       #   Extrakce textu a jmen vlastníků z PDF
 │   ├── owner_matcher.py       #   Fuzzy párování jmen
+│   ├── owner_service.py       #   Sloučení duplicitních vlastníků
 │   ├── voting_import.py       #   Import výsledků hlasování z Excelu
 │   ├── csv_comparator.py      #   Porovnání CSV vs Excel
 │   ├── share_check_comparator.py #  Parsování souboru + porovnání podílů SČD
@@ -395,6 +402,7 @@ app/
 │   ├── administration/        #   Stránky administrace
 │   │   ├── index.html         #     Info SVJ, adresy, výbor, kontrolní orgán, číselníky
 │   │   ├── bulk_edit.html     #     Hromadné úpravy — výběr pole
+│   │   ├── duplicates.html      #     Přehled a sloučení duplicitních vlastníků
 │   │   ├── bulk_edit_values.html #  HTMX: tabulka unikátních hodnot
 │   │   └── bulk_edit_records.html # HTMX: záznamy pro danou hodnotu
 │   └── partials/              #   HTMX komponenty
@@ -421,6 +429,7 @@ app/
 │       ├── sync_list_body.html
 │       ├── share_check_list_body.html
 │       ├── dashboard_activity_body.html
+│       ├── settings_email_tbody.html
 │       ├── ballot_processed.html
 │       ├── wizard_stepper.html
 │       ├── wizard_stepper_compact.html
