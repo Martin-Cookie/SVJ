@@ -1,6 +1,8 @@
 # UI Guide — konvence pro frontend
 
-Tento soubor shrnuje UI/frontend vzory a konvence používané v projektu. Stack: **FastAPI + Jinja2 + HTMX + Tailwind CSS (CDN)**.
+Tento soubor je **jediný zdroj pravdy** pro UI/frontend vzory a konvence. Stack: **FastAPI + Jinja2 + HTMX + Tailwind CSS (CDN)**.
+
+> Backend pravidla (routery, SQLAlchemy, modely, URL konvence, workflow) jsou v [CLAUDE.md](../CLAUDE.md).
 
 ---
 
@@ -194,6 +196,44 @@ if (!titleInput.value.trim() && meta.title) {
 | `GET /{id}/upravit-formular` | Načtení formuláře | Form partial |
 | `POST /{id}/upravit` | Uložení změn | Info partial s `saved=True` |
 | `GET /{id}/info` | Zobrazení (cancel) | Info partial |
+
+### Alternativní vzor (administrace — seznam položek)
+
+Pro stránky s mnoha editovatelnými položkami (číselníky, šablony) — view i form jsou oba na stránce, přepínání přes CSS `hidden` class + JS:
+
+```html
+<!-- View mode -->
+<span id="cl-val-42" class="text-sm cursor-pointer hover:text-blue-600"
+      onclick="clStartEdit(42)">Hodnota</span>
+
+<!-- Edit mode (hidden) -->
+<form id="cl-edit-42" class="hidden"
+      action="/entita/42/upravit" method="post" hx-boost="false">
+    <input type="text" name="new_value" value="Hodnota" required
+           onkeydown="if(event.key==='Escape'){event.preventDefault();clCancelEdit(42)}">
+</form>
+```
+
+```javascript
+function clStartEdit(id) {
+    document.getElementById('cl-val-' + id).classList.add('hidden');
+    document.getElementById('cl-actions-' + id).classList.add('hidden');
+    var form = document.getElementById('cl-edit-' + id);
+    form.classList.remove('hidden');
+    var input = form.querySelector('input');
+    input.focus();
+    input.select();
+}
+function clCancelEdit(id) {
+    document.getElementById('cl-edit-' + id).classList.add('hidden');
+    document.getElementById('cl-val-' + id).classList.remove('hidden');
+    document.getElementById('cl-actions-' + id).classList.remove('hidden');
+}
+```
+
+- Formuláře používají standardní POST (`hx-boost="false"`) s redirect po uložení
+- Enter odesílá formulář, Escape ruší editaci
+- Vhodné pro kompaktní seznamy (číselníky, tagy) — ne pro velké formuláře s mnoha poli
 
 ---
 
@@ -512,7 +552,88 @@ if has_documents and max_done < 1:
 <button hx-confirm="Opravdu smazat?">Smazat</button>
 ```
 
-### Destruktivní akce
+### fetch() + innerHTML vs HTMX
+- **`<script>` tagy v HTML vloženém přes `innerHTML` se NESPUSTÍ** — prohlížeč je ignoruje
+- HTMX (`hx-get` + `hx-swap`) naopak skripty **vyhodnotí** — proto preferovat HTMX kde to jde
+- Pokud je nutné použít fetch + innerHTML (např. expandovatelné řádky v tabulce), definovat JS funkce v nadřazené šabloně (té, která volá fetch)
+
+---
+
+## 15. Hromadný výběr (checkbox "Vybrat/Zrušit vše")
+
+- **Vždy checkbox v hlavičce tabulky** (`<th>`), nikdy textový button "Vybrat vše" v toolbaru:
+  ```html
+  <th class="px-1 py-1.5 text-center">
+      <input type="checkbox" id="xxx-toggle-all" onchange="xxxToggleAll(this.checked)">
+  </th>
+  ```
+- JS vzor: `toggleAll(checked)` nastaví všechny checkboxy; `updateCount()` synchronizuje stav header checkboxu (`checked` / `indeterminate`):
+  ```javascript
+  function xxxUpdateCount() {
+      var all = document.querySelectorAll('.xxx-checkbox');
+      var checkedCount = document.querySelectorAll('.xxx-checkbox:checked').length;
+      var toggle = document.getElementById('xxx-toggle-all');
+      if (toggle) {
+          toggle.checked = checkedCount === all.length && all.length > 0;
+          toggle.indeterminate = checkedCount > 0 && checkedCount < all.length;
+      }
+  }
+  ```
+- Akční tlačítka (export, smazání, aktualizace) jsou `disabled` dokud není zaškrtnutý alespoň jeden checkbox
+- Pokud se obsah (řádky s checkboxy) načítá dynamicky přes fetch/HTMX, **stav checkboxů se musí persistovat v sessionStorage**:
+  - Klíč: `bulk_{field}_{value}` — unikátní pro každý kontext
+  - Uložit: při každé změně checkboxu (`saveBulkChecks`)
+  - Obnovit: po načtení nového HTML (`restoreBulkChecks`)
+  - Select-all checkbox: synchronizovat `checked` / `indeterminate` stav po obnovení
+
+---
+
+## 16. Kolapsovatelné sekce
+
 ```html
-<form onsubmit="return confirm('Opravdu?')">
+<details class="mb-6 group">
+    <summary class="flex items-center gap-2 cursor-pointer select-none">
+        <svg class="w-4 h-4 text-gray-500 transition-transform group-open:rotate-90" ...>
+            <!-- chevron right -->
+        </svg>
+        <h2 class="text-lg font-semibold text-gray-800">Název sekce</h2>
+    </summary>
+    <div class="mt-3">
+        <!-- obsah sekce -->
+    </div>
+</details>
 ```
+
+- Otevření z redirectu: query parametr + podmíněný `open` atribut: `{% if sekce == 'zalohy' %}open{% endif %}`
+- Chevron rotovaný přes `group-open:rotate-90`
+
+---
+
+## 17. Potvrzení destruktivních akcí
+
+### Standardní potvrzení
+```html
+<form onsubmit="return confirm('Opravdu smazat?')" hx-boost="false">
+    <button type="submit">Smazat</button>
+</form>
+```
+- `hx-boost="false"` je **povinné** na formulářích s `onsubmit="return confirm()"` — jinak HTMX zachytí submit dřív než confirm dialog
+
+### Kritické operace (purge, nevratné akce)
+```html
+<input type="text" id="confirm-input" placeholder="Napište DELETE pro potvrzení"
+       oninput="document.getElementById('danger-btn').disabled = this.value !== 'DELETE'">
+<button id="danger-btn" disabled
+        class="px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed">
+    Smazat data
+</button>
+```
+
+---
+
+## 18. Export dat (UI pravidla)
+
+- Formulář exportu musí mít `hx-boost="false"` — binární soubor (Excel/CSV/ZIP) nelze swapnout jako HTML
+- Tlačítko exportu: světle modré obrysové (jako Uložit)
+- Pokud je export filtrovaný: hidden inputy přenáší aktuální filtr do POST endpointu
+- Více kategorií s checkboxy: vzor "Vybrat/Zrušit vše" (viz § 15)

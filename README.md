@@ -646,17 +646,4 @@ LIBREOFFICE_PATH=/Applications/LibreOffice.app/Contents/MacOS/soffice
 
 ## UI vzory
 
-- **Dashboard** — kompaktní přehled s 4 stat kartami (vlastníci, jednotky, hlasování, rozesílání); karty hlasování a rozúčtování zobrazují počet kampaní per status s odkazem na poslední kampaň; fixní header (stat karty + search bar) se scrollovatelnou tabulkou poslední aktivity; vyhledávání (příjemce, email, předmět, modul) a řazení všech 5 sloupců (datum, modul, příjemce, předmět, stav) přes HTMX partial
-- **Sidebar navigace** — fixní levý panel (w-44) s ikonami a sekcemi
-- **Filtrační bubliny** — klikací filtry nad tabulkou s počty záznamů, dynamicky roztažené na celou šířku, rozdělené bubliny (s/bez emailu, s/bez telefonu)
-- **Back URL řetěz** — zachování filtrů a šipky "Zpět na přehled" při navigaci dashboard → seznam → detail → zpět přes celý řetěz (parametr `back` propagován přes bubliny, hledání, řazení, HTMX a detailové odkazy)
-- **Sticky hlavičky** — záhlaví tabulek zůstává viditelné při scrollu; jednotný styl `bg-gray-50 border-b-2 border-gray-300 sticky top-0 z-10`
-- **HTMX inline editace** — formuláře pro kontakty, adresy a údaje jednotek se přepínají bez reloadu; Uložit/Zrušit tlačítka nahoře vedle nadpisu sekce
-- **Akční ikony** — tužka (upravit), koš (smazat/odebrat), stáhnout; SVG `w-4 h-4` s `p-1 rounded` a hover efektem
-- **Wizard stepper** — vizuální kroky workflow (done zelený / active modrý / pending šedý); compact verze na kartách seznamu; po dokončení workflow všechny kroky zelené
-- **HTMX upload formuláře** — všechny formuláře s `enctype="multipart/form-data"` mají `hx-boost="false"` pro spolehlivý upload souborů; submit tlačítko skryté dokud uživatel nevybere soubor (u nového rozúčtování navíc vyžaduje vyplněný název)
-- **Normalizace vstupů** — všechny textové formulářové vstupy používají `.strip() or None` pro konzistentní uložení (bez mezer, prázdné = NULL)
-- **Search bar — kanonický styl** — všechny search bary mají jednotný wrapper (`bg-white rounded-lg shadow`), `text-xs` input, hidden inputy vedle search inputu (ne v tbody); HTMX `keyup changed delay:300ms` s `hx-push-url`; sync/share_check compare používají `hx-target="main"` + `hx-select="main"` full-page swap (delay 500ms) s auto-refocusem
-- **Server-side search + sort** — konzistentní vzor na všech výpisových stránkách: `_strip_diacritics` pro case+diacritics-insensitive hledání, `sort_th` Jinja2 makro pro klikací hlavičky s šipkami a modrým zvýrazněním aktivního sloupce, HTMX partials (kde možné) pro live filtrování `keyup changed delay:300ms`, bookmarkovatelné URL parametry (`q`, `sort`, `order`), prázdný stav při 0 výsledcích
-- **Dvousloupcový layout** — formulář vlevo + historie vpravo (import, kontrola)
-- **Flex layout s fixní hlavičkou** — `height:calc(100vh - 48px)` pro stránky kde scrolluje jen tělo tabulky
+Kompletní UI/frontend konvence (layout, tabulky, formuláře, tlačítka, bubliny, badge, inline editace, HTMX vzory, back URL navigace, checkboxy, stepper, formátování) jsou v **[docs/UI_GUIDE.md](docs/UI_GUIDE.md)**.
