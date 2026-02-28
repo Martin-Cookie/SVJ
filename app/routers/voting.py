@@ -55,8 +55,8 @@ def _voting_wizard(voting, current_step: int) -> dict:
     elif status == "active":
         has_processed = any(b.status.value == "processed" for b in voting.ballots)
         max_done = 4 if has_processed else 2
-    else:
-        max_done = 0  # draft
+    else:  # draft
+        max_done = 1 if voting.items else 0
 
     steps = []
     for i, s in enumerate(_VOTING_WIZARD_STEPS, 1):
@@ -417,8 +417,8 @@ async def voting_detail(
         detail_step = 5 if has_processed else 3
     elif voting.status.value == "closed":
         detail_step = 5
-    else:
-        detail_step = 1
+    else:  # draft
+        detail_step = 2 if voting.items else 1
 
     ctx = {
         "request": request,
@@ -676,6 +676,7 @@ async def process_page(
     key_fn = sort_keys.get(sort, sort_keys["owner"])
     unprocessed.sort(key=key_fn, reverse=(order == "desc"))
 
+    has_processed = any(b.status.value == "processed" for b in voting.ballots)
     ctx = {
         "request": request,
         "active_nav": "voting",
@@ -685,6 +686,7 @@ async def process_page(
         "q": q,
         "sort": sort,
         "order": order,
+        "show_close_voting": has_processed,
         **_ballot_stats(voting, db),
         **_voting_wizard(voting, 3),
     }
@@ -942,12 +944,14 @@ async def import_upload_page(
         except (json.JSONDecodeError, TypeError):
             pass
 
+    has_processed = any(b.status.value == "processed" for b in voting.ballots)
     return templates.TemplateResponse("voting/import_upload.html", {
         "request": request,
         "active_nav": "voting",
         "voting": voting,
         "saved_mapping": saved_mapping,
         "active_bubble": "",
+        "show_close_voting": has_processed,
         **_ballot_stats(voting, db),
         **_voting_wizard(voting, 3),
     })
@@ -967,6 +971,7 @@ async def import_upload(
     if not voting:
         return RedirectResponse("/hlasovani", status_code=302)
 
+    has_processed = any(b.status.value == "processed" for b in voting.ballots)
     if not file.filename or not file.filename.endswith((".xlsx", ".xls")):
         return templates.TemplateResponse("voting/import_upload.html", {
             "request": request,
@@ -976,6 +981,7 @@ async def import_upload(
             "active_bubble": "",
             "flash_message": "Nahrajte soubor ve formátu .xlsx",
             "flash_type": "error",
+            "show_close_voting": has_processed,
             **_ballot_stats(voting, db),
             **_voting_wizard(voting, 3),
         })
@@ -1005,6 +1011,7 @@ async def import_upload(
         "filename": file.filename,
         "saved_mapping": saved_mapping,
         "active_bubble": "",
+        "show_close_voting": has_processed,
         **_ballot_stats(voting, db),
         **_voting_wizard(voting, 3),
     })
@@ -1040,6 +1047,7 @@ async def import_preview(
     # Build item lookup for template
     item_lookup = {item.id: item for item in voting.items}
 
+    has_processed = any(b.status.value == "processed" for b in voting.ballots)
     return templates.TemplateResponse("voting/import_preview.html", {
         "request": request,
         "active_nav": "voting",
@@ -1050,6 +1058,7 @@ async def import_preview(
         "file_path": file_path,
         "item_lookup": item_lookup,
         "active_bubble": "",
+        "show_close_voting": has_processed,
         **_ballot_stats(voting, db),
         **_voting_wizard(voting, 3),
     })

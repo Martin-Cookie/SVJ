@@ -6,21 +6,22 @@
 <div class="shrink-0">
 {% include "voting/_voting_header.html" %}
 
-<!-- Search -->
-<div class="flex items-center gap-3 mb-3 bg-white rounded-lg shadow px-3 py-2">
-    <input type="hidden" name="sort" value="{{ sort }}">
-    <input type="hidden" name="order" value="{{ order }}">
-    <input type="hidden" name="stav" value="{{ current_stav }}">
-    <div class="flex-1">
-        <input type="text" name="q" value="{{ q }}" placeholder="Hledat vlastníka..."
-               hx-get="/hlasovani/{{ voting.id }}/listky"
-               hx-trigger="keyup changed delay:300ms"
-               hx-target="#ballots-table-body"
-               hx-include="[name='sort'],[name='order'],[name='stav']"
-               hx-push-url="true"
-               class="w-full px-3 py-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs">
+    <div class="border-t border-gray-100"></div>
+    <div class="flex items-center gap-3 px-3 py-2">
+        <input type="hidden" name="sort" value="{{ sort }}">
+        <input type="hidden" name="order" value="{{ order }}">
+        <input type="hidden" name="stav" value="{{ current_stav }}">
+        <div class="flex-1">
+            <input type="text" name="q" value="{{ q }}" placeholder="Hledat vlastníka..."
+                   hx-get="/hlasovani/{{ voting.id }}/listky"
+                   hx-trigger="keyup changed delay:300ms"
+                   hx-target="#ballots-table-body"
+                   hx-include="[name='sort'],[name='order'],[name='stav']"
+                   hx-push-url="true"
+                   class="w-full px-3 py-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs">
+        </div>
     </div>
-</div>
+</div><!-- /bubble+search kontejner -->
 </div>
 
 <div class="flex-1 overflow-y-auto min-h-0">

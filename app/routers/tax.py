@@ -270,7 +270,7 @@ def _build_recipients(documents):
 # ---------------------------------------------------------------------------
 
 @router.get("/")
-async def tax_list(request: Request, back: str = Query("", alias="back"), db: Session = Depends(get_db)):
+async def tax_list(request: Request, back: str = Query("", alias="back"), stav: str = Query("", alias="stav"), db: Session = Depends(get_db)):
     sessions = (
         db.query(TaxSession)
         .options(
@@ -340,6 +340,22 @@ async def tax_list(request: Request, back: str = Query("", alias="back"), db: Se
             "wizard_total": len(_TAX_WIZARD_STEPS),
         }
 
+    # Compute status counts for filter bubbles
+    status_counts = {"all": len(sessions), "draft": 0, "ready": 0, "sending": 0, "completed": 0}
+    session_status_map = {}
+    for s in sessions:
+        ss = s.send_status.value if s.send_status else "draft"
+        if ss in ("sending", "paused"):
+            cat = "sending"
+        else:
+            cat = ss
+        status_counts[cat] = status_counts.get(cat, 0) + 1
+        session_status_map[s.id] = cat
+
+    # Filter sessions by status
+    if stav and stav in ("draft", "ready", "sending", "completed"):
+        sessions = [s for s in sessions if session_status_map[s.id] == stav]
+
     return templates.TemplateResponse("tax/index.html", {
         "request": request,
         "active_nav": "tax",
@@ -347,6 +363,8 @@ async def tax_list(request: Request, back: str = Query("", alias="back"), db: Se
         "back_url": back,
         "list_url": list_url,
         "session_stats": session_stats,
+        "status_counts": status_counts,
+        "current_stav": stav,
     })
 
 

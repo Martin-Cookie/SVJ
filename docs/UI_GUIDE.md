@@ -232,6 +232,84 @@ Bubliny a search bar jsou vizuálně sjednoceny v jednom bílém kontejneru se s
 - Hidden inputy vedle inputu, **ne** uvnitř tbody
 - HTMX: `hx-trigger="keyup changed delay:300ms"`, `hx-push-url="true"`
 
+### Sdílený header + kontejner otevřený přes šablony
+Pokud jsou bubliny ve sdíleném header partialu (např. `_voting_header.html`) a search bar je v nadřazené šabloně:
+1. Header **otevře** `<div class="bg-white rounded-lg shadow mb-2">` a vykreslí bubliny, ale **nezavře** kontejner
+2. Nadřazená šablona přidá `border-t` + search bar a **zavře** `</div>`
+3. Stránky bez search baru zavřou `</div>` ihned po include
+
+```html
+{# V nadřazené šabloně: #}
+{% include "modul/_header.html" %}
+    <div class="border-t border-gray-100"></div>
+    <div class="flex items-center gap-3 px-3 py-2">
+        ...search...
+    </div>
+</div><!-- /bubble+search kontejner -->
+```
+
+---
+
+## 8. Seznam/index stránek
+
+### Layout
+```
+┌─────────────────────────────────────────────────────┐
+│ Titulek                           [Nové ... ]       │  Titulek + akce
+├─────────────────────────────────────────────────────┤
+│ [5 Vše] [2 Koncept] [1 Aktivní] [1 Uzavřeno] [1 ×]│  Filtrační bubliny
+├─────────────────────────────────────────────────────┤
+│ ┌ Karta procesu ──────────────────────────────────┐ │
+│ │ Název (link)                  [Badge] [🗑]      │ │  Karta
+│ │ metadata (datum, počet, ...)                     │ │
+│ │ ✅──②──③──④  stepper                           │ │
+│ │ ████████░░░░  progress bar                      │ │
+│ └─────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────┘
+```
+
+### Pravidla
+- **Titulek řádek:** `flex items-center justify-between mb-6` — h1 vlevo, akční tlačítko vpravo
+- **Tlačítko „Nové ...":** světle modré outline (`text-blue-600 border border-blue-300 hover:bg-blue-50`) — naviguje na formulář, není finální akce
+- **Filtrační bubliny:** `flex gap-2 mb-6`, každá `flex-1 flex flex-col items-center py-2 px-3 rounded-lg`
+  - Aktivní: `bg-{color}-100 ring-2 ring-{color}-400 text-{color}-800`
+  - Neaktivní: `bg-white shadow text-gray-600 hover:bg-gray-50`
+- **Karta procesu:** `bg-white rounded-lg shadow hover:shadow-md transition-shadow p-6`
+  - Název (link) vlevo, **status badge + smazat vpravo** (`flex items-center justify-between`)
+  - Badge: `px-3 py-1 text-xs font-medium bg-{color}-100 text-{color}-800 rounded-full`
+  - Metadata pod názvem: `flex items-center mt-1 space-x-4 text-sm text-gray-500`
+  - Wizard stepper compact + progress bar pod metadaty
+- **Prázdný stav s filtrem:** rozlišit "žádné záznamy v tomto stavu" vs "žádné záznamy vůbec"
+
+---
+
+## 8b. Wizard/detail stránek — zóny
+
+### Kanonické pořadí zón
+```
+A: ← Zpět na ...                                      Navigace
+B: ✅──②──③──④                                       Stepper (mt-2)
+C: Titulek + podnázev          [Badge] [Akce]         Titulek (mt-2 mb-4)
+D: (volitelný panel, např. email konfigurace)          Panel
+E+F+G: [bubliny | toolbar | search]                   Společný kontejner
+H: Tabulka / obsah                                     Scrollovatelný obsah
+```
+
+### Pravidla
+- **Navigace (A):** `<a>` přímo bez `<div>` wrapperu
+- **Stepper (B):** obalený v `<div class="mt-2">`, vždy PŘED titulkem
+- **Titulek (C):** `<div class="flex items-center justify-between mt-2 mb-4">`
+  - Vlevo: `<h1 class="text-2xl font-bold">` + `<p class="text-sm text-gray-500 mt-1">podnázev</p>`
+  - Vpravo: status badge + akční tlačítka
+  - **Žádný prefix** v titulku (např. ne "Rozesílka — ...") — stepper už říká který krok
+- **Společný kontejner (E+F+G):** `bg-white rounded-lg shadow mb-2`
+  - Bubliny, toolbar (volitelný) a search bar oddělené `border-t border-gray-100`
+- **Scrollovatelný obsah (H):** `flex-1 overflow-y-auto min-h-0`
+
+### Stránky vytvoření (upload, create)
+- Stejné zóny A–C (back, stepper pokud existuje, titulek + podnázev)
+- Formulář v `bg-white rounded-lg shadow p-6 max-w-2xl`
+
 ---
 
 ## 9. Status badge

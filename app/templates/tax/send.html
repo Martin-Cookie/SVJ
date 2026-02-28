@@ -14,9 +14,12 @@
         {% endif %}
 
         <!-- Title row -->
-        <div class="flex items-center gap-4 mt-1 mb-3">
-            <h1 class="text-xl font-bold text-gray-800">Rozesílka &mdash; {{ session.title }}</h1>
-            <div class="ml-auto flex items-center gap-2">
+        <div class="flex items-center justify-between mt-2 mb-4">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-800">{{ session.title }}</h1>
+                <p class="text-sm text-gray-500 mt-1">Zkontrolujte příjemce a odešlete emaily</p>
+            </div>
+            <div class="flex items-center gap-2">
                 {% if count_failed|default(0) > 0 %}
                 <form method="post" action="/dane/{{ session.id }}/rozeslat/retry" hx-boost="false">
                     <button type="submit" class="px-3 py-1.5 bg-orange-500 text-white rounded hover:bg-orange-600 text-xs font-medium">
@@ -103,66 +106,67 @@
             </div>
         </details>
 
-        <!-- Stat cards (clickable filter) -->
+        <!-- Stats + Search (unified container) -->
         {% set filter_base = "/dane/" ~ session.id ~ "/rozeslat" %}
         {% set _qs = "&q=" ~ (q|default('')|urlencode) ~ "&sort=" ~ sort ~ "&order=" ~ order ~ "&back=" ~ (back_url|default('')|urlencode) %}
-        <div class="flex gap-2 mb-3">
-            <a href="{{ filter_base }}?filtr={{ _qs }}" style="flex:1"
-               class="bg-white rounded-lg shadow p-2 text-center border border-gray-200 hover:ring-2 hover:ring-gray-300
-                      {% if not filtr %}ring-2 ring-gray-400{% endif %}">
-                <p class="text-lg font-bold text-gray-600">{{ total_recipients }}</p>
-                <p class="text-xs text-gray-500 mt-1">Celkem</p>
-            </a>
-            <a href="{{ filter_base }}?filtr=with_email{{ _qs }}" style="flex:1"
-               class="bg-green-50 rounded-lg shadow p-2 text-center border border-green-200 hover:ring-2 hover:ring-green-300
-                      {% if filtr == 'with_email' %}ring-2 ring-green-400{% endif %}">
-                <p class="text-lg font-bold text-green-600">{{ with_email }}</p>
-                <p class="text-xs text-gray-500 mt-1">S emailem</p>
-            </a>
-            <a href="{{ filter_base }}?filtr=pending{{ _qs }}" style="flex:1"
-               class="bg-yellow-50 rounded-lg shadow p-2 text-center border border-yellow-200 hover:ring-2 hover:ring-yellow-300
-                      {% if filtr == 'pending' %}ring-2 ring-yellow-400{% endif %}">
-                <p class="text-lg font-bold text-yellow-600">{{ count_pending|default(0) }}</p>
-                <p class="text-xs text-gray-500 mt-1">Čekající</p>
-            </a>
-            {% if count_sent|default(0) > 0 %}
-            <a href="{{ filter_base }}?filtr=sent{{ _qs }}" style="flex:1"
-               class="bg-blue-50 rounded-lg shadow p-2 text-center border border-blue-200 hover:ring-2 hover:ring-blue-300
-                      {% if filtr == 'sent' %}ring-2 ring-blue-400{% endif %}">
-                <p class="text-lg font-bold text-blue-600">{{ count_sent|default(0) }}</p>
-                <p class="text-xs text-gray-500 mt-1">Odesláno</p>
-            </a>
-            {% endif %}
-            {% if count_failed|default(0) > 0 %}
-            <a href="{{ filter_base }}?filtr=failed{{ _qs }}" style="flex:1"
-               class="bg-red-50 rounded-lg shadow p-2 text-center border border-red-200 hover:ring-2 hover:ring-red-300
-                      {% if filtr == 'failed' %}ring-2 ring-red-400{% endif %}">
-                <p class="text-lg font-bold text-red-600">{{ count_failed|default(0) }}</p>
-                <p class="text-xs text-gray-500 mt-1">Chyba</p>
-            </a>
-            {% endif %}
-            <div id="selected-bubble" style="flex:1"
-                 class="bg-purple-50 rounded-lg shadow p-2 text-center border border-purple-200">
-                <p id="selected-count-bubble" class="text-lg font-bold text-purple-600">0</p>
-                <p class="text-xs text-gray-500 mt-1">Vybrané</p>
+        <div class="bg-white rounded-lg shadow mb-2">
+            <div class="flex gap-2 p-3 pb-2">
+                <a href="{{ filter_base }}?filtr={{ _qs }}" style="flex:1"
+                   class="block rounded p-2 text-center border border-gray-200 hover:bg-gray-100 transition-colors
+                          {% if not filtr %}ring-2 ring-gray-400{% endif %}">
+                    <p class="text-lg font-bold text-gray-600">{{ total_recipients }}</p>
+                    <p class="text-xs text-gray-500 mt-1">Celkem</p>
+                </a>
+                <a href="{{ filter_base }}?filtr=with_email{{ _qs }}" style="flex:1"
+                   class="block bg-green-50 rounded p-2 text-center border border-green-200 hover:bg-green-100 transition-colors
+                          {% if filtr == 'with_email' %}ring-2 ring-green-400{% endif %}">
+                    <p class="text-lg font-bold text-green-600">{{ with_email }}</p>
+                    <p class="text-xs text-gray-500 mt-1">S emailem</p>
+                </a>
+                <a href="{{ filter_base }}?filtr=pending{{ _qs }}" style="flex:1"
+                   class="block bg-yellow-50 rounded p-2 text-center border border-yellow-200 hover:bg-yellow-100 transition-colors
+                          {% if filtr == 'pending' %}ring-2 ring-yellow-400{% endif %}">
+                    <p class="text-lg font-bold text-yellow-600">{{ count_pending|default(0) }}</p>
+                    <p class="text-xs text-gray-500 mt-1">Čekající</p>
+                </a>
+                {% if count_sent|default(0) > 0 %}
+                <a href="{{ filter_base }}?filtr=sent{{ _qs }}" style="flex:1"
+                   class="block bg-blue-50 rounded p-2 text-center border border-blue-200 hover:bg-blue-100 transition-colors
+                          {% if filtr == 'sent' %}ring-2 ring-blue-400{% endif %}">
+                    <p class="text-lg font-bold text-blue-600">{{ count_sent|default(0) }}</p>
+                    <p class="text-xs text-gray-500 mt-1">Odesláno</p>
+                </a>
+                {% endif %}
+                {% if count_failed|default(0) > 0 %}
+                <a href="{{ filter_base }}?filtr=failed{{ _qs }}" style="flex:1"
+                   class="block bg-red-50 rounded p-2 text-center border border-red-200 hover:bg-red-100 transition-colors
+                          {% if filtr == 'failed' %}ring-2 ring-red-400{% endif %}">
+                    <p class="text-lg font-bold text-red-600">{{ count_failed|default(0) }}</p>
+                    <p class="text-xs text-gray-500 mt-1">Chyba</p>
+                </a>
+                {% endif %}
+                <div id="selected-bubble" style="flex:1"
+                     class="block bg-purple-50 rounded p-2 text-center border border-purple-200">
+                    <p id="selected-count-bubble" class="text-lg font-bold text-purple-600">0</p>
+                    <p class="text-xs text-gray-500 mt-1">Vybrané</p>
+                </div>
             </div>
-        </div>
-
-        <!-- Search bar -->
-        <div class="flex items-center gap-3 mb-3 bg-white rounded-lg shadow px-3 py-2">
-            <input type="hidden" name="filtr" value="{{ filtr }}">
-            <input type="hidden" name="sort" value="{{ sort }}">
-            <input type="hidden" name="order" value="{{ order }}">
-            <input type="hidden" name="back" value="{{ back_url|default('') }}">
-            <div class="flex-1">
-                <input type="text" name="q" value="{{ q }}"
-                       placeholder="Hledat příjemce, email, soubor..."
-                       hx-get="/dane/{{ session.id }}/rozeslat"
-                       hx-trigger="keyup changed delay:300ms"
-                       hx-target="#send-tbody"
-                       hx-include="[name='filtr'],[name='sort'],[name='order'],[name='back']"
-                       hx-push-url="true"
-                       class="w-full px-3 py-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs">
+            <div class="border-t border-gray-100"></div>
+            <div class="flex items-center gap-3 px-3 py-2">
+                <input type="hidden" name="filtr" value="{{ filtr }}">
+                <input type="hidden" name="sort" value="{{ sort }}">
+                <input type="hidden" name="order" value="{{ order }}">
+                <input type="hidden" name="back" value="{{ back_url|default('') }}">
+                <div class="flex-1">
+                    <input type="text" name="q" value="{{ q }}"
+                           placeholder="Hledat příjemce, email, soubor..."
+                           hx-get="/dane/{{ session.id }}/rozeslat"
+                           hx-trigger="keyup changed delay:300ms"
+                           hx-target="#send-tbody"
+                           hx-include="[name='filtr'],[name='sort'],[name='order'],[name='back']"
+                           hx-push-url="true"
+                           class="w-full px-3 py-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs">
+                </div>
             </div>
         </div>
     </div>
