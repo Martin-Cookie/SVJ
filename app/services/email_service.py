@@ -3,6 +3,7 @@ from __future__ import annotations
 """
 Email sending service using smtplib with attachment support.
 """
+import html as html_module
 import smtplib
 import socket
 from datetime import datetime
@@ -32,6 +33,9 @@ def send_email(
     msg["To"] = f"{to_name} <{to_email}>"
     msg["Subject"] = subject
 
+    # Plain text z formuláře (bez HTML tagů) → konverze \n na <br>
+    if body_html and "<" not in body_html:
+        body_html = html_module.escape(body_html).replace("\n", "<br>\n")
     msg.attach(MIMEText(body_html, "html", "utf-8"))
 
     attachment_names = []
