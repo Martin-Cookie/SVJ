@@ -2,125 +2,112 @@
 {% block title %}Administrace - SVJ Správa{% endblock %}
 
 {% block content %}
-<h1 class="text-2xl font-bold text-gray-800 mb-6">Administrace</h1>
+<h1 class="text-2xl font-bold text-gray-800 mb-4">Administrace</h1>
 
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
     <!-- Administrace SVJ -->
-    <a href="/sprava/svj-info" class="block bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow group">
-        <div class="flex items-start gap-4">
-            <div class="p-3 bg-blue-100 rounded-lg group-hover:bg-blue-200 transition-colors">
-                <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <a href="/sprava/svj-info?back=/sprava" class="block bg-white rounded-lg shadow p-4 hover:shadow-md transition-shadow group">
+        <div class="flex items-center gap-3">
+            <div class="p-2 bg-blue-100 rounded-lg group-hover:bg-blue-200 transition-colors">
+                <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
                 </svg>
             </div>
             <div>
-                <h2 class="text-lg font-semibold text-gray-700 group-hover:text-blue-600 transition-colors">Administrace SVJ</h2>
-                <p class="text-sm text-gray-500 mt-1">Informace o SVJ, adresy, členové výboru a kontrolního orgánu</p>
+                <p class="text-sm font-semibold text-gray-700 group-hover:text-blue-600 transition-colors">Info o SVJ</p>
                 {% if info %}
-                <div class="mt-3 text-xs text-gray-400 space-y-0.5">
-                    {% if info.name %}<p>{{ info.name }}</p>{% endif %}
-                    <p>{{ board_count }} členů výboru, {{ control_count }} v kontrolním orgánu</p>
-                </div>
+                <p class="text-xs text-gray-400">{{ board_count }} výbor, {{ control_count }} kontrola</p>
                 {% endif %}
             </div>
         </div>
     </a>
 
     <!-- Číselníky -->
-    <a href="/sprava/ciselniky" class="block bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow group">
-        <div class="flex items-start gap-4">
-            <div class="p-3 bg-purple-100 rounded-lg group-hover:bg-purple-200 transition-colors">
-                <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <a href="/sprava/ciselniky?back=/sprava" class="block bg-white rounded-lg shadow p-4 hover:shadow-md transition-shadow group">
+        <div class="flex items-center gap-3">
+            <div class="p-2 bg-purple-100 rounded-lg group-hover:bg-purple-200 transition-colors">
+                <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
                 </svg>
             </div>
             <div>
-                <h2 class="text-lg font-semibold text-gray-700 group-hover:text-purple-600 transition-colors">Číselníky</h2>
-                <p class="text-sm text-gray-500 mt-1">Správa seznamů hodnot pro typ prostoru, sekce, místnosti a vlastnictví</p>
-                <div class="mt-3 text-xs text-gray-400">
-                    <p>{{ code_list_total }} položek ve {{ code_list_categories|length }} kategoriích</p>
-                </div>
+                <p class="text-sm font-semibold text-gray-700 group-hover:text-purple-600 transition-colors">Číselníky</p>
+                <p class="text-xs text-gray-400">{{ code_list_total }} položek v {{ code_list_categories|length }} kat.</p>
             </div>
         </div>
     </a>
 
     <!-- Zálohování a obnova -->
-    <a href="/sprava/zalohy" class="block bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow group">
-        <div class="flex items-start gap-4">
-            <div class="p-3 bg-green-100 rounded-lg group-hover:bg-green-200 transition-colors">
-                <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <a href="/sprava/zalohy?back=/sprava" class="block bg-white rounded-lg shadow p-4 hover:shadow-md transition-shadow group">
+        <div class="flex items-center gap-3">
+            <div class="p-2 bg-green-100 rounded-lg group-hover:bg-green-200 transition-colors">
+                <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
                 </svg>
             </div>
             <div>
-                <h2 class="text-lg font-semibold text-gray-700 group-hover:text-green-600 transition-colors">Zálohování a obnova</h2>
-                <p class="text-sm text-gray-500 mt-1">Vytváření a správa záloh, obnova dat ze zálohy</p>
-                <div class="mt-3 text-xs text-gray-400">
-                    <p>{{ backup_count }} záloh{% if last_backup %}, poslední {{ last_backup }}{% endif %}</p>
-                </div>
-            </div>
-        </div>
-    </a>
-
-    <!-- Duplicitní vlastníci -->
-    <a href="/sprava/duplicity" class="block bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow group">
-        <div class="flex items-start gap-4">
-            <div class="p-3 bg-orange-100 rounded-lg group-hover:bg-orange-200 transition-colors">
-                <svg class="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
-                </svg>
-            </div>
-            <div>
-                <h2 class="text-lg font-semibold text-gray-700 group-hover:text-orange-600 transition-colors">Duplicitní vlastníci</h2>
-                <p class="text-sm text-gray-500 mt-1">Detekce a sloučení duplicitních záznamů vlastníků</p>
-                <div class="mt-3 text-xs text-gray-400">
-                    <p>{{ duplicate_count }} skupin duplicit</p>
-                </div>
-            </div>
-        </div>
-    </a>
-
-    <!-- Smazat data -->
-    <a href="/sprava/smazat" class="block bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow group">
-        <div class="flex items-start gap-4">
-            <div class="p-3 bg-red-100 rounded-lg group-hover:bg-red-200 transition-colors">
-                <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                </svg>
-            </div>
-            <div>
-                <h2 class="text-lg font-semibold text-red-600">Smazat data</h2>
-                <p class="text-sm text-gray-500 mt-1">Hromadné mazání dat po kategoriích s potvrzením</p>
+                <p class="text-sm font-semibold text-gray-700 group-hover:text-green-600 transition-colors">Zálohy</p>
+                <p class="text-xs text-gray-400">{{ backup_count }} záloh{% if last_backup %}, {{ last_backup }}{% endif %}</p>
             </div>
         </div>
     </a>
 
     <!-- Export dat -->
-    <a href="/sprava/export" class="block bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow group">
-        <div class="flex items-start gap-4">
-            <div class="p-3 bg-emerald-100 rounded-lg group-hover:bg-emerald-200 transition-colors">
-                <svg class="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <a href="/sprava/export?back=/sprava" class="block bg-white rounded-lg shadow p-4 hover:shadow-md transition-shadow group">
+        <div class="flex items-center gap-3">
+            <div class="p-2 bg-emerald-100 rounded-lg group-hover:bg-emerald-200 transition-colors">
+                <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                 </svg>
             </div>
             <div>
-                <h2 class="text-lg font-semibold text-gray-700 group-hover:text-emerald-600 transition-colors">Export dat</h2>
-                <p class="text-sm text-gray-500 mt-1">Stažení dat ve formátu Excel nebo CSV</p>
+                <p class="text-sm font-semibold text-gray-700 group-hover:text-emerald-600 transition-colors">Export dat</p>
+                <p class="text-xs text-gray-400">Excel, CSV</p>
             </div>
         </div>
     </a>
 
     <!-- Hromadné úpravy -->
-    <a href="/sprava/hromadne-upravy" hx-boost="false" class="block bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow group">
-        <div class="flex items-start gap-4">
-            <div class="p-3 bg-amber-100 rounded-lg group-hover:bg-amber-200 transition-colors">
-                <svg class="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <a href="/sprava/hromadne-upravy?back=/sprava" hx-boost="false" class="block bg-white rounded-lg shadow p-4 hover:shadow-md transition-shadow group">
+        <div class="flex items-center gap-3">
+            <div class="p-2 bg-amber-100 rounded-lg group-hover:bg-amber-200 transition-colors">
+                <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
                 </svg>
             </div>
             <div>
-                <h2 class="text-lg font-semibold text-gray-700 group-hover:text-amber-600 transition-colors">Hromadné úpravy</h2>
-                <p class="text-sm text-gray-500 mt-1">Oprava hodnot v polích jednotek a vlastnictví</p>
+                <p class="text-sm font-semibold text-gray-700 group-hover:text-amber-600 transition-colors">Hromadné úpravy</p>
+                <p class="text-xs text-gray-400">Oprava polí jednotek a vlastnictví</p>
+            </div>
+        </div>
+    </a>
+
+    <!-- Duplicitní vlastníci -->
+    <a href="/sprava/duplicity?back=/sprava" class="block bg-white rounded-lg shadow p-4 hover:shadow-md transition-shadow group">
+        <div class="flex items-center gap-3">
+            <div class="p-2 bg-orange-100 rounded-lg group-hover:bg-orange-200 transition-colors">
+                <svg class="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+                </svg>
+            </div>
+            <div>
+                <p class="text-sm font-semibold text-gray-700 group-hover:text-orange-600 transition-colors">Duplicity</p>
+                <p class="text-xs text-gray-400">{{ duplicate_count }} skupin duplicit</p>
+            </div>
+        </div>
+    </a>
+
+    <!-- Smazat data -->
+    <a href="/sprava/smazat?back=/sprava" class="block bg-white rounded-lg shadow p-4 hover:shadow-md transition-shadow group">
+        <div class="flex items-center gap-3">
+            <div class="p-2 bg-red-100 rounded-lg group-hover:bg-red-200 transition-colors">
+                <svg class="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                </svg>
+            </div>
+            <div>
+                <p class="text-sm font-semibold text-red-600">Smazat data</p>
+                <p class="text-xs text-gray-400">Hromadné mazání po kategoriích</p>
             </div>
         </div>
     </a>

@@ -1,5 +1,5 @@
-<div class="flex items-center justify-between mb-4">
-    <h2 class="text-lg font-semibold text-gray-700">SMTP nastavení emailu</h2>
+<div class="flex items-center justify-between mb-3">
+    <h2 class="text-sm font-semibold text-gray-700">SMTP nastavení emailu</h2>
     <div class="flex items-center gap-2">
         {% if saved %}
         <span class="text-sm text-green-600">Uloženo</span>
@@ -13,33 +13,33 @@
         </button>
     </div>
 </div>
-<div class="space-y-3 text-sm">
-    <div class="flex justify-between py-2 border-b border-gray-100">
-        <span class="text-gray-600">SMTP Server</span>
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-1 text-xs">
+    <div class="flex justify-between py-1 border-b border-gray-50">
+        <span class="text-gray-500">Server</span>
         <span class="font-mono text-gray-800">{{ settings.smtp_host }}</span>
     </div>
-    <div class="flex justify-between py-2 border-b border-gray-100">
-        <span class="text-gray-600">Port</span>
+    <div class="flex justify-between py-1 border-b border-gray-50">
+        <span class="text-gray-500">Port</span>
         <span class="font-mono text-gray-800">{{ settings.smtp_port }}</span>
     </div>
-    <div class="flex justify-between py-2 border-b border-gray-100">
-        <span class="text-gray-600">Uživatel</span>
-        <span class="font-mono text-gray-800">{{ settings.smtp_user or '(nenastaveno)' }}</span>
+    <div class="flex justify-between py-1 border-b border-gray-50">
+        <span class="text-gray-500">Uživatel</span>
+        <span class="font-mono text-gray-800">{{ settings.smtp_user or '—' }}</span>
     </div>
-    <div class="flex justify-between py-2 border-b border-gray-100">
-        <span class="text-gray-600">Heslo</span>
-        <span class="font-mono text-gray-800">{{ '••••••••' if settings.smtp_password else '(nenastaveno)' }}</span>
+    <div class="flex justify-between py-1 border-b border-gray-50">
+        <span class="text-gray-500">Heslo</span>
+        <span class="font-mono text-gray-800">{{ '••••••••' if settings.smtp_password else '—' }}</span>
     </div>
-    <div class="flex justify-between py-2 border-b border-gray-100">
-        <span class="text-gray-600">Jméno odesílatele</span>
+    <div class="flex justify-between py-1 border-b border-gray-50">
+        <span class="text-gray-500">Odesílatel</span>
         <span class="font-mono text-gray-800">{{ settings.smtp_from_name }}</span>
     </div>
-    <div class="flex justify-between py-2 border-b border-gray-100">
-        <span class="text-gray-600">Email odesílatele</span>
+    <div class="flex justify-between py-1 border-b border-gray-50">
+        <span class="text-gray-500">Email</span>
         <span class="font-mono text-gray-800">{{ settings.smtp_from_email }}</span>
     </div>
-    <div class="flex justify-between py-2 border-b border-gray-100">
-        <span class="text-gray-600">TLS</span>
+    <div class="flex justify-between py-1 border-b border-gray-50">
+        <span class="text-gray-500">TLS</span>
         <span class="font-mono text-gray-800">{{ 'Ano' if settings.smtp_use_tls else 'Ne' }}</span>
     </div>
 </div>
