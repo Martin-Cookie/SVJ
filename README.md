@@ -183,6 +183,7 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
   - Bookmarkovatelné URL parametry (q, filtr, sort, order)
 - Wizard stepper: kompaktní kroky (Nahrání PDF → Přiřazení → Rozesílka → Dokončeno) na kartách i detail stránkách; po dokončení workflow všechny kroky zelené
 - Index stránka:
+  - Filtrační bubliny podle stavu (vše, rozpracováno, připraveno, odesílání, dokončeno)
   - Compact wizard stepper na kartě každé relace
   - Progress bar „Potvrzeno X / Y" na každé kartě relace
   - Stavové badge: „Rozpracováno" (žlutá), „Dokončeno" (zelená), „Odesílá se" (modrá), „Odesláno" (modrá), „Pozastaveno" (žlutá)
