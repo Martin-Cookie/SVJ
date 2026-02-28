@@ -39,6 +39,7 @@ def send_email(
     msg.attach(MIMEText(body_html, "html", "utf-8"))
 
     attachment_names = []
+    attachment_full_paths = []
     for file_path in (attachments or []):
         path = Path(file_path)
         if not path.exists():
@@ -48,6 +49,7 @@ def send_email(
             part.add_header("Content-Disposition", "attachment", filename=path.name)
             msg.attach(part)
             attachment_names.append(path.name)
+            attachment_full_paths.append(str(path))
 
     # Log the email attempt
     log = None
@@ -60,7 +62,7 @@ def send_email(
             status=EmailStatus.PENDING,
             module=module,
             reference_id=reference_id,
-            attachment_paths=", ".join(attachment_names) if attachment_names else None,
+            attachment_paths=", ".join(attachment_full_paths) if attachment_full_paths else None,
         )
         db.add(log)
         db.flush()

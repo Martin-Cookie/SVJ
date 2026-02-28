@@ -1,9 +1,10 @@
+from pathlib import Path
 from typing import Optional
 from unicodedata import category, normalize
 
 from dotenv import set_key
 from fastapi import APIRouter, Depends, Form, Query, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
@@ -19,6 +20,27 @@ def _strip_diacritics(text: str) -> str:
     """Remove diacritics and lowercase for search."""
     nfkd = normalize("NFD", text)
     return "".join(c for c in nfkd if category(c) != "Mn").lower()
+
+
+def _parse_attachments(raw: Optional[str]) -> list:
+    """Parse attachment_paths into list of {name, path, exists}.
+
+    Supports both old format (just filenames) and new format (full paths).
+    """
+    if not raw:
+        return []
+    result = []
+    for part in raw.split(", "):
+        part = part.strip()
+        if not part:
+            continue
+        p = Path(part)
+        if p.is_absolute():
+            result.append({"name": p.name, "path": str(p), "exists": p.exists()})
+        else:
+            # Old format — just filename, no path available
+            result.append({"name": part, "path": "", "exists": False})
+    return result
 
 
 SORT_COLUMNS = {
@@ -87,6 +109,9 @@ async def settings_view(
             if o.email_secondary:
                 owner_by_email[o.email_secondary.lower()] = o.id
 
+    # Parse attachments for each email log
+    attachments_by_id = {e.id: _parse_attachments(e.attachment_paths) for e in email_logs}
+
     # HTMX partial
     is_htmx = request.headers.get("HX-Request") and not request.headers.get("HX-Boosted")
 
@@ -96,6 +121,7 @@ async def settings_view(
         "settings": settings,
         "email_logs": email_logs,
         "owner_by_email": owner_by_email,
+        "attachments_by_id": attachments_by_id,
         "q": q,
         "sort": sort,
         "order": order,
@@ -160,3 +186,37 @@ async def save_smtp(
         "settings": settings,
         "saved": True,
     })
+
+
+@router.get("/priloha/{log_id}/{filename}")
+async def serve_attachment(
+    log_id: int,
+    filename: str,
+    db: Session = Depends(get_db),
+):
+    """Serve an email attachment file for in-browser preview."""
+    log = db.query(EmailLog).get(log_id)
+    if not log or not log.attachment_paths:
+        return RedirectResponse("/nastaveni", status_code=302)
+
+    # Find matching path in attachment_paths
+    for part in log.attachment_paths.split(", "):
+        part = part.strip()
+        p = Path(part)
+        if p.name == filename and p.is_absolute() and p.exists():
+            # Validate path is within allowed directories
+            resolved = p.resolve()
+            allowed = [settings.upload_dir.resolve(), settings.generated_dir.resolve()]
+            if any(str(resolved).startswith(str(a)) for a in allowed):
+                suffix = p.suffix.lower()
+                media_types = {
+                    ".pdf": "application/pdf",
+                    ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    ".xls": "application/vnd.ms-excel",
+                    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    ".csv": "text/csv",
+                }
+                media_type = media_types.get(suffix, "application/octet-stream")
+                return FileResponse(str(p), media_type=media_type, filename=p.name)
+
+    return RedirectResponse("/nastaveni", status_code=302)
