@@ -75,8 +75,20 @@
 - Šablona MUSÍ násobit `*100` při zobrazení: `{{ (value * 100)|round(1) }}%`
 - Nikdy neukládat surovou hodnotu z formuláře bez konverze
 
-## AJAX preview při file uploadu
+## Upload formuláře
 
+### Tlačítko vedle nadpisu + skryté dokud není vybrán soubor
+- Submit tlačítko je **vedle nadpisu** (flex container `justify-between`) — nikdy dole pod formulářem
+- Tlačítko je **mimo** `<form>` a propojené přes `form="id"` atribut
+- Tlačítko je **skryté** (`hidden` class) dokud uživatel nevybere soubor
+- Styl: světle modrý obrysový (stejný jako Uložit u inline editace)
+- Formuláře s "Zrušit" mají oba buttony v header kontejneru
+- Zobrazení řídí `onchange` na file inputu: `document.getElementById('submit-btn').classList.toggle('hidden', !this.files.length)`
+- U formulářů s více podmínkami (soubor + povinné pole): sdílená JS funkce `checkFormReady()` volaná z `onchange` i `oninput`
+- U webkitdirectory přepínání: `toggleDirMode()` resetuje soubor a **skryje** tlačítko
+- U AJAX prefill (šablona předvyplní název): po předvyplnění zavolat toggle na submit button
+
+### AJAX preview při file uploadu
 - Pokud formulář obsahuje file upload, soubor se může zpracovat AJAX endpointem pro předvyplnění polí
 - Vzor: separátní POST endpoint (např. `/nova/nahled-metadat`) přijme soubor, vrátí JSON, JS vyplní prázdná pole
 - Soubor z AJAX preview je dočasný — smaže se po zpracování; skutečný upload proběhne při odeslání formuláře

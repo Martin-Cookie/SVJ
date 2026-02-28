@@ -77,20 +77,74 @@ border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus
 - Upravit, Přidat a Uložit musí být **vždy** světle modré (obrysové) — na všech úrovních
 - Zelená (success) pouze pro finální akce (Dokončit, Vytvořit, Potvrdit)
 
-### Uložit/Zrušit — nahoře vedle nadpisu
-V edit formulářích se tlačítka umísťují **nahoře vedle nadpisu sekce**, ne dole:
+### Tlačítka — vždy nahoře vedle nadpisu
+Akční tlačítka (Uložit, Nahrát, Zrušit) se umísťují **nahoře vedle nadpisu** v flex kontejneru — nikdy dole pod formulářem. Platí pro inline editaci i upload formuláře.
+
 ```html
-<form hx-post="..." hx-target="..." hx-swap="innerHTML">
-    <div class="flex items-center justify-between mb-4">
-        <h2 class="text-lg font-semibold text-gray-700">Nadpis sekce</h2>
-        <div class="flex items-center gap-2">
-            <button type="submit" class="px-3 py-1.5 text-sm font-medium text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors">Uložit</button>
-            <button type="button" hx-get="/cancel-url" hx-target="..." hx-swap="innerHTML"
-                    class="px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm font-medium">Zrušit</button>
-        </div>
+<div class="flex items-center justify-between mb-4">
+    <h2 class="text-lg font-semibold text-gray-700">Nadpis</h2>
+    <div class="flex items-center gap-2">
+        <button type="submit" form="form-id"
+                class="px-3 py-1.5 text-sm font-medium text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors">Uložit</button>
+        <button type="button" class="px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm font-medium">Zrušit</button>
     </div>
-    <!-- inputs -->
+</div>
+```
+
+- Pokud je tlačítko **mimo** `<form>`, propojí se přes `form="id"` atribut
+- Pokud je tlačítko **uvnitř** `<form>` (inline editace), `form` atribut není potřeba
+
+### Upload formuláře — skryté tlačítko
+
+Submit tlačítko je **skryté** (`hidden`) dokud uživatel nevybere soubor. Tlačítko je vedle nadpisu, formulář má `id` a tlačítko `form="id"`.
+
+**Jednoduchý vzor** (jen soubor):
+```html
+<div class="flex items-center justify-between mb-3">
+    <h2 class="text-sm font-semibold text-gray-700">Nahrát soubor</h2>
+    <button id="submit-btn" type="submit" form="upload-form"
+            class="hidden px-3 py-1.5 text-sm font-medium text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors">
+        Nahrát a zpracovat
+    </button>
+</div>
+
+<form id="upload-form" action="..." method="post" enctype="multipart/form-data" hx-boost="false">
+    <input type="file" name="file" accept=".xlsx,.xls" required
+           onchange="document.getElementById('submit-btn').classList.toggle('hidden', !this.files.length)">
 </form>
+```
+
+**Vzor s více podmínkami** (soubor + povinné pole):
+```html
+<input type="text" id="title-input" required oninput="checkFormReady()">
+<input type="file" id="file-input" required onchange="checkFormReady()">
+
+<script>
+function checkFormReady() {
+    var hasFile = document.getElementById('file-input').files.length > 0;
+    var hasTitle = document.getElementById('title-input').value.trim() !== '';
+    document.getElementById('submit-btn').classList.toggle('hidden', !(hasFile && hasTitle));
+}
+</script>
+```
+
+**Vzor s webkitdirectory přepínáním** (soubor/adresář toggle):
+```javascript
+function toggleDirMode(on) {
+    var inp = document.getElementById('file-input');
+    inp.value = '';  // reset výběru
+    // ... přepnutí atributů ...
+    document.getElementById('submit-btn').classList.add('hidden');  // skrýt po resetu
+}
+```
+
+**Vzor s AJAX prefill** (šablona předvyplní pole):
+```javascript
+// Po úspěšném AJAX prefill názvu:
+if (!titleInput.value.trim() && meta.title) {
+    titleInput.value = meta.title;
+    document.getElementById('submit-btn').classList.toggle('hidden', !meta.title.trim());
+}
 ```
 
 ---
@@ -309,6 +363,8 @@ H: Tabulka / obsah                                     Scrollovatelný obsah
 ### Stránky vytvoření (upload, create)
 - Stejné zóny A–C (back, stepper pokud existuje, titulek + podnázev)
 - Formulář v `bg-white rounded-lg shadow p-6 max-w-2xl`
+- Submit tlačítko **vedle titulku** (zóna C vpravo), ne uvnitř formuláře — propojení přes `form="id"`
+- U upload formulářů je tlačítko **skryté** dokud není vybrán soubor (viz sekce 3 → Upload formuláře)
 
 ---
 
