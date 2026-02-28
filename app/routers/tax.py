@@ -262,6 +262,10 @@ def _build_recipients(documents):
             if dist.email_status and dist.email_status.value == "failed":
                 recipients[key]["email_status"] = "failed"
 
+    # Sort docs by filename (numeric part first) within each recipient
+    for r in recipients.values():
+        r["docs"].sort(key=lambda d: (int(''.join(c for c in d["filename"] if c.isdigit()) or '0'), d["filename"]))
+
     return sorted(recipients.values(), key=lambda r: r["name"])
 
 

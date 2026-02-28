@@ -76,11 +76,17 @@ class Owner(Base):
 
     @property
     def current_units(self):
-        return [ou for ou in self.units if ou.valid_to is None]
+        return sorted(
+            [ou for ou in self.units if ou.valid_to is None],
+            key=lambda ou: ou.unit.unit_number if ou.unit else 0,
+        )
 
     @property
     def historical_units(self):
-        return [ou for ou in self.units if ou.valid_to is not None]
+        return sorted(
+            [ou for ou in self.units if ou.valid_to is not None],
+            key=lambda ou: ou.unit.unit_number if ou.unit else 0,
+        )
 
     ballots = relationship("Ballot", back_populates="owner")
     tax_distributions = relationship("TaxDistribution", back_populates="owner")
