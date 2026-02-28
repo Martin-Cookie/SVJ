@@ -5,7 +5,7 @@
     <td class="px-3 py-1.5 text-xs overflow-hidden" style="text-overflow:ellipsis;white-space:nowrap" title="{{ email.recipient_name or '' }} <{{ email.recipient_email }}>">
         {% set oid = owner_by_email.get((email.recipient_email or '').lower()) %}
         {% if oid %}
-        <a href="/vlastnici/{{ oid }}" class="text-blue-600 hover:text-blue-800 hover:underline">{{ email.recipient_name or email.recipient_email }}</a>
+        <a href="/vlastnici/{{ oid }}?back={{ (list_url or '/nastaveni')|urlencode }}" class="text-blue-600 hover:text-blue-800 hover:underline">{{ email.recipient_name or email.recipient_email }}</a>
         {% else %}
         <span class="text-gray-800">{{ email.recipient_name or '' }}</span>
         {% endif %}

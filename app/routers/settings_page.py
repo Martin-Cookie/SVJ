@@ -115,6 +115,11 @@ async def settings_view(
     # HTMX partial
     is_htmx = request.headers.get("HX-Request") and not request.headers.get("HX-Boosted")
 
+    # Build list_url for back navigation
+    list_url = str(request.url.path)
+    if request.url.query:
+        list_url += "?" + str(request.url.query)
+
     ctx = {
         "request": request,
         "active_nav": "settings",
@@ -122,6 +127,7 @@ async def settings_view(
         "email_logs": email_logs,
         "owner_by_email": owner_by_email,
         "attachments_by_id": attachments_by_id,
+        "list_url": list_url,
         "q": q,
         "sort": sort,
         "order": order,

@@ -419,6 +419,7 @@ async def owner_detail(
             else "Zpět na seznam jednotek" if back.startswith("/jednotky")
             else "Zpět na porovnání" if "/synchronizace/" in back
             else "Zpět na hlasovací lístek" if "/hlasovani/" in back
+            else "Zpět na nastavení" if back.startswith("/nastaveni")
             else "Zpět na seznam vlastníků"
         ),
         "code_lists": _get_all_code_lists(db),
