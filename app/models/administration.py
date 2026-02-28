@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, String
+from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -55,5 +55,16 @@ class CodeListItem(Base):
     category = Column(String(50), nullable=False, index=True)
     # "space_type" | "section" | "room_count" | "ownership_type"
     value = Column(String(200), nullable=False)
+    order = Column(Integer, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class EmailTemplate(Base):
+    __tablename__ = "email_templates"
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(200), nullable=False, unique=True)
+    subject_template = Column(String(500), nullable=False)
+    body_template = Column(Text, nullable=False)
     order = Column(Integer, default=0)
     created_at = Column(DateTime, default=datetime.utcnow)

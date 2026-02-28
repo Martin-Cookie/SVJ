@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.models import (
-    SvjInfo, SvjAddress, BoardMember, CodeListItem,
+    SvjInfo, SvjAddress, BoardMember, CodeListItem, EmailTemplate,
     Unit, OwnerUnit, Owner, Proxy,
     Voting, VotingItem, Ballot, BallotVote,
     TaxSession, TaxDocument, TaxDistribution,
@@ -199,6 +199,12 @@ async def code_lists_page(request: Request, db: Session = Depends(get_db)):
         for item in code_lists.get(cat, []):
             code_list_usage[item.id] = _get_usage_count(db, cat, item.value)
 
+    email_templates = (
+        db.query(EmailTemplate)
+        .order_by(EmailTemplate.order, EmailTemplate.name)
+        .all()
+    )
+
     return templates.TemplateResponse("administration/code_lists.html", {
         "request": request,
         "active_nav": "administration",
@@ -206,6 +212,7 @@ async def code_lists_page(request: Request, db: Session = Depends(get_db)):
         "code_list_usage": code_list_usage,
         "code_list_categories": _CODE_LIST_CATEGORIES,
         "code_list_order": _CODE_LIST_ORDER,
+        "email_templates": email_templates,
     })
 
 
@@ -441,6 +448,81 @@ async def code_list_delete(
     usage = _get_usage_count(db, item.category, item.value)
     if usage == 0:
         db.delete(item)
+        db.commit()
+    return RedirectResponse("/sprava/ciselniky", status_code=302)
+
+
+# ---- Email template endpoints ----
+
+
+@router.post("/sablona/pridat")
+async def email_template_add(
+    request: Request,
+    name: str = Form(...),
+    subject_template: str = Form(...),
+    body_template: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    name = name.strip()
+    subject_template = subject_template.strip()
+    if not name or not subject_template:
+        return RedirectResponse("/sprava/ciselniky", status_code=302)
+
+    existing = db.query(EmailTemplate).filter_by(name=name).first()
+    if existing:
+        return RedirectResponse("/sprava/ciselniky", status_code=302)
+
+    max_order = db.query(EmailTemplate).count()
+    tpl = EmailTemplate(
+        name=name,
+        subject_template=subject_template,
+        body_template=body_template,
+        order=max_order,
+    )
+    db.add(tpl)
+    db.commit()
+    return RedirectResponse("/sprava/ciselniky", status_code=302)
+
+
+@router.post("/sablona/{tpl_id}/upravit")
+async def email_template_edit(
+    tpl_id: int,
+    name: str = Form(...),
+    subject_template: str = Form(...),
+    body_template: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    tpl = db.query(EmailTemplate).get(tpl_id)
+    if not tpl:
+        return RedirectResponse("/sprava/ciselniky", status_code=302)
+
+    name = name.strip()
+    subject_template = subject_template.strip()
+    if not name or not subject_template:
+        return RedirectResponse("/sprava/ciselniky", status_code=302)
+
+    # Check duplicate name
+    dup = db.query(EmailTemplate).filter(
+        EmailTemplate.name == name, EmailTemplate.id != tpl_id
+    ).first()
+    if dup:
+        return RedirectResponse("/sprava/ciselniky", status_code=302)
+
+    tpl.name = name
+    tpl.subject_template = subject_template
+    tpl.body_template = body_template
+    db.commit()
+    return RedirectResponse("/sprava/ciselniky", status_code=302)
+
+
+@router.post("/sablona/{tpl_id}/smazat")
+async def email_template_delete(
+    tpl_id: int,
+    db: Session = Depends(get_db),
+):
+    tpl = db.query(EmailTemplate).get(tpl_id)
+    if tpl:
+        db.delete(tpl)
         db.commit()
     return RedirectResponse("/sprava/ciselniky", status_code=302)
 
@@ -729,8 +811,8 @@ _PURGE_CATEGORIES = {
     },
     "administration": {
         "label": "Administrace SVJ",
-        "description": "Informace o SVJ, adresy, členové výboru, číselníky",
-        "models": [CodeListItem, SvjAddress, BoardMember, SvjInfo],
+        "description": "Informace o SVJ, adresy, členové výboru, číselníky, emailové šablony",
+        "models": [EmailTemplate, CodeListItem, SvjAddress, BoardMember, SvjInfo],
     },
     "backups": {
         "label": "Existující zálohy",

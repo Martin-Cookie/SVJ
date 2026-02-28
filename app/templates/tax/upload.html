@@ -1,9 +1,9 @@
 {% extends "base.html" %}
-{% block title %}Nové rozúčtování - SVJ Správa{% endblock %}
+{% block title %}Nové rozesílání - SVJ Správa{% endblock %}
 
 {% block content %}
 <div class="mb-6">
-    <a href="/dane" class="text-sm text-gray-500 hover:text-gray-700">&larr; Zpět na rozúčtování</a>
+    <a href="/dane" class="text-sm text-gray-500 hover:text-gray-700">&larr; Zpět na rozesílání</a>
 </div>
 
 {% if wizard_steps is defined and wizard_steps %}
@@ -11,7 +11,7 @@
 {% endif %}
 
 <div class="flex items-center justify-between mb-4 max-w-2xl">
-    <h1 class="text-2xl font-bold text-gray-800">Nové rozúčtování příjmů</h1>
+    <h1 class="text-2xl font-bold text-gray-800">Nové rozesílání</h1>
     <div class="flex items-center gap-2">
         <button id="submit-btn" type="submit" form="upload-form" class="hidden px-3 py-1.5 text-sm font-medium text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors">
             Nahrát a zpracovat
@@ -25,36 +25,43 @@
 <div class="bg-white rounded-lg shadow p-6 max-w-2xl">
     <form id="upload-form" action="/dane/nova" method="post" enctype="multipart/form-data" hx-boost="false">
         <div class="space-y-4">
+            {% if email_templates %}
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Šablona</label>
+                <select id="template-select" onchange="applyTemplate(this)"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+                    <option value="">— vlastní —</option>
+                    {% for t in email_templates %}
+                    <option value="{{ t.id }}"
+                            data-name="{{ t.name }}"
+                            data-subject="{{ t.subject_template }}"
+                            data-body="{{ t.body_template|e }}">
+                        {{ t.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Název *</label>
                 <input type="text" name="title" id="title-input" required
-                       value="Rozúčtování příjmů {{ current_year }}"
+                       value=""
                        oninput="checkFormReady()"
                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
             </div>
 
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Rok</label>
-                <input type="number" name="year" value="{{ current_year }}"
-                       class="w-32 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
-            </div>
-
-            <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Předmět emailu</label>
-                <input type="text" name="email_subject"
-                       value="Rozúčtování příjmů za rok {{ current_year }}"
+                <input type="text" name="email_subject" id="email-subject-input"
+                       value=""
                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
             </div>
 
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Text emailu</label>
-                <textarea name="email_body" rows="4"
-                          class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">Dobrý den,
-
-v příloze zasíláme rozúčtování příjmů za rok {{ current_year }}.
-
-S pozdravem,
-SVJ</textarea>
+                <textarea name="email_body" id="email-body-input" rows="4"
+                          class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"></textarea>
             </div>
 
             <div>
@@ -125,6 +132,24 @@ function toggleDirMode(on) {
     }
     checkFormReady();
 }
+function applyTemplate(sel) {
+    var opt = sel.options[sel.selectedIndex];
+    if (!opt.value) return;
+    var year = new Date().getFullYear();
+    var r = function(s) { return s.replace(/\{rok\}/g, year); };
+    document.getElementById('title-input').value = opt.dataset.name + ' ' + year;
+    document.getElementById('email-subject-input').value = r(opt.dataset.subject);
+    document.getElementById('email-body-input').value = r(opt.dataset.body);
+    checkFormReady();
+}
+// Auto-select first template on page load
+(function() {
+    var sel = document.getElementById('template-select');
+    if (sel && sel.options.length > 1) {
+        sel.selectedIndex = 1;
+        applyTemplate(sel);
+    }
+})();
 checkFormReady();
 </script>
 {% endblock %}

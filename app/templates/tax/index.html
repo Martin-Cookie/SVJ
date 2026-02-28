@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Rozúčtování příjmů - SVJ Správa{% endblock %}
+{% block title %}Hromadné rozesílání - SVJ Správa{% endblock %}
 
 {% block content %}
 {% if back_url %}
@@ -8,9 +8,9 @@
 </div>
 {% endif %}
 <div class="flex items-center justify-between mb-6">
-    <h1 class="text-2xl font-bold text-gray-800">Rozúčtování příjmů</h1>
+    <h1 class="text-2xl font-bold text-gray-800">Hromadné rozesílání</h1>
     <a href="/dane/nova" class="px-3 py-1.5 text-sm font-medium text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors">
-        Nové rozúčtování
+        Nové rozesílání
     </a>
 </div>
 
@@ -94,7 +94,7 @@
                 <span class="px-3 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full">Rozpracováno</span>
                 {% endif %}
                 <form action="/dane/{{ session.id }}/smazat" method="post" class="inline"
-                      onsubmit="return confirm('Smazat rozúčtování „{{ session.title }}"?')">
+                      onsubmit="return confirm('Smazat rozesílání „{{ session.title }}"?')">
                     <button type="submit" title="Smazat" class="p-1 text-gray-400 hover:text-red-600 rounded hover:bg-red-50">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
@@ -109,11 +109,11 @@
 {% else %}
 <div class="bg-white rounded-lg shadow p-8 text-center text-gray-500">
     {% if current_stav %}
-    <p>Žádné rozúčtování v tomto stavu.</p>
+    <p>Žádné rozesílání v tomto stavu.</p>
     <a href="/dane" class="mt-4 inline-block text-blue-600 hover:underline">Zobrazit vše</a>
     {% else %}
-    <p>Zatím nebylo vytvořeno žádné rozúčtování.</p>
-    <a href="/dane/nova" class="mt-4 inline-block text-blue-600 hover:underline">Vytvořit první rozúčtování</a>
+    <p>Zatím nebylo vytvořeno žádné rozesílání.</p>
+    <a href="/dane/nova" class="mt-4 inline-block text-blue-600 hover:underline">Vytvořit první rozesílání</a>
     {% endif %}
 </div>
 {% endif %}

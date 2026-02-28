@@ -233,6 +233,24 @@ def _seed_code_lists():
         logger.info("Code lists seeded from existing data")
 
 
+def _seed_email_templates():
+    """Seed default email template if table is empty."""
+    from sqlalchemy.orm import Session as _Session
+    from app.models.administration import EmailTemplate
+
+    with _Session(engine) as session:
+        if session.query(EmailTemplate).first() is not None:
+            return
+        session.add(EmailTemplate(
+            name="Rozúčtování příjmů",
+            subject_template="Rozúčtování příjmů za rok {rok}",
+            body_template="Dobrý den,\n\nv příloze zasíláme rozúčtování příjmů za rok {rok}.\n\nS pozdravem,\nSVJ",
+            order=0,
+        ))
+        session.commit()
+        logger.info("Default email template seeded")
+
+
 def run_post_restore_migrations():
     """Re-connect to the (possibly replaced) database and run all migrations.
 
@@ -265,6 +283,10 @@ def run_post_restore_migrations():
         _seed_code_lists()
     except Exception:
         logger.warning("post-restore: code list seeding skipped")
+    try:
+        _seed_email_templates()
+    except Exception:
+        logger.warning("post-restore: email template seeding skipped")
 
 
 @asynccontextmanager
@@ -303,6 +325,12 @@ async def lifespan(app: FastAPI):
         _seed_code_lists()
     except Exception:
         logger.warning("code list seeding skipped")
+
+    # Seed default email templates
+    try:
+        _seed_email_templates()
+    except Exception:
+        logger.warning("email template seeding skipped")
 
     # Ensure data directories exist
     for d in [settings.upload_dir, settings.generated_dir, settings.temp_dir]:

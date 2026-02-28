@@ -373,16 +373,22 @@ async def tax_list(request: Request, back: str = Query("", alias="back"), stav: 
 
 
 @router.get("/nova")
-async def tax_create_page(request: Request):
+async def tax_create_page(request: Request, db: Session = Depends(get_db)):
+    from app.models import EmailTemplate
     # Wizard step 1 for new session (no session object yet, build manually)
     steps = [{"label": s["label"], "status": "active" if i == 0 else "pending"} for i, s in enumerate(_TAX_WIZARD_STEPS)]
+    email_templates = (
+        db.query(EmailTemplate)
+        .order_by(EmailTemplate.order, EmailTemplate.name)
+        .all()
+    )
     return templates.TemplateResponse("tax/upload.html", {
         "request": request,
         "active_nav": "tax",
-        "current_year": datetime.now().year,
         "wizard_steps": steps,
         "wizard_current": 1,
         "wizard_total": len(_TAX_WIZARD_STEPS),
+        "email_templates": email_templates,
     })
 
 
@@ -390,16 +396,16 @@ async def tax_create_page(request: Request):
 async def tax_create(
     request: Request,
     title: str = Form(...),
-    year: int = Form(None),
     email_subject: str = Form(""),
     email_body: str = Form(""),
     files: List[UploadFile] = File(...),
     db: Session = Depends(get_db),
 ):
+    year = datetime.now().year
     session = TaxSession(
         title=title,
         year=year,
-        email_subject=email_subject or f"Rozúčtování příjmů {year or ''}",
+        email_subject=email_subject or title,
         email_body=email_body,
     )
     db.add(session)
@@ -950,7 +956,7 @@ async def tax_detail(
     )
 
     back_url = back or "/dane"
-    back_label = "Zpět na přehled" if back == "/" else "Zpět na rozúčtování"
+    back_label = "Zpět na přehled" if back == "/" else "Zpět na rozesílání"
 
     list_url = str(request.url.path)
     if request.url.query:
