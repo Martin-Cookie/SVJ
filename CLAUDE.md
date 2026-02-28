@@ -56,16 +56,24 @@
   - Prohlížeč nativně nescrolluje na `#hash` uvnitř overflow kontejnerů — proto je `scrollIntoView` nutný
   - Všechny odkazy z řádku (na detail entity i na související entity) musí sdílet stejný `#hash` anchor daného řádku
 
-## Tabulky — klikací entity a eager loading
+## Tabulky — povinný checklist
 
-- **Každý odkaz na entitu v tabulce musí být klikací** — vlastník, jednotka, lístek. Nikdy plain text pokud existuje detail stránka
+> **Při JAKÉKOLIV úpravě stránky s tabulkou (nová stránka, redesign, přidání sloupce) VŽDY zkontrolovat a doplnit VŠECHNY body:**
+
+1. **Řaditelné sloupce** — KAŽDÝ datový sloupec musí být řaditelný kliknutím na hlavičku (šipka nahoru/dolů). Implementace přes `_cols` loop nebo `sort_th` macro, `SORT_COLUMNS` dict v routeru
+2. **Hledání** — HTMX search bar s `hx-trigger="keyup changed delay:300ms"`, prohledává všechna relevantní textová pole, diacritics-insensitive přes `_strip_diacritics()`
+3. **Klikací entity** — každý odkaz na entitu (vlastník, jednotka, lístek) musí být `<a href>`, nikdy plain text pokud existuje detail stránka. Vyžaduje lookup v routeru (např. `owner_by_email` dict)
+4. **Eager loading** — klikací entity vyžadují `joinedload()` v routeru, jinak lazy loading selže nebo způsobí N+1
+5. **HTMX partial** — search aktualizuje jen `<tbody>` přes partial šablonu, zbytek stránky zůstane
+6. **Sticky header** — `sticky top-0 z-10` na `<thead>`, flex column layout pro fixní filtry/search nad scrollovatelným obsahem
+
 - Klikací entity vyžadují eager loading relací v routeru:
   ```python
   joinedload(Ballot.owner).joinedload(Owner.units).joinedload(OwnerUnit.unit)
   ```
 - Bez eager loading `current_units` vrátí prázdný list (lazy loading selže mimo session) nebo způsobí N+1 dotazy
 - Při přidání nového klikacího sloupce do tabulky VŽDY zkontrolovat, zda router má potřebný `joinedload()`
-- **Všechny datové sloupce v tabulce musí být řaditelné** — pokud má tabulka sort, přidat sort key i pro nové/dynamické sloupce (body hlasování, plná moc atd.)
+- **Tento checklist platí i při čistě vizuálních úpravách** (kompaktnější layout, přesunutí prvků) — nikdy neodeslat stránku s tabulkou bez všech 6 bodů
 
 ## Procentuální vstupy (kvórum, podíly)
 
