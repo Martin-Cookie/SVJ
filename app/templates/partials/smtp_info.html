@@ -1,0 +1,45 @@
+<div class="flex items-center justify-between mb-4">
+    <h2 class="text-lg font-semibold text-gray-700">SMTP nastavení emailu</h2>
+    <div class="flex items-center gap-2">
+        {% if saved %}
+        <span class="text-sm text-green-600">Uloženo</span>
+        {% endif %}
+        <button hx-get="/nastaveni/smtp/formular" hx-target="#smtp-section" hx-swap="innerHTML"
+                class="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+            </svg>
+            Upravit
+        </button>
+    </div>
+</div>
+<div class="space-y-3 text-sm">
+    <div class="flex justify-between py-2 border-b border-gray-100">
+        <span class="text-gray-600">SMTP Server</span>
+        <span class="font-mono text-gray-800">{{ settings.smtp_host }}</span>
+    </div>
+    <div class="flex justify-between py-2 border-b border-gray-100">
+        <span class="text-gray-600">Port</span>
+        <span class="font-mono text-gray-800">{{ settings.smtp_port }}</span>
+    </div>
+    <div class="flex justify-between py-2 border-b border-gray-100">
+        <span class="text-gray-600">Uživatel</span>
+        <span class="font-mono text-gray-800">{{ settings.smtp_user or '(nenastaveno)' }}</span>
+    </div>
+    <div class="flex justify-between py-2 border-b border-gray-100">
+        <span class="text-gray-600">Heslo</span>
+        <span class="font-mono text-gray-800">{{ '••••••••' if settings.smtp_password else '(nenastaveno)' }}</span>
+    </div>
+    <div class="flex justify-between py-2 border-b border-gray-100">
+        <span class="text-gray-600">Jméno odesílatele</span>
+        <span class="font-mono text-gray-800">{{ settings.smtp_from_name }}</span>
+    </div>
+    <div class="flex justify-between py-2 border-b border-gray-100">
+        <span class="text-gray-600">Email odesílatele</span>
+        <span class="font-mono text-gray-800">{{ settings.smtp_from_email }}</span>
+    </div>
+    <div class="flex justify-between py-2 border-b border-gray-100">
+        <span class="text-gray-600">TLS</span>
+        <span class="font-mono text-gray-800">{{ 'Ano' if settings.smtp_use_tls else 'Ne' }}</span>
+    </div>
+</div>

@@ -1,8 +1,8 @@
 from typing import Optional
 
 from dotenv import set_key
-from fastapi import APIRouter, Depends, Form, Query, Request
-from fastapi.responses import RedirectResponse
+from fastapi import APIRouter, Depends, Form, Request
+from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
@@ -15,12 +15,7 @@ templates = Jinja2Templates(directory="app/templates")
 
 
 @router.get("/")
-async def settings_view(
-    request: Request,
-    db: Session = Depends(get_db),
-    flash: Optional[str] = Query(None),
-    flash_type: Optional[str] = Query(None),
-):
+async def settings_view(request: Request, db: Session = Depends(get_db)):
     email_logs = (
         db.query(EmailLog)
         .order_by(EmailLog.created_at.desc())
@@ -32,8 +27,22 @@ async def settings_view(
         "active_nav": "settings",
         "settings": settings,
         "email_logs": email_logs,
-        "flash_message": flash,
-        "flash_type": flash_type or "success",
+    })
+
+
+@router.get("/smtp/formular")
+async def smtp_form(request: Request):
+    return templates.TemplateResponse("partials/smtp_form.html", {
+        "request": request,
+        "settings": settings,
+    })
+
+
+@router.get("/smtp/info")
+async def smtp_info(request: Request):
+    return templates.TemplateResponse("partials/smtp_info.html", {
+        "request": request,
+        "settings": settings,
     })
 
 
@@ -70,7 +79,8 @@ async def save_smtp(
     settings.smtp_from_email = smtp_from_email
     settings.smtp_use_tls = use_tls
 
-    return RedirectResponse(
-        "/nastaveni?flash=Nastaven%C3%AD+ulo%C5%BEeno&flash_type=success",
-        status_code=302,
-    )
+    return templates.TemplateResponse("partials/smtp_info.html", {
+        "request": request,
+        "settings": settings,
+        "saved": True,
+    })
