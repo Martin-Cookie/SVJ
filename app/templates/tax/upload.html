@@ -67,11 +67,16 @@ SVJ</textarea>
                         Vybrat celý adresář
                     </label>
                 </div>
+                <div class="flex items-center">
+                    <label for="file-input" id="file-btn-label"
+                           class="inline-block py-2 px-4 rounded-lg text-sm font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 cursor-pointer">
+                        Vybrat soubor
+                    </label>
+                    <span id="file-name" class="ml-4 text-sm text-gray-500">není vybrán žádný soubor</span>
+                </div>
                 <input type="file" id="file-input" name="files" accept=".pdf" multiple required
-                       onchange="checkFormReady()"
-                       class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4
-                              file:rounded-lg file:border-0 file:text-sm file:font-medium
-                              file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                       onchange="updateFileName(this); checkFormReady()"
+                       class="hidden">
                 <p id="file-hint" class="text-xs text-gray-400 mt-1">
                     Pojmenování souborů: {číslo_jednotky}{písmeno}.pdf (např. 9A.pdf, 101B.pdf).
                     Vyberte všechny PDF najednou.
@@ -88,10 +93,25 @@ function checkFormReady() {
     var hasTitle = document.getElementById('title-input').value.trim() !== '';
     document.getElementById('submit-btn').classList.toggle('hidden', !(hasFile && hasTitle));
 }
+function updateFileName(inp) {
+    var nameEl = document.getElementById('file-name');
+    var dirMode = document.getElementById('dir-toggle').checked;
+    if (inp.files.length > 0) {
+        nameEl.textContent = dirMode
+            ? inp.files.length + ' souborů v adresáři'
+            : (inp.files.length === 1 ? inp.files[0].name : inp.files.length + ' souborů');
+    } else {
+        nameEl.textContent = dirMode ? 'není vybrán žádný adresář' : 'není vybrán žádný soubor';
+    }
+}
 function toggleDirMode(on) {
     var inp = document.getElementById('file-input');
     var hint = document.getElementById('file-hint');
+    var btnLabel = document.getElementById('file-btn-label');
+    var nameEl = document.getElementById('file-name');
     inp.value = '';
+    btnLabel.textContent = on ? 'Vybrat adresář' : 'Vybrat soubor';
+    nameEl.textContent = on ? 'není vybrán žádný adresář' : 'není vybrán žádný soubor';
     if (on) {
         inp.setAttribute('webkitdirectory', '');
         inp.removeAttribute('accept');
