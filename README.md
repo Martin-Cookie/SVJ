@@ -246,21 +246,25 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
     - Upload souboru svj.db
   - Před každou obnovou se automaticky vytvoří pojistná záloha
   - Po obnově automatická migrace (engine.dispose + přidání chybějících sloupců/indexů) — server nepadá
+  - Flash zpráva po úspěšné obnově i vytvoření zálohy
   - Sekce zůstává otevřená po všech akcích (query param `sekce=zalohy`)
   - Side-by-side layout: vytvořit zálohu vlevo, obnovit vpravo
   - `application/octet-stream` pro stahování — Safari nerozbaluje automaticky
 - Smazání dat:
-  - Výběr kategorií ke smazání (vlastníci, hlasování, daně, synchronizace, logy, administrace, zálohy, historie obnovení)
+  - Výběr kategorií ke smazání (vlastníci, hlasování, daně, synchronizace, kontrola podílu, logy, administrace, zálohy, historie obnovení)
   - Checkbox „Vybrat/Zrušit vše" pro hromadné označení
   - Počet záznamů a popis u každé kategorie (DB modely i souborové kategorie)
   - Potvrzení zadáním slova DELETE — tlačítko disabled dokud není zadáno
   - Cascade smazání v bezpečném pořadí (děti před rodiči)
+  - Varování o kaskádovém mazání (smazání vlastníků automaticky smaže i synchronizační data)
+  - Granulární mazání souborů — každá kategorie maže jen své upload adresáře (ne celý uploads/)
 - Export dat:
   - Výběr kategorií k exportu s checkboxy a „Vybrat/Zrušit vše"
   - Počet záznamů a popis u každé kategorie
   - Stažení ve formátu Excel (xlsx) nebo CSV (UTF-8 s BOM)
   - Hromadný export: jedna kategorie = přímý soubor, více kategorií = ZIP archiv
-  - 6 kategorií: vlastníci a jednotky, hlasování, daňové podklady, synchronizace, logy, administrace
+  - 7 kategorií: vlastníci a jednotky, hlasování, daňové podklady, synchronizace, kontrola podílu, logy, administrace
+  - Export administrace zahrnuje číselníky i emailové šablony
 - Číselníky (centrálně spravované kódy):
   - 4 kategorie: Typ prostoru, Sekce, Počet místností, Typ vlastnictví
   - Automatické naplnění z existujících unikátních hodnot v DB při prvním startu
