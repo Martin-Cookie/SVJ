@@ -315,7 +315,7 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
 - Historie odeslaných emailů (posledních 100):
   - Řaditelné sloupce (datum, modul, příjemce, předmět, stav) s šipkami
   - Hledání (příjemce, email, předmět, modul — diacritics-insensitive)
-  - Prokliky na detail vlastníka u příjemců nalezených v DB
+  - Prokliky na detail vlastníka u příjemců nalezených v DB (s back URL pro návrat)
   - Klikací přílohy — náhled/stažení PDF a dalších souborů přímo z email logu (`target="_blank"`)
   - Plné cesty příloh uložené v DB (zpětně kompatibilní se starými záznamy bez cest)
   - Status badge: OK (zelená), Chyba (červená s tooltip), Čeká (žlutá)
