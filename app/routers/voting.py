@@ -1,12 +1,10 @@
 import json
 import shutil
-import zipfile
 from datetime import datetime, date
-from io import BytesIO
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
-from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, StreamingResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
@@ -21,13 +19,7 @@ from app.services.word_parser import extract_voting_items, extract_voting_metada
 from app.services.voting_import import (
     read_excel_headers, preview_voting_import, execute_voting_import,
 )
-from unicodedata import normalize, category as _ucd_category
-
-
-def _strip_diacritics(text: str) -> str:
-    """Remove diacritics and lowercase for search."""
-    nfkd = normalize("NFD", text)
-    return "".join(c for c in nfkd if _ucd_category(c) != "Mn").lower()
+from app.utils import build_list_url, is_htmx_partial, strip_diacritics
 
 
 router = APIRouter()
@@ -211,9 +203,7 @@ async def voting_list(
             "wizard_total": len(_VOTING_WIZARD_STEPS),
         }
 
-    list_url = str(request.url.path)
-    if request.url.query:
-        list_url += "?" + str(request.url.query)
+    list_url = build_list_url(request)
 
     return templates.TemplateResponse("voting/index.html", {
         "request": request,
@@ -437,7 +427,7 @@ async def voting_detail(
     }
 
     # HTMX partial: return only the results table
-    if request.headers.get("HX-Request") and not request.headers.get("HX-Boosted"):
+    if is_htmx_partial(request):
         return templates.TemplateResponse("voting/detail_results.html", ctx)
 
     return templates.TemplateResponse("voting/detail.html", ctx)
@@ -551,9 +541,7 @@ async def ballot_list(
     key_fn = sort_keys.get(sort, sort_keys["owner"])
     ballots = sorted(ballots, key=key_fn, reverse=(order == "desc"))
 
-    list_url = str(request.url.path)
-    if request.url.query:
-        list_url += "?" + str(request.url.query)
+    list_url = build_list_url(request)
 
     has_processed = any(b.status.value == "processed" for b in voting.ballots)
     ctx = {
@@ -573,7 +561,7 @@ async def ballot_list(
     }
 
     # HTMX partial: return only the table
-    if request.headers.get("HX-Request") and not request.headers.get("HX-Boosted"):
+    if is_htmx_partial(request):
         return templates.TemplateResponse("voting/ballots_table.html", ctx)
 
     return templates.TemplateResponse("voting/ballots.html", ctx)
@@ -691,7 +679,7 @@ async def process_page(
         **_voting_wizard(voting, 3),
     }
 
-    if request.headers.get("HX-Request") and not request.headers.get("HX-Boosted"):
+    if is_htmx_partial(request):
         return templates.TemplateResponse("voting/process_cards.html", ctx)
 
     return templates.TemplateResponse("voting/process.html", ctx)
@@ -875,18 +863,18 @@ async def not_submitted(
     # Search filter
     if q:
         q_lower = q.lower()
-        q_ascii = _strip_diacritics(q)
+        q_ascii = strip_diacritics(q)
         missing = [
             b for b in missing
             if q_lower in (b.owner.display_name or "").lower()
-            or q_ascii in _strip_diacritics(b.owner.display_name or "")
+            or q_ascii in strip_diacritics(b.owner.display_name or "")
             or q_lower in (b.units_text or "").lower()
             or q_lower in (b.owner.email or "").lower()
         ]
 
     # Sorting
     SORT_KEYS = {
-        "owner": lambda b: _strip_diacritics(b.owner.display_name or ""),
+        "owner": lambda b: strip_diacritics(b.owner.display_name or ""),
         "units": lambda b: (b.units_text or "").lower(),
         "email": lambda b: (b.owner.email or "").lower(),
         "votes": lambda b: b.total_votes or 0,
@@ -895,9 +883,7 @@ async def not_submitted(
     sort_fn = SORT_KEYS.get(sort, SORT_KEYS["owner"])
     missing.sort(key=sort_fn, reverse=(order == "desc"))
 
-    list_url = str(request.url.path)
-    if request.url.query:
-        list_url += "?" + str(request.url.query)
+    list_url = build_list_url(request)
 
     has_processed = any(b.status.value == "processed" for b in voting.ballots)
     ctx = {
@@ -915,7 +901,7 @@ async def not_submitted(
         **_voting_wizard(voting, 4 if has_processed else 3),
     }
 
-    if request.headers.get("HX-Request") and not request.headers.get("HX-Boosted"):
+    if is_htmx_partial(request):
         return templates.TemplateResponse("voting/not_submitted_table.html", ctx)
 
     return templates.TemplateResponse("voting/not_submitted.html", ctx)

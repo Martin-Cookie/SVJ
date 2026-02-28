@@ -2,19 +2,12 @@ from fastapi import APIRouter, Depends, Query, Request
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import case, func
 from sqlalchemy.orm import Session
-from unicodedata import normalize, category as _ucd_category
 
 from app.database import get_db
 from app.models import EmailLog, Owner, OwnerUnit, SvjInfo, Unit, Voting, VotingStatus
 from app.models.voting import Ballot, BallotStatus
-from app.models.tax import TaxSession, TaxDistribution, EmailDeliveryStatus, SendStatus
-
-
-def _strip_diacritics(text: str) -> str:
-    """Remove diacritics and lowercase for search."""
-    nfkd = normalize("NFD", text)
-    return "".join(c for c in nfkd if _ucd_category(c) != "Mn").lower()
-
+from app.models.tax import TaxSession, TaxDistribution, EmailDeliveryStatus
+from app.utils import strip_diacritics
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -164,11 +157,11 @@ async def home(
     # Search filtering
     if q:
         q_lower = q.lower()
-        q_ascii = _strip_diacritics(q)
+        q_ascii = strip_diacritics(q)
         recent_emails = [
             e for e in recent_emails
             if q_lower in (e.recipient_name or "").lower()
-            or q_ascii in _strip_diacritics(e.recipient_name or "")
+            or q_ascii in strip_diacritics(e.recipient_name or "")
             or q_lower in (e.recipient_email or "").lower()
             or q_lower in (e.subject or "").lower()
             or q_lower in (e.module or "").lower()
@@ -178,7 +171,7 @@ async def home(
     SORT_KEYS = {
         "date": lambda e: e.created_at,
         "module": lambda e: (e.module or "").lower(),
-        "recipient": lambda e: _strip_diacritics(e.recipient_name or e.recipient_email or ""),
+        "recipient": lambda e: strip_diacritics(e.recipient_name or e.recipient_email or ""),
         "subject": lambda e: (e.subject or "").lower(),
         "status": lambda e: e.status.value if e.status else "",
     }

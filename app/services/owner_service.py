@@ -4,18 +4,11 @@ Owner service — shared owner operations (merge, duplicate detection).
 from __future__ import annotations
 
 from datetime import date, datetime
-from unicodedata import category, normalize
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from app.models import Owner, OwnerUnit
-
-
-def _strip_diacritics(text: str) -> str:
-    """Remove diacritics and lowercase for matching."""
-    nfkd = normalize("NFD", text)
-    return "".join(c for c in nfkd if category(c) != "Mn").lower()
 
 
 def merge_owners(target: Owner, duplicates: list[Owner], db: Session) -> None:

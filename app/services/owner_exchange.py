@@ -10,7 +10,7 @@ import re
 from datetime import date, datetime
 from difflib import SequenceMatcher
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.models import (
     ImportLog, Owner, OwnerUnit, OwnerType, SyncRecord, SyncResolution,
@@ -73,11 +73,7 @@ def _split_csv_names(csv_owner_name: str) -> list[str]:
     return [n.strip() for n in names if n.strip()]
 
 
-def _strip_diacritics_simple(text: str) -> str:
-    """Remove diacritics and lowercase — no stemming, no title stripping."""
-    from unicodedata import category, normalize
-    nfkd = normalize("NFD", text)
-    return "".join(c for c in nfkd if category(c) != "Mn").lower()
+from app.utils import strip_diacritics as _strip_diacritics_simple
 
 
 def _find_existing_owner(
@@ -155,26 +151,35 @@ def prepare_exchange_preview(
             continue
 
         # Find unit
+        try:
+            unit_num = int(record.unit_number) if record.unit_number else None
+        except (ValueError, TypeError):
+            continue
         unit = (
             db.query(Unit)
-            .filter(Unit.unit_number == int(record.unit_number))
+            .filter(Unit.unit_number == unit_num)
             .first()
-        ) if record.unit_number else None
+        ) if unit_num is not None else None
         if not unit:
             continue
 
         # Current owner_units (only active — valid_to IS NULL)
-        current_ous = db.query(OwnerUnit).filter_by(unit_id=unit.id).filter(OwnerUnit.valid_to.is_(None)).all()
-        current_owners = []
-        for ou in current_ous:
-            owner = db.query(Owner).get(ou.owner_id)
-            if owner:
-                current_owners.append({
-                    "id": owner.id,
-                    "name": owner.name_with_titles,
-                    "votes": ou.votes,
-                    "ownership_type": ou.ownership_type,
-                })
+        current_ous = (
+            db.query(OwnerUnit)
+            .options(joinedload(OwnerUnit.owner))
+            .filter_by(unit_id=unit.id)
+            .filter(OwnerUnit.valid_to.is_(None))
+            .all()
+        )
+        current_owners = [
+            {
+                "id": ou.owner.id,
+                "name": ou.owner.name_with_titles,
+                "votes": ou.votes,
+                "ownership_type": ou.ownership_type,
+            }
+            for ou in current_ous if ou.owner
+        ]
 
         # Match each CSV name
         new_owners_preview = []
@@ -267,23 +272,32 @@ def execute_exchange(
         if not csv_names:
             continue
 
+        try:
+            unit_num = int(record.unit_number) if record.unit_number else None
+        except (ValueError, TypeError):
+            continue
         unit = (
             db.query(Unit)
-            .filter(Unit.unit_number == int(record.unit_number))
+            .filter(Unit.unit_number == unit_num)
             .first()
-        ) if record.unit_number else None
+        ) if unit_num is not None else None
         if not unit:
             continue
 
         # Collect old OwnerUnits
-        old_ous = db.query(OwnerUnit).filter_by(unit_id=unit.id).filter(OwnerUnit.valid_to.is_(None)).all()
+        old_ous = (
+            db.query(OwnerUnit)
+            .options(joinedload(OwnerUnit.owner))
+            .filter_by(unit_id=unit.id)
+            .filter(OwnerUnit.valid_to.is_(None))
+            .all()
+        )
         old_owner_names = []
         ou_by_owner_id = {}
         for ou in old_ous:
-            o = db.query(Owner).get(ou.owner_id)
-            if o:
-                old_owner_names.append(o.name_with_titles)
-                ou_by_owner_id[o.id] = ou
+            if ou.owner:
+                old_owner_names.append(ou.owner.name_with_titles)
+                ou_by_owner_id[ou.owner.id] = ou
 
         # Match each CSV name to existing owners on this unit
         matched_owner_ids = set()  # DB owner IDs that match a CSV name

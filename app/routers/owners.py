@@ -1,6 +1,5 @@
 import shutil
 from datetime import date, datetime
-from unicodedata import category, normalize
 
 from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
 from fastapi.responses import RedirectResponse
@@ -12,15 +11,10 @@ from app.config import settings
 from app.database import get_db
 from app.models import ImportLog, Owner, OwnerType, OwnerUnit, SvjInfo, Unit
 from app.services.excel_import import import_owners_from_excel, preview_owners_from_excel
+from app.utils import build_list_url, is_htmx_partial, strip_diacritics
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
-
-
-def _strip_diacritics(text: str) -> str:
-    """Remove diacritics and lowercase for SQLite-safe search."""
-    nfkd = normalize("NFD", text)
-    return "".join(c for c in nfkd if category(c) != "Mn").lower()
 
 
 SORT_COLUMNS = {
@@ -68,7 +62,7 @@ async def owner_create(
         parts_norm.append(last_name)
     if first_name:
         parts_norm.append(first_name)
-    name_normalized = _strip_diacritics(" ".join(parts_norm))
+    name_normalized = strip_diacritics(" ".join(parts_norm))
 
     owner = Owner(
         first_name=first_name.strip(),
@@ -109,7 +103,7 @@ async def owner_list(
     )
     if q:
         search = f"%{q}%"
-        search_ascii = f"%{_strip_diacritics(q)}%"
+        search_ascii = f"%{strip_diacritics(q)}%"
         # Search across name, email, phone, birth number, company ID, unit number
         # name_normalized is stored without diacritics → compare with stripped search
         query = query.filter(
@@ -180,14 +174,10 @@ async def owner_list(
         owners = query.order_by(Owner.name_normalized).all()
 
     # Current list URL for back navigation
-    list_url = str(request.url.path)
-    if request.url.query:
-        list_url += "?" + str(request.url.query)
+    list_url = build_list_url(request)
 
     # Return partial only for targeted HTMX requests (search/filter), not boosted navigation
-    is_htmx = request.headers.get("HX-Request")
-    is_boosted = request.headers.get("HX-Boosted")
-    if is_htmx and not is_boosted:
+    if is_htmx_partial(request):
         return templates.TemplateResponse("partials/owner_table_body.html", {
             "request": request,
             "owners": owners,
@@ -386,7 +376,7 @@ async def owner_detail(
     back: str = Query("", alias="back"),
     db: Session = Depends(get_db),
 ):
-    from app.routers.administration import _get_all_code_lists
+    from app.services.code_list_service import get_all_code_lists
 
     owner = db.query(Owner).options(
         joinedload(Owner.units).joinedload(OwnerUnit.unit)
@@ -422,7 +412,7 @@ async def owner_detail(
             else "Zpět na nastavení" if back.startswith("/nastaveni")
             else "Zpět na seznam vlastníků"
         ),
-        "code_lists": _get_all_code_lists(db),
+        "code_lists": get_all_code_lists(db),
     })
 
 
@@ -472,7 +462,7 @@ def _rebuild_owner_name(owner: Owner) -> None:
         parts_norm.append(owner.last_name)
     if owner.first_name:
         parts_norm.append(owner.first_name)
-    owner.name_normalized = _strip_diacritics(" ".join(parts_norm))
+    owner.name_normalized = strip_diacritics(" ".join(parts_norm))
 
 
 def _find_duplicate_owners(db: Session, owner: Owner) -> list[Owner]:
@@ -613,7 +603,7 @@ async def owner_merge(
 
     if request.headers.get("HX-Request"):
         from fastapi.responses import HTMLResponse
-        from app.routers.administration import _get_all_code_lists
+        from app.services.code_list_service import get_all_code_lists
         # Refresh identity section (no more duplicates)
         identity_html = templates.TemplateResponse("partials/owner_identity_info.html", {
             "request": request,
@@ -628,7 +618,7 @@ async def owner_merge(
             "owner": owner,
             "available_units": available_units,
             "declared_shares": declared_shares,
-            "code_lists": _get_all_code_lists(db),
+            "code_lists": get_all_code_lists(db),
         })
         units_oob = (
             f'<div id="owner-units-section" hx-swap-oob="true">'
@@ -841,14 +831,14 @@ async def owner_add_unit(
         db.refresh(owner)
 
     if request.headers.get("HX-Request"):
-        from app.routers.administration import _get_all_code_lists
+        from app.services.code_list_service import get_all_code_lists
         available_units, declared_shares = _owner_units_context(owner, db)
         return templates.TemplateResponse("partials/owner_units_section.html", {
             "request": request,
             "owner": owner,
             "available_units": available_units,
             "declared_shares": declared_shares,
-            "code_lists": _get_all_code_lists(db),
+            "code_lists": get_all_code_lists(db),
         })
     return RedirectResponse(f"/vlastnici/{owner_id}", status_code=302)
 
@@ -870,13 +860,13 @@ async def owner_remove_unit(
     ).get(owner_id)
 
     if request.headers.get("HX-Request"):
-        from app.routers.administration import _get_all_code_lists
+        from app.services.code_list_service import get_all_code_lists
         available_units, declared_shares = _owner_units_context(owner, db)
         return templates.TemplateResponse("partials/owner_units_section.html", {
             "request": request,
             "owner": owner,
             "available_units": available_units,
             "declared_shares": declared_shares,
-            "code_lists": _get_all_code_lists(db),
+            "code_lists": get_all_code_lists(db),
         })
     return RedirectResponse(f"/vlastnici/{owner_id}", status_code=302)

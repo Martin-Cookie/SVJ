@@ -25,6 +25,9 @@ from app.services.backup_service import (
     create_backup, restore_backup, restore_from_directory,
     log_restore, read_restore_log,
 )
+from app.services.code_list_service import (
+    CODE_LIST_CATEGORIES, CODE_LIST_ORDER, get_all_code_lists,
+)
 from app.services.data_export import (
     EXPORT_ORDER, _EXPORTS as EXPORT_CATEGORIES,
     export_category_xlsx, export_category_csv,
@@ -42,16 +45,6 @@ _BULK_FIELDS = {
     "orientation_number": {"label": "Orientační číslo", "model": "unit", "column": "orientation_number"},
 }
 
-_CODE_LIST_CATEGORIES = {
-    "space_type": {"label": "Typ prostoru", "model": Unit, "column": "space_type"},
-    "section": {"label": "Sekce", "model": Unit, "column": "section"},
-    "room_count": {"label": "Počet místností", "model": Unit, "column": "room_count"},
-    "ownership_type": {"label": "Typ vlastnictví", "model": OwnerUnit, "column": "ownership_type"},
-}
-
-_CODE_LIST_ORDER = ["space_type", "section", "room_count", "ownership_type"]
-
-
 def _get_code_list(db: Session, category: str):
     """Return code list items for a category, sorted by (order, value)."""
     return (
@@ -62,23 +55,9 @@ def _get_code_list(db: Session, category: str):
     )
 
 
-def _get_all_code_lists(db: Session) -> dict:
-    """Return {category: [items]} for all code list categories."""
-    items = (
-        db.query(CodeListItem)
-        .order_by(CodeListItem.category, CodeListItem.order, CodeListItem.value)
-        .all()
-    )
-    result = {cat: [] for cat in _CODE_LIST_ORDER}
-    for item in items:
-        if item.category in result:
-            result[item.category].append(item)
-    return result
-
-
 def _get_usage_count(db: Session, category: str, value: str) -> int:
     """Return number of records using a code list value."""
-    meta = _CODE_LIST_CATEGORIES.get(category)
+    meta = CODE_LIST_CATEGORIES.get(category)
     if not meta:
         return 0
     model = meta["model"]
@@ -165,7 +144,7 @@ async def administration_page(request: Request, db: Session = Depends(get_db)):
         "backup_count": backup_count,
         "last_backup": last_backup,
         "code_list_total": code_list_total,
-        "code_list_categories": _CODE_LIST_CATEGORIES,
+        "code_list_categories": CODE_LIST_CATEGORIES,
         "duplicate_count": duplicate_count,
     })
 
@@ -193,9 +172,9 @@ async def svj_info_page(request: Request, db: Session = Depends(get_db)):
 
 @router.get("/ciselniky")
 async def code_lists_page(request: Request, db: Session = Depends(get_db)):
-    code_lists = _get_all_code_lists(db)
+    code_lists = get_all_code_lists(db)
     code_list_usage = {}
-    for cat in _CODE_LIST_ORDER:
+    for cat in CODE_LIST_ORDER:
         for item in code_lists.get(cat, []):
             code_list_usage[item.id] = _get_usage_count(db, cat, item.value)
 
@@ -210,8 +189,8 @@ async def code_lists_page(request: Request, db: Session = Depends(get_db)):
         "active_nav": "administration",
         "code_lists": code_lists,
         "code_list_usage": code_list_usage,
-        "code_list_categories": _CODE_LIST_CATEGORIES,
-        "code_list_order": _CODE_LIST_ORDER,
+        "code_list_categories": CODE_LIST_CATEGORIES,
+        "code_list_order": CODE_LIST_ORDER,
         "email_templates": email_templates,
     })
 
@@ -387,7 +366,7 @@ async def code_list_add(
     db: Session = Depends(get_db),
 ):
     value = value.strip()
-    if not value or category not in _CODE_LIST_CATEGORIES:
+    if not value or category not in CODE_LIST_CATEGORIES:
         return RedirectResponse("/sprava/ciselniky", status_code=302)
 
     # Check duplicate
@@ -946,7 +925,7 @@ async def bulk_edit_values(request: Request, pole: str, db: Session = Depends(ge
     ))
 
     # Merge code list values into suggestions
-    if pole in _CODE_LIST_CATEGORIES:
+    if pole in CODE_LIST_CATEGORIES:
         cl_values = [
             item.value for item in _get_code_list(db, pole)
         ]

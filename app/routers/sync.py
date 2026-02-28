@@ -19,13 +19,7 @@ from app.models import (
 from app.services.csv_comparator import compare_owners, parse_sousede_csv
 from app.services.owner_exchange import execute_exchange, prepare_exchange_preview
 from app.services.owner_matcher import normalize_for_matching
-from unicodedata import normalize as _unicode_normalize, category as _ucd_category
-
-
-def _strip_diacritics(text: str) -> str:
-    """Remove diacritics and lowercase for search."""
-    nfkd = _unicode_normalize("NFD", text)
-    return "".join(c for c in nfkd if _ucd_category(c) != "Mn").lower()
+from app.utils import build_list_url, is_htmx_partial, strip_diacritics
 
 
 router = APIRouter()
@@ -46,11 +40,11 @@ async def sync_list(
     # Search filtering
     if q:
         q_lower = q.lower()
-        q_ascii = _strip_diacritics(q)
+        q_ascii = strip_diacritics(q)
         sessions = [
             s for s in sessions
             if q_lower in (s.csv_filename or "").lower()
-            or q_ascii in _strip_diacritics(s.csv_filename or "")
+            or q_ascii in strip_diacritics(s.csv_filename or "")
             or q_lower in s.created_at.strftime("%d.%m.%Y %H:%M")
         ]
 
@@ -64,9 +58,7 @@ async def sync_list(
     sort_fn = SORT_KEYS.get(sort, SORT_KEYS["date"])
     sessions.sort(key=sort_fn, reverse=(order == "desc"))
 
-    list_url = str(request.url.path)
-    if request.url.query:
-        list_url += "?" + str(request.url.query)
+    list_url = build_list_url(request)
 
     ctx = {
         "request": request,
@@ -79,7 +71,7 @@ async def sync_list(
         "order": order,
     }
 
-    if request.headers.get("HX-Request") and not request.headers.get("HX-Boosted"):
+    if is_htmx_partial(request):
         return templates.TemplateResponse("partials/sync_list_body.html", ctx)
 
     return templates.TemplateResponse("sync/index.html", ctx)
@@ -311,12 +303,12 @@ async def sync_detail(
     # Search filtering
     if q:
         q_lower = q.lower()
-        q_ascii = _strip_diacritics(q)
+        q_ascii = strip_diacritics(q)
         records = [
             r for r in records
             if q_lower in str(r.unit_number or "")
-            or q_ascii in _strip_diacritics(r.excel_owner_name or "")
-            or q_ascii in _strip_diacritics(r.csv_owner_name or "")
+            or q_ascii in strip_diacritics(r.excel_owner_name or "")
+            or q_ascii in strip_diacritics(r.csv_owner_name or "")
             or q_lower in (r.excel_space_type or "").lower()
             or q_lower in (r.excel_ownership_type or "").lower()
         ]
@@ -710,7 +702,7 @@ async def apply_selected_updates(
                 from app.models import OwnerType
                 for cn in unmatched_csv:
                     # Search entire DB for existing owner before creating new
-                    cn_simple = _strip_diacritics(cn.strip())
+                    cn_simple = strip_diacritics(cn.strip())
                     existing_global = (
                         db.query(Owner)
                         .filter(Owner.name_normalized == cn_simple, Owner.is_active == True)
@@ -738,7 +730,7 @@ async def apply_selected_updates(
                             first_name=name_parts[1] if len(name_parts) == 2 else name_parts[0],
                             last_name=name_parts[0] if len(name_parts) == 2 else None,
                             name_with_titles=cn,
-                            name_normalized=_strip_diacritics(cn.strip()),
+                            name_normalized=strip_diacritics(cn.strip()),
                             owner_type=OwnerType.LEGAL_ENTITY if is_legal else OwnerType.PHYSICAL,
                             data_source="csv_sync",
                             is_active=True,

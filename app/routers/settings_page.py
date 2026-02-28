@@ -1,25 +1,19 @@
 from pathlib import Path
 from typing import Optional
-from unicodedata import category, normalize
 
 from dotenv import set_key
 from fastapi import APIRouter, Depends, Form, Query, Request
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.database import get_db
 from app.models import EmailLog, Owner
+from app.utils import build_list_url, is_htmx_partial, strip_diacritics
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
-
-
-def _strip_diacritics(text: str) -> str:
-    """Remove diacritics and lowercase for search."""
-    nfkd = normalize("NFD", text)
-    return "".join(c for c in nfkd if category(c) != "Mn").lower()
 
 
 def _parse_attachments(raw: Optional[str]) -> list:
@@ -66,13 +60,13 @@ async def settings_view(
     # Search
     if q:
         q_lower = q.lower()
-        q_ascii = _strip_diacritics(q)
+        q_ascii = strip_diacritics(q)
         # Fetch all then filter in Python (SQLite diacritics issue)
         all_logs = query.all()
         email_logs = [
             e for e in all_logs
             if q_lower in (e.recipient_email or "").lower()
-            or q_ascii in _strip_diacritics(e.recipient_name or "")
+            or q_ascii in strip_diacritics(e.recipient_name or "")
             or q_lower in (e.subject or "").lower()
             or q_lower in (e.module or "").lower()
         ]
@@ -80,7 +74,7 @@ async def settings_view(
         sort_key = {
             "date": lambda e: e.created_at or "",
             "module": lambda e: (e.module or "").lower(),
-            "recipient": lambda e: _strip_diacritics(e.recipient_name or ""),
+            "recipient": lambda e: strip_diacritics(e.recipient_name or ""),
             "subject": lambda e: (e.subject or "").lower(),
             "status": lambda e: (e.status.value if e.status else ""),
         }
@@ -113,12 +107,8 @@ async def settings_view(
     attachments_by_id = {e.id: _parse_attachments(e.attachment_paths) for e in email_logs}
 
     # HTMX partial
-    is_htmx = request.headers.get("HX-Request") and not request.headers.get("HX-Boosted")
-
     # Build list_url for back navigation
-    list_url = str(request.url.path)
-    if request.url.query:
-        list_url += "?" + str(request.url.query)
+    list_url = build_list_url(request)
 
     ctx = {
         "request": request,
@@ -133,7 +123,7 @@ async def settings_view(
         "order": order,
     }
 
-    if is_htmx:
+    if is_htmx_partial(request):
         return templates.TemplateResponse("partials/settings_email_tbody.html", ctx)
     return templates.TemplateResponse("settings.html", ctx)
 

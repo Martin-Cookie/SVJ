@@ -8,7 +8,6 @@ import time
 from datetime import date, datetime
 from pathlib import Path
 from typing import List
-from unicodedata import category, normalize
 
 from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
@@ -23,6 +22,7 @@ from app.models import (
     TaxDistribution, TaxDocument, TaxSession, Unit,
 )
 from app.services.email_service import send_email
+from app.utils import build_list_url, is_htmx_partial, strip_diacritics
 from app.services.owner_matcher import match_name
 from app.services.pdf_extractor import (
     extract_owner_from_tax_pdf, parse_unit_from_filename,
@@ -83,12 +83,6 @@ def _tax_wizard(session, current_step: int, has_documents: bool = False) -> dict
         "wizard_current": current_step,
         "wizard_total": len(_TAX_WIZARD_STEPS),
     }
-
-
-def _strip_diacritics(text: str) -> str:
-    """Remove diacritics and lowercase for search."""
-    nfkd = normalize("NFD", text)
-    return "".join(c for c in nfkd if category(c) != "Mn").lower()
 
 
 def _session_stats(documents):
@@ -284,9 +278,7 @@ async def tax_list(request: Request, back: str = Query("", alias="back"), stav: 
         .order_by(TaxSession.created_at.desc())
         .all()
     )
-    list_url = str(request.url.path)
-    if request.url.query:
-        list_url += "?" + str(request.url.query)
+    list_url = build_list_url(request)
 
     # Compute per-session stats for progress display
     session_stats = {}
@@ -917,15 +909,15 @@ async def tax_detail(
     # Search filtering
     if q:
         q_lower = q.lower()
-        q_ascii = _strip_diacritics(q)
+        q_ascii = strip_diacritics(q)
         documents = [
             d for d in documents
             if q_lower in (d.filename or "").lower()
             or q_lower in (d.extracted_owner_name or "").lower()
-            or q_ascii in _strip_diacritics(d.extracted_owner_name or "")
+            or q_ascii in strip_diacritics(d.extracted_owner_name or "")
             or q_lower in str(d.unit_number or "")
             or any(
-                q_ascii in _strip_diacritics(dist.owner.display_name)
+                q_ascii in strip_diacritics(dist.owner.display_name)
                 for dist in d.distributions if dist.owner
             )
         ]
@@ -936,7 +928,7 @@ async def tax_detail(
         "unit_number": lambda d: (int(d.unit_number) if d.unit_number and d.unit_number.isdigit() else 0, d.unit_letter or ""),
         "extracted": lambda d: (d.extracted_owner_name or "").lower(),
         "owner": lambda d: next(
-            (_strip_diacritics(dist.owner.display_name) for dist in d.distributions if dist.owner),
+            (strip_diacritics(dist.owner.display_name) for dist in d.distributions if dist.owner),
             "zzz"
         ),
         "confidence": lambda d: next(
@@ -958,16 +950,12 @@ async def tax_detail(
     back_url = back or "/dane"
     back_label = "Zpět na přehled" if back == "/" else "Zpět na rozesílání"
 
-    list_url = str(request.url.path)
-    if request.url.query:
-        list_url += "?" + str(request.url.query)
+    list_url = build_list_url(request)
 
     is_completed = session.send_status and session.send_status.value == "ready"
 
     # HTMX partial response — return only tbody
-    is_htmx = request.headers.get("HX-Request")
-    is_boosted = request.headers.get("HX-Boosted")
-    if is_htmx and not is_boosted:
+    if is_htmx_partial(request):
         return templates.TemplateResponse("partials/tax_table_body.html", {
             "request": request,
             "documents": documents,
@@ -1309,18 +1297,18 @@ async def tax_send_preview(
     # Search filtering
     if q:
         q_lower = q.lower()
-        q_ascii = _strip_diacritics(q)
+        q_ascii = strip_diacritics(q)
         recipients = [
             r for r in recipients
             if q_lower in r["name"].lower()
-            or q_ascii in _strip_diacritics(r["name"])
+            or q_ascii in strip_diacritics(r["name"])
             or q_lower in (r["email"] or "").lower()
             or any(q_lower in d["filename"].lower() for d in r["docs"])
         ]
 
     # Sorting
     SEND_SORT_KEYS = {
-        "name": lambda r: _strip_diacritics(r["name"]),
+        "name": lambda r: strip_diacritics(r["name"]),
         "email": lambda r: (r["email"] or "").lower(),
         "docs": lambda r: len(r["docs"]),
         "status": lambda r: r["email_status"],
@@ -1330,9 +1318,7 @@ async def tax_send_preview(
 
     back_url = back or f"/dane/{session_id}"
 
-    list_url = str(request.url.path)
-    if request.url.query:
-        list_url += "?" + str(request.url.query)
+    list_url = build_list_url(request)
 
     ctx = {
         "request": request,
@@ -1484,7 +1470,7 @@ async def update_recipient_email(
     if not recipient:
         return RedirectResponse(f"/dane/{session_id}/rozeslat", status_code=302)
 
-    list_url = str(request.url.path)
+    list_url = build_list_url(request)
 
     return templates.TemplateResponse("partials/tax_recipient_row.html", {
         "request": request,

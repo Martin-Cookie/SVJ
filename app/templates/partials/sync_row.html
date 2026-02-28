@@ -38,7 +38,7 @@
             {% if record.resolution.value == 'exchanged' %}
             <span class="text-green-600 cursor-help font-medium" {% if record.admin_note %}title="{{ record.admin_note }}"{% endif %}>Vým.</span>
             {% elif st == 'difference' and record.resolution.value == 'pending' %}
-            {% if session is defined %}<a href="/synchronizace/{{ session.id }}/vymena/{{ record.id }}{% if filtr %}?filtr={{ filtr }}{% endif %}" class="inline-block px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded text-xs hover:bg-purple-200 whitespace-nowrap">Výměna</a>{% endif %}
+            {% if session is defined %}<a href="/synchronizace/{{ session.id }}/vymena/{{ record.id }}{% if filtr %}?filtr={{ filtr }}{% endif %}" class="inline-block px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded-full text-xs hover:bg-purple-200 whitespace-nowrap">Výměna</a>{% endif %}
             {% elif record.resolution.value == 'manual_edit' %}
             <span class="text-blue-600 cursor-help" {% if record.admin_note %}title="{{ record.admin_note }}"{% endif %}>Upr.</span>
             {% elif st in ('match', 'name_order') or record.resolution.value == 'accepted' %}

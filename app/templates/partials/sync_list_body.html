@@ -7,7 +7,7 @@
     <td class="px-3 py-1.5 text-green-600 text-right whitespace-nowrap">{{ session.total_matches }}</td>
     <td class="px-3 py-1.5 text-red-600 text-right whitespace-nowrap">{{ session.total_differences + session.total_missing }}</td>
     <td class="px-3 py-1.5 text-right">
-        <form action="/synchronizace/{{ session.id }}/smazat" method="post" style="display:inline"
+        <form action="/synchronizace/{{ session.id }}/smazat" method="post" style="display:inline" hx-boost="false"
               onsubmit="return confirm('Smazat kontrolu {{ session.csv_filename }}?')">
             <button type="submit" title="Smazat" class="p-1 text-gray-400 hover:text-red-600 rounded hover:bg-red-50">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

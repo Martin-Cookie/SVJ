@@ -37,7 +37,7 @@
                           action="/sprava/ciselnik/{{ item.id }}/upravit" method="post" hx-boost="false">
                         <input type="text" name="new_value" value="{{ item.value }}" required
                                onkeydown="if(event.key==='Escape'){event.preventDefault();clCancelEdit({{ item.id }})}"
-                               class="w-full px-2 py-0.5 border border-blue-300 rounded text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                               class="w-full px-2 py-0.5 border border-blue-300 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                     </form>
                     {% endif %}
                     <!-- Usage count + actions -->

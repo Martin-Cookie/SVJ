@@ -1,5 +1,4 @@
 from datetime import datetime
-from unicodedata import category, normalize
 
 from fastapi import APIRouter, Depends, Form, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -9,15 +8,10 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.models import Owner, OwnerUnit, SvjInfo, Unit
+from app.utils import build_list_url, is_htmx_partial, strip_diacritics
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
-
-
-def _strip_diacritics(text: str) -> str:
-    """Remove diacritics and lowercase for SQLite-safe search."""
-    nfkd = normalize("NFD", text)
-    return "".join(c for c in nfkd if category(c) != "Mn").lower()
 
 
 SORT_COLUMNS = {
@@ -35,10 +29,10 @@ SORT_COLUMNS = {
 
 @router.get("/nova-formular")
 async def unit_create_form(request: Request, db: Session = Depends(get_db)):
-    from app.routers.administration import _get_all_code_lists
+    from app.services.code_list_service import get_all_code_lists
     return templates.TemplateResponse("partials/unit_create_form.html", {
         "request": request,
-        "code_lists": _get_all_code_lists(db),
+        "code_lists": get_all_code_lists(db),
     })
 
 
@@ -56,7 +50,7 @@ async def unit_create(
     podil_scd: str = Form(""),
     db: Session = Depends(get_db),
 ):
-    from app.routers.administration import _get_all_code_lists
+    from app.services.code_list_service import get_all_code_lists
 
     # Parse unit_number
     try:
@@ -65,7 +59,7 @@ async def unit_create(
         return templates.TemplateResponse("partials/unit_create_form.html", {
             "request": request,
             "error": "Číslo jednotky musí být celé číslo.",
-            "code_lists": _get_all_code_lists(db),
+            "code_lists": get_all_code_lists(db),
         })
 
     # Check uniqueness
@@ -74,7 +68,7 @@ async def unit_create(
         return templates.TemplateResponse("partials/unit_create_form.html", {
             "request": request,
             "error": f"Jednotka s číslem {unit_number_int} již existuje.",
-            "code_lists": _get_all_code_lists(db),
+            "code_lists": get_all_code_lists(db),
         })
 
     unit = Unit(
@@ -182,14 +176,14 @@ async def unit_edit_form(
     request: Request,
     db: Session = Depends(get_db),
 ):
-    from app.routers.administration import _get_all_code_lists
+    from app.services.code_list_service import get_all_code_lists
     unit = db.query(Unit).get(unit_id)
     if not unit:
         return RedirectResponse("/jednotky", status_code=302)
     return templates.TemplateResponse("partials/unit_edit_form.html", {
         "request": request,
         "unit": unit,
-        "code_lists": _get_all_code_lists(db),
+        "code_lists": get_all_code_lists(db),
     })
 
 
@@ -224,7 +218,7 @@ async def unit_update(
     podil_scd: str = Form(""),
     db: Session = Depends(get_db),
 ):
-    from app.routers.administration import _get_all_code_lists
+    from app.services.code_list_service import get_all_code_lists
 
     unit = db.query(Unit).get(unit_id)
     if not unit:
@@ -238,7 +232,7 @@ async def unit_update(
             "request": request,
             "unit": unit,
             "error": "Číslo jednotky musí být celé číslo.",
-            "code_lists": _get_all_code_lists(db),
+            "code_lists": get_all_code_lists(db),
         })
 
     # Check uniqueness (exclude self)
@@ -250,7 +244,7 @@ async def unit_update(
             "request": request,
             "unit": unit,
             "error": f"Jednotka s číslem {unit_number_int} již existuje.",
-            "code_lists": _get_all_code_lists(db),
+            "code_lists": get_all_code_lists(db),
         })
 
     unit.unit_number = unit_number_int
@@ -295,7 +289,7 @@ async def unit_list(
 
     if q:
         search = f"%{q}%"
-        search_ascii = f"%{_strip_diacritics(q)}%"
+        search_ascii = f"%{strip_diacritics(q)}%"
         query = query.filter(
             cast(Unit.unit_number, String).ilike(search)
             | Unit.building_number.ilike(search)
@@ -325,14 +319,10 @@ async def unit_list(
         units = query.all()
 
     # Current list URL for back navigation
-    list_url = str(request.url.path)
-    if request.url.query:
-        list_url += "?" + str(request.url.query)
+    list_url = build_list_url(request)
 
     # HTMX partial
-    is_htmx = request.headers.get("HX-Request")
-    is_boosted = request.headers.get("HX-Boosted")
-    if is_htmx and not is_boosted:
+    if is_htmx_partial(request):
         return templates.TemplateResponse("partials/unit_table_body.html", {
             "request": request,
             "units": units,

@@ -17,14 +17,7 @@ from app.models import (
 from app.services.share_check_comparator import (
     compare_shares, get_file_headers, get_file_preview, parse_file, suggest_mapping,
 )
-from unicodedata import normalize, category as _ucd_category
-
-
-def _strip_diacritics(text: str) -> str:
-    """Remove diacritics and lowercase for search."""
-    nfkd = normalize("NFD", text)
-    return "".join(c for c in nfkd if _ucd_category(c) != "Mn").lower()
-
+from app.utils import build_list_url, is_htmx_partial, strip_diacritics
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -52,11 +45,11 @@ async def share_check_list(
     # Search filtering
     if q:
         q_lower = q.lower()
-        q_ascii = _strip_diacritics(q)
+        q_ascii = strip_diacritics(q)
         sessions = [
             s for s in sessions
             if q_lower in (s.filename or "").lower()
-            or q_ascii in _strip_diacritics(s.filename or "")
+            or q_ascii in strip_diacritics(s.filename or "")
             or q_lower in s.created_at.strftime("%d.%m.%Y %H:%M")
         ]
 
@@ -70,9 +63,7 @@ async def share_check_list(
     sort_fn = SORT_KEYS.get(sort, SORT_KEYS["date"])
     sessions.sort(key=sort_fn, reverse=(order == "desc"))
 
-    list_url = str(request.url.path)
-    if request.url.query:
-        list_url += "?" + str(request.url.query)
+    list_url = build_list_url(request)
 
     ctx = {
         "request": request,
@@ -85,7 +76,7 @@ async def share_check_list(
         "order": order,
     }
 
-    if request.headers.get("HX-Request") and not request.headers.get("HX-Boosted"):
+    if is_htmx_partial(request):
         return templates.TemplateResponse("partials/share_check_list_body.html", ctx)
 
     return templates.TemplateResponse("share_check/index.html", ctx)
@@ -287,7 +278,7 @@ async def share_check_detail(
     # Search filtering
     if q:
         q_lower = q.lower()
-        q_ascii = _strip_diacritics(q)
+        q_ascii = strip_diacritics(q)
 
         # Pre-build owner_map for search (before the main owner_map build)
         _owner_names: dict[int, list[str]] = {}
@@ -305,7 +296,7 @@ async def share_check_detail(
             r for r in records
             if q_lower in str(r.unit_number or "")
             or any(
-                q_ascii in _strip_diacritics(n)
+                q_ascii in strip_diacritics(n)
                 for n in _owner_names.get(r.unit_number, [])
             )
         ]
