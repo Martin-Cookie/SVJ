@@ -589,6 +589,9 @@ wheels/                        # Offline Python balíčky (gitignored)
 | POST | `/sprava/ciselnik/pridat` | Přidání položky do číselníku |
 | POST | `/sprava/ciselnik/{id}/upravit` | Přejmenování položky (jen nepoužívané) |
 | POST | `/sprava/ciselnik/{id}/smazat` | Smazání položky (jen nepoužívané) |
+| GET | `/sprava/duplicity` | Přehled duplicitních vlastníků (skupiny dle name_normalized) |
+| POST | `/sprava/duplicity/sloucit` | Sloučení jedné skupiny duplicit do cílového vlastníka |
+| POST | `/sprava/duplicity/sloucit-vse` | Sloučení všech skupin najednou (doporučení cíle) |
 
 ## Konfigurace (.env)
 
