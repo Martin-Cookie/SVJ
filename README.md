@@ -141,7 +141,7 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
   - Detekce nerozpoznaných hodnot: řádky s vyplněnými buňkami, které neodpovídají pravidlům PRO/PROTI, se zobrazí v oranžové bublině „Nerozpoznáno" se surovými hodnotami
   - Výsledek s prokliky na zpracované/nezpracované lístky
 
-### D. Rozúčtování příjmů (`/dane`)
+### D. Hromadné rozesílání (`/dane`)
 
 - Nahrání daňových PDF dokumentů (jednotlivě nebo celý adresář) s progress barem:
   - Soubory se uloží na disk, zpracování běží na pozadí (vlákno)
@@ -273,6 +273,12 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
   - Integrace s hromadnými úpravami (suggestions z číselníku)
   - Zahrnuty v purge kategorie „administrace" (po smazání a restartu se znovu seedují)
   - Zahrnuty v SQLite záloze (full file backup)
+- Emailové šablony:
+  - Správa šablon pro hromadné rozesílání (název, předmět, text s placeholder `{rok}`)
+  - CRUD na stránce číselníků (přidat, upravit, smazat)
+  - Výchozí šablona „Rozúčtování příjmů" seedována při prvním startu
+  - Integrace do formuláře nového rozesílání — dropdown s automatickým vyplněním polí
+  - Placeholder `{rok}` nahrazen aktuálním rokem při výběru šablony
 - Hromadné úpravy (`/sprava/hromadne-upravy`):
   - Výběr pole (typ prostoru, sekce, počet místností, vlastnictví druh, vlastnictví/podíl, adresa, orientační číslo)
   - Tabulka unikátních hodnot s počtem výskytů
@@ -283,7 +289,7 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
   - Persistence výběru checkboxů přes sessionStorage (zachová se při navigaci na detail a zpět)
   - Inline oprava s datalist napovídáním — přepsání vybraných záznamů
 - Všechny sekce zabaleny do skládacích `<details>` bloků
-- Modely: `SvjInfo`, `SvjAddress`, `BoardMember`, `CodeListItem`
+- Modely: `SvjInfo`, `SvjAddress`, `BoardMember`, `CodeListItem`, `EmailTemplate`
 
 ### G. Kontrola podílu SČD (`/kontrola-podilu`)
 
@@ -329,7 +335,7 @@ app/
 │   ├── sync.py                #   SyncSession, SyncRecord
 │   ├── share_check.py         #   ShareCheckSession, ShareCheckRecord, ShareCheckColumnMapping
 │   ├── common.py              #   EmailLog, ImportLog
-│   └── administration.py      #   SvjInfo, SvjAddress, BoardMember, CodeListItem
+│   └── administration.py      #   SvjInfo, SvjAddress, BoardMember, CodeListItem, EmailTemplate
 ├── routers/                   # HTTP endpointy
 │   ├── dashboard.py           #   GET /
 │   ├── owners.py              #   /vlastnici (+ /vlastnici/import)
@@ -386,7 +392,7 @@ app/
 │   │   ├── import_preview.html#     Import: náhled přiřazení
 │   │   └── import_result.html #     Import: výsledek importu
 │   ├── tax/                   #   Stránky daní
-│   │   ├── index.html         #     Seznam rozúčtování
+│   │   ├── index.html         #     Seznam rozesílání
 │   │   ├── upload.html        #     Nahrání PDF (nová relace)
 │   │   ├── upload_additional.html #  Nahrání dalších PDF (append/overwrite)
 │   │   ├── processing.html    #     Progress bar zpracování PDF
@@ -516,12 +522,12 @@ wheels/                        # Offline Python balíčky (gitignored)
 | POST | `/hlasovani/{id}/import/nahled` | Náhled importu (přiřazení + statistika) |
 | POST | `/hlasovani/{id}/import/potvrdit` | Potvrzení a provedení importu |
 
-### Rozúčtování (`/dane`)
+### Hromadné rozesílání (`/dane`)
 
 | Metoda | Cesta | Popis |
 |--------|-------|-------|
-| GET | `/dane` | Seznam rozúčtování |
-| GET | `/dane/nova` | Formulář nového rozúčtování |
+| GET | `/dane` | Seznam rozesílání |
+| GET | `/dane/nova` | Formulář nového rozesílání |
 | POST | `/dane/nova` | Nahrání PDF + spuštění zpracování na pozadí → redirect na progress |
 | GET | `/dane/{id}/zpracovani` | Stránka s progress barem zpracování PDF |
 | GET | `/dane/{id}/zpracovani-stav` | HTMX polling: aktuální stav zpracování (nebo HX-Redirect po dokončení) |
@@ -600,6 +606,9 @@ wheels/                        # Offline Python balíčky (gitignored)
 | POST | `/sprava/ciselnik/pridat` | Přidání položky do číselníku |
 | POST | `/sprava/ciselnik/{id}/upravit` | Přejmenování položky (jen nepoužívané) |
 | POST | `/sprava/ciselnik/{id}/smazat` | Smazání položky (jen nepoužívané) |
+| POST | `/sprava/sablona/pridat` | Přidání emailové šablony |
+| POST | `/sprava/sablona/{id}/upravit` | Editace emailové šablony |
+| POST | `/sprava/sablona/{id}/smazat` | Smazání emailové šablony |
 | GET | `/sprava/duplicity` | Přehled duplicitních vlastníků (skupiny dle name_normalized) |
 | POST | `/sprava/duplicity/sloucit` | Sloučení jedné skupiny duplicit do cílového vlastníka |
 | POST | `/sprava/duplicity/sloucit-vse` | Sloučení všech skupin najednou (doporučení cíle) |
@@ -632,11 +641,12 @@ LIBREOFFICE_PATH=/Applications/LibreOffice.app/Contents/MacOS/soffice
 - **SvjInfo** → SvjAddress — informace o SVJ a adresy
 - **BoardMember** — členové výboru a kontrolního orgánu (group: board/control)
 - **CodeListItem** — položky číselníků (category: space_type/section/room_count/ownership_type, value, order); unique index na (category, value)
+- **EmailTemplate** — šablony emailů pro hromadné rozesílání (name, subject_template, body_template, order); placeholder `{rok}` nahrazen při výběru
 - **EmailLog**, **ImportLog** — systémové logy
 
 ## UI vzory
 
-- **Dashboard** — kompaktní přehled s 4 stat kartami (vlastníci, jednotky, hlasování, rozúčtování); karty hlasování a rozúčtování zobrazují počet kampaní per status s odkazem na poslední kampaň; fixní header (stat karty + search bar) se scrollovatelnou tabulkou poslední aktivity; vyhledávání (příjemce, email, předmět, modul) a řazení všech 5 sloupců (datum, modul, příjemce, předmět, stav) přes HTMX partial
+- **Dashboard** — kompaktní přehled s 4 stat kartami (vlastníci, jednotky, hlasování, rozesílání); karty hlasování a rozúčtování zobrazují počet kampaní per status s odkazem na poslední kampaň; fixní header (stat karty + search bar) se scrollovatelnou tabulkou poslední aktivity; vyhledávání (příjemce, email, předmět, modul) a řazení všech 5 sloupců (datum, modul, příjemce, předmět, stav) přes HTMX partial
 - **Sidebar navigace** — fixní levý panel (w-44) s ikonami a sekcemi
 - **Filtrační bubliny** — klikací filtry nad tabulkou s počty záznamů, dynamicky roztažené na celou šířku, rozdělené bubliny (s/bez emailu, s/bez telefonu)
 - **Back URL řetěz** — zachování filtrů a šipky "Zpět na přehled" při navigaci dashboard → seznam → detail → zpět přes celý řetěz (parametr `back` propagován přes bubliny, hledání, řazení, HTMX a detailové odkazy)
