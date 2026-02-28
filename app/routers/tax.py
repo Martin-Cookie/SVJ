@@ -562,6 +562,12 @@ def _process_tax_files(session_id: int, file_paths: list, tax_year):
             if owner_data:
                 unit_to_owners[unit_num].append(owner_data)
 
+        # Collect IDs of existing docs BEFORE processing (for later comparison)
+        pre_existing_doc_ids = {
+            d.id for d in db.query(TaxDocument.id).filter_by(session_id=session_id).all()
+        }
+
+        new_doc_ids = []
         for i, file_path in enumerate(file_paths):
             basename = Path(file_path).name
             _processing_progress[session_id]["current_file"] = basename
@@ -583,6 +589,7 @@ def _process_tax_files(session_id: int, file_paths: list, tax_year):
             )
             db.add(doc)
             db.flush()
+            new_doc_ids.append(doc.id)
 
             # Try auto-matching — match each name from PDF individually
             individual_names = [n for n in (extracted.get("owner_names") or []) if n]
@@ -645,6 +652,92 @@ def _process_tax_files(session_id: int, file_paths: list, tax_year):
                 db.add(dist)
 
             _processing_progress[session_id]["current"] = i + 1
+
+        db.flush()
+
+        # --- Post-processing: propagate existing assignments to new documents ---
+
+        # 1) For unmatched new docs, copy assignments from existing docs with same unit
+        if pre_existing_doc_ids:
+            # Build unit -> distributions map from pre-existing docs
+            old_dists = (
+                db.query(TaxDistribution)
+                .filter(
+                    TaxDistribution.document_id.in_(list(pre_existing_doc_ids)),
+                    TaxDistribution.match_status != MatchStatus.UNMATCHED,
+                )
+                .all()
+            )
+            # Map: (unit_number, unit_letter) -> list of dists
+            unit_assignments = {}
+            old_doc_map = {d.id: d for d in db.query(TaxDocument).filter(
+                TaxDocument.id.in_(list(pre_existing_doc_ids))
+            ).all()}
+            for d in old_dists:
+                old_doc = old_doc_map.get(d.document_id)
+                if old_doc:
+                    key = (old_doc.unit_number, old_doc.unit_letter)
+                    unit_assignments.setdefault(key, []).append(d)
+
+            # Check new unmatched docs
+            new_docs = db.query(TaxDocument).filter(TaxDocument.id.in_(new_doc_ids)).all()
+            for doc in new_docs:
+                doc_dists = db.query(TaxDistribution).filter_by(document_id=doc.id).all()
+                is_unmatched = all(d.match_status == MatchStatus.UNMATCHED for d in doc_dists)
+                if not is_unmatched:
+                    continue
+
+                key = (doc.unit_number, doc.unit_letter)
+                if key not in unit_assignments:
+                    continue
+
+                # Remove unmatched placeholders
+                for d in doc_dists:
+                    db.delete(d)
+
+                # Replicate existing assignments (owner or external)
+                for existing in unit_assignments[key]:
+                    new_dist = TaxDistribution(
+                        document_id=doc.id,
+                        owner_id=existing.owner_id,
+                        match_status=MatchStatus.AUTO_MATCHED,
+                        match_confidence=existing.match_confidence,
+                        email_address_used=existing.email_address_used,
+                        ad_hoc_name=existing.ad_hoc_name,
+                        ad_hoc_email=existing.ad_hoc_email,
+                    )
+                    db.add(new_dist)
+                db.flush()
+
+        # 2) Propagate email_address_used from existing distributions to newly matched ones
+        all_doc_ids = list(pre_existing_doc_ids) + new_doc_ids
+        existing_dists = (
+            db.query(TaxDistribution)
+            .filter(
+                TaxDistribution.document_id.in_(all_doc_ids),
+                TaxDistribution.owner_id.isnot(None),
+                TaxDistribution.email_address_used.isnot(None),
+            )
+            .all()
+        )
+        # Build map: owner_id -> email_address_used
+        owner_emails = {}
+        for d in existing_dists:
+            if d.owner_id not in owner_emails:
+                owner_emails[d.owner_id] = d.email_address_used
+
+        if owner_emails:
+            new_dists = (
+                db.query(TaxDistribution)
+                .filter(
+                    TaxDistribution.document_id.in_(all_doc_ids),
+                    TaxDistribution.owner_id.in_(list(owner_emails.keys())),
+                    TaxDistribution.email_address_used.is_(None),
+                )
+                .all()
+            )
+            for d in new_dists:
+                d.email_address_used = owner_emails[d.owner_id]
 
         db.commit()
     except Exception as e:
@@ -1272,9 +1365,14 @@ async def update_recipient_email(
 
     email = email.strip()
 
+    assignments_changed = False
+
     if dist.owner_id:
+        session = db.query(TaxSession).get(session_id)
+        all_docs = db.query(TaxDocument).filter_by(session_id=session_id).all()
+        doc_ids = [d.id for d in all_docs]
+
         # Propagate to all distributions of this owner in this session
-        doc_ids = [d.id for d in db.query(TaxDocument).filter_by(session_id=session_id).all()]
         sibling_dists = (
             db.query(TaxDistribution)
             .filter(
@@ -1285,11 +1383,71 @@ async def update_recipient_email(
         )
         for d in sibling_dists:
             d.email_address_used = email or None
+
+        # If owner has no email, save it to their profile too
+        owner = db.query(Owner).get(dist.owner_id)
+        if owner and email and not owner.email:
+            owner.email = email
+
+        # Auto-assign unmatched documents for units owned by this owner
+        owner_unit_numbers = {
+            str(ou.unit.unit_number)
+            for ou in db.query(OwnerUnit)
+            .filter_by(owner_id=dist.owner_id)
+            .options(joinedload(OwnerUnit.unit))
+            .all()
+        }
+        for doc in all_docs:
+            if str(doc.unit_number) not in owner_unit_numbers:
+                continue
+            doc_dists = (
+                db.query(TaxDistribution).filter_by(document_id=doc.id).all()
+            )
+            has_this_owner = any(d.owner_id == dist.owner_id for d in doc_dists)
+            if has_this_owner:
+                continue
+            is_all_unmatched = all(
+                d.match_status == MatchStatus.UNMATCHED for d in doc_dists
+            )
+            if not is_all_unmatched:
+                continue
+            # Remove unmatched placeholders
+            for d in doc_dists:
+                db.delete(d)
+            # Find co-owners for this unit
+            co_owner_ids = _find_coowners(
+                dist.owner_id, str(doc.unit_number),
+                session.year if session else None, db,
+            )
+            for oid in co_owner_ids:
+                if oid == dist.owner_id:
+                    dist_email = email or None
+                else:
+                    o = db.query(Owner).get(oid)
+                    dist_email = o.email if o else None
+                new_dist = TaxDistribution(
+                    document_id=doc.id,
+                    owner_id=oid,
+                    match_status=MatchStatus.MANUAL,
+                    email_address_used=dist_email,
+                )
+                db.add(new_dist)
+                assignments_changed = True
     else:
         # Ad-hoc recipient
         dist.ad_hoc_email = email or None
 
     db.commit()
+
+    # If new assignments were created, full page refresh is needed
+    if assignments_changed:
+        redirect_url = f"/dane/{session_id}/rozeslat"
+        if request.headers.get("HX-Request"):
+            return HTMLResponse(
+                status_code=200,
+                headers={"HX-Redirect": redirect_url},
+            )
+        return RedirectResponse(redirect_url, status_code=302)
 
     # Rebuild recipients for the updated row
     documents = (
