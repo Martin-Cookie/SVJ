@@ -129,11 +129,40 @@ function checkFormReady() {
 ```
 
 **Vzor s webkitdirectory přepínáním** (soubor/adresář toggle):
+
+Nativní `<input type="file">` neumožňuje změnit text tlačítka ("Vybrat soubor") ani placeholder ("není vybrán žádný soubor"). Proto se používá **custom wrapper**: skrytý input + `<label>` stylovaný jako tlačítko + `<span>` s textem.
+
+```html
+<div class="flex items-center">
+    <label for="file-input" id="file-btn-label"
+           class="inline-block py-2 px-4 rounded-lg text-sm font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 cursor-pointer">
+        Vybrat soubor
+    </label>
+    <span id="file-name" class="ml-4 text-sm text-gray-500">není vybrán žádný soubor</span>
+</div>
+<input type="file" id="file-input" name="files" accept=".pdf" multiple required
+       onchange="updateFileName(this); checkFormReady()"
+       class="hidden">
+```
+
 ```javascript
+function updateFileName(inp) {
+    var nameEl = document.getElementById('file-name');
+    var dirMode = document.getElementById('dir-toggle').checked;
+    if (inp.files.length > 0) {
+        nameEl.textContent = dirMode
+            ? inp.files.length + ' souborů v adresáři'
+            : (inp.files.length === 1 ? inp.files[0].name : inp.files.length + ' souborů');
+    } else {
+        nameEl.textContent = dirMode ? 'není vybrán žádný adresář' : 'není vybrán žádný soubor';
+    }
+}
 function toggleDirMode(on) {
     var inp = document.getElementById('file-input');
     inp.value = '';  // reset výběru
-    // ... přepnutí atributů ...
+    document.getElementById('file-btn-label').textContent = on ? 'Vybrat adresář' : 'Vybrat soubor';
+    document.getElementById('file-name').textContent = on ? 'není vybrán žádný adresář' : 'není vybrán žádný soubor';
+    // ... přepnutí atributů (webkitdirectory, accept, multiple) ...
     document.getElementById('submit-btn').classList.add('hidden');  // skrýt po resetu
 }
 ```
