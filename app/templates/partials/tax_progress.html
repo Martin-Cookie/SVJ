@@ -3,9 +3,10 @@
         <span class="text-sm font-medium text-gray-700">Zpracování PDF souborů</span>
         <span class="text-sm text-gray-500">{{ current }} / {{ total }}</span>
     </div>
-    <div class="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-        <div class="bg-blue-600 h-3 rounded-full transition-all duration-300"
+    <div class="relative w-full bg-gray-200 rounded-full h-5 overflow-hidden">
+        <div class="bg-blue-600 h-5 rounded-full transition-all duration-300"
              style="width: {{ pct }}%"></div>
+        <span class="absolute inset-0 flex items-center justify-center text-xs font-medium {% if pct > 50 %}text-white{% else %}text-gray-700{% endif %}">{{ pct }} %</span>
     </div>
     <div class="flex justify-between items-center">
         {% if current_file %}
