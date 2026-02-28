@@ -11,7 +11,12 @@
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start flex-1 min-h-0">
         <!-- Left: upload form (static) -->
         <div class="bg-white rounded-lg shadow p-6">
-            <h2 class="text-sm font-semibold text-gray-700 mb-3">Nahrát soubor</h2>
+            <div class="flex items-center justify-between mb-3">
+                <h2 class="text-sm font-semibold text-gray-700">Nahrát soubor</h2>
+                <button id="submit-btn" type="submit" form="import-form" class="hidden px-3 py-1.5 text-sm font-medium text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors">
+                    Nahrát a zobrazit náhled
+                </button>
+            </div>
             <div class="mb-4">
                 <p class="text-sm text-gray-600 mb-2">Soubor musí být ve formátu <strong>.xlsx</strong> s listem Sheet1. Očekávané sloupce:</p>
                 <ul class="text-xs text-gray-500 list-disc list-inside space-y-0.5">
@@ -30,7 +35,7 @@
                 </p>
             </div>
 
-            <form action="/vlastnici/import" method="post" enctype="multipart/form-data" hx-boost="false">
+            <form id="import-form" action="/vlastnici/import" method="post" enctype="multipart/form-data" hx-boost="false">
                 <div class="mb-3">
                     <input type="file" name="file" accept=".xlsx,.xls" required
                            onchange="document.getElementById('submit-btn').classList.toggle('hidden', !this.files.length)"
@@ -38,9 +43,6 @@
                                   file:rounded file:border-0 file:text-sm file:font-medium
                                   file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
                 </div>
-                <button id="submit-btn" type="submit" class="hidden px-4 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm font-medium">
-                    Nahrát a zobrazit náhled
-                </button>
             </form>
         </div>
 

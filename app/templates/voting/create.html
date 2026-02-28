@@ -14,7 +14,7 @@
         <p class="text-sm text-gray-500 mt-1">Vytvořte nové hlasování per rollam</p>
     </div>
     <div class="flex items-center gap-2">
-        <button type="submit" form="create-form" class="px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium">
+        <button id="submit-btn" type="submit" form="create-form" class="hidden px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium">
             Vytvořit hlasování
         </button>
         <a href="/hlasovani" class="px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm font-medium">
@@ -37,8 +37,9 @@
 
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Název hlasování *</label>
-                <input type="text" name="title" required
+                <input type="text" name="title" id="title-input" required
                        placeholder="např. Hlasování per rollam č. 1/2026"
+                       oninput="document.getElementById('submit-btn').classList.toggle('hidden', !this.value.trim())"
                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
             </div>
 
@@ -123,6 +124,7 @@ document.getElementById('file-input').addEventListener('change', async function(
         if (!titleInput.value.trim() && meta.title) {
             titleInput.value = meta.title;
             filled.push('název');
+            document.getElementById('submit-btn').classList.toggle('hidden', !meta.title.trim());
         }
 
         const descInput = document.querySelector('textarea[name="description"]');

@@ -13,7 +13,12 @@
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start flex-1 min-h-0">
         <!-- Left: upload form -->
         <div class="bg-white rounded-lg shadow p-6">
-            <h2 class="text-sm font-semibold text-gray-700 mb-3">Nahrát soubor s podíly</h2>
+            <div class="flex items-center justify-between mb-3">
+                <h2 class="text-sm font-semibold text-gray-700">Nahrát soubor s podíly</h2>
+                <button id="submit-btn" type="submit" form="upload-form" class="hidden px-3 py-1.5 text-sm font-medium text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors">
+                    Nahrát a pokračovat
+                </button>
+            </div>
             <div class="mb-4">
                 <ol class="text-xs text-gray-500 list-decimal list-inside space-y-0.5">
                     <li>Připravte CSV nebo XLSX soubor s podíly SČD</li>
@@ -23,7 +28,7 @@
                 </ol>
             </div>
 
-            <form action="/kontrola-podilu/nova" method="post" enctype="multipart/form-data" hx-boost="false">
+            <form id="upload-form" action="/kontrola-podilu/nova" method="post" enctype="multipart/form-data" hx-boost="false">
                 <div class="mb-3">
                     <input type="file" name="file" accept=".csv,.xlsx,.xls" required
                            onchange="document.getElementById('submit-btn').classList.toggle('hidden', !this.files.length)"
@@ -34,9 +39,6 @@
                         CSV (středník/čárka, UTF-8/Windows-1250) nebo XLSX soubor.
                     </p>
                 </div>
-                <button id="submit-btn" type="submit" class="hidden px-4 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm font-medium">
-                    Nahrát a pokračovat
-                </button>
             </form>
         </div>
 
