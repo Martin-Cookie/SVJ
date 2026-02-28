@@ -264,10 +264,10 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
 - Číselníky (centrálně spravované kódy):
   - 4 kategorie: Typ prostoru, Sekce, Počet místností, Typ vlastnictví
   - Automatické naplnění z existujících unikátních hodnot v DB při prvním startu
-  - Přidání a přejmenování položek (přejmenování pouze nepoužívaných)
-  - Smazání pouze nepoužívaných položek (používané mají šedivé ikony)
+  - Inline editace: klik na hodnotu → input na místě (Enter uloží, Esc zruší)
+  - Smazání pouze nepoužívaných položek (používané nemají ikony akce)
   - Zobrazení počtu použití u každé položky
-  - 2×2 grid karet v administraci
+  - 2×2 grid kompaktních karet v administraci
   - Dropdowny (`<select>`) ve všech formulářích: vytvoření/editace jednotky, přidání jednotky vlastníkovi
   - Edge case: hodnota mimo číselník se zobrazí jako extra `<option>` v editačním formuláři
   - Integrace s hromadnými úpravami (suggestions z číselníku)
