@@ -134,6 +134,7 @@ async def owner_unit_update(
     ou_id: int,
     request: Request,
     share: str = Form(...),
+    ownership_type: str = Form(""),
     db: Session = Depends(get_db),
 ):
     unit = db.query(Unit).options(
@@ -154,6 +155,7 @@ async def owner_unit_update(
         share_val = ou.share  # keep original on parse error
 
     ou.share = share_val
+    ou.ownership_type = ownership_type.strip() or None
 
     # Recalculate votes for all owners of the unit
     from app.services.owner_exchange import recalculate_unit_votes

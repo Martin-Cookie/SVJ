@@ -12,7 +12,7 @@
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-200">
-                {% for ou in unit.current_owners %}
+                {% for ou in unit.current_owners|sort(attribute='owner.name_normalized') %}
                 <tr id="owner-row-{{ ou.id }}">
                     <td class="px-3 py-2 text-sm">
                         <a href="/vlastnici/{{ ou.owner.id }}?back={{ ('/jednotky/' ~ unit.id ~ '?back=' ~ (back_url|default('/jednotky')|urlencode))|urlencode }}" class="text-blue-600 hover:text-blue-800 hover:underline font-medium">{{ ou.owner.display_name }}</a>
