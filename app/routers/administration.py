@@ -235,6 +235,7 @@ async def purge_page(request: Request, db: Session = Depends(get_db)):
         "active_nav": "administration",
         "purge_categories": _PURGE_CATEGORIES,
         "purge_order": _PURGE_ORDER,
+        "purge_groups": _PURGE_GROUPS,
         "purge_counts": purge_counts,
     })
 
@@ -247,7 +248,6 @@ async def export_page(request: Request, db: Session = Depends(get_db)):
         "active_nav": "administration",
         "export_categories": EXPORT_CATEGORIES,
         "export_order": EXPORT_ORDER,
-        "purge_categories": _PURGE_CATEGORIES,
         "purge_counts": purge_counts,
     })
 
@@ -894,15 +894,42 @@ _PURGE_CATEGORIES = {
         "description": "Kontroly podílů SČD — relace, záznamy, mapování sloupců",
         "models": [ShareCheckRecord, ShareCheckSession, ShareCheckColumnMapping],
     },
-    "logs": {
-        "label": "Logy",
-        "description": "E-mailové logy, importní logy, logy aktivity",
-        "models": [EmailLog, ImportLog, ActivityLog],
+    # Logy — rozpad na 3 podkategorie
+    "email_logs": {
+        "label": "Email logy",
+        "description": "Záznamy o odeslaných emailech",
+        "models": [EmailLog],
     },
-    "administration": {
-        "label": "Administrace SVJ",
-        "description": "Informace o SVJ, adresy, členové výboru, číselníky, emailové šablony",
-        "models": [EmailTemplate, CodeListItem, SvjAddress, BoardMember, SvjInfo],
+    "import_logs": {
+        "label": "Import logy",
+        "description": "Záznamy o provedených importech",
+        "models": [ImportLog],
+    },
+    "activity_logs": {
+        "label": "Aktivita",
+        "description": "Logy aktivit uživatelů",
+        "models": [ActivityLog],
+    },
+    # Administrace — rozpad na 4 podkategorie
+    "svj_info": {
+        "label": "SVJ info a adresy",
+        "description": "Informace o SVJ a adresy",
+        "models": [SvjAddress, SvjInfo],
+    },
+    "board": {
+        "label": "Výbor",
+        "description": "Členové výboru",
+        "models": [BoardMember],
+    },
+    "code_lists": {
+        "label": "Číselníky",
+        "description": "Položky číselníků (typy vlastnictví, prostorů apod.)",
+        "models": [CodeListItem],
+    },
+    "email_templates": {
+        "label": "Email šablony",
+        "description": "Šablony pro hromadné rozesílání",
+        "models": [EmailTemplate],
     },
     "backups": {
         "label": "Existující zálohy",
@@ -916,7 +943,25 @@ _PURGE_CATEGORIES = {
     },
 }
 
-_PURGE_ORDER = ["owners", "votings", "tax", "sync", "share_check", "logs", "administration", "backups", "restore_log"]
+_PURGE_ORDER = [
+    "owners", "votings", "tax", "sync", "share_check",
+    "email_logs", "import_logs", "activity_logs",
+    "svj_info", "board", "code_lists", "email_templates",
+    "backups", "restore_log",
+]
+
+# Seskupení pro šablonu — standalone položky bez label, skupiny s label
+_PURGE_GROUPS = [
+    {"cat_keys": ["owners"]},
+    {"cat_keys": ["votings"]},
+    {"cat_keys": ["tax"]},
+    {"cat_keys": ["sync"]},
+    {"cat_keys": ["share_check"]},
+    {"label": "Logy", "cat_keys": ["email_logs", "import_logs", "activity_logs"]},
+    {"label": "Administrace SVJ", "cat_keys": ["svj_info", "board", "code_lists", "email_templates"]},
+    {"cat_keys": ["backups"]},
+    {"cat_keys": ["restore_log"]},
+]
 
 
 def _purge_counts(db: Session) -> dict:

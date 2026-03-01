@@ -33,7 +33,7 @@
                 <div class="flex-1 min-w-0">
                     <span class="text-sm font-medium text-gray-800">{{ cat.label }}</span>
                     <span class="text-xs text-gray-400 ml-1">({{ count }} záznamů)</span>
-                    <p class="text-xs text-gray-500">{{ purge_categories[key].description }}</p>
+                    {% if cat.description %}<p class="text-xs text-gray-500">{{ cat.description }}</p>{% endif %}
                 </div>
             </label>
             {% endfor %}

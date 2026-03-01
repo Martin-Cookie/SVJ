@@ -8,47 +8,83 @@
 
 <h1 class="text-2xl font-bold text-red-600 mb-6">Smazat data</h1>
 
-<div class="bg-white rounded-lg shadow p-6 max-w-2xl">
-    <p class="text-xs text-gray-500 mb-3">Vyberte kategorie dat ke smazání. Pro potvrzení zadejte slovo <strong>DELETE</strong>.</p>
-
+<div class="bg-white rounded-lg shadow p-6">
     <form action="/sprava/smazat-data" method="post" hx-boost="false" id="purge-form"
           onsubmit="return purgeValidate()">
-        <div class="space-y-2 mb-4">
-            <!-- Select all -->
+
+        <div class="flex items-center justify-between mb-4">
             <label class="flex items-center gap-3 p-2 rounded-lg bg-gray-50 border border-gray-200 cursor-pointer select-none">
                 <input type="checkbox" id="purge-select-all"
                        onchange="purgeToggleAll(this.checked)"
                        class="w-4 h-4 rounded border-gray-300 text-red-600 focus:ring-red-500">
-                <div>
-                    <span class="text-sm font-medium text-gray-800">Vybrat/Zrušit vše</span>
-                </div>
+                <span class="text-sm font-medium text-gray-800">Vybrat/Zrušit vše</span>
             </label>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2">
-            {% for key in purge_order %}
-            {% set cat = purge_categories[key] %}
-            {% set count = purge_counts[key] %}
-            <label class="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 cursor-pointer select-none">
-                <input type="checkbox" name="categories" value="{{ key }}"
-                       class="purge-cb w-4 h-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
-                       onchange="purgeUpdateSelectAll()" data-key="{{ key }}">
-                <div class="flex-1 min-w-0">
-                    <span class="text-sm font-medium text-gray-800">{{ cat.label }}</span>
-                    <span class="text-xs text-gray-400 ml-1">({{ count }} záznamů)</span>
-                    <p class="text-xs text-gray-500">{{ cat.description }}</p>
-                    {% if key == 'owners' %}
-                    <p class="text-xs text-amber-600 hidden" id="purge-cascade-warn">Automaticky smaže i synchronizační data a soubory (Excel, CSV)</p>
-                    {% endif %}
-                    {% if key == 'backups' and purge_counts['backups'] > 0 %}
-                    <p class="text-xs text-gray-400">{{ purge_counts['backups'] }} ZIP {% if purge_counts['backups'] == 1 %}soubor{% elif purge_counts['backups'] < 5 %}soubory{% else %}souborů{% endif %}</p>
-                    {% endif %}
-                </div>
-            </label>
-            {% endfor %}
-            </div>
+            <p class="text-xs text-gray-400">Vyberte kategorie dat ke smazání</p>
         </div>
 
-        <div class="flex items-end gap-3">
+        {# ── Samostatné položky ── #}
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mb-4">
+            {% for group in purge_groups %}
+            {% if not (group.label is defined and group.label) %}
+            {% set key = group.cat_keys[0] %}
+            {% set cat = purge_categories[key] %}
+            {% set count = purge_counts[key] %}
+            <label class="flex items-start gap-3 border border-gray-200 rounded-lg p-3 cursor-pointer select-none hover:bg-gray-50">
+                <input type="checkbox" name="categories" value="{{ key }}"
+                       class="purge-cb w-4 h-4 rounded border-gray-300 text-red-600 focus:ring-red-500 mt-0.5"
+                       onchange="purgeUpdateSelectAll()" data-key="{{ key }}">
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-baseline gap-2">
+                        <span class="text-sm font-medium text-gray-800">{{ cat.label }}</span>
+                        <span class="text-xs text-gray-400">({{ count }})</span>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-0.5">{{ cat.description }}</p>
+                    {% if key == 'owners' %}
+                    <p class="text-xs text-amber-600 hidden mt-1" id="purge-cascade-warn">Automaticky smaže i sync data a soubory</p>
+                    {% endif %}
+                    {% if key == 'backups' and purge_counts['backups'] > 0 %}
+                    <p class="text-xs text-gray-400 mt-0.5">{{ purge_counts['backups'] }} ZIP {% if purge_counts['backups'] == 1 %}soubor{% elif purge_counts['backups'] < 5 %}soubory{% else %}souborů{% endif %}</p>
+                    {% endif %}
+                </div>
+            </label>
+            {% endif %}
+            {% endfor %}
+        </div>
+
+        {# ── Seskupené kategorie vedle sebe ── #}
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
+            {% for group in purge_groups %}
+            {% if group.label is defined and group.label %}
+            <div class="border border-gray-200 rounded-lg p-3">
+                <label class="flex items-center gap-2 mb-2 cursor-pointer select-none">
+                    <input type="checkbox" class="purge-group-cb w-4 h-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
+                           data-group-keys="{{ group.cat_keys|join(',') }}"
+                           onchange="purgeToggleGroup(this)">
+                    <span class="text-sm font-semibold text-gray-700">{{ group.label }}</span>
+                    {% set ns = namespace(total=0) %}
+                    {% for key in group.cat_keys %}{% set ns.total = ns.total + purge_counts[key] %}{% endfor %}
+                    <span class="text-xs text-gray-400">({{ ns.total }})</span>
+                </label>
+                <div class="space-y-1 ml-2 border-l-2 border-gray-200 pl-3">
+                    {% for key in group.cat_keys %}
+                    {% set cat = purge_categories[key] %}
+                    {% set count = purge_counts[key] %}
+                    <label class="flex items-center gap-2 py-0.5 cursor-pointer select-none hover:bg-gray-50 rounded px-1">
+                        <input type="checkbox" name="categories" value="{{ key }}"
+                               class="purge-cb w-3.5 h-3.5 rounded border-gray-300 text-red-600 focus:ring-red-500"
+                               data-key="{{ key }}" data-group="{{ group.cat_keys|join(',') }}"
+                               onchange="purgeUpdateGroupCb(this); purgeUpdateSelectAll()">
+                        <span class="text-sm text-gray-600">{{ cat.label }}</span>
+                        <span class="text-xs text-gray-400">({{ count }})</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+
+        <div class="flex items-end gap-3 pt-4 border-t border-gray-200">
             <div>
                 <label class="block text-xs text-gray-500 mb-1">Pro potvrzení napište <strong class="text-red-600">DELETE</strong></label>
                 <input type="text" name="confirmation" id="purge-confirm-input" autocomplete="off"
@@ -66,19 +102,36 @@
 <script>
 function purgeToggleAll(checked) {
     document.querySelectorAll('.purge-cb').forEach(function(cb) { cb.checked = checked; });
+    document.querySelectorAll('.purge-group-cb').forEach(function(cb) { cb.checked = checked; });
     purgeUpdateButton();
+}
+function purgeToggleGroup(groupCb) {
+    var keys = groupCb.dataset.groupKeys.split(',');
+    keys.forEach(function(key) {
+        var cb = document.querySelector('.purge-cb[data-key="' + key + '"]');
+        if (cb) cb.checked = groupCb.checked;
+    });
+    purgeUpdateSelectAll();
+}
+function purgeUpdateGroupCb(cb) {
+    var groupKeys = cb.dataset.group;
+    if (!groupKeys) return;
+    var keys = groupKeys.split(',');
+    var allChecked = keys.every(function(key) {
+        var el = document.querySelector('.purge-cb[data-key="' + key + '"]');
+        return el && el.checked;
+    });
+    var groupCb = document.querySelector('.purge-group-cb[data-group-keys="' + groupKeys + '"]');
+    if (groupCb) groupCb.checked = allChecked;
 }
 function purgeUpdateSelectAll() {
     var cbs = document.querySelectorAll('.purge-cb');
     var all = document.getElementById('purge-select-all');
     if (all) all.checked = Array.from(cbs).every(function(cb) { return cb.checked; });
     purgeUpdateButton();
-    // Show cascade warning when owners is checked
     var ownersCb = document.querySelector('.purge-cb[data-key="owners"]');
     var warn = document.getElementById('purge-cascade-warn');
-    if (warn && ownersCb) {
-        warn.classList.toggle('hidden', !ownersCb.checked);
-    }
+    if (warn && ownersCb) warn.classList.toggle('hidden', !ownersCb.checked);
 }
 function purgeUpdateButton() {
     var anyChecked = Array.from(document.querySelectorAll('.purge-cb')).some(function(cb) { return cb.checked; });
@@ -88,16 +141,8 @@ function purgeUpdateButton() {
 }
 function purgeValidate() {
     var inp = document.getElementById('purge-confirm-input');
-    if (inp.value.trim() !== 'DELETE') {
-        alert('Pro potvrzení zadejte slovo DELETE.');
-        inp.focus();
-        return false;
-    }
-    var anyChecked = Array.from(document.querySelectorAll('.purge-cb')).some(function(cb) { return cb.checked; });
-    if (!anyChecked) {
-        alert('Vyberte alespoň jednu kategorii.');
-        return false;
-    }
+    if (inp.value.trim() !== 'DELETE') { alert('Pro potvrzení zadejte slovo DELETE.'); inp.focus(); return false; }
+    if (!Array.from(document.querySelectorAll('.purge-cb')).some(function(cb) { return cb.checked; })) { alert('Vyberte alespoň jednu kategorii.'); return false; }
     return true;
 }
 (function() {
