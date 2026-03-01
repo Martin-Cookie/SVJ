@@ -27,8 +27,10 @@ def _strip_diacritics(text: str) -> str:
 # Mapování Excel sloupců (1-indexed, openpyxl) → Owner polí
 # col 15=titul před, 16=jméno, 17=příjmení, 18=titul za, 19=RČ/IČ
 # col 20-24=trvalá adresa, 25-29=koresp. adresa, 30=GSM, 31=pevný, 32=email
+# col 33=vlastník od, 34=poznámka (někdy obsahuje 2. email → email_secondary)
 _CONTACT_FIELDS = [
     {"col": 32, "field": "email", "label": "Email"},
+    {"col": 34, "field": "email_secondary", "label": "Email 2", "validate": "email"},
     {"col": 30, "field": "phone", "label": "Telefon (GSM)"},
     {"col": 31, "field": "phone_landline", "label": "Pevný telefon"},
     {"col": 19, "field": "birth_number", "label": "Rodné číslo / IČ"},
@@ -186,6 +188,10 @@ def preview_contact_import(file_path: str, db: Session, progress: dict | None = 
                 if not excel_val:
                     continue
 
+                # Col 34 (poznámka) — use only if value looks like email
+                if fdef.get("validate") == "email" and "@" not in excel_val:
+                    continue
+
                 field = fdef["field"]
                 label = fdef["label"]
 
@@ -241,6 +247,16 @@ def preview_contact_import(file_path: str, db: Session, progress: dict | None = 
                     # Non-phone/email fields: standard comparison
                     if field in ("phone_landline",):
                         if _normalize_phone(current_val) == _normalize_phone(excel_val):
+                            continue
+                    elif field == "email_secondary":
+                        # Col 34: skip if matches primary email or already in secondary
+                        primary_email = (getattr(owner, "email", None) or "").strip().lower()
+                        if excel_val.strip().lower() == primary_email:
+                            continue
+                        if current_val and current_val.strip().lower() == excel_val.strip().lower():
+                            continue
+                        # Skip if email routing already targets email_secondary
+                        if any(c["field"] == "email_secondary" for c in changes):
                             continue
                     elif current_val and current_val.strip() == excel_val.strip():
                         continue
