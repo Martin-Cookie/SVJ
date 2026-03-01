@@ -439,6 +439,41 @@ async def contact_import_preview_page(
     })
 
 
+@router.get("/import-kontaktu/znovu")
+async def contact_import_rerun(
+    request: Request,
+    soubor: str = Query("", alias="soubor"),
+):
+    """Re-run preview for an already uploaded file."""
+    from pathlib import Path
+    if not soubor or not Path(soubor).is_file():
+        return RedirectResponse("/vlastnici/import-kontaktu", status_code=302)
+
+    file_key = Path(soubor).name
+
+    _contact_import_progress[file_key] = {
+        "done": False,
+        "error": None,
+        "result": None,
+        "file_path": soubor,
+        "filename": Path(soubor).name,
+        "started_at": _time.monotonic(),
+        "total": 0,
+        "current": 0,
+        "phase": "Připravuji...",
+    }
+
+    thread = threading.Thread(
+        target=_run_contact_preview,
+        args=(file_key, soubor),
+        daemon=True,
+    )
+    thread.start()
+
+    from urllib.parse import quote
+    return RedirectResponse(f"/vlastnici/import-kontaktu/zpracovani?soubor={quote(file_key)}", status_code=302)
+
+
 @router.post("/import-kontaktu/potvrdit")
 async def contact_import_confirm(
     request: Request,
@@ -463,6 +498,7 @@ async def contact_import_confirm(
         "request": request,
         "active_nav": "owners",
         "result": result,
+        "file_path": file_path,
     })
 
 
