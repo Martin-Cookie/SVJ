@@ -65,6 +65,7 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
     - Field badges: klikací filtry zobrazující počet změn v každém poli
   - Selektivní výběr vlastníků k importu (checkboxy + "Vybrat vše")
   - Volba režimu: „Doplnit" (ponechat existující hodnoty) nebo „Přepsat" (nahradit prázdné i vyplněné)
+  - Inteligentní routing do sekundárních polí: když Excel má jiný telefon/email než DB, automaticky nabídne doplnění do sekundárního pole (GSM 2, Email 2) místo přepisu primárního — modrý badge v náhledu
   - Výsledková zpráva s počtem aktualizovaných vlastníků a polí
 - Seznam s vyhledáváním (jméno, email, telefon, RČ, IČ, č. jednotky)
 - Filtrační bubliny podle typu vlastníka (fyzická/právnická osoba) a sekce domu
@@ -83,7 +84,7 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
   - Automatická detekce duplicitních záznamů po uložení identity (podle name_normalized)
   - Sloučení duplicit: přesun jednotek pod hlavního vlastníka, doplnění kontaktů/adres, deaktivace duplikátů
   - OOB aktualizace záhlaví stránky (jméno + badge typ/RČ/IČ) a sekce Jednotky po sloučení
-  - Inline editace kontaktů (email, telefon) přes HTMX
+  - Inline editace kontaktů (email, email 2, telefon GSM, GSM 2, pevný) přes HTMX
   - Inline editace trvalé a korespondenční adresy přes HTMX
   - Uložit/Zrušit tlačítka nahoře vedle nadpisu sekce (ne dole pod formulářem)
   - Správa přiřazených jednotek (klik „+ Přidat" → Uložit/Zrušit nahoře nahradí tlačítko, formulář dole; odebrat ikonou koše)
