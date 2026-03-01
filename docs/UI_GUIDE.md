@@ -715,3 +715,5 @@ Tailwind `file:` prefix generuje `::file-selector-button` pseudo-element — `.d
        file:rounded-lg file:border-0 file:text-sm file:font-medium
        file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200">
 ```
+
+**Safari caveat:** `::file-selector-button` a `::-webkit-file-upload-button` MUSÍ být v oddělených CSS blocích. Safari invaliduje celý blok pokud comma-separated selektor obsahuje neznámý pseudo-element. V `dark-mode.css` je proto každý pseudo-element v samostatném pravidle.
