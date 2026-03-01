@@ -307,11 +307,15 @@ html.dark-transition *::after {
 }
 
 /* File input — tlačítko "Vybrat soubor" (::file-selector-button)
-   Tailwind file: prefix generuje pseudo-element, .dark .bg-* ho nepokryje */
-.dark input[type="file"]::file-selector-button {
-    background-color: rgba(59, 130, 246, 0.15);
-    color: #93c5fd;             /* blue-300 */
-    border: none;
+   Tailwind file: prefix generuje pseudo-element, .dark .bg-* ho nepokryje.
+   Safari vyžaduje -webkit-appearance:none aby šlo přebít native vzhled. */
+.dark input[type="file"]::file-selector-button,
+.dark input[type="file"]::-webkit-file-upload-button {
+    -webkit-appearance: none;
+    appearance: none;
+    background-color: rgba(59, 130, 246, 0.15) !important;
+    color: #93c5fd !important;
+    border: none !important;
     border-radius: 0.5rem;
     padding: 0.5rem 1rem;
     font-size: 0.875rem;
@@ -319,8 +323,9 @@ html.dark-transition *::after {
     cursor: pointer;
     margin-right: 1rem;
 }
-.dark input[type="file"]:hover::file-selector-button {
-    background-color: rgba(59, 130, 246, 0.25);
+.dark input[type="file"]:hover::file-selector-button,
+.dark input[type="file"]:hover::-webkit-file-upload-button {
+    background-color: rgba(59, 130, 246, 0.25) !important;
 }
 
 /* Checkbox a radio — akcentová barva */
