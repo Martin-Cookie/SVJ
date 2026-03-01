@@ -1,4 +1,5 @@
 """Shared utility functions used across routers and services."""
+from pathlib import Path
 from unicodedata import category, normalize
 
 from fastapi import Request
@@ -33,6 +34,26 @@ def fmt_num(value) -> str:
     if float(value) == int(value):
         return "{:,}".format(int(value)).replace(",", " ")
     return "{:,}".format(value).replace(",", " ")
+
+
+def is_safe_path(file_path: Path, *allowed_dirs: Path) -> bool:
+    """Check that resolved file_path is inside one of the allowed directories.
+
+    Uses relative_to() instead of startswith() to prevent prefix attacks
+    (e.g. /data/uploads_evil matching /data/uploads).
+    Compatible with Python 3.9+ (no Path.is_relative_to).
+    """
+    try:
+        resolved = file_path.resolve()
+        for allowed in allowed_dirs:
+            try:
+                resolved.relative_to(allowed.resolve())
+                return True
+            except ValueError:
+                continue
+        return False
+    except (OSError, ValueError):
+        return False
 
 
 def setup_jinja_filters(templates):

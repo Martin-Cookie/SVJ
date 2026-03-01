@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.database import get_db
 from app.models import EmailLog, Owner
-from app.utils import build_list_url, is_htmx_partial, setup_jinja_filters, strip_diacritics
+from app.utils import build_list_url, is_htmx_partial, is_safe_path, setup_jinja_filters, strip_diacritics
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -202,9 +202,7 @@ async def serve_attachment(
         p = Path(part)
         if p.name == filename and p.is_absolute() and p.exists():
             # Validate path is within allowed directories
-            resolved = p.resolve()
-            allowed = [settings.upload_dir.resolve(), settings.generated_dir.resolve()]
-            if any(str(resolved).startswith(str(a)) for a in allowed):
+            if is_safe_path(p, settings.upload_dir, settings.generated_dir):
                 suffix = p.suffix.lower()
                 media_types = {
                     ".pdf": "application/pdf",

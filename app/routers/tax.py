@@ -23,7 +23,7 @@ from app.models import (
     ActivityAction, log_activity,
 )
 from app.services.email_service import send_email
-from app.utils import build_list_url, is_htmx_partial, setup_jinja_filters, strip_diacritics
+from app.utils import build_list_url, is_htmx_partial, is_safe_path, setup_jinja_filters, strip_diacritics
 from app.services.owner_matcher import match_name
 from app.services.pdf_extractor import (
     extract_owner_from_tax_pdf, parse_unit_from_filename,
@@ -1235,7 +1235,7 @@ async def serve_document(
         return RedirectResponse(f"/dane/{session_id}", status_code=302)
 
     path = Path(doc.file_path)
-    if not path.exists():
+    if not path.exists() or not is_safe_path(path, settings.upload_dir):
         return RedirectResponse(f"/dane/{session_id}", status_code=302)
 
     return FileResponse(path, media_type="application/pdf")

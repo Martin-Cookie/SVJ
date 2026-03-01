@@ -4,7 +4,7 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     app_name: str = "SVJ Správa"
-    debug: bool = True
+    debug: bool = False
     base_dir: Path = Path(__file__).resolve().parent.parent
     database_path: Path = Path(__file__).resolve().parent.parent / "data" / "svj.db"
     upload_dir: Path = Path(__file__).resolve().parent.parent / "data" / "uploads"

@@ -88,7 +88,7 @@ _ROLE_SORT = case(
     else_=2,
 )
 
-from app.utils import setup_jinja_filters
+from app.utils import is_safe_path, setup_jinja_filters
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -550,7 +550,7 @@ async def backup_create(filename: str = Form(""), db: Session = Depends(get_db))
 @router.get("/zaloha/{filename}/stahnout")
 async def backup_download(filename: str):
     file_path = BACKUP_DIR / filename
-    if not file_path.is_file() or not filename.endswith(".zip"):
+    if not file_path.is_file() or not filename.endswith(".zip") or not is_safe_path(file_path, BACKUP_DIR):
         return RedirectResponse("/sprava/zalohy", status_code=302)
     return FileResponse(
         path=str(file_path),
@@ -562,7 +562,7 @@ async def backup_download(filename: str):
 @router.post("/zaloha/{filename}/smazat")
 async def backup_delete(filename: str):
     file_path = BACKUP_DIR / filename
-    if file_path.is_file() and filename.endswith(".zip"):
+    if file_path.is_file() and filename.endswith(".zip") and is_safe_path(file_path, BACKUP_DIR):
         file_path.unlink()
     return RedirectResponse("/sprava/zalohy", status_code=302)
 
@@ -571,7 +571,7 @@ async def backup_delete(filename: str):
 async def backup_rename(filename: str, new_name: str = Form(...)):
     """Rename an existing backup ZIP file."""
     file_path = BACKUP_DIR / filename
-    if not file_path.is_file() or not filename.endswith(".zip"):
+    if not file_path.is_file() or not filename.endswith(".zip") or not is_safe_path(file_path, BACKUP_DIR):
         return RedirectResponse("/sprava/zalohy", status_code=302)
 
     # Sanitize new_name: keep only safe chars
@@ -594,7 +594,7 @@ async def backup_rename(filename: str, new_name: str = Form(...)):
 async def backup_restore_existing(filename: str):
     """Restore from an existing backup in the backups directory."""
     file_path = BACKUP_DIR / filename
-    if not file_path.is_file() or not filename.endswith(".zip"):
+    if not file_path.is_file() or not filename.endswith(".zip") or not is_safe_path(file_path, BACKUP_DIR):
         return RedirectResponse("/sprava/zalohy", status_code=302)
 
     # Track existing backups to find safety backup name
