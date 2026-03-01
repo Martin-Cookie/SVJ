@@ -374,22 +374,28 @@ app/
 │   ├── owner_service.py       #   Sloučení duplicitních vlastníků
 │   ├── voting_import.py       #   Import výsledků hlasování z Excelu
 │   ├── csv_comparator.py      #   Porovnání CSV vs Excel
+│   ├── contact_import.py      #   Import kontaktních údajů
 │   ├── share_check_comparator.py #  Parsování souboru + porovnání podílů SČD
 │   ├── owner_exchange.py      #   Výměna vlastníků při synchronizaci
 │   ├── backup_service.py      #   Zálohování a obnova dat (ZIP)
-│   ├── data_export.py         #   Export dat do Excel/CSV (6 kategorií)
+│   ├── data_export.py         #   Export dat do Excel/CSV (7 kategorií)
 │   ├── email_service.py       #   SMTP odesílání emailů
 │   └── code_list_service.py   #   Sdílený přístup k číselníkům
 ├── templates/                 # Jinja2 šablony
 │   ├── base.html              #   Layout se sidebar navigací
 │   ├── dashboard.html         #   Přehled (statistiky vlastníků, jednotek, podílů)
+│   ├── dashboard_shares.html  #   Breakdown rozdílu podílů
 │   ├── settings.html          #   Nastavení
 │   ├── owners/                #   Stránky vlastníků
 │   │   ├── list.html          #     Seznam vlastníků
 │   │   ├── detail.html        #     Detail vlastníka
 │   │   ├── import.html        #     Import z Excelu + historie
 │   │   ├── import_preview.html#     Náhled před importem
-│   │   └── import_result.html #     Výsledek importu
+│   │   ├── import_result.html #     Výsledek importu
+│   │   ├── contact_import.html #    Import kontaktů — hlavní stránka
+│   │   ├── contact_import_processing.html # Progress bar zpracování kontaktů
+│   │   ├── contact_import_preview.html #  Náhled párování kontaktů
+│   │   └── contact_import_result.html #   Výsledek importu kontaktů
 │   ├── units/                 #   Stránky jednotek
 │   │   ├── list.html          #     Seznam jednotek
 │   │   └── detail.html        #     Detail jednotky
@@ -420,7 +426,9 @@ app/
 │   │   └── send.html          #     Rozesílka emailů (search + sort)
 │   ├── sync/                  #   Stránky synchronizace
 │   │   ├── index.html         #     Nahrání CSV + historie kontrol
+│   │   ├── upload.html        #     Nahrání CSV souboru
 │   │   ├── compare.html       #     Porovnání s filtry a bublinami
+│   │   ├── contacts_preview.html #  Náhled přenosu kontaktů
 │   │   └── exchange_preview.html #  Preview výměny vlastníků
 │   ├── share_check/           #   Stránky kontroly podílu
 │   │   ├── index.html         #     Nahrání souboru + historie kontrol
@@ -428,8 +436,13 @@ app/
 │   │   └── compare.html       #     Výsledky s filtry a bublinami
 │   ├── administration/        #   Stránky administrace
 │   │   ├── index.html         #     Info SVJ, adresy, výbor, kontrolní orgán, číselníky
+│   │   ├── svj_info.html      #     HTMX: sekce info o SVJ
+│   │   ├── code_lists.html    #     HTMX: sekce číselníků
+│   │   ├── backups.html       #     HTMX: sekce záloh
+│   │   ├── purge.html         #     HTMX: sekce mazání dat
+│   │   ├── export.html        #     HTMX: sekce exportu
 │   │   ├── bulk_edit.html     #     Hromadné úpravy — výběr pole
-│   │   ├── duplicates.html      #     Přehled a sloučení duplicitních vlastníků
+│   │   ├── duplicates.html    #     Přehled a sloučení duplicitních vlastníků
 │   │   ├── bulk_edit_values.html #  HTMX: tabulka unikátních hodnot
 │   │   └── bulk_edit_records.html # HTMX: záznamy pro danou hodnotu
 │   └── partials/              #   HTMX komponenty
@@ -458,6 +471,12 @@ app/
 │       ├── dashboard_activity_body.html
 │       ├── settings_email_tbody.html
 │       ├── ballot_processed.html
+│       ├── contact_import_progress.html
+│       ├── owner_create_form.html
+│       ├── tax_table_body.html
+│       ├── tax_send_progress.html
+│       ├── smtp_form.html
+│       ├── smtp_info.html
 │       ├── wizard_stepper.html
 │       ├── wizard_stepper_compact.html
 │       ├── unit_owners.html
@@ -480,6 +499,12 @@ wheels/                        # Offline Python balíčky (gitignored)
 ```
 
 ## API endpointy
+
+### Dashboard (`/prehled`)
+
+| Metoda | Cesta | Popis |
+|--------|-------|-------|
+| GET | `/prehled/rozdil-podilu` | Breakdown rozdílu podílů |
 
 ### Vlastníci (`/vlastnici`)
 
@@ -524,6 +549,9 @@ wheels/                        # Offline Python balíčky (gitignored)
 | GET | `/jednotky/{id}/upravit-formular` | HTMX: formulář editace |
 | GET | `/jednotky/{id}/info` | HTMX: zobrazení údajů |
 | POST | `/jednotky/{id}/upravit` | Uložení údajů jednotky |
+| GET | `/jednotky/{id}/vlastnici-sekce` | HTMX: sekce vlastníků na detailu |
+| GET | `/jednotky/{id}/vlastnik/{ou_id}/upravit-formular` | HTMX: editační formulář vlastníka |
+| POST | `/jednotky/{id}/vlastnik/{ou_id}/upravit` | Uložení úpravy vlastníka |
 
 ### Hlasování (`/hlasovani`)
 
@@ -549,6 +577,7 @@ wheels/                        # Offline Python balíčky (gitignored)
 | POST | `/hlasovani/{id}/import` | Nahrání Excel souboru → mapování sloupců |
 | POST | `/hlasovani/{id}/import/nahled` | Náhled importu (přiřazení + statistika) |
 | POST | `/hlasovani/{id}/import/potvrdit` | Potvrzení a provedení importu |
+| GET | `/hlasovani/{id}/exportovat` | Export do Excelu |
 
 ### Hromadné rozesílání (`/dane`)
 
@@ -573,12 +602,24 @@ wheels/                        # Offline Python balíčky (gitignored)
 | POST | `/dane/{id}/upload` | Nahrání dalších PDF + zpracování na pozadí |
 | POST | `/dane/{id}/smazat` | Smazání relace (session + dokumenty + soubory) |
 | GET | `/dane/{id}/rozeslat` | Rozesílka — preview příjemců (search, sort) |
+| GET | `/dane/{id}/dokument/{doc_id}` | Náhled/stažení dokumentu |
+| POST | `/dane/{id}/rozeslat/odeslat` | Spuštění odesílání emailů |
+| GET | `/dane/{id}/rozeslat/prubeh` | Stránka průběhu odesílání |
+| GET | `/dane/{id}/rozeslat/prubeh-stav` | HTMX: polling stavu odesílání |
+| POST | `/dane/{id}/rozeslat/pozastavit` | Pozastavení odesílání |
+| POST | `/dane/{id}/rozeslat/pokracovat` | Pokračování v odesílání |
+| POST | `/dane/{id}/rozeslat/retry` | Opakování neúspěšných |
+| POST | `/dane/{id}/rozeslat/test` | Odeslání testovacího emailu |
+| POST | `/dane/{id}/rozeslat/nastaveni` | Uložení nastavení odesílání |
+| POST | `/dane/{id}/rozeslat/email/{dist_id}` | Individuální odeslání |
+| GET | `/dane/{id}/exportovat` | Export do Excelu |
 
 ### Kontrola vlastníků (`/synchronizace`)
 
 | Metoda | Cesta | Popis |
 |--------|-------|-------|
 | GET | `/synchronizace` | Nahrání CSV + historie kontrol (search, sort) |
+| GET | `/synchronizace/nova` | Redirect na seznam |
 | POST | `/synchronizace/nova` | Nahrání a porovnání CSV |
 | POST | `/synchronizace/{id}/smazat` | Smazání kontroly (záznamy + CSV) |
 | GET | `/synchronizace/{id}` | Porovnání s filtry, bublinami a search |
@@ -592,6 +633,7 @@ wheels/                        # Offline Python balíčky (gitignored)
 | POST | `/synchronizace/{id}/prijmout/{rec_id}` | Přijetí změny |
 | POST | `/synchronizace/{id}/odmitnout/{rec_id}` | Odmítnutí změny |
 | POST | `/synchronizace/{id}/upravit/{rec_id}` | Ruční úprava jména |
+| GET | `/synchronizace/{id}/nahled-kontaktu` | Náhled přenosu kontaktů |
 
 ### Kontrola podílu SČD (`/kontrola-podilu`)
 
@@ -604,12 +646,18 @@ wheels/                        # Offline Python balíčky (gitignored)
 | GET | `/kontrola-podilu/{id}` | Výsledky s filtry, bublinami a search |
 | POST | `/kontrola-podilu/{id}/smazat` | Smazání kontroly (záznamy + soubor) |
 | POST | `/kontrola-podilu/{id}/aktualizovat` | Batch update Unit.podil_scd z vybraných |
+| POST | `/kontrola-podilu/{id}/exportovat` | Export do Excelu |
 
 ### Administrace (`/sprava`)
 
 | Metoda | Cesta | Popis |
 |--------|-------|-------|
 | GET | `/sprava` | Stránka administrace SVJ |
+| GET | `/sprava/svj-info` | HTMX: sekce info o SVJ |
+| GET | `/sprava/ciselniky` | HTMX: sekce číselníků |
+| GET | `/sprava/zalohy` | HTMX: sekce záloh |
+| GET | `/sprava/smazat` | HTMX: sekce mazání dat |
+| GET | `/sprava/export` | HTMX: sekce exportu |
 | POST | `/sprava/info` | Uložení info o SVJ (název, typ, podíly) |
 | POST | `/sprava/adresa/pridat` | Přidání adresy SVJ |
 | POST | `/sprava/adresa/{id}/upravit` | Editace adresy |
@@ -620,6 +668,8 @@ wheels/                        # Offline Python balíčky (gitignored)
 | POST | `/sprava/zaloha/vytvorit` | Vytvoření zálohy (ZIP) |
 | GET | `/sprava/zaloha/{filename}/stahnout` | Stažení zálohy |
 | POST | `/sprava/zaloha/{filename}/smazat` | Smazání zálohy |
+| POST | `/sprava/zaloha/{filename}/prejmenovat` | Přejmenování zálohy |
+| POST | `/sprava/zaloha/{filename}/obnovit` | Obnovení ze zálohy |
 | POST | `/sprava/zaloha/obnovit` | Obnova dat ze zálohy (upload ZIP) |
 | POST | `/sprava/zaloha/obnovit-slozku` | Obnova z rozbalené složky zálohy (webkitdirectory) |
 | POST | `/sprava/zaloha/obnovit-soubor` | Obnova z nahraného svj.db souboru |
@@ -641,28 +691,37 @@ wheels/                        # Offline Python balíčky (gitignored)
 | POST | `/sprava/duplicity/sloucit` | Sloučení jedné skupiny duplicit do cílového vlastníka |
 | POST | `/sprava/duplicity/sloucit-vse` | Sloučení všech skupin najednou (doporučení cíle) |
 
+### Nastavení (`/nastaveni`)
+
+| Metoda | Cesta | Popis |
+|--------|-------|-------|
+| GET | `/nastaveni` | Seznam šablon a SMTP nastavení |
+| GET | `/nastaveni/smtp/formular` | HTMX: editační formulář SMTP |
+| GET | `/nastaveni/smtp/info` | HTMX: zobrazení SMTP nastavení |
+| POST | `/nastaveni/smtp` | Uložení SMTP nastavení |
+| GET | `/nastaveni/priloha/{log_id}/{filename}` | Stažení přílohy emailové šablony |
+
 ## Konfigurace (.env)
 
 ```env
-DATABASE_PATH=data/svj.db
-UPLOAD_DIR=data/uploads
-GENERATED_DIR=data/generated
-SMTP_HOST=smtp.example.com
+DEBUG=true
+SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
 SMTP_USER=
 SMTP_PASSWORD=
 SMTP_FROM_EMAIL=svj@example.com
 SMTP_FROM_NAME=SVJ
+SMTP_USE_TLS=true
 LIBREOFFICE_PATH=/Applications/LibreOffice.app/Contents/MacOS/soffice
 ```
 
 ## Datový model
 
-- **Owner** — vlastník (jméno, tituly, RČ/IČ, adresy, kontakty, is_active); `display_name` property: formát „příjmení jméno" s titulem
-- **Unit** — jednotka (číslo KN jako INTEGER, budova, sekce, plocha, podíl SČD)
+- **Owner** — vlastník (jméno, tituly, RČ/IČ, adresy, kontakty, phone_secondary, email_secondary, company_id, is_active); `display_name` property: formát „příjmení jméno" s titulem
+- **Unit** — jednotka (číslo KN jako INTEGER, budova, sekce, plocha, podíl SČD, orientation_number)
 - **OwnerUnit** — vazba vlastník-jednotka (typ vlastnictví, podíl, hlasovací váha, valid_from, valid_to); valid_to=NULL = aktuálně platný, valid_to=datum = historický záznam
 - **Proxy** — plná moc pro hlasování
-- **Voting** → VotingItem → Ballot → BallotVote
+- **Voting** (partial_owner_mode, import_column_mapping) → VotingItem → Ballot → BallotVote
 - **TaxSession** → TaxDocument → TaxDistribution
 - **SyncSession** → SyncRecord (cascade delete)
 - **ShareCheckSession** → ShareCheckRecord (cascade delete); ShareCheckColumnMapping (zapamatované mapování sloupců)
@@ -670,6 +729,7 @@ LIBREOFFICE_PATH=/Applications/LibreOffice.app/Contents/MacOS/soffice
 - **BoardMember** — členové výboru a kontrolního orgánu (group: board/control)
 - **CodeListItem** — položky číselníků (category: space_type/section/room_count/ownership_type, value, order); unique index na (category, value)
 - **EmailTemplate** — šablony emailů pro hromadné rozesílání (name, subject_template, body_template, order); placeholder `{rok}` nahrazen při výběru
+- **ActivityLog** — log aktivit (modul, akce, entita, timestamp); **ActivityAction** — enum typů aktivit (CREATE, UPDATE, DELETE, IMPORT, EXPORT, SEND)
 - **EmailLog**, **ImportLog** — systémové logy
 
 ## Bezpečnost a kvalita kódu

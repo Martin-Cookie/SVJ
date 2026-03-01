@@ -38,7 +38,7 @@ Tento soubor je **jediný zdroj pravdy** pro UI/frontend vzory a konvence. Stack
 
 ### Řazení sloupců
 - Klikací hlavičky s indikátorem směru (šipka SVG nahoru/dolů)
-- Implementace přes `{% set _cols = [...] %}` + `{% for %}` cyklus (NE macro — nemá přístup ke kontextu)
+- Implementace přes `sort_th` macro (definované přímo v šabloně — dominantní přístup, 9+ souborů) nebo `{% set _cols = [...] %}` + `{% for %}` cyklus (4 soubory)
 - Sort parametry: `sort` (název sloupce), `order` (`asc`/`desc`)
 
 ### Řádkové akce — ikony
@@ -62,10 +62,13 @@ Tento soubor je **jediný zdroj pravdy** pro UI/frontend vzory a konvence. Stack
 
 ## 3. Formuláře
 
-### Input styly
-```
-border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500
-```
+### Input styly — 3 tiery
+
+| Tier | CSS | Kde |
+|------|-----|-----|
+| **Full forms** | `px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500` | SMTP formulář, voting create, zálohy |
+| **Inline edits** | `px-2 py-1.5 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-blue-500` | Owner identity/contact/address forms |
+| **Search bars** | `px-3 py-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs` | Všechny search inputy |
 
 ### Tlačítka — kanonické styly
 
@@ -74,7 +77,8 @@ border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus
 | **Akce (světle modré)** | `px-3 py-1.5 text-sm font-medium text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors` | Upravit, Přidat, Uložit |
 | **Akce malá (inline)** | `px-2 py-1 text-xs font-medium text-blue-600 border border-blue-300 rounded hover:bg-blue-50` | Uložit/Přidat v tabulkách |
 | **Akce s ikonou** | + `inline-flex items-center gap-1` | Upravit/Přidat s SVG ikonou |
-| **Zrušit** | `px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm font-medium` | Zrušit (cancel) |
+| **Zrušit** | `px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm font-medium` | Zrušit (cancel) — varianta `bg-gray-100 hover:bg-gray-200` pro admin sekce |
+| **Sekundární akce (plné modré)** | `px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium transition-colors` | Export Excel, Vytvořit zálohu, Uložit mapping |
 | **Danger** | `px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium` | Smazat |
 | **Success** | `px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium` | Dokončit, Vytvořit, Potvrdit |
 
@@ -267,6 +271,10 @@ function clCancelEdit(id) {
     <svg class="w-4 h-4" ...><!-- download icon --></svg>
 </a>
 ```
+
+### Accessibility — SVG ikony
+- Dekorativní SVG ikony vždy `aria-hidden="true"` — konzistentně napříč celým projektem (42+ souborů)
+- Error/flash zprávy vždy `role="alert"` pro screen readery
 
 ---
 
@@ -549,6 +557,22 @@ if has_documents and max_done < 1:
 | Vyhledávání | `hx-get` + `hx-target="#tbody-id"` |
 | Inline editace | `hx-get`/`hx-post` + `hx-target="#section-id"` |
 
+### HTMX loading indicators
+- Globální CSS v `custom.css` automaticky disable submit tlačítka během HTMX requestů:
+  ```css
+  .htmx-request button[type="submit"] { opacity: 0.5; pointer-events: none; }
+  ```
+- Žádné per-button spinnery — CSS pokryje všechny formuláře automaticky
+
+### HTMX error handling
+- `app.js` zachycuje `htmx:responseError` a `htmx:sendError`
+- Zobrazí uživatelsky přívětivou českou chybovou hlášku s odkazem na reload
+- Definováno globálně, neřeší se per-stránka
+
+### hx-push-url
+- Všechny search inputy používají `hx-push-url="true"` — aktualizuje URL v prohlížeči při filtrování/hledání
+- Umožňuje sdílení filtrované URL a navigaci zpět
+
 ### hx-confirm
 ```html
 <button hx-confirm="Opravdu smazat?">Smazat</button>
@@ -593,12 +617,9 @@ if has_documents and max_done < 1:
 ## 16. Kolapsovatelné sekce
 
 ```html
-<details class="mb-6 group">
-    <summary class="flex items-center gap-2 cursor-pointer select-none">
-        <svg class="w-4 h-4 text-gray-500 transition-transform group-open:rotate-90" ...>
-            <!-- chevron right -->
-        </svg>
-        <h2 class="text-lg font-semibold text-gray-800">Název sekce</h2>
+<details class="mt-4 pt-4 border-t border-gray-200">
+    <summary class="flex items-center gap-2 cursor-pointer select-none text-sm font-semibold text-gray-700">
+        Název sekce
     </summary>
     <div class="mt-3">
         <!-- obsah sekce -->
@@ -607,7 +628,7 @@ if has_documents and max_done < 1:
 ```
 
 - Otevření z redirectu: query parametr + podmíněný `open` atribut: `{% if sekce == 'zalohy' %}open{% endif %}`
-- Chevron rotovaný přes `group-open:rotate-90`
+- Varianta s pozadím: `<details class="bg-white rounded-lg shadow mb-3">` (např. konfigurace na send stránce)
 
 ---
 
@@ -631,20 +652,61 @@ if has_documents and max_done < 1:
 </button>
 ```
 
+### Delete confirmation modal (voting, tax)
+Pro mazání uzavřených/odeslaných entit se používá custom modal s DELETE input:
+- `openDeleteModal(id, name)` / `closeDeleteModal()` / `confirmDeleteModal()` — JS funkce v šabloně
+- Modal obsahuje název entity + DELETE input + potvrzovací tlačítko
+- Odlišný od inline `confirm()` — vizuálně výraznější pro kritické akce
+
 ---
 
 ## 18. Export dat (UI pravidla)
 
 - Formulář exportu musí mít `hx-boost="false"` — binární soubor (Excel/CSV/ZIP) nelze swapnout jako HTML
-- Tlačítko exportu: světle modré obrysové (jako Uložit)
+- Tlačítko exportu: plné modré (`bg-blue-600 text-white`) nebo plné zelené (`bg-green-600 text-white`)
 - Pokud je export filtrovaný: hidden inputy přenáší aktuální filtr do POST endpointu
 - Více kategorií s checkboxy: vzor "Vybrat/Zrušit vše" (viz § 15)
 
 ---
 
+## 18b. Flash zprávy — auto-dismiss
+
+- Flash message v `base.html` má atribut `data-auto-dismiss`
+- `app.js` automaticky skryje flash po 5 sekundách s fade-out animací
+- Po HTMX swapech (`htmx:afterSwap`) se auto-dismiss znovu aktivuje
+- Implementace: `_autoDismiss()` funkce v `app.js`
+
+---
+
+## 18c. PDF náhled (modal)
+
+- pdf.js z CDN načteno v `base.html`
+- Modal pro náhled PDF: `openPdfModal(url)` / `closePdfModal()` v `app.js`
+- Vždy `hx-boost="false"` na odkazech na PDF soubory
+- PDF canvas má `background:#fff` inline — zůstává bílý i v dark mode
+
+---
+
+## 18d. Client-side řazení tabulek (`sortTableCol`)
+
+Třetí sorting pattern (vedle server-side `sort_th` macro a `_cols` loop) — čistě client-side JavaScript pro malé tabulky bez HTMX:
+
+```html
+<th onclick="sortTableCol(this)" data-col="0" data-type="text" data-sort-tbody="tbody-id">
+    Sloupec <span class="sort-arrow"></span>
+</th>
+```
+
+- `data-col` — index sloupce
+- `data-type` — `"text"` nebo `"num"`
+- `data-sort-tbody` — ID `<tbody>` elementu k řazení
+- Definováno v `app.js`, používá se na stránkách bez server-side řazení (zálohy, import historie)
+
+---
+
 ## 19. Dark mode
 
-### Princip — CSS override (žádné změny v šablonách)
+### Princip — CSS override (minimální změny v šablonách)
 
 Dark mode funguje přes CSS specificitu: `.dark .bg-white` (0,2,0) > `.bg-white` (0,1,0) — bez `!important`. Třída `.dark` se přidává na `<html>` element. Všechny Tailwind utility třídy se přepisují v jednom CSS souboru.
 
@@ -689,7 +751,8 @@ Inline `<script>` v `<head>` PŘED Tailwind CDN — čte localStorage a přidá 
 - **Sidebar** (`bg-gray-800`) — už je tmavý
 - **Akční tlačítka** (`bg-green-600 text-white`, `bg-red-600 text-white`) — kontrastní
 - **Progress bary** (`bg-blue-600`, `bg-green-500`) — výrazné barvy
-- **Focus ring** (`focus:ring-blue-500`) — funguje v obou režimech
+- **Focus ring** (`focus:ring-blue-500`) — funguje v obou režimech (dark-mode.css jemně upravuje průhlednost)
+- **Výjimka — delete modaly** (`voting/index.html`, `tax/index.html`) používají inline Tailwind `dark:` třídy (`dark:bg-gray-800`, `dark:text-gray-200` atd.) — jediná zdokumentovaná výjimka z CSS-only přístupu
 - **Ring na bublinách** (`ring-{color}-400`) — funguje v obou
 - **PDF canvas** (`background:#fff` inline) — obsah PDF zůstává bílý
 
