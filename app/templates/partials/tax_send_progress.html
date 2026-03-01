@@ -50,7 +50,7 @@
 
     {# Error message #}
     {% if error %}
-    <div class="p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700">
+    <div role="alert" class="p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700">
         {{ error }}
     </div>
     {% endif %}
@@ -59,19 +59,19 @@
     <div class="flex items-center gap-2 pt-2">
         {% if waiting_batch_confirm %}
         <form method="post" action="/dane/{{ session_id }}/rozeslat/pokracovat" hx-boost="false">
-            <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm font-medium">
+            <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium transition-colors">
                 Pokračovat (další dávka)
             </button>
         </form>
         {% elif paused %}
         <form method="post" action="/dane/{{ session_id }}/rozeslat/pokracovat" hx-boost="false">
-            <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm font-medium">
+            <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium transition-colors">
                 Pokračovat
             </button>
         </form>
         {% else %}
         <form method="post" action="/dane/{{ session_id }}/rozeslat/pozastavit" hx-boost="false">
-            <button type="submit" class="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 text-sm font-medium">
+            <button type="submit" class="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 text-sm font-medium transition-colors">
                 Pozastavit
             </button>
         </form>

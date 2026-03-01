@@ -17,9 +17,9 @@
         <form action="/vlastnici/import/potvrdit" method="post">
             <input type="hidden" name="file_path" value="{{ file_path }}">
             <input type="hidden" name="filename" value="{{ filename }}">
-            <button type="submit" class="px-3 py-1.5 bg-green-600 text-white rounded hover:bg-green-700 text-xs font-medium">Potvrdit a uložit</button>
+            <button type="submit" class="px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-xs font-medium transition-colors">Potvrdit a uložit</button>
         </form>
-        <a href="/vlastnici/import" class="px-3 py-1.5 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 text-xs font-medium">Zrušit</a>
+        <a href="/vlastnici/import" class="px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-xs font-medium">Zrušit</a>
     </div>
 </div>
 
@@ -48,7 +48,7 @@
 
 <!-- Errors -->
 {% if preview.errors %}
-<div id="errors-section" class="bg-red-50 border border-red-200 rounded-lg p-4 mb-3 hidden">
+<div id="errors-section" role="alert" class="bg-red-50 border border-red-200 rounded-lg p-4 mb-3 hidden">
     <h3 class="text-sm font-semibold text-red-800 mb-2">Chyby při parsování:</h3>
     <ul class="text-sm text-red-700 list-disc list-inside">
         {% for error in preview.errors %}

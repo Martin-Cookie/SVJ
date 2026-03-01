@@ -263,7 +263,13 @@ async def update_svj_info(
     info = _get_or_create_svj_info(db)
     info.name = name.strip() or None
     info.building_type = building_type.strip() or None
-    info.total_shares = int(total_shares) if total_shares.strip() else None
+    try:
+        total_shares_int = int(total_shares) if total_shares.strip() else None
+    except (ValueError, TypeError):
+        total_shares_int = None
+    if total_shares_int is not None and (total_shares_int < 1 or total_shares_int > 99999999):
+        total_shares_int = None
+    info.total_shares = total_shares_int
     info.updated_at = datetime.utcnow()
     db.commit()
     return RedirectResponse("/sprava/svj-info", status_code=302)

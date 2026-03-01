@@ -22,13 +22,13 @@
             <div class="flex items-center gap-2">
                 {% if count_failed|default(0) > 0 %}
                 <form method="post" action="/dane/{{ session.id }}/rozeslat/retry" hx-boost="false">
-                    <button type="submit" class="px-3 py-1.5 bg-orange-500 text-white rounded hover:bg-orange-600 text-xs font-medium">
+                    <button type="submit" class="px-3 py-1.5 bg-orange-500 text-white rounded-lg hover:bg-orange-600 text-xs font-medium transition-colors">
                         Zopakovat neúspěšné ({{ count_failed }})
                     </button>
                 </form>
                 {% endif %}
                 <button type="button" id="send-btn" onclick="showSendConfirmModal()"
-                        class="px-4 py-1.5 bg-green-600 text-white rounded hover:bg-green-700 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                        class="px-4 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                         {% if not session.test_email_passed %}disabled title="Nejdříve odešlete testovací email"{% endif %}>
                     Rozeslat (<span id="send-count">0</span>)
                 </button>
@@ -58,12 +58,12 @@
                             <div>
                                 <label class="block text-xs font-medium text-gray-600 mb-0.5">Předmět emailu</label>
                                 <input type="text" name="email_subject" value="{{ session.email_subject or '' }}"
-                                       class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                       class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                             </div>
                             <div>
                                 <label class="block text-xs font-medium text-gray-600 mb-0.5">Text emailu (HTML)</label>
                                 <textarea name="email_body" rows="3"
-                                          class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono">{{ session.email_body or '' }}</textarea>
+                                          class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono">{{ session.email_body or '' }}</textarea>
                             </div>
                         </div>
                         <!-- Right: batch, interval, test, save -->
@@ -71,12 +71,12 @@
                             <div>
                                 <label class="block text-xs font-medium text-gray-600 mb-0.5">Velikost dávky</label>
                                 <input type="number" name="send_batch_size" value="{{ session.send_batch_size or 10 }}" min="1" max="100"
-                                       class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                       class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                             </div>
                             <div>
                                 <label class="block text-xs font-medium text-gray-600 mb-0.5">Interval mezi dávkami (s)</label>
                                 <input type="number" name="send_batch_interval" value="{{ session.send_batch_interval or 5 }}" min="1" max="60"
-                                       class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                       class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                             </div>
                             <label class="flex items-center gap-2 text-xs text-gray-600 mt-1">
                                 <input type="checkbox" name="send_confirm_each_batch" value="true"
@@ -87,9 +87,9 @@
                             <div class="flex items-center gap-2 mt-1">
                                 <input type="email" name="test_email_inline" id="test-email-input" placeholder="test@example.com"
                                        value="{{ test_email_value|default('') }}"
-                                       class="flex-1 border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                       class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                                 <button type="button" onclick="sendTest(this)"
-                                        class="px-2.5 py-1 bg-yellow-500 text-white rounded hover:bg-yellow-600 text-xs font-medium whitespace-nowrap">
+                                        class="px-2.5 py-1 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 text-xs font-medium whitespace-nowrap transition-colors">
                                     Test
                                 </button>
                             </div>
@@ -230,9 +230,9 @@
         </div>
         <div class="flex justify-end gap-2">
             <button type="button" onclick="closeSendConfirmModal()"
-                    class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm font-medium">Zrušit</button>
+                    class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm font-medium">Zrušit</button>
             <button type="button" onclick="startBatchSend()"
-                    class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm font-medium">Odeslat</button>
+                    class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium transition-colors">Odeslat</button>
         </div>
     </div>
 </div>

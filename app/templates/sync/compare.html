@@ -16,12 +16,12 @@
     <div class="flex gap-2">
         <form action="/synchronizace/{{ session.id }}/vymena-hromadna" method="post" hx-boost="false">
             <input type="hidden" name="filtr" value="{{ filtr }}">
-            <button type="submit" class="px-3 py-1.5 bg-purple-600 text-white rounded hover:bg-purple-700 text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed" {% if not session.total_differences %}disabled{% endif %}>Hromadná výměna ({{ session.total_differences }})</button>
+            <button type="submit" class="px-3 py-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed transition-colors" {% if not session.total_differences %}disabled{% endif %}>Hromadná výměna ({{ session.total_differences }})</button>
         </form>
-        <a href="/synchronizace/{{ session.id }}/nahled-kontaktu" class="px-3 py-1.5 bg-green-600 text-white rounded hover:bg-green-700 text-xs font-medium inline-block">Přenést kontakty</a>
+        <a href="/synchronizace/{{ session.id }}/nahled-kontaktu" class="px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-xs font-medium inline-block transition-colors">Přenést kontakty</a>
         <form action="/synchronizace/{{ session.id }}/exportovat" method="post" hx-boost="false">
             <input type="hidden" name="filtr" value="{{ filtr }}">
-            <button type="submit" class="px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs font-medium">Export Excel</button>
+            <button type="submit" class="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs font-medium transition-colors">Export Excel</button>
         </form>
     </div>
 </div>
@@ -124,7 +124,7 @@
 <input type="hidden" name="filtr" value="{{ filtr }}">
 <div class="shrink-0 flex items-center gap-3 mb-2 bg-white rounded-lg shadow px-3 py-2">
     <span id="sync-selected-count" class="text-xs text-gray-500">0 polí vybráno</span>
-    <button type="submit" id="sync-submit-btn" disabled class="ml-auto px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed">Aktualizovat vybrané</button>
+    <button type="submit" id="sync-submit-btn" disabled class="ml-auto px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed transition-colors">Aktualizovat vybrané</button>
 </div>
 
 <!-- Comparison table -->

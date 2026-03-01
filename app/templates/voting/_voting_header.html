@@ -21,7 +21,7 @@
         {% if voting.status.value == 'draft' %}
         <span class="px-3 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">Koncept</span>
         <form action="/hlasovani/{{ voting.id }}/generovat" method="post">
-            <button type="submit" class="px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium">
+            <button type="submit" class="px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium transition-colors">
                 Generovat lístky
             </button>
         </form>
@@ -37,7 +37,7 @@
         <form action="/hlasovani/{{ voting.id }}/stav" method="post"
               onsubmit="return confirm('Opravdu uzavřít hlasování?')" hx-boost="false">
             <input type="hidden" name="status" value="closed">
-            <button type="submit" class="px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium">
+            <button type="submit" class="px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium transition-colors">
                 Uzavřít hlasování
             </button>
         </form>

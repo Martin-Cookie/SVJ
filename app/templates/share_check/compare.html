@@ -15,7 +15,7 @@
     </div>
     <form action="/kontrola-podilu/{{ session.id }}/exportovat" method="post" hx-boost="false">
         <input type="hidden" name="filtr" value="{{ filtr }}">
-        <button type="submit" class="px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs font-medium">Export Excel</button>
+        <button type="submit" class="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs font-medium transition-colors">Export Excel</button>
     </form>
 </div>
 
@@ -87,7 +87,7 @@
 <input type="hidden" name="filtr" value="{{ filtr }}">
 <div class="shrink-0 flex items-center gap-3 mb-2 bg-white rounded-lg shadow px-3 py-2">
     <span id="sc-selected-count" class="text-xs text-gray-500">0 vybráno</span>
-    <button type="submit" id="sc-submit-btn" disabled class="ml-auto px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed">Aktualizovat vybrané</button>
+    <button type="submit" id="sc-submit-btn" disabled class="ml-auto px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed transition-colors">Aktualizovat vybrané</button>
 </div>
 
 <!-- Comparison table -->

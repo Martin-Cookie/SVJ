@@ -17,7 +17,7 @@
     <form action="/sprava/duplicity/sloucit-vse" method="post" hx-boost="false"
           onsubmit="return confirm('Sloučit všech {{ total_groups }} skupin najednou? Doporučení cíloví vlastníci budou použiti automaticky.')">
         <button type="submit"
-                class="px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium">
+                class="px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium transition-colors">
             Sloučit vše ({{ total_groups }})
         </button>
     </form>

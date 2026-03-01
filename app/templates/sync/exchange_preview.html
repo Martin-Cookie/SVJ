@@ -102,8 +102,8 @@
         <p class="text-xs text-gray-400 mt-1">Výchozí: dnešní datum. Změňte pokud výměna proběhla dříve.</p>
     </div>
     <div class="flex items-center gap-3">
-        <a href="{{ back_url }}" class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm">Zrušit</a>
-        <button type="submit" class="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 text-sm font-medium">
+        <a href="{{ back_url }}" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm">Zrušit</a>
+        <button type="submit" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm font-medium transition-colors">
             Potvrdit výměnu ({{ previews|length }} {% if previews|length == 1 %}jednotka{% elif previews|length < 5 %}jednotky{% else %}jednotek{% endif %})
         </button>
     </div>

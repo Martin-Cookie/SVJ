@@ -13,7 +13,7 @@
         <p class="text-sm text-gray-500">Soubor: <strong>{{ filename }}</strong> ({{ headers|length }} sloupců)</p>
     </div>
     <div class="flex gap-2">
-        <button type="submit" form="mapping-form" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
+        <button type="submit" form="mapping-form" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium transition-colors">
             Zobrazit náhled
         </button>
         <a href="/hlasovani/{{ voting.id }}/import" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">

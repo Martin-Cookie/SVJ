@@ -6,6 +6,15 @@
     display: inline-block;
 }
 
+/* Disable submit buttons during HTMX requests */
+.htmx-request button[type="submit"],
+.htmx-request button[hx-post],
+.htmx-request button[hx-get],
+form.htmx-request button[type="submit"] {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
 /* Smooth transitions for HTMX swaps */
 .htmx-swapping {
     opacity: 0;

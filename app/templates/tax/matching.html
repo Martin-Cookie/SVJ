@@ -46,7 +46,7 @@
             <div class="flex items-center gap-2">
                 {% if is_completed %}
                 <a href="/dane/{{ session.id }}/rozeslat?back={{ list_url|urlencode }}"
-                   class="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
+                   class="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium transition-colors">
                     Pokračovat na rozesílku &rarr;
                 </a>
                 <form method="post" action="/dane/{{ session.id }}/znovu-otevrit" hx-boost="false">
@@ -64,7 +64,7 @@
                 </a>
                 <form method="post" action="/dane/{{ session.id }}/dokoncit" hx-boost="false"
                       onsubmit="return confirm('Dokončit zpracování? Přiřazení bude uzamčeno.')">
-                    <button type="submit" class="px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium">
+                    <button type="submit" class="px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium transition-colors">
                         Dokončit
                     </button>
                 </form>
@@ -129,13 +129,13 @@
                 <form id="confirm-selected-form" method="post" action="/dane/{{ session.id }}/potvrdit-vybrane" hx-boost="false" class="inline">
                     <div id="selected-inputs"></div>
                     <button type="submit" id="btn-confirm-selected" disabled
-                            class="px-3 py-1 bg-green-500 text-white rounded text-xs hover:bg-green-600 disabled:opacity-40 disabled:cursor-not-allowed">
+                            class="px-3 py-1 bg-green-600 text-white rounded-lg text-xs hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
                         Potvrdit vybrané
                     </button>
                 </form>
                 <form method="post" action="/dane/{{ session.id }}/potvrdit-vse" hx-boost="false"
                       onsubmit="return confirm('Potvrdit všechny automaticky přiřazené?')" class="inline">
-                    <button type="submit" class="px-3 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700">
+                    <button type="submit" class="px-3 py-1 bg-green-600 text-white rounded-lg text-xs hover:bg-green-700 transition-colors">
                         Potvrdit vše
                     </button>
                 </form>

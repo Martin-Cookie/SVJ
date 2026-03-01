@@ -21,7 +21,7 @@
         <!-- Sidebar -->
         <nav class="w-44 bg-gray-800 text-white fixed h-full overflow-y-auto flex flex-col">
             <div class="px-3 py-4">
-                <h1 class="text-lg font-bold">SVJ Správa</h1>
+                <div class="text-lg font-bold">SVJ Správa</div>
                 <p class="text-gray-400 text-xs mt-0.5">Automatizace</p>
             </div>
             <ul class="flex-1 px-2 space-y-0.5">
@@ -141,7 +141,7 @@
             <!-- Flash messages -->
             <div id="flash-messages">
                 {% if flash_message %}
-                <div data-auto-dismiss class="p-4 rounded-lg mb-4
+                <div role="alert" data-auto-dismiss class="p-4 rounded-lg mb-4
                     {% if flash_type == 'error' %}bg-red-100 text-red-700 border border-red-200
                     {% elif flash_type == 'warning' %}bg-yellow-100 text-yellow-700 border border-yellow-200
                     {% else %}bg-green-100 text-green-700 border border-green-200{% endif %}">

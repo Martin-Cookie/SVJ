@@ -62,6 +62,12 @@ async def unit_create(
             "error": "Číslo jednotky musí být celé číslo.",
             "code_lists": get_all_code_lists(db),
         })
+    if unit_number_int < 1 or unit_number_int > 99999:
+        return templates.TemplateResponse("partials/unit_create_form.html", {
+            "request": request,
+            "error": "Číslo jednotky musí být v rozsahu 1–99999.",
+            "code_lists": get_all_code_lists(db),
+        })
 
     # Check uniqueness
     existing = db.query(Unit).filter(Unit.unit_number == unit_number_int).first()
@@ -76,13 +82,19 @@ async def unit_create(
         lv_number_int = int(lv_number.strip()) if lv_number.strip() else None
     except (ValueError, TypeError):
         lv_number_int = None
+    if lv_number_int is not None and (lv_number_int < 1 or lv_number_int > 99999):
+        lv_number_int = None
     try:
         floor_area_float = float(floor_area.strip()) if floor_area.strip() else None
     except (ValueError, TypeError):
         floor_area_float = None
+    if floor_area_float is not None and (floor_area_float < 0 or floor_area_float > 9999):
+        floor_area_float = None
     try:
         podil_scd_float = float(podil_scd.strip()) if podil_scd.strip() else None
     except (ValueError, TypeError):
+        podil_scd_float = None
+    if podil_scd_float is not None and (podil_scd_float < 0 or podil_scd_float > 99999999):
         podil_scd_float = None
 
     unit = Unit(
@@ -167,6 +179,8 @@ async def owner_unit_update(
             share_val = float(share)
     except (ValueError, ZeroDivisionError):
         share_val = ou.share  # keep original on parse error
+    if share_val < 0 or share_val > 1:
+        share_val = ou.share  # keep original on out-of-range
 
     ou.share = share_val
     ou.ownership_type = ownership_type.strip() or None
@@ -250,6 +264,13 @@ async def unit_update(
             "error": "Číslo jednotky musí být celé číslo.",
             "code_lists": get_all_code_lists(db),
         })
+    if unit_number_int < 1 or unit_number_int > 99999:
+        return templates.TemplateResponse("partials/unit_edit_form.html", {
+            "request": request,
+            "unit": unit,
+            "error": "Číslo jednotky musí být v rozsahu 1–99999.",
+            "code_lists": get_all_code_lists(db),
+        })
 
     # Check uniqueness (exclude self)
     existing = db.query(Unit).filter(
@@ -267,17 +288,25 @@ async def unit_update(
         orientation_number_int = int(orientation_number.strip()) if orientation_number.strip() else None
     except (ValueError, TypeError):
         orientation_number_int = None
+    if orientation_number_int is not None and (orientation_number_int < 1 or orientation_number_int > 9999):
+        orientation_number_int = None
     try:
         lv_number_int = int(lv_number.strip()) if lv_number.strip() else None
     except (ValueError, TypeError):
+        lv_number_int = None
+    if lv_number_int is not None and (lv_number_int < 1 or lv_number_int > 99999):
         lv_number_int = None
     try:
         floor_area_float = float(floor_area.strip()) if floor_area.strip() else None
     except (ValueError, TypeError):
         floor_area_float = None
+    if floor_area_float is not None and (floor_area_float < 0 or floor_area_float > 9999):
+        floor_area_float = None
     try:
         podil_scd_float = float(podil_scd.strip()) if podil_scd.strip() else None
     except (ValueError, TypeError):
+        podil_scd_float = None
+    if podil_scd_float is not None and (podil_scd_float < 0 or podil_scd_float > 99999999):
         podil_scd_float = None
 
     unit.unit_number = unit_number_int

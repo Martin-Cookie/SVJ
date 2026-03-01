@@ -286,6 +286,7 @@ async def voting_create(
     file: UploadFile = File(None),
     db: Session = Depends(get_db),
 ):
+    quorum_threshold = max(0.0, min(100.0, quorum_threshold))
     voting = Voting(
         title=title,
         description=description,
