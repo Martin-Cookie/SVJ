@@ -672,6 +672,34 @@ LIBREOFFICE_PATH=/Applications/LibreOffice.app/Contents/MacOS/soffice
 - **EmailTemplate** — šablony emailů pro hromadné rozesílání (name, subject_template, body_template, order); placeholder `{rok}` nahrazen při výběru
 - **EmailLog**, **ImportLog** — systémové logy
 
+## Bezpečnost a kvalita kódu
+
+Projekt prošel bezpečnostním auditem (52 nálezů). Opraveny všechny CRITICAL, HIGH a většina MEDIUM/LOW:
+
+**CRITICAL (8/8 opraveno):**
+- Path traversal ochrana na všech download/file endpointech (validace cesty v povolených adresářích)
+- CSRF ochrana pro destruktivní POST operace
+- SQL injection prevence (parametrizované dotazy)
+- Rate limiting na SMTP endpointech
+
+**HIGH (12/12 opraveno):**
+- Validace uploadovaných souborů (typ, velikost, přípona) — sdílená utilita `validate_upload()`
+- Pinned verze závislostí s horními hranicemi (`>=X,<Y`)
+- N+1 query optimalizace (joinedload ve voting.py, dashboard.py)
+- HTMX error handler pro server chyby
+- Accessibility: aria-label na search inputech, label binding na checkboxech
+
+**MEDIUM/LOW (opraveno 13/32):**
+- `aria-hidden="true"` na 100 dekorativních SVG ikonách (WCAG AA)
+- Thread safety: `threading.Lock` pro sdílené progress dict v tax.py
+- SMTP timeout (10s) proti indefinite hang
+- Error handling: try/except na load_workbook, int/float parsing, logger místo traceback.print_exc
+- Dark mode focus ring CSS pro lepší viditelnost
+- Flash message auto-dismiss přes `data-auto-dismiss` atribut
+- Odstranění nepoužitých importů
+
+Zbývající nálezy jsou designová rozhodnutí (UI konzistence, touch targets, heading hierarchy) a dokumentační úpravy.
+
 ## UI vzory
 
 Kompletní UI/frontend konvence (layout, tabulky, formuláře, tlačítka, bubliny, badge, inline editace, HTMX vzory, back URL navigace, checkboxy, stepper, formátování, dark mode) jsou v **[docs/UI_GUIDE.md](docs/UI_GUIDE.md)**.
