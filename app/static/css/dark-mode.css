@@ -310,26 +310,40 @@ html.dark-transition *::after {
    Pseudo-element ::file-selector-button nelze přebít přes .dark .bg-* (Tailwind utility override).
    Řešeno přes vlastní třídu .file-input na inputech + cílený CSS override. */
 
-/* Modrá varianta (standardní) */
-html.dark .file-input::file-selector-button,
+/* Modrá varianta (standardní)
+   DŮLEŽITÉ: Safari invaliduje celý blok pokud obsahuje neznámý pseudo-element
+   v comma-separated selectoru. Proto MUSÍ být ::file-selector-button
+   a ::-webkit-file-upload-button v ODDĚLENÝCH blocích. */
 html.dark .file-input::-webkit-file-upload-button {
     background-color: rgba(59, 130, 246, 0.2);
     color: #93c5fd;
     border: 0;
 }
-html.dark .file-input:hover::file-selector-button,
+html.dark .file-input::file-selector-button {
+    background-color: rgba(59, 130, 246, 0.2);
+    color: #93c5fd;
+    border: 0;
+}
 html.dark .file-input:hover::-webkit-file-upload-button {
+    background-color: rgba(59, 130, 246, 0.3);
+}
+html.dark .file-input:hover::file-selector-button {
     background-color: rgba(59, 130, 246, 0.3);
 }
 
 /* Šedá varianta (backups) */
-html.dark .file-input-gray::file-selector-button,
 html.dark .file-input-gray::-webkit-file-upload-button {
     background-color: #374151;
     color: #d1d5db;
 }
-html.dark .file-input-gray:hover::file-selector-button,
+html.dark .file-input-gray::file-selector-button {
+    background-color: #374151;
+    color: #d1d5db;
+}
 html.dark .file-input-gray:hover::-webkit-file-upload-button {
+    background-color: #4b5563;
+}
+html.dark .file-input-gray:hover::file-selector-button {
     background-color: #4b5563;
 }
 
