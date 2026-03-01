@@ -195,12 +195,54 @@ def preview_contact_import(file_path: str, db: Session, progress: dict | None = 
                     label = "IČ"
 
                 current_val = getattr(owner, field, None) or ""
-                # Phone fields: normalize before comparison
-                if field in ("phone", "phone_landline"):
-                    if _normalize_phone(current_val) == _normalize_phone(excel_val):
+
+                # Intelligent routing for phone/email → secondary fields
+                secondary_map = {
+                    "phone": ("phone_secondary", "→ Telefon GSM 2"),
+                    "email": ("email_secondary", "→ Email 2"),
+                }
+                if field in secondary_map:
+                    sec_field, sec_label = secondary_map[field]
+                    sec_val = getattr(owner, sec_field, None) or ""
+                    is_phone = field == "phone"
+
+                    # Normalize comparison for phones
+                    if is_phone:
+                        match_primary = _normalize_phone(current_val) == _normalize_phone(excel_val)
+                        match_secondary = _normalize_phone(sec_val) == _normalize_phone(excel_val)
+                    else:
+                        match_primary = current_val.strip().lower() == excel_val.strip().lower()
+                        match_secondary = sec_val.strip().lower() == excel_val.strip().lower()
+
+                    if not current_val.strip():
+                        # Primary empty → fill primary (standard)
+                        pass
+                    elif match_primary or match_secondary:
+                        # Already matches primary or secondary → skip
                         continue
-                elif current_val and current_val.strip() == excel_val.strip():
-                    continue
+                    elif not sec_val.strip():
+                        # Primary differs, secondary empty → route to secondary
+                        changes.append({
+                            "field": sec_field,
+                            "label": sec_label,
+                            "current": "",
+                            "new": excel_val,
+                            "is_overwrite": False,
+                            "is_secondary": True,
+                        })
+                        changes_by_field[sec_field] = changes_by_field.get(sec_field, 0) + 1
+                        continue
+                    else:
+                        # Both occupied, neither matches → overwrite primary
+                        pass
+                else:
+                    # Non-phone/email fields: standard comparison
+                    if field in ("phone_landline",):
+                        if _normalize_phone(current_val) == _normalize_phone(excel_val):
+                            continue
+                    elif current_val and current_val.strip() == excel_val.strip():
+                        continue
+
                 changes.append({
                     "field": field,
                     "label": label,
@@ -270,7 +312,7 @@ def execute_contact_import(
 
             value = change["new"]
             # Format phone numbers for DB storage
-            if change["field"] in ("phone", "phone_landline"):
+            if change["field"] in ("phone", "phone_secondary", "phone_landline"):
                 value = _format_phone_for_db(value)
             setattr(owner, change["field"], value)
             updated = True

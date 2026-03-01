@@ -146,6 +146,21 @@ def _migrate_tax_tables():
         conn.commit()
 
 
+def _migrate_owners_phone_secondary():
+    """Add phone_secondary column to owners table."""
+    with engine.connect() as conn:
+        columns = [
+            row[1] for row in
+            conn.execute(text("PRAGMA table_info(owners)")).fetchall()
+        ]
+        if "phone_secondary" not in columns:
+            conn.execute(text(
+                "ALTER TABLE owners ADD COLUMN phone_secondary VARCHAR(50)"
+            ))
+            logger.info("Added phone_secondary column to owners")
+        conn.commit()
+
+
 def _ensure_indexes():
     """Create indexes defined in models that may be missing on existing tables."""
     _INDEXES = [
@@ -281,6 +296,10 @@ def run_post_restore_migrations():
     except Exception:
         logger.warning("post-restore: tax tables migration skipped")
     try:
+        _migrate_owners_phone_secondary()
+    except Exception:
+        logger.warning("post-restore: owners phone_secondary migration skipped")
+    try:
         _ensure_indexes()
     except Exception:
         logger.warning("post-restore: index creation skipped")
@@ -318,6 +337,12 @@ async def lifespan(app: FastAPI):
         _migrate_tax_tables()
     except Exception:
         logger.warning("tax tables migration skipped")
+
+    # Add phone_secondary to owners
+    try:
+        _migrate_owners_phone_secondary()
+    except Exception:
+        logger.warning("owners phone_secondary migration skipped")
 
     # Ensure indexes on existing tables
     try:

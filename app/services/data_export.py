@@ -33,7 +33,7 @@ _EXPORTS: dict[str, dict] = {
             "Trvalá PSČ", "Trvalá stát",
             "Kor. ulice", "Kor. část obce", "Kor. město",
             "Kor. PSČ", "Kor. stát",
-            "Telefon", "Telefon pevný", "Email", "Email 2",
+            "Telefon", "Telefon GSM 2", "Telefon pevný", "Email", "Email 2",
             "Vlastník od", "Poznámka",
         ],
     },
@@ -135,7 +135,8 @@ def _rows_owners(db: Session):
                 owner.corr_street or "", owner.corr_district or "",
                 owner.corr_city or "", owner.corr_zip or "",
                 owner.corr_country or "",
-                owner.phone or "", owner.phone_landline or "",
+                owner.phone or "", owner.phone_secondary or "",
+                owner.phone_landline or "",
                 owner.email or "", owner.email_secondary or "",
                 owner.owner_since or "", owner.note or "",
             ]

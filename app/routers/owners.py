@@ -961,6 +961,7 @@ async def owner_update(
     email: str = Form(""),
     email_secondary: str = Form(""),
     phone: str = Form(""),
+    phone_secondary: str = Form(""),
     phone_landline: str = Form(""),
     db: Session = Depends(get_db),
 ):
@@ -969,6 +970,7 @@ async def owner_update(
         owner.email = email.strip() or None
         owner.email_secondary = email_secondary.strip() or None
         owner.phone = phone.strip() or None
+        owner.phone_secondary = phone_secondary.strip() or None
         owner.phone_landline = phone_landline.strip() or None
         owner.updated_at = datetime.utcnow()
         db.commit()

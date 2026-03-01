@@ -48,6 +48,7 @@ class Owner(Base):
     # Contact (columns Z, AA, AB, AC)
     phone = Column(String(50), nullable=True, index=True)
     phone_landline = Column(String(50), nullable=True)
+    phone_secondary = Column(String(50), nullable=True)
     email = Column(String(200), nullable=True, index=True)
     email_secondary = Column(String(200), nullable=True)
 

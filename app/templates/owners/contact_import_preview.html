@@ -33,7 +33,8 @@
 
     {% if stats.changes_by_field %}
     {% set field_labels = {
-        'email': 'Email', 'phone': 'Telefon', 'phone_landline': 'Pevný tel.',
+        'email': 'Email', 'email_secondary': 'Email 2',
+        'phone': 'Telefon', 'phone_secondary': 'GSM 2', 'phone_landline': 'Pevný tel.',
         'birth_number': 'RČ/IČ',
         'perm_street': 'Trv. ulice', 'perm_city': 'Trv. obec', 'perm_zip': 'Trv. PSČ',
         'perm_district': 'Trv. část', 'perm_country': 'Trv. země',
@@ -122,7 +123,7 @@
                         {% if row.changes %}
                         <div class="flex flex-wrap gap-1">
                             {% for ch in row.changes %}
-                            <span class="px-1.5 py-0.5 text-xs rounded-full {% if ch.is_overwrite %}bg-orange-100 text-orange-700{% else %}bg-green-100 text-green-700{% endif %}">
+                            <span class="px-1.5 py-0.5 text-xs rounded-full {% if ch.get('is_secondary') %}bg-blue-100 text-blue-700{% elif ch.is_overwrite %}bg-orange-100 text-orange-700{% else %}bg-green-100 text-green-700{% endif %}">
                                 {{ ch.label }}{% if ch.is_overwrite %} *{% endif %}
                             </span>
                             {% endfor %}
@@ -147,8 +148,8 @@
                                 {% for ch in row.changes %}
                                 <tr>
                                     <td class="py-1 pr-3 text-gray-600">{{ ch.label }}</td>
-                                    <td class="py-1 pr-3 {% if ch.is_overwrite %}text-orange-600{% else %}text-gray-400{% endif %}">{{ ch.current or "—" }}</td>
-                                    <td class="py-1 text-green-700 font-medium">{{ ch.new }}</td>
+                                    <td class="py-1 pr-3 {% if ch.is_overwrite %}text-orange-600{% elif ch.get('is_secondary') %}text-gray-400{% else %}text-gray-400{% endif %}">{{ ch.current or "—" }}</td>
+                                    <td class="py-1 {% if ch.get('is_secondary') %}text-blue-700{% else %}text-green-700{% endif %} font-medium">{{ ch.new }}</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>

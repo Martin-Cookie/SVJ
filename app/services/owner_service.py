@@ -34,18 +34,18 @@ def merge_owners(target: Owner, duplicates: list[Owner], db: Session) -> None:
                 ou.valid_to = date.today()
 
         # Smart contact merge — don't lose different values
-        # email → email_secondary, phone → phone_landline
-        for primary, secondary in [("email", "email_secondary"), ("phone", "phone_landline")]:
-            target_vals = {getattr(target, primary), getattr(target, secondary)} - {None, ""}
-            for field in (primary, secondary):
-                val = getattr(dup, field)
+        # Each group: values from dup fill first empty slot in target
+        for fields in [("email", "email_secondary"), ("phone", "phone_secondary", "phone_landline")]:
+            target_vals = {getattr(target, f) for f in fields} - {None, ""}
+            for dup_field in fields:
+                val = getattr(dup, dup_field)
                 if not val or val in target_vals:
                     continue
                 # New value — place into first empty slot
-                if not getattr(target, primary):
-                    setattr(target, primary, val)
-                elif not getattr(target, secondary):
-                    setattr(target, secondary, val)
+                for tgt_field in fields:
+                    if not getattr(target, tgt_field):
+                        setattr(target, tgt_field, val)
+                        break
                 target_vals.add(val)
 
         # Copy addresses if target is missing

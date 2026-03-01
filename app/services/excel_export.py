@@ -26,7 +26,7 @@ def export_owners_to_excel(db: Session, output_path: str) -> str:
         "Trvalá adresa – město", "Trvalá adresa – PSČ", "Trvalá adresa – stát",
         "Koresp. adresa – ulice", "Koresp. adresa – část obce",
         "Koresp. adresa – město", "Koresp. adresa – PSČ", "Koresp. adresa – stát",
-        "Telefon GSM", "Telefon pevný",
+        "Telefon GSM", "Telefon GSM 2", "Telefon pevný",
         "Email (Evidence 2024)", "Email (Kontakty)",
         "Vlastník od", "Poznámka",
     ]
@@ -76,6 +76,7 @@ def export_owners_to_excel(db: Session, output_path: str) -> str:
                 owner.corr_zip or "",
                 owner.corr_country or "",
                 owner.phone or "",
+                owner.phone_secondary or "",
                 owner.phone_landline or "",
                 owner.email or "",
                 owner.email_secondary or "",
