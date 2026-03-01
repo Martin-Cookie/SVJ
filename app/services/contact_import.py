@@ -16,7 +16,7 @@ from unicodedata import category, normalize
 from openpyxl import load_workbook
 from sqlalchemy.orm import Session
 
-from app.models import Owner
+from app.models import Owner, OwnerType
 
 
 def _strip_diacritics(text: str) -> str:
@@ -83,13 +83,19 @@ def _build_normalized_name(first_name: str | None, last_name: str | None) -> str
     return _strip_diacritics(" ".join(parts))
 
 
-def preview_contact_import(file_path: str, db: Session) -> dict:
+def preview_contact_import(file_path: str, db: Session, progress: dict | None = None) -> dict:
     """Parse Excel and return preview of changes.
+
+    Args:
+        progress: optional shared dict updated with 'total'/'current' for progress tracking.
 
     Returns dict with keys:
     - rows: list of dicts with excel_row, excel_name, owner_id, owner_name, matched, changes
     - stats: total_rows, matched_count, unmatched_count, with_changes, changes_by_field
     """
+    if progress is not None:
+        progress["phase"] = "Načítám Excel..."
+
     wb = load_workbook(file_path, data_only=True)
 
     # Try sheet "ZU" first, fallback to first sheet
@@ -114,10 +120,15 @@ def preview_contact_import(file_path: str, db: Session) -> dict:
 
     wb.close()
 
-    # Build owner lookup by normalized name
+    if progress is not None:
+        progress["phase"] = "Porovnávám s evidencí..."
+        progress["total"] = len(data_rows)
+        progress["current"] = 0
+
+    # Build owner lookup by normalized name + RČ/IČ
     owners = db.query(Owner).filter_by(is_active=True).all()
     owner_by_name = {}
-    owner_by_rc = {}
+    owner_by_rc = {}  # lookup by birth_number OR company_id
     for o in owners:
         if o.name_normalized:
             key = o.name_normalized.strip()
@@ -126,12 +137,17 @@ def preview_contact_import(file_path: str, db: Session) -> dict:
         if o.birth_number:
             rc_key = o.birth_number.replace(" ", "").replace("/", "")
             owner_by_rc[rc_key] = o
+        if o.company_id:
+            ic_key = o.company_id.replace(" ", "")
+            owner_by_rc[ic_key] = o
 
     rows = []
     seen_owners = set()  # Track owners to avoid duplicates
     changes_by_field = {}
 
-    for row_num, cells in data_rows:
+    for idx, (row_num, cells) in enumerate(data_rows):
+        if progress is not None:
+            progress["current"] = idx + 1
         first_name = cells.get(16)   # col P = jméno
         last_name = cells.get(17)    # col Q = příjmení
 
@@ -169,21 +185,30 @@ def preview_contact_import(file_path: str, db: Session) -> dict:
                 excel_val = cells.get(fdef["col"])
                 if not excel_val:
                     continue
-                current_val = getattr(owner, fdef["field"], None) or ""
+
+                field = fdef["field"]
+                label = fdef["label"]
+
+                # RČ/IČ: use correct DB field based on owner type
+                if field == "birth_number" and owner.owner_type == OwnerType.LEGAL_ENTITY:
+                    field = "company_id"
+                    label = "IČ"
+
+                current_val = getattr(owner, field, None) or ""
                 # Phone fields: normalize before comparison
-                if fdef["field"] in ("phone", "phone_landline"):
+                if field in ("phone", "phone_landline"):
                     if _normalize_phone(current_val) == _normalize_phone(excel_val):
                         continue
                 elif current_val and current_val.strip() == excel_val.strip():
                     continue
                 changes.append({
-                    "field": fdef["field"],
-                    "label": fdef["label"],
+                    "field": field,
+                    "label": label,
                     "current": current_val,
                     "new": excel_val,
                     "is_overwrite": bool(current_val.strip()),
                 })
-                changes_by_field[fdef["field"]] = changes_by_field.get(fdef["field"], 0) + 1
+                changes_by_field[field] = changes_by_field.get(field, 0) + 1
 
         rows.append({
             "excel_row": row_num,

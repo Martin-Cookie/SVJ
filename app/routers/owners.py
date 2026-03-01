@@ -307,6 +307,9 @@ async def contact_import_upload(
         "file_path": str(dest),
         "filename": file.filename,
         "started_at": _time.monotonic(),
+        "total": 0,
+        "current": 0,
+        "phase": "Připravuji...",
     }
 
     # Start background processing thread
@@ -326,13 +329,42 @@ def _run_contact_preview(file_key: str, file_path: str):
     db = SessionLocal()
     try:
         from app.services.contact_import import preview_contact_import
-        result = preview_contact_import(file_path, db)
-        _contact_import_progress[file_key]["result"] = result
+        progress = _contact_import_progress[file_key]
+        result = preview_contact_import(file_path, db, progress=progress)
+        progress["result"] = result
     except Exception as e:
         _contact_import_progress[file_key]["error"] = str(e)
     finally:
         _contact_import_progress[file_key]["done"] = True
         db.close()
+
+
+def _contact_progress_ctx(progress: dict) -> dict:
+    """Compute progress context for contact import templates."""
+    total = progress.get("total", 0)
+    current = progress.get("current", 0)
+    pct = int(current / total * 100) if total > 0 else 0
+    elapsed = _time.monotonic() - progress["started_at"]
+
+    eta_text = ""
+    if current > 0 and total > 0:
+        per_row = elapsed / current
+        remaining = (total - current) * per_row
+        if remaining >= 60:
+            eta_text = f"{int(remaining // 60)} min {int(remaining % 60)} s"
+        elif remaining >= 1:
+            eta_text = f"{int(remaining)} s"
+
+    elapsed_text = f"{int(elapsed // 60)} min {int(elapsed % 60)} s" if elapsed >= 60 else f"{int(elapsed)} s"
+
+    return {
+        "total": total,
+        "current": current,
+        "pct": pct,
+        "elapsed": elapsed_text,
+        "eta": eta_text,
+        "phase": progress.get("phase", "Připravuji..."),
+    }
 
 
 @router.get("/import-kontaktu/zpracovani")
@@ -348,14 +380,11 @@ async def contact_import_processing(
         from urllib.parse import quote
         return RedirectResponse(f"/vlastnici/import-kontaktu/nahled?soubor={quote(soubor)}", status_code=302)
 
-    elapsed = _time.monotonic() - progress["started_at"]
-    elapsed_text = f"{int(elapsed // 60)} min {int(elapsed % 60)} s" if elapsed >= 60 else f"{int(elapsed)} s"
-
     return templates.TemplateResponse("owners/contact_import_processing.html", {
         "request": request,
         "active_nav": "owners",
         "file_key": soubor,
-        "elapsed": elapsed_text,
+        **_contact_progress_ctx(progress),
     })
 
 
@@ -377,12 +406,9 @@ async def contact_import_status(
         response.headers["HX-Redirect"] = f"/vlastnici/import-kontaktu/nahled?soubor={quote(soubor)}"
         return response
 
-    elapsed = _time.monotonic() - progress["started_at"]
-    elapsed_text = f"{int(elapsed // 60)} min {int(elapsed % 60)} s" if elapsed >= 60 else f"{int(elapsed)} s"
-
     return templates.TemplateResponse("partials/contact_import_progress.html", {
         "request": request,
-        "elapsed": elapsed_text,
+        **_contact_progress_ctx(progress),
     })
 
 

@@ -11,59 +11,43 @@
     </div>
     <h1 class="text-xl font-bold text-gray-800 mb-3">Náhled importu kontaktů</h1>
 
-    <!-- Stats -->
-    <div class="flex gap-3 mb-3">
-        <div class="bg-white rounded-lg shadow px-4 py-2 text-center">
+    <!-- Stats + filter cards -->
+    <div class="grid grid-cols-4 gap-2 mb-2">
+        <button type="button" onclick="filterRows('all')" class="filter-btn bg-white rounded-lg shadow px-3 py-2 text-center cursor-pointer hover:bg-gray-50 transition-colors ring-2 ring-blue-400" data-filter="all">
             <p class="text-2xl font-bold text-gray-800">{{ stats.total_rows }}</p>
-            <p class="text-xs text-gray-500">Řádků v Excelu</p>
-        </div>
-        <div class="bg-white rounded-lg shadow px-4 py-2 text-center">
-            <p class="text-2xl font-bold text-green-600">{{ stats.matched_count }}</p>
-            <p class="text-xs text-gray-500">Spárováno</p>
-        </div>
-        <div class="bg-white rounded-lg shadow px-4 py-2 text-center">
+            <p class="text-xs text-gray-500">Vše</p>
+        </button>
+        <button type="button" onclick="filterRows('changes')" class="filter-btn bg-white rounded-lg shadow px-3 py-2 text-center cursor-pointer hover:bg-green-50 transition-colors" data-filter="changes">
+            <p class="text-2xl font-bold text-green-600">{{ stats.with_changes }}</p>
+            <p class="text-xs text-gray-500">Se změnami</p>
+        </button>
+        <button type="button" onclick="filterRows('no_changes')" class="filter-btn bg-white rounded-lg shadow px-3 py-2 text-center cursor-pointer hover:bg-gray-50 transition-colors" data-filter="no_changes">
+            <p class="text-2xl font-bold text-gray-500">{{ stats.matched_count - stats.with_changes }}</p>
+            <p class="text-xs text-gray-500">Bez změn</p>
+        </button>
+        <button type="button" onclick="filterRows('unmatched')" class="filter-btn bg-white rounded-lg shadow px-3 py-2 text-center cursor-pointer hover:bg-red-50 transition-colors" data-filter="unmatched">
             <p class="text-2xl font-bold text-red-600">{{ stats.unmatched_count }}</p>
             <p class="text-xs text-gray-500">Nespárováno</p>
-        </div>
-        <div class="bg-white rounded-lg shadow px-4 py-2 text-center">
-            <p class="text-2xl font-bold text-blue-600">{{ stats.with_changes }}</p>
-            <p class="text-xs text-gray-500">Se změnami</p>
-        </div>
+        </button>
     </div>
 
     {% if stats.changes_by_field %}
-    <div class="flex flex-wrap gap-1.5 mb-3">
-        {% set field_labels = {
-            'email': 'Email', 'phone': 'Telefon', 'phone_landline': 'Pevný tel.',
-            'birth_number': 'RČ/IČ',
-            'perm_street': 'Trv. ulice', 'perm_city': 'Trv. obec', 'perm_zip': 'Trv. PSČ',
-            'perm_district': 'Trv. část', 'perm_country': 'Trv. země',
-            'corr_street': 'Kor. ulice', 'corr_city': 'Kor. obec', 'corr_zip': 'Kor. PSČ',
-            'corr_district': 'Kor. část', 'corr_country': 'Kor. země'
-        } %}
+    {% set field_labels = {
+        'email': 'Email', 'phone': 'Telefon', 'phone_landline': 'Pevný tel.',
+        'birth_number': 'RČ/IČ',
+        'perm_street': 'Trv. ulice', 'perm_city': 'Trv. obec', 'perm_zip': 'Trv. PSČ',
+        'perm_district': 'Trv. část', 'perm_country': 'Trv. země',
+        'corr_street': 'Kor. ulice', 'corr_city': 'Kor. obec', 'corr_zip': 'Kor. PSČ',
+        'corr_district': 'Kor. část', 'corr_country': 'Kor. země'
+    } %}
+    <div class="flex flex-wrap gap-1.5 mb-2">
         {% for field, count in stats.changes_by_field.items() %}
-        <span class="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+        <button type="button" onclick="filterByField('{{ field }}')" class="field-btn px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full cursor-pointer hover:bg-blue-200 transition-colors" data-field="{{ field }}">
             {{ field_labels.get(field, field) }}: {{ count }}
-        </span>
+        </button>
         {% endfor %}
     </div>
     {% endif %}
-
-    <!-- Filter bubbles -->
-    <div class="flex gap-2 mb-2">
-        <button type="button" onclick="filterRows('all')" class="filter-btn px-3 py-1 text-xs rounded-full border border-gray-300 text-gray-600 hover:bg-gray-100 ring-2 ring-blue-400" data-filter="all">
-            Vše ({{ stats.total_rows }})
-        </button>
-        <button type="button" onclick="filterRows('changes')" class="filter-btn px-3 py-1 text-xs rounded-full border border-green-300 text-green-700 hover:bg-green-50" data-filter="changes">
-            Se změnami ({{ stats.with_changes }})
-        </button>
-        <button type="button" onclick="filterRows('no_changes')" class="filter-btn px-3 py-1 text-xs rounded-full border border-gray-300 text-gray-500 hover:bg-gray-100" data-filter="no_changes">
-            Bez změn ({{ stats.matched_count - stats.with_changes }})
-        </button>
-        <button type="button" onclick="filterRows('unmatched')" class="filter-btn px-3 py-1 text-xs rounded-full border border-red-300 text-red-600 hover:bg-red-50" data-filter="unmatched">
-            Nespárováno ({{ stats.unmatched_count }})
-        </button>
-    </div>
 
     <!-- Search -->
     <div class="flex items-center gap-3 mb-2">
@@ -112,6 +96,7 @@
                 <tr class="preview-row hover:bg-gray-50 cursor-pointer"
                     data-matched="{{ 'yes' if row.matched else 'no' }}"
                     data-has-changes="{{ 'yes' if row.changes else 'no' }}"
+                    data-fields="{{ row.changes|map(attribute='field')|join(',') if row.changes else '' }}"
                     data-name="{{ row.excel_name|lower }}"
                     data-owner-id="{{ row.owner_id or '' }}"
                     onclick="toggleDetail(this)">
@@ -187,9 +172,14 @@ function toggleDetail(tr) {
 }
 
 function filterRows(type) {
+    // Highlight active card
     document.querySelectorAll('.filter-btn').forEach(function(btn) {
         btn.classList.remove('ring-2', 'ring-blue-400');
         if (btn.dataset.filter === type) btn.classList.add('ring-2', 'ring-blue-400');
+    });
+    // Clear field badge highlight
+    document.querySelectorAll('.field-btn').forEach(function(btn) {
+        btn.classList.remove('ring-2', 'ring-blue-400');
     });
     document.querySelectorAll('.preview-row').forEach(function(row) {
         var matched = row.dataset.matched === 'yes';
@@ -198,6 +188,27 @@ function filterRows(type) {
             || (type === 'changes' && matched && hasChanges)
             || (type === 'no_changes' && matched && !hasChanges)
             || (type === 'unmatched' && !matched);
+        row.style.display = show ? '' : 'none';
+        var detail = row.nextElementSibling;
+        if (detail && detail.classList.contains('detail-row')) {
+            if (!show) detail.classList.add('hidden');
+        }
+    });
+}
+
+function filterByField(field) {
+    // Highlight active field badge
+    document.querySelectorAll('.field-btn').forEach(function(btn) {
+        btn.classList.remove('ring-2', 'ring-blue-400');
+        if (btn.dataset.field === field) btn.classList.add('ring-2', 'ring-blue-400');
+    });
+    // Clear card highlight
+    document.querySelectorAll('.filter-btn').forEach(function(btn) {
+        btn.classList.remove('ring-2', 'ring-blue-400');
+    });
+    document.querySelectorAll('.preview-row').forEach(function(row) {
+        var fields = row.dataset.fields || '';
+        var show = fields.split(',').indexOf(field) !== -1;
         row.style.display = show ? '' : 'none';
         var detail = row.nextElementSibling;
         if (detail && detail.classList.contains('detail-row')) {
