@@ -13,7 +13,7 @@ from app.config import settings
 from app.database import SessionLocal, get_db
 from app.models import ImportLog, Owner, OwnerType, OwnerUnit, SvjInfo, Unit, ActivityAction, log_activity
 from app.services.excel_import import import_owners_from_excel, preview_owners_from_excel
-from app.utils import build_list_url, is_htmx_partial, setup_jinja_filters, strip_diacritics
+from app.utils import build_list_url, is_htmx_partial, setup_jinja_filters, strip_diacritics, validate_upload
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -277,7 +277,11 @@ async def contact_import_upload(
     request: Request,
     file: UploadFile = File(...),
 ):
-    if not file.filename or not file.filename.endswith((".xlsx", ".xls")):
+    if not file.filename:
+        return RedirectResponse("/vlastnici/import?chyba_kontakty=format#kontakty", status_code=302)
+
+    err = await validate_upload(file, max_size_mb=50, allowed_extensions=[".xlsx", ".xls"])
+    if err:
         return RedirectResponse("/vlastnici/import?chyba_kontakty=format#kontakty", status_code=302)
 
     from datetime import datetime as _dt
@@ -529,11 +533,12 @@ async def import_excel_preview(
     file: UploadFile = File(...),
 ):
     """Step 1: Upload Excel, show preview of parsed data."""
-    if not file.filename.endswith((".xlsx", ".xls")):
+    err = await validate_upload(file, max_size_mb=50, allowed_extensions=[".xlsx", ".xls"]) if file.filename else "Nahrajte prosím soubor ve formátu .xlsx"
+    if err:
         return templates.TemplateResponse("owners/import.html", {
             "request": request,
             "active_nav": "import",
-            "flash_message": "Nahrajte prosím soubor ve formátu .xlsx",
+            "flash_message": err,
             "flash_type": "error",
         })
 

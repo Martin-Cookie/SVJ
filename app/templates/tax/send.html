@@ -160,6 +160,7 @@
                 <div class="flex-1">
                     <input type="text" name="q" value="{{ q }}"
                            placeholder="Hledat příjemce, email, soubor..."
+                           aria-label="Hledat"
                            hx-get="/dane/{{ session.id }}/rozeslat"
                            hx-trigger="keyup changed delay:300ms"
                            hx-target="#send-tbody"

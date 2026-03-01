@@ -88,7 +88,7 @@ _ROLE_SORT = case(
     else_=2,
 )
 
-from app.utils import is_safe_path, setup_jinja_filters
+from app.utils import is_safe_path, setup_jinja_filters, validate_upload, validate_uploads
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -623,6 +623,10 @@ async def backup_restore_existing(filename: str):
 
 @router.post("/zaloha/obnovit")
 async def backup_restore(file: UploadFile = File(...)):
+    err = await validate_upload(file, max_size_mb=200, allowed_extensions=[".zip"])
+    if err:
+        return RedirectResponse("/sprava/zalohy?chyba=upload", status_code=302)
+
     # Save uploaded file to temp location
     temp_path = BACKUP_DIR / "upload_temp.zip"
     os.makedirs(BACKUP_DIR, exist_ok=True)
@@ -691,8 +695,9 @@ async def backup_restore_directory(dir_path: str = Form(...)):
 @router.post("/zaloha/obnovit-soubor")
 async def backup_restore_db_file(file: UploadFile = File(...)):
     """Restore from an uploaded svj.db file (from an unzipped backup)."""
-    if not file.filename or not file.filename.endswith(".db"):
-        return RedirectResponse("/sprava/zalohy", status_code=302)
+    err = await validate_upload(file, max_size_mb=200, allowed_extensions=[".db"])
+    if err:
+        return RedirectResponse("/sprava/zalohy?chyba=upload", status_code=302)
 
     safety = _safety_backup()
 
@@ -722,6 +727,15 @@ async def backup_restore_folder(files: List[UploadFile] = File(...)):
     The browser sends all files from the selected folder. We look for svj.db
     and optionally uploads/ and generated/ subdirectories.
     """
+    # Total size check (500 MB limit for folder uploads)
+    total_size = 0
+    for f in files:
+        content = await f.read()
+        total_size += len(content)
+        await f.seek(0)
+    if total_size > 500 * 1024 * 1024:
+        return RedirectResponse("/sprava/zalohy?chyba=upload", status_code=302)
+
     # Create a temp directory to receive the folder contents
     tmp = tempfile.mkdtemp(prefix="svj_restore_")
     folder_name = ""

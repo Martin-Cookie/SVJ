@@ -136,6 +136,7 @@
     <input type="hidden" name="back" value="{{ back_url|default('') }}">
     <div class="flex-1">
         <input type="text" name="q" value="{{ q }}" placeholder="Hledat jméno, email, telefon, č. jednotky, RČ, IČ..."
+               aria-label="Hledat"
                hx-get="/vlastnici" hx-trigger="keyup changed delay:300ms"
                hx-target="#owner-table-body" hx-include="[name='typ'],[name='vlastnictvi'],[name='kontakt'],[name='stav'],[name='sekce'],[name='sort'],[name='order'],[name='back']"
                hx-push-url="true"

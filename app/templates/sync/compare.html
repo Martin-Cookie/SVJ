@@ -103,6 +103,7 @@
     <div class="flex-1">
         <input type="text" id="sync-search-q" name="q" value="{{ q }}"
                placeholder="Hledat jednotku, vlastníka, typ..."
+               aria-label="Hledat"
                hx-get="/synchronizace/{{ session.id }}"
                hx-trigger="keyup changed delay:500ms"
                hx-target="main"

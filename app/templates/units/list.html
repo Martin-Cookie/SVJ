@@ -78,6 +78,7 @@
     <input type="hidden" name="back" value="{{ back_url|default('') }}">
     <div class="flex-1">
         <input type="text" name="q" value="{{ q }}" placeholder="Hledat č. jednotky, budovu, adresu, vlastníka..."
+               aria-label="Hledat"
                hx-get="/jednotky" hx-trigger="keyup changed delay:300ms"
                hx-target="#unit-table-body" hx-include="[name='typ'],[name='sekce'],[name='sort'],[name='order'],[name='back']"
                hx-push-url="true"

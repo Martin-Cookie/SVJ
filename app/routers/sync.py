@@ -19,7 +19,7 @@ from app.models import (
 from app.services.csv_comparator import compare_owners, parse_sousede_csv
 from app.services.owner_exchange import execute_exchange, prepare_exchange_preview
 from app.services.owner_matcher import normalize_for_matching
-from app.utils import build_list_url, is_htmx_partial, setup_jinja_filters, strip_diacritics
+from app.utils import build_list_url, is_htmx_partial, setup_jinja_filters, strip_diacritics, validate_upload
 
 
 router = APIRouter()
@@ -109,6 +109,10 @@ async def sync_create(
 ):
     if not file.filename:
         return RedirectResponse("/synchronizace/nova", status_code=302)
+
+    err = await validate_upload(file, max_size_mb=50, allowed_extensions=[".csv"])
+    if err:
+        return RedirectResponse("/synchronizace?chyba=upload", status_code=302)
 
     # Save CSV
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")

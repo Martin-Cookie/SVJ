@@ -20,7 +20,7 @@ from app.services.word_parser import extract_voting_items, extract_voting_metada
 from app.services.voting_import import (
     read_excel_headers, preview_voting_import, execute_voting_import,
 )
-from app.utils import build_list_url, is_htmx_partial, setup_jinja_filters, strip_diacritics
+from app.utils import build_list_url, is_htmx_partial, setup_jinja_filters, strip_diacritics, validate_upload
 
 
 router = APIRouter()
@@ -117,11 +117,11 @@ async def voting_list(
         q = q.filter(Voting.status == stav)
     votings = q.order_by(Voting.created_at.desc()).all()
 
-    # Count per status (always from all votings, not filtered)
-    all_votings = db.query(Voting).all()
-    status_counts = {"all": len(all_votings)}
-    for v in all_votings:
-        status_counts[v.status.value] = status_counts.get(v.status.value, 0) + 1
+    # Count per status (always from all votings, not filtered) — single GROUP BY query
+    status_rows = db.query(Voting.status, func.count(Voting.id)).group_by(Voting.status).all()
+    status_counts = {"all": sum(cnt for _, cnt in status_rows)}
+    for st, cnt in status_rows:
+        status_counts[st.value] = cnt
 
     # Compute stats per voting
     declared_shares = _get_declared_shares(db)
@@ -244,6 +244,10 @@ async def voting_preview_metadata(
     if not file.filename or not file.filename.endswith(".docx"):
         return JSONResponse({"error": "Nahrajte .docx soubor"}, status_code=400)
 
+    err = await validate_upload(file, max_size_mb=10, allowed_extensions=[".docx"])
+    if err:
+        return JSONResponse({"error": err}, status_code=400)
+
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     dest = settings.upload_dir / "word_templates" / f"{timestamp}_{file.filename}"
     dest.parent.mkdir(parents=True, exist_ok=True)
@@ -293,6 +297,10 @@ async def voting_create(
 
     # Handle Word template upload
     if file and file.filename:
+        err = await validate_upload(file, max_size_mb=10, allowed_extensions=[".docx"])
+        if err:
+            return RedirectResponse("/hlasovani/nova?chyba=upload", status_code=302)
+
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         dest = settings.upload_dir / "word_templates" / f"{timestamp}_{file.filename}"
         dest.parent.mkdir(parents=True, exist_ok=True)
@@ -448,7 +456,7 @@ async def generate_ballots(
         return RedirectResponse("/hlasovani", status_code=302)
 
     owners = db.query(Owner).filter_by(is_active=True).options(
-        joinedload(Owner.units)
+        joinedload(Owner.units).joinedload(OwnerUnit.unit)
     ).all()
 
     created = 0
@@ -614,7 +622,7 @@ async def process_page(
 ):
     voting = db.query(Voting).options(
         joinedload(Voting.items),
-        joinedload(Voting.ballots).joinedload(Ballot.owner).joinedload(Owner.units),
+        joinedload(Voting.ballots).joinedload(Ballot.owner).joinedload(Owner.units).joinedload(OwnerUnit.unit),
         joinedload(Voting.ballots).joinedload(Ballot.votes),
     ).get(voting_id)
     if not voting:
@@ -1066,14 +1074,15 @@ async def import_upload(
         return RedirectResponse("/hlasovani", status_code=302)
 
     has_processed = any(b.status.value == "processed" for b in voting.ballots)
-    if not file.filename or not file.filename.endswith((".xlsx", ".xls")):
+    err = await validate_upload(file, max_size_mb=50, allowed_extensions=[".xlsx", ".xls"]) if file.filename else "Nahrajte soubor ve formátu .xlsx"
+    if err:
         return templates.TemplateResponse("voting/import_upload.html", {
             "request": request,
             "active_nav": "voting",
             "voting": voting,
             "saved_mapping": None,
             "active_bubble": "",
-            "flash_message": "Nahrajte soubor ve formátu .xlsx",
+            "flash_message": err,
             "flash_type": "error",
             "show_close_voting": has_processed,
             **_ballot_stats(voting, db),

@@ -17,7 +17,7 @@ from app.models import (
 from app.services.share_check_comparator import (
     compare_shares, get_file_headers, get_file_preview, parse_file, suggest_mapping,
 )
-from app.utils import build_list_url, is_htmx_partial, setup_jinja_filters, strip_diacritics
+from app.utils import build_list_url, is_htmx_partial, setup_jinja_filters, strip_diacritics, validate_upload
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -91,6 +91,10 @@ async def share_check_upload(
 ):
     if not file.filename:
         return RedirectResponse("/kontrola-podilu", status_code=302)
+
+    err = await validate_upload(file, max_size_mb=50, allowed_extensions=[".csv", ".xlsx", ".xls"])
+    if err:
+        return RedirectResponse("/kontrola-podilu?chyba=upload", status_code=302)
 
     # Save file
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")

@@ -45,6 +45,27 @@ document.body.addEventListener('htmx:afterSwap', function(event) {
     });
 });
 
+// HTMX error handling — show user-friendly message on server errors
+function _showHtmxError(target, msg) {
+    if (!target) return;
+    var div = document.createElement('div');
+    div.className = 'p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 my-2';
+    div.textContent = msg + ' ';
+    var link = document.createElement('a');
+    link.href = 'javascript:location.reload()';
+    link.className = 'underline font-medium';
+    link.textContent = 'Obnovit stránku';
+    div.appendChild(link);
+    target.replaceChildren(div);
+}
+document.body.addEventListener('htmx:responseError', function(event) {
+    var status = event.detail.xhr ? event.detail.xhr.status : '';
+    _showHtmxError(event.detail.target, 'Chyba serveru' + (status ? ' (' + status + ')' : '') + '.');
+});
+document.body.addEventListener('htmx:sendError', function(event) {
+    _showHtmxError(event.detail.target, 'Nepodařilo se spojit se serverem.');
+});
+
 // Close modal on escape key
 document.addEventListener('keydown', function(event) {
     if (event.key === 'Escape') {

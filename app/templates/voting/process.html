@@ -12,6 +12,7 @@
         <input type="hidden" name="order" value="{{ order }}">
         <div class="flex-1">
             <input type="text" name="q" value="{{ q }}" placeholder="Hledat vlastníka..."
+                   aria-label="Hledat"
                    hx-get="/hlasovani/{{ voting.id }}/zpracovani"
                    hx-trigger="keyup changed delay:300ms"
                    hx-target="#process-cards"

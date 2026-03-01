@@ -1,8 +1,9 @@
 """Shared utility functions used across routers and services."""
 from pathlib import Path
+from typing import List, Optional
 from unicodedata import category, normalize
 
-from fastapi import Request
+from fastapi import Request, UploadFile
 
 
 def strip_diacritics(text: str) -> str:
@@ -54,6 +55,53 @@ def is_safe_path(file_path: Path, *allowed_dirs: Path) -> bool:
         return False
     except (OSError, ValueError):
         return False
+
+
+async def validate_upload(
+    file: UploadFile,
+    max_size_mb: int,
+    allowed_extensions: List[str],
+) -> Optional[str]:
+    """Validate uploaded file size and extension.
+
+    Returns error message (Czech) if invalid, None if valid.
+    After validation the file seek position is reset to 0 so the caller
+    can read the content normally.
+    """
+    # --- Extension check ---
+    filename = file.filename or ""
+    ext = Path(filename).suffix.lower()
+    if ext not in [e.lower() for e in allowed_extensions]:
+        nice = ", ".join(allowed_extensions)
+        return f"Nepovolený typ souboru ({ext or 'bez přípony'}). Povolené: {nice}"
+
+    # --- Size check ---
+    # Read entire content to measure size, then seek back.
+    content = await file.read()
+    size_bytes = len(content)
+    await file.seek(0)  # reset so caller can read again
+
+    max_bytes = max_size_mb * 1024 * 1024
+    if size_bytes > max_bytes:
+        size_nice = f"{size_bytes / (1024 * 1024):.1f}"
+        return f"Soubor je příliš velký ({size_nice} MB). Maximum: {max_size_mb} MB"
+
+    return None
+
+
+async def validate_uploads(
+    files: List[UploadFile],
+    max_size_mb: int,
+    allowed_extensions: List[str],
+) -> Optional[str]:
+    """Validate a list of uploaded files. Returns first error or None."""
+    for file in files:
+        if not file.filename:
+            continue
+        err = await validate_upload(file, max_size_mb, allowed_extensions)
+        if err:
+            return f"{file.filename}: {err}"
+    return None
 
 
 def setup_jinja_filters(templates):

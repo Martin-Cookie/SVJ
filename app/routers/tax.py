@@ -23,7 +23,7 @@ from app.models import (
     ActivityAction, log_activity,
 )
 from app.services.email_service import send_email
-from app.utils import build_list_url, is_htmx_partial, is_safe_path, setup_jinja_filters, strip_diacritics
+from app.utils import build_list_url, is_htmx_partial, is_safe_path, setup_jinja_filters, strip_diacritics, validate_uploads
 from app.services.owner_matcher import match_name
 from app.services.pdf_extractor import (
     extract_owner_from_tax_pdf, parse_unit_from_filename,
@@ -395,6 +395,10 @@ async def tax_create(
     files: List[UploadFile] = File(...),
     db: Session = Depends(get_db),
 ):
+    err = await validate_uploads(files, max_size_mb=100, allowed_extensions=[".pdf"])
+    if err:
+        return RedirectResponse("/dane?chyba=upload", status_code=302)
+
     year = datetime.now().year
     session = TaxSession(
         title=title,
@@ -484,6 +488,10 @@ async def tax_upload_additional(
     db: Session = Depends(get_db),
 ):
     """Upload additional PDFs to an existing session with append/overwrite mode."""
+    err = await validate_uploads(files, max_size_mb=100, allowed_extensions=[".pdf"])
+    if err:
+        return RedirectResponse(f"/dane/{session_id}?chyba=upload", status_code=302)
+
     session = db.query(TaxSession).options(
         joinedload(TaxSession.documents).joinedload(TaxDocument.distributions),
     ).get(session_id)

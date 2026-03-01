@@ -55,6 +55,7 @@
                     <input type="hidden" name="back" value="{{ back_url|default('') }}">
                     <input type="text" name="q" value="{{ q }}"
                            placeholder="Hledat soubor, datum..."
+                           aria-label="Hledat"
                            hx-get="/synchronizace"
                            hx-trigger="keyup changed delay:300ms"
                            hx-target="#sync-history-body"

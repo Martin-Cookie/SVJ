@@ -212,8 +212,8 @@ def _ensure_indexes():
                 conn.execute(text(
                     f"CREATE INDEX IF NOT EXISTS {idx_name} ON {table} ({column})"
                 ))
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("Index %s creation failed: %s", idx_name, e)
         conn.commit()
     logger.info("Database indexes ensured")
 

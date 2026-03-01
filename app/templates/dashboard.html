@@ -149,6 +149,7 @@
         <div class="flex-1">
             <input type="text" name="q" value="{{ q }}"
                    placeholder="Hledat v aktivitě..."
+                   aria-label="Hledat"
                    hx-get="/"
                    hx-trigger="keyup changed delay:300ms"
                    hx-target="#activity-tbody"

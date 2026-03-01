@@ -28,6 +28,7 @@
     <div class="flex-1">
         <input type="text" id="sc-search-q" name="q" value="{{ q }}"
                placeholder="Hledat jednotku, vlastníka..."
+               aria-label="Hledat"
                hx-get="/kontrola-podilu/{{ session.id }}"
                hx-trigger="keyup changed delay:500ms"
                hx-target="main"
