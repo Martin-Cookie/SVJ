@@ -44,7 +44,7 @@
                 <td class="px-2 py-1.5 text-gray-500">{{ ou.unit.space_type or '—' }}</td>
                 <td class="px-2 py-1.5 text-gray-500 text-right font-mono whitespace-nowrap" data-v="{{ ou.unit.podil_scd or 0 }}">{{ (ou.unit.podil_scd or 0)|fmt_num }}</td>
                 {% if declared_shares %}<td class="px-2 py-1.5 text-gray-500 text-right font-mono whitespace-nowrap">{{ "%.4f" | format(((ou.unit.podil_scd or 0) / declared_shares * 100)) }}&nbsp;%</td>{% endif %}
-                <td class="px-2 py-1.5 text-gray-500 text-right whitespace-nowrap" data-v="{{ ou.unit.floor_area or 0 }}">{% if ou.unit.floor_area %}{{ ou.unit.floor_area }}&nbsp;m²{% else %}—{% endif %}</td>
+                <td class="px-2 py-1.5 text-gray-500 text-right whitespace-nowrap" data-v="{{ ou.unit.floor_area or 0 }}">{% if ou.unit.floor_area %}{{ ou.unit.floor_area|fmt_num }}&nbsp;m²{% else %}—{% endif %}</td>
                 <td class="px-2 py-1.5 text-gray-500">{{ ou.ownership_type or '—' }}</td>
                 <td class="px-2 py-1.5 text-right">
                     <button hx-post="/vlastnici/{{ owner.id }}/jednotky/{{ ou.id }}/odebrat"

@@ -48,7 +48,7 @@
     </div>
     <div class="flex justify-between">
         <dt class="text-gray-500">Plocha</dt>
-        <dd class="text-gray-900">{% if unit.floor_area %}{{ unit.floor_area }} m²{% else %}—{% endif %}</dd>
+        <dd class="text-gray-900">{% if unit.floor_area %}{{ unit.floor_area|fmt_num }} m²{% else %}—{% endif %}</dd>
     </div>
     <div class="flex justify-between">
         <dt class="text-gray-500">Podíl SČD</dt>

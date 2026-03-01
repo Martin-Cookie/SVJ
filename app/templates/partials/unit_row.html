@@ -8,7 +8,7 @@
     <td class="px-2 py-1.5 text-gray-500 overflow-hidden" style="text-overflow:ellipsis;white-space:nowrap" title="{{ unit.address or '' }}">{{ unit.address or '—' }}</td>
     <td class="px-2 py-1.5 text-gray-500 text-right font-mono whitespace-nowrap">{{ unit.lv_number or '—' }}</td>
     <td class="px-2 py-1.5 text-gray-500 text-center whitespace-nowrap">{{ unit.room_count or '—' }}</td>
-    <td class="px-2 py-1.5 text-gray-700 text-right font-mono whitespace-nowrap">{% if unit.floor_area %}{{ unit.floor_area }}{% else %}—{% endif %}</td>
+    <td class="px-2 py-1.5 text-gray-700 text-right font-mono whitespace-nowrap">{% if unit.floor_area %}{{ unit.floor_area|fmt_num }}{% else %}—{% endif %}</td>
     <td class="px-2 py-1.5 text-gray-700 text-right font-mono whitespace-nowrap">{{ (unit.podil_scd or 0)|fmt_num }}</td>
     <td class="px-2 py-1.5 overflow-hidden" style="text-overflow:ellipsis;white-space:nowrap">
         {% for ou in unit.current_owners %}
