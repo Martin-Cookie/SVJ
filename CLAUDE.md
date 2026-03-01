@@ -313,9 +313,9 @@
   - Ověřit že se propisují VŠECHNA relevantní pole všem dotčeným záznamům (ownership_type, space_type, podíl, jméno)
   - Výstup analýzy scénářů nabízet uživateli při každé změně v datové logice
 
-## Uživatelské role — plán implementace (na konec)
+## Uživatelské role — ZATÍM NEIMPLEMENTOVÁNO (plán na konec)
 
-> Implementovat až budou hotové všechny moduly. Role je ortogonální vrstva — přidá se mechanicky bez předělávání existujícího kódu.
+> **Tento systém rolí zatím neexistuje v kódu.** Implementovat až budou hotové všechny moduly. Role je ortogonální vrstva — přidá se mechanicky bez předělávání existujícího kódu.
 
 ### Role
 
@@ -377,3 +377,38 @@
 - **NEPOUŽÍVAT hardcoded admin logiku** rozsekanou po šablonách (např. `{% if is_admin %}`)
 - Destruktivní akce řešit přes `hx-confirm` / `onsubmit="return confirm()"` — to zůstane i po přidání rolí
 - Nové moduly navrhovat tak, aby šly snadno obalit `require_role()` dependency
+
+---
+
+## Pravidla pro práci na úkolech
+
+### Vždy dodržuj tento postup:
+
+1. **Přečti CLAUDE.md** a pochop strukturu projektu
+2. **Analyzuj** současný stav relevantních souborů
+3. **Pokud ti něco není jasné — ZEPTEJ SE**, nedomýšlej si
+4. **Ukaž strukturovaný plán** přes update_plan tool (co budeš měnit, které soubory, jak)
+5. **POČKEJ NA SCHVÁLENÍ** — neimplementuj dokud uživatel neschválí plán
+6. **Implementuj** po schválení
+7. **Ověř** že existující funkce stále fungují (spusť server, otestuj dotčené stránky)
+8. **Commitni** každý úkol zvlášť s výstižnou českou commit message
+9. Pokud měníš strukturu projektu → **aktualizuj CLAUDE.md**
+
+### Na konci každého úkolu vypiš:
+- Co jsi změnil (soubory + stručný popis)
+- Co má uživatel otestovat (konkrétní URL a kroky)
+- Jestli je potřeba restart serveru
+
+### Při více úkolech:
+- Dělej úkoly JEDEN PO DRUHÉM (ne všechny najednou)
+- Po každém úkolu commitni zvlášť
+- Na konci vypiš souhrnnou tabulku:
+
+| # | Úkol | Stav | Změněné soubory | Co otestovat |
+|---|------|------|-----------------|--------------|
+
+### Striktní pravidla:
+- **Piš česky**
+- **Nedělej víc než je zadáno**
+- **Nedomýšlej si požadavky** — radši se zeptej
+- **Neměň nesouvisející kód** — i když vidíš problém, pouze ho nahlas

@@ -38,7 +38,6 @@ Columns (0-indexed):
   AD (29) = Vlastník od
   AE (30) = Poznámka
 """
-import re
 from unicodedata import normalize, category
 
 from openpyxl import load_workbook

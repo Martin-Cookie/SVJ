@@ -78,10 +78,10 @@ def send_email(
 
     try:
         if settings.smtp_use_tls:
-            server = smtplib.SMTP(settings.smtp_host, settings.smtp_port)
+            server = smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=10)
             server.starttls()
         else:
-            server = smtplib.SMTP(settings.smtp_host, settings.smtp_port)
+            server = smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=10)
 
         if settings.smtp_user:
             server.login(settings.smtp_user, settings.smtp_password)

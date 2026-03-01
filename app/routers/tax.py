@@ -35,9 +35,11 @@ setup_jinja_filters(templates)
 
 # In-memory progress tracker for background PDF processing
 _processing_progress: dict[int, dict] = {}
+_processing_lock = threading.Lock()
 
 # In-memory progress tracker for background email sending
 _sending_progress: dict[int, dict] = {}
+_sending_lock = threading.Lock()
 
 
 # ---------------------------------------------------------------------------
@@ -434,14 +436,15 @@ async def tax_create(
 
     # Initialize progress tracker
     import time as _time
-    _processing_progress[session.id] = {
-        "total": len(saved_files),
-        "current": 0,
-        "current_file": "",
-        "done": False,
-        "error": None,
-        "started_at": _time.monotonic(),
-    }
+    with _processing_lock:
+        _processing_progress[session.id] = {
+            "total": len(saved_files),
+            "current": 0,
+            "current_file": "",
+            "done": False,
+            "error": None,
+            "started_at": _time.monotonic(),
+        }
 
     # Start background processing thread
     thread = threading.Thread(
@@ -535,14 +538,15 @@ async def tax_upload_additional(
 
     # Initialize progress tracker
     import time as _time
-    _processing_progress[session_id] = {
-        "total": len(saved_files),
-        "current": 0,
-        "current_file": "",
-        "done": False,
-        "error": None,
-        "started_at": _time.monotonic(),
-    }
+    with _processing_lock:
+        _processing_progress[session_id] = {
+            "total": len(saved_files),
+            "current": 0,
+            "current_file": "",
+            "done": False,
+            "error": None,
+            "started_at": _time.monotonic(),
+        }
 
     # Start background processing thread
     thread = threading.Thread(
@@ -585,7 +589,8 @@ def _process_tax_files(session_id: int, file_paths: list, tax_year):
         new_doc_ids = []
         for i, file_path in enumerate(file_paths):
             basename = Path(file_path).name
-            _processing_progress[session_id]["current_file"] = basename
+            with _processing_lock:
+                _processing_progress[session_id]["current_file"] = basename
 
             unit_number, unit_letter = parse_unit_from_filename(basename)
             extracted = extract_owner_from_tax_pdf(file_path)
@@ -666,7 +671,8 @@ def _process_tax_files(session_id: int, file_paths: list, tax_year):
                 )
                 db.add(dist)
 
-            _processing_progress[session_id]["current"] = i + 1
+            with _processing_lock:
+                _processing_progress[session_id]["current"] = i + 1
 
         db.flush()
 
@@ -756,10 +762,12 @@ def _process_tax_files(session_id: int, file_paths: list, tax_year):
 
         db.commit()
     except Exception as e:
-        _processing_progress[session_id]["error"] = str(e)
+        with _processing_lock:
+            _processing_progress[session_id]["error"] = str(e)
         db.rollback()
     finally:
-        _processing_progress[session_id]["done"] = True
+        with _processing_lock:
+            _processing_progress[session_id]["done"] = True
         db.close()
 
 
@@ -806,10 +814,12 @@ async def tax_processing(
     db: Session = Depends(get_db),
 ):
     """Show progress page while PDFs are being processed in background."""
-    progress = _processing_progress.get(session_id)
-    if not progress or progress.get("done"):
-        _processing_progress.pop(session_id, None)
-        return RedirectResponse(f"/dane/{session_id}", status_code=302)
+    with _processing_lock:
+        progress = _processing_progress.get(session_id)
+        if not progress or progress.get("done"):
+            _processing_progress.pop(session_id, None)
+            return RedirectResponse(f"/dane/{session_id}", status_code=302)
+        progress = dict(progress)  # snapshot under lock
 
     session = db.query(TaxSession).get(session_id)
     if not session:
@@ -826,12 +836,14 @@ async def tax_processing(
 @router.get("/{session_id}/zpracovani-stav")
 async def tax_processing_status(session_id: int, request: Request):
     """HTMX polling endpoint — returns progress partial or redirect when done."""
-    progress = _processing_progress.get(session_id)
-    if not progress or progress.get("done"):
-        _processing_progress.pop(session_id, None)
-        response = HTMLResponse("")
-        response.headers["HX-Redirect"] = f"/dane/{session_id}"
-        return response
+    with _processing_lock:
+        progress = _processing_progress.get(session_id)
+        if not progress or progress.get("done"):
+            _processing_progress.pop(session_id, None)
+            response = HTMLResponse("")
+            response.headers["HX-Redirect"] = f"/dane/{session_id}"
+            return response
+        progress = dict(progress)  # snapshot under lock
 
     return templates.TemplateResponse("partials/tax_progress.html", {
         "request": request,
@@ -1269,8 +1281,10 @@ async def tax_send_preview(
         return RedirectResponse("/dane", status_code=302)
 
     # If sending is in progress, redirect to progress page
-    progress = _sending_progress.get(session_id)
-    if progress and not progress.get("done"):
+    with _sending_lock:
+        progress = _sending_progress.get(session_id)
+        sending_in_progress = progress and not progress.get("done")
+    if sending_in_progress:
         return RedirectResponse(f"/dane/{session_id}/rozeslat/prubeh", status_code=302)
 
     # Edge case: DB says SENDING but no progress dict (server restart)
@@ -1780,19 +1794,27 @@ def _send_emails_batch(session_id: int, recipient_data: list, email_subject: str
         for i in range(0, len(recipient_data), batch_size):
             batches.append(recipient_data[i:i + batch_size])
 
-        _sending_progress[session_id]["total_batches"] = len(batches)
+        with _sending_lock:
+            _sending_progress[session_id]["total_batches"] = len(batches)
 
         for batch_idx, batch in enumerate(batches):
-            _sending_progress[session_id]["batch_number"] = batch_idx + 1
+            with _sending_lock:
+                _sending_progress[session_id]["batch_number"] = batch_idx + 1
 
             for rcpt in batch:
                 # Check paused
-                while _sending_progress[session_id].get("paused"):
-                    time.sleep(0.5)
-                    if _sending_progress[session_id].get("done"):
+                while True:
+                    with _sending_lock:
+                        paused = _sending_progress[session_id].get("paused")
+                        done = _sending_progress[session_id].get("done")
+                    if not paused:
+                        break
+                    if done:
                         return
+                    time.sleep(0.5)
 
-                _sending_progress[session_id]["current_recipient"] = rcpt["name"]
+                with _sending_lock:
+                    _sending_progress[session_id]["current_recipient"] = rcpt["name"]
 
                 # Gather attachment file paths
                 attachments = [d["file_path"] for d in rcpt["docs"]]
@@ -1826,23 +1848,32 @@ def _send_emails_batch(session_id: int, recipient_data: list, email_subject: str
 
                 db.commit()
 
-                if result["success"]:
-                    _sending_progress[session_id]["sent"] += 1
-                else:
-                    _sending_progress[session_id]["failed"] += 1
+                with _sending_lock:
+                    if result["success"]:
+                        _sending_progress[session_id]["sent"] += 1
+                    else:
+                        _sending_progress[session_id]["failed"] += 1
 
             # After batch: wait for confirmation or interval
             if batch_idx < len(batches) - 1:  # not last batch
                 if confirm_each_batch:
-                    _sending_progress[session_id]["waiting_batch_confirm"] = True
-                    while _sending_progress[session_id].get("waiting_batch_confirm"):
-                        time.sleep(0.5)
-                        if _sending_progress[session_id].get("done"):
+                    with _sending_lock:
+                        _sending_progress[session_id]["waiting_batch_confirm"] = True
+                    while True:
+                        with _sending_lock:
+                            waiting = _sending_progress[session_id].get("waiting_batch_confirm")
+                            done = _sending_progress[session_id].get("done")
+                        if not waiting:
+                            break
+                        if done:
                             return
+                        time.sleep(0.5)
                 else:
                     # Wait batch_interval seconds (but check for pause)
                     for _ in range(batch_interval * 2):
-                        if _sending_progress[session_id].get("done"):
+                        with _sending_lock:
+                            done = _sending_progress[session_id].get("done")
+                        if done:
                             return
                         time.sleep(0.5)
 
@@ -1854,10 +1885,12 @@ def _send_emails_batch(session_id: int, recipient_data: list, email_subject: str
 
     except Exception as e:
         logger.exception("Error in batch email sending for session %s", session_id)
-        _sending_progress[session_id]["error"] = str(e)
+        with _sending_lock:
+            _sending_progress[session_id]["error"] = str(e)
     finally:
-        _sending_progress[session_id]["done"] = True
-        _sending_progress[session_id]["current_recipient"] = ""
+        with _sending_lock:
+            _sending_progress[session_id]["done"] = True
+            _sending_progress[session_id]["current_recipient"] = ""
         db.close()
 
 
@@ -1876,9 +1909,10 @@ async def start_batch_send(
         return RedirectResponse(f"/dane/{session_id}/rozeslat", status_code=302)
 
     # Check no concurrent sending
-    progress = _sending_progress.get(session_id)
-    if progress and not progress.get("done"):
-        return RedirectResponse(f"/dane/{session_id}/rozeslat/prubeh", status_code=302)
+    with _sending_lock:
+        progress = _sending_progress.get(session_id)
+        if progress and not progress.get("done"):
+            return RedirectResponse(f"/dane/{session_id}/rozeslat/prubeh", status_code=302)
 
     # Get selected keys from form
     form = await request.form()
@@ -1921,19 +1955,20 @@ async def start_batch_send(
     db.commit()
 
     # Initialize progress
-    _sending_progress[session_id] = {
-        "total": len(recipients_to_send),
-        "sent": 0,
-        "failed": 0,
-        "current_recipient": "",
-        "done": False,
-        "error": None,
-        "started_at": time.monotonic(),
-        "paused": False,
-        "waiting_batch_confirm": False,
-        "batch_number": 0,
-        "total_batches": 0,
-    }
+    with _sending_lock:
+        _sending_progress[session_id] = {
+            "total": len(recipients_to_send),
+            "sent": 0,
+            "failed": 0,
+            "current_recipient": "",
+            "done": False,
+            "error": None,
+            "started_at": time.monotonic(),
+            "paused": False,
+            "waiting_batch_confirm": False,
+            "batch_number": 0,
+            "total_batches": 0,
+        }
 
     # Start background thread
     thread = threading.Thread(
@@ -1965,10 +2000,12 @@ async def sending_progress_page(
     if not session:
         return RedirectResponse("/dane", status_code=302)
 
-    progress = _sending_progress.get(session_id)
-    if not progress or progress.get("done"):
-        _sending_progress.pop(session_id, None)
-        return RedirectResponse(f"/dane/{session_id}/rozeslat", status_code=302)
+    with _sending_lock:
+        progress = _sending_progress.get(session_id)
+        if not progress or progress.get("done"):
+            _sending_progress.pop(session_id, None)
+            return RedirectResponse(f"/dane/{session_id}/rozeslat", status_code=302)
+        progress = dict(progress)  # snapshot under lock
 
     return templates.TemplateResponse("tax/sending.html", {
         "request": request,
@@ -1985,12 +2022,14 @@ async def sending_progress_status(
     request: Request,
 ):
     """HTMX polling endpoint — returns progress partial or redirect when done."""
-    progress = _sending_progress.get(session_id)
-    if not progress or progress.get("done"):
-        _sending_progress.pop(session_id, None)
-        response = HTMLResponse("")
-        response.headers["HX-Redirect"] = f"/dane/{session_id}/rozeslat"
-        return response
+    with _sending_lock:
+        progress = _sending_progress.get(session_id)
+        if not progress or progress.get("done"):
+            _sending_progress.pop(session_id, None)
+            response = HTMLResponse("")
+            response.headers["HX-Redirect"] = f"/dane/{session_id}/rozeslat"
+            return response
+        progress = dict(progress)  # snapshot under lock
 
     return templates.TemplateResponse("partials/tax_send_progress.html", {
         "request": request,
@@ -2005,9 +2044,10 @@ async def pause_sending(
     db: Session = Depends(get_db),
 ):
     """Pause the sending process."""
-    progress = _sending_progress.get(session_id)
-    if progress and not progress.get("done"):
-        progress["paused"] = True
+    with _sending_lock:
+        progress = _sending_progress.get(session_id)
+        if progress and not progress.get("done"):
+            progress["paused"] = True
 
     session = db.query(TaxSession).get(session_id)
     if session:
@@ -2023,10 +2063,11 @@ async def resume_sending(
     db: Session = Depends(get_db),
 ):
     """Resume the sending process (also confirms batch)."""
-    progress = _sending_progress.get(session_id)
-    if progress and not progress.get("done"):
-        progress["paused"] = False
-        progress["waiting_batch_confirm"] = False
+    with _sending_lock:
+        progress = _sending_progress.get(session_id)
+        if progress and not progress.get("done"):
+            progress["paused"] = False
+            progress["waiting_batch_confirm"] = False
 
     session = db.query(TaxSession).get(session_id)
     if session:
@@ -2048,9 +2089,10 @@ async def retry_failed(
         return RedirectResponse("/dane", status_code=302)
 
     # Check no concurrent sending
-    progress = _sending_progress.get(session_id)
-    if progress and not progress.get("done"):
-        return RedirectResponse(f"/dane/{session_id}/rozeslat/prubeh", status_code=302)
+    with _sending_lock:
+        progress = _sending_progress.get(session_id)
+        if progress and not progress.get("done"):
+            return RedirectResponse(f"/dane/{session_id}/rozeslat/prubeh", status_code=302)
 
     # Build recipients and filter to failed only
     documents = (
@@ -2082,19 +2124,20 @@ async def retry_failed(
     db.commit()
 
     # Initialize progress
-    _sending_progress[session_id] = {
-        "total": len(failed_recipients),
-        "sent": 0,
-        "failed": 0,
-        "current_recipient": "",
-        "done": False,
-        "error": None,
-        "started_at": time.monotonic(),
-        "paused": False,
-        "waiting_batch_confirm": False,
-        "batch_number": 0,
-        "total_batches": 0,
-    }
+    with _sending_lock:
+        _sending_progress[session_id] = {
+            "total": len(failed_recipients),
+            "sent": 0,
+            "failed": 0,
+            "current_recipient": "",
+            "done": False,
+            "error": None,
+            "started_at": time.monotonic(),
+            "paused": False,
+            "waiting_batch_confirm": False,
+            "batch_number": 0,
+            "total_batches": 0,
+        }
 
     # Start background thread
     thread = threading.Thread(

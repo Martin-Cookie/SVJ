@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import case, func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.models import ActivityLog, EmailLog, Owner, OwnerUnit, SvjInfo, Unit, Voting, VotingStatus
@@ -88,6 +88,7 @@ async def home(
     units_count = db.query(Unit).count()
     active_votings_list = (
         db.query(Voting)
+        .options(joinedload(Voting.ballots))
         .order_by(
             case(
                 (Voting.status == VotingStatus.ACTIVE, 0),
@@ -110,11 +111,9 @@ async def home(
     for v in active_votings_list:
         s = v.status.value
         if s not in voting_by_status:
-            # Calculate progress for the latest voting of this status
-            total_ballots = db.query(Ballot).filter_by(voting_id=v.id).count()
-            processed_ballots = db.query(Ballot).filter_by(
-                voting_id=v.id, status=BallotStatus.PROCESSED
-            ).count()
+            # Calculate progress from eager-loaded ballots (no extra queries)
+            total_ballots = len(v.ballots)
+            processed_ballots = sum(1 for b in v.ballots if b.status == BallotStatus.PROCESSED)
             pct = round(processed_ballots / total_ballots * 100) if total_ballots else 0
             voting_by_status[s] = {
                 "count": 0,

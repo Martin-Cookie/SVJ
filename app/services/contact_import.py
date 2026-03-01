@@ -98,7 +98,20 @@ def preview_contact_import(file_path: str, db: Session, progress: dict | None = 
     if progress is not None:
         progress["phase"] = "Načítám Excel..."
 
-    wb = load_workbook(file_path, data_only=True)
+    try:
+        wb = load_workbook(file_path, data_only=True)
+    except Exception as e:
+        return {
+            "rows": [],
+            "stats": {
+                "total_rows": 0,
+                "matched_count": 0,
+                "unmatched_count": 0,
+                "with_changes": 0,
+                "changes_by_field": {},
+            },
+            "error": f"Nepodařilo se otevřít Excel soubor: {e}",
+        }
 
     # Try sheet "ZU" first, fallback to first sheet
     if "ZU" in wb.sheetnames:

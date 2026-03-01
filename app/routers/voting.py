@@ -1,4 +1,5 @@
 import json
+import logging
 import shutil
 from datetime import datetime, date
 from pathlib import Path
@@ -22,6 +23,8 @@ from app.services.voting_import import (
 )
 from app.utils import build_list_url, is_htmx_partial, setup_jinja_filters, strip_diacritics, validate_upload
 
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -261,8 +264,7 @@ async def voting_preview_metadata(
             "items_count": len(items),
         })
     except Exception as e:
-        import traceback
-        traceback.print_exc()
+        logger.exception("Chyba při extrakci metadat z DOCX šablony")
         return JSONResponse({"error": f"{type(e).__name__}: {e}"}, status_code=500)
     finally:
         # Clean up temp file — the real upload happens on form submit
@@ -967,6 +969,7 @@ async def not_submitted(
 ):
     voting = db.query(Voting).options(
         joinedload(Voting.ballots).joinedload(Ballot.owner).joinedload(Owner.units).joinedload(OwnerUnit.unit),
+        joinedload(Voting.ballots).joinedload(Ballot.votes),
     ).get(voting_id)
     if not voting:
         return RedirectResponse("/hlasovani", status_code=302)
@@ -1034,7 +1037,7 @@ async def import_upload_page(
 ):
     voting = db.query(Voting).options(
         joinedload(Voting.items),
-        joinedload(Voting.ballots),
+        joinedload(Voting.ballots).joinedload(Ballot.votes),
     ).get(voting_id)
     if not voting:
         return RedirectResponse("/hlasovani", status_code=302)
@@ -1068,7 +1071,7 @@ async def import_upload(
 ):
     voting = db.query(Voting).options(
         joinedload(Voting.items),
-        joinedload(Voting.ballots),
+        joinedload(Voting.ballots).joinedload(Ballot.votes),
     ).get(voting_id)
     if not voting:
         return RedirectResponse("/hlasovani", status_code=302)

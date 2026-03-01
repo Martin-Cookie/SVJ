@@ -25,8 +25,8 @@
 
 <!-- Sort + bulk toolbar -->
 {% set _q = "q=" ~ (q|urlencode) %}
-{% set _svg_up = '<svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L10 6.414l-3.293 3.293a1 1 0 01-1.414 0z"/></svg>' %}
-{% set _svg_down = '<svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path d="M14.707 10.293a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L10 13.586l3.293-3.293a1 1 0 011.414 0z"/></svg>' %}
+{% set _svg_up = '<svg aria-hidden="true" class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L10 6.414l-3.293 3.293a1 1 0 01-1.414 0z"/></svg>' %}
+{% set _svg_down = '<svg aria-hidden="true" class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path d="M14.707 10.293a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L10 13.586l3.293-3.293a1 1 0 011.414 0z"/></svg>' %}
 <div class="flex items-center gap-4 mb-3 text-xs">
     <span class="text-gray-400 uppercase font-medium">Řadit dle:</span>
     {% for label, col in [("Vlastník", "owner"), ("Jednotky", "units"), ("Hlasy", "votes")] %}

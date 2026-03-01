@@ -32,17 +32,23 @@ matchMedia('(prefers-color-scheme:dark)').addEventListener('change', function(e)
     }
 });
 
-// HTMX configuration
-document.body.addEventListener('htmx:afterSwap', function(event) {
-    // Auto-dismiss flash messages after 5 seconds
-    const flashMessages = event.detail.target.querySelectorAll('[data-auto-dismiss]');
-    flashMessages.forEach(function(msg) {
+// Auto-dismiss flash messages after 5 seconds
+function _autoDismiss(container) {
+    var msgs = (container || document).querySelectorAll('[data-auto-dismiss]');
+    msgs.forEach(function(msg) {
         setTimeout(function() {
             msg.style.transition = 'opacity 0.3s';
             msg.style.opacity = '0';
             setTimeout(function() { msg.remove(); }, 300);
         }, 5000);
     });
+}
+
+document.addEventListener('DOMContentLoaded', function() { _autoDismiss(); });
+
+// HTMX configuration
+document.body.addEventListener('htmx:afterSwap', function(event) {
+    _autoDismiss(event.detail.target);
 });
 
 // HTMX error handling — show user-friendly message on server errors

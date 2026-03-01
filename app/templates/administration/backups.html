@@ -124,7 +124,7 @@
                                     <span class="truncate text-xs font-mono text-gray-800" title="{{ b.filename }}">{{ b.filename }}</span>
                                     <button type="button" onclick="startRename({{ loop.index }}, '{{ b.filename }}')" title="Přejmenovat"
                                             class="shrink-0 p-0.5 text-gray-300 hover:text-blue-600 rounded hover:bg-blue-50">
-                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <svg aria-hidden="true" class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
                                         </svg>
                                     </button>
@@ -139,13 +139,13 @@
                                            class="flex-1 min-w-0 px-1.5 py-0.5 border border-blue-300 rounded text-xs font-mono focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
                                     <button type="submit" title="Uložit"
                                             class="shrink-0 p-0.5 text-green-600 hover:text-green-800 rounded hover:bg-green-50">
-                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <svg aria-hidden="true" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
                                         </svg>
                                     </button>
                                     <button type="button" onclick="cancelRename({{ loop.index }})" title="Zrušit"
                                             class="shrink-0 p-0.5 text-gray-400 hover:text-red-600 rounded hover:bg-red-50">
-                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <svg aria-hidden="true" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                                         </svg>
                                     </button>
@@ -166,21 +166,21 @@
                                             onclick="return confirm('Obnovit ze zálohy {{ b.filename }}?\n\nAktuální data budou nejprve zálohována.')"
                                             title="Obnovit z této zálohy"
                                             class="p-1 text-gray-400 hover:text-green-600 rounded hover:bg-green-50">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <svg aria-hidden="true" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
                                         </svg>
                                     </button>
                                 </form>
                                 <a href="/sprava/zaloha/{{ b.filename }}/stahnout" hx-boost="false" title="Stáhnout"
                                    class="p-1 text-gray-400 hover:text-blue-600 rounded hover:bg-blue-50">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <svg aria-hidden="true" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                                     </svg>
                                 </a>
                                 <form action="/sprava/zaloha/{{ b.filename }}/smazat" method="post" hx-boost="false" class="inline">
                                     <button type="submit" onclick="return confirm('Opravdu smazat zálohu {{ b.filename }}?')" title="Smazat"
                                             class="p-1 text-gray-400 hover:text-red-600 rounded hover:bg-red-50">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <svg aria-hidden="true" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
                                         </svg>
                                     </button>

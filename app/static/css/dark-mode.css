@@ -451,8 +451,16 @@ html.dark .file-input-gray:hover::file-selector-button {
 
 
 /* ==========================================================================
-   FOCUS RING & BORDER — funguje v obou režimech, žádné změny
+   FOCUS RING & BORDER
    ========================================================================== */
+
+.dark .focus\:ring-blue-500:focus { --tw-ring-color: rgba(59, 130, 246, 0.5); }
+.dark .focus\:ring-green-500:focus { --tw-ring-color: rgba(34, 197, 94, 0.5); }
+.dark .focus\:ring-red-500:focus { --tw-ring-color: rgba(239, 68, 68, 0.5); }
+.dark .focus\:ring-orange-500:focus { --tw-ring-color: rgba(249, 115, 22, 0.5); }
+.dark .focus\:border-blue-500:focus { border-color: #3b82f6; }
+.dark .focus\:border-green-500:focus { border-color: #22c55e; }
+.dark .focus\:border-red-500:focus { border-color: #ef4444; }
 
 
 /* ==========================================================================

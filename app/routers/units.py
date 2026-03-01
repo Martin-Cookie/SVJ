@@ -72,16 +72,29 @@ async def unit_create(
             "code_lists": get_all_code_lists(db),
         })
 
+    try:
+        lv_number_int = int(lv_number.strip()) if lv_number.strip() else None
+    except (ValueError, TypeError):
+        lv_number_int = None
+    try:
+        floor_area_float = float(floor_area.strip()) if floor_area.strip() else None
+    except (ValueError, TypeError):
+        floor_area_float = None
+    try:
+        podil_scd_float = float(podil_scd.strip()) if podil_scd.strip() else None
+    except (ValueError, TypeError):
+        podil_scd_float = None
+
     unit = Unit(
         unit_number=unit_number_int,
         building_number=building_number.strip() or None,
         space_type=space_type.strip() or None,
         section=section.strip() or None,
         address=address.strip() or None,
-        lv_number=int(lv_number.strip()) if lv_number.strip() else None,
+        lv_number=lv_number_int,
         room_count=room_count.strip() or None,
-        floor_area=float(floor_area.strip()) if floor_area.strip() else None,
-        podil_scd=float(podil_scd.strip()) if podil_scd.strip() else None,
+        floor_area=floor_area_float,
+        podil_scd=podil_scd_float,
         created_at=datetime.utcnow(),
     )
     db.add(unit)
@@ -250,16 +263,33 @@ async def unit_update(
             "code_lists": get_all_code_lists(db),
         })
 
+    try:
+        orientation_number_int = int(orientation_number.strip()) if orientation_number.strip() else None
+    except (ValueError, TypeError):
+        orientation_number_int = None
+    try:
+        lv_number_int = int(lv_number.strip()) if lv_number.strip() else None
+    except (ValueError, TypeError):
+        lv_number_int = None
+    try:
+        floor_area_float = float(floor_area.strip()) if floor_area.strip() else None
+    except (ValueError, TypeError):
+        floor_area_float = None
+    try:
+        podil_scd_float = float(podil_scd.strip()) if podil_scd.strip() else None
+    except (ValueError, TypeError):
+        podil_scd_float = None
+
     unit.unit_number = unit_number_int
     unit.building_number = building_number.strip() or None
     unit.space_type = space_type.strip() or None
     unit.section = section.strip() or None
-    unit.orientation_number = int(orientation_number.strip()) if orientation_number.strip() else None
+    unit.orientation_number = orientation_number_int
     unit.address = address.strip() or None
-    unit.lv_number = int(lv_number.strip()) if lv_number.strip() else None
+    unit.lv_number = lv_number_int
     unit.room_count = room_count.strip() or None
-    unit.floor_area = float(floor_area.strip()) if floor_area.strip() else None
-    unit.podil_scd = float(podil_scd.strip()) if podil_scd.strip() else None
+    unit.floor_area = floor_area_float
+    unit.podil_scd = podil_scd_float
 
     from app.services.owner_exchange import recalculate_unit_votes
     recalculate_unit_votes(unit, db)

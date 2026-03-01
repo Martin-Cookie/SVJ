@@ -8,8 +8,6 @@ from __future__ import annotations
 
 import re
 from datetime import date, datetime
-from difflib import SequenceMatcher
-
 from sqlalchemy.orm import Session, joinedload
 
 from app.models import (

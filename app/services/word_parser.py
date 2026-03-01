@@ -5,9 +5,12 @@ Parse a Word (.docx) ballot template to extract voting items.
 Looks for patterns like:
   "BOD 1: ..." or "1. ..." or "1) ..."
 """
+import logging
 import re
 
 from docx import Document
+
+logger = logging.getLogger(__name__)
 
 
 _CZECH_MONTHS = {
@@ -146,7 +149,7 @@ def extract_voting_metadata(docx_path: str) -> dict:
         if doc.core_properties.title and doc.core_properties.title.strip():
             result["title"] = doc.core_properties.title.strip()
     except Exception:
-        pass
+        logger.debug("Nelze přečíst metadata dokumentu %s", docx_path, exc_info=True)
 
     if not result["title"]:
         # 2. First Heading 1 or Title style
