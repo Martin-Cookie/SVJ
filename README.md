@@ -53,7 +53,19 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
 
 - Vytvoření nového vlastníka (inline HTMX formulář: příjmení, jméno, titul, typ, email, telefon, RČ/IČ)
 - Import z Excelu (31 sloupců, sheet `Vlastnici_SVJ`) s náhledem a potvrzením
-- Historie importů s možností smazání (smaže vlastníky, jednotky i přiřazení)
+- Historia importů s možností smazání (smaže vlastníky, jednotky i přiřazení)
+- **Import kontaktů** (`/vlastnici/import-kontaktu`):
+  - Nahrání Excelu se kontaktními údaji (sheet "ZU" nebo první sheet)
+  - Párování Excel řádků na vlastníky v evidenci (fuzzy match podle jména + fallback RČ/IČ)
+  - Podpora IČ (company_id field) pro právnické osoby + detekce RČ vs IČ podle typu vlastníka
+  - Progress bar s reálným procentem a odhadem zbývajícího času (ETA) během zpracování
+  - Normalizace telefonních čísel (607179964 ≡ +420 607 179 964, automatické přidání +420 prefix pro 9-ciferná čísla)
+  - Náhled změn po párování s filtrační kartami (stat kardy na field badges):
+    - Stat karty: Celkem / Spárováno / Bez spárování / S změnami
+    - Field badges: klikací filtry zobrazující počet změn v každém poli
+  - Selektivní výběr vlastníků k importu (checkboxy + "Vybrat vše")
+  - Volba režimu: „Doplnit" (ponechat existující hodnoty) nebo „Přepsat" (nahradit prázdné i vyplněné)
+  - Výsledková zpráva s počtem aktualizovaných vlastníků a polí
 - Seznam s vyhledáváním (jméno, email, telefon, RČ, IČ, č. jednotky)
 - Filtrační bubliny podle typu vlastníka (fyzická/právnická osoba) a sekce domu
 - Filtrační bubliny podle typu vlastnictví (SJM, VL, SJVL, Výhradní, Podílové, Neuvedeno)
@@ -479,6 +491,12 @@ wheels/                        # Offline Python balíčky (gitignored)
 | POST | `/vlastnici/import` | Nahrání Excel souboru → náhled |
 | POST | `/vlastnici/import/potvrdit` | Potvrzení importu → uložení |
 | POST | `/vlastnici/import/{log_id}/smazat` | Smazání importu (data + soubor) |
+| GET | `/vlastnici/import-kontaktu` | Stránka importu kontaktních údajů |
+| POST | `/vlastnici/import-kontaktu` | Nahrání Excel kontaktů → zpracování na pozadí |
+| GET | `/vlastnici/import-kontaktu/zpracovani` | Stránka progress baru zpracování kontaktů |
+| GET | `/vlastnici/import-kontaktu/zpracovani-stav` | HTMX polling: stav zpracování (nebo HX-Redirect po dokončení) |
+| GET | `/vlastnici/import-kontaktu/nahled` | Náhled párování a změn z cache, klikací stat karty a field filtry |
+| POST | `/vlastnici/import-kontaktu/potvrdit` | Potvrzení importu + uložení do DB |
 | GET | `/vlastnici/{id}` | Detail vlastníka |
 | GET | `/vlastnici/{id}/upravit-formular` | HTMX: formulář kontaktů |
 | GET | `/vlastnici/{id}/info` | HTMX: zobrazení kontaktů |
