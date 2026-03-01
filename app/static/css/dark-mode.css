@@ -1,0 +1,444 @@
+/* ==========================================================================
+   Dark Mode — CSS override pro Tailwind utility třídy
+   Přepíše barvy pod .dark kontextem (na <html>) bez změn v šablonách.
+   Specificita .dark .bg-white (0,2,0) > .bg-white (0,1,0) — bez !important.
+   ========================================================================== */
+
+/* --- Transition na plynulý přechod --- */
+html.dark-transition,
+html.dark-transition *,
+html.dark-transition *::before,
+html.dark-transition *::after {
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease !important;
+}
+
+/* ==========================================================================
+   POZADÍ (backgrounds)
+   ========================================================================== */
+
+/* Stránkové pozadí */
+.dark .bg-gray-50 { background-color: #030712; }   /* gray-950 */
+
+/* Karty, tabulky, modály, panely */
+.dark .bg-white { background-color: #111827; }      /* gray-900 */
+
+/* Hlavičky tabulek, sekundární bg */
+.dark .bg-gray-100 { background-color: #1f2937; }   /* gray-800 */
+
+/* Cancel tlačítka, terciární bg */
+.dark .bg-gray-200 { background-color: #374151; }   /* gray-700 */
+
+/* PDF modal pages container */
+.dark .bg-gray-200.rounded-b-lg { background-color: #1f2937; }
+
+/* Tmavé pozadí (sidebar apod.) — neměnit */
+/* .dark .bg-gray-800 — ponecháno */
+
+/* --- Badge & row-tint pozadí (color-50, color-100) --- */
+
+/* Blue */
+.dark .bg-blue-50 { background-color: rgba(59, 130, 246, 0.1); }
+.dark .bg-blue-100 { background-color: rgba(59, 130, 246, 0.15); }
+.dark .bg-blue-200 { background-color: rgba(59, 130, 246, 0.25); }
+
+/* Green */
+.dark .bg-green-50 { background-color: rgba(34, 197, 94, 0.1); }
+.dark .bg-green-100 { background-color: rgba(34, 197, 94, 0.15); }
+
+/* Red */
+.dark .bg-red-50 { background-color: rgba(239, 68, 68, 0.1); }
+.dark .bg-red-100 { background-color: rgba(239, 68, 68, 0.15); }
+
+/* Yellow */
+.dark .bg-yellow-50 { background-color: rgba(234, 179, 8, 0.1); }
+.dark .bg-yellow-100 { background-color: rgba(234, 179, 8, 0.15); }
+
+/* Orange */
+.dark .bg-orange-50 { background-color: rgba(249, 115, 22, 0.1); }
+.dark .bg-orange-100 { background-color: rgba(249, 115, 22, 0.15); }
+
+/* Purple */
+.dark .bg-purple-50 { background-color: rgba(147, 51, 234, 0.1); }
+.dark .bg-purple-100 { background-color: rgba(147, 51, 234, 0.15); }
+
+/* Amber */
+.dark .bg-amber-50 { background-color: rgba(245, 158, 11, 0.1); }
+.dark .bg-amber-100 { background-color: rgba(245, 158, 11, 0.15); }
+
+/* Emerald */
+.dark .bg-emerald-100 { background-color: rgba(16, 185, 129, 0.15); }
+
+/* Teal */
+.dark .bg-teal-50 { background-color: rgba(20, 184, 166, 0.1); }
+
+
+/* ==========================================================================
+   TEXT
+   ========================================================================== */
+
+/* Nadpisy */
+.dark .text-gray-900 { color: #f3f4f6; }    /* gray-100 */
+.dark .text-gray-800 { color: #e5e7eb; }    /* gray-200 */
+
+/* Labely, popis */
+.dark .text-gray-700 { color: #d1d5db; }    /* gray-300 */
+.dark .text-gray-600 { color: #9ca3af; }    /* gray-400 */
+.dark .text-gray-500 { color: #9ca3af; }    /* gray-400 */
+
+/* Placeholder-like */
+.dark .text-gray-400 { color: #6b7280; }    /* gray-500 */
+.dark .text-gray-300 { color: #6b7280; }    /* gray-500 */
+
+/* Černý text */
+.dark .text-black { color: #f9fafb; }       /* gray-50 */
+
+/* --- Badge text (color-800 → color-300, color-700 → color-400) --- */
+.dark .text-blue-800 { color: #93c5fd; }       /* blue-300 */
+.dark .text-blue-700 { color: #60a5fa; }       /* blue-400 */
+.dark .text-blue-600 { color: #60a5fa; }       /* blue-400 */
+
+.dark .text-green-800 { color: #86efac; }      /* green-300 */
+.dark .text-green-700 { color: #4ade80; }      /* green-400 */
+.dark .text-green-600 { color: #4ade80; }      /* green-400 */
+.dark .text-green-500 { color: #22c55e; }      /* green-500 — ponecháno */
+
+.dark .text-red-800 { color: #fca5a5; }        /* red-300 */
+.dark .text-red-700 { color: #f87171; }        /* red-400 */
+.dark .text-red-600 { color: #f87171; }        /* red-400 */
+.dark .text-red-500 { color: #ef4444; }        /* red-500 — ponecháno */
+
+.dark .text-yellow-800 { color: #fde047; }     /* yellow-300 */
+.dark .text-yellow-700 { color: #facc15; }     /* yellow-400 */
+.dark .text-yellow-600 { color: #facc15; }     /* yellow-400 */
+
+.dark .text-orange-800 { color: #fdba74; }     /* orange-300 */
+.dark .text-orange-700 { color: #fb923c; }     /* orange-400 */
+.dark .text-orange-600 { color: #fb923c; }     /* orange-400 */
+.dark .text-orange-500 { color: #f97316; }     /* orange-500 — ponecháno */
+
+.dark .text-purple-700 { color: #c084fc; }     /* purple-400 */
+.dark .text-purple-600 { color: #c084fc; }     /* purple-400 */
+
+.dark .text-amber-800 { color: #fcd34d; }      /* amber-300 */
+.dark .text-amber-600 { color: #fbbf24; }      /* amber-400 */
+
+.dark .text-emerald-700 { color: #34d399; }    /* emerald-400 */
+.dark .text-emerald-600 { color: #34d399; }    /* emerald-400 */
+
+.dark .text-teal-600 { color: #2dd4bf; }       /* teal-400 */
+
+
+/* ==========================================================================
+   OKRAJE (borders)
+   ========================================================================== */
+
+.dark .border-gray-50 { border-color: #1f2937; }    /* gray-800 */
+.dark .border-gray-100 { border-color: #1f2937; }   /* gray-800 */
+.dark .border-gray-200 { border-color: #374151; }   /* gray-700 */
+.dark .border-gray-300 { border-color: #4b5563; }   /* gray-600 */
+
+/* Barevné okraje (badge borders, flash msg) */
+.dark .border-blue-200 { border-color: rgba(59, 130, 246, 0.3); }
+.dark .border-blue-300 { border-color: rgba(59, 130, 246, 0.4); }
+.dark .border-green-200 { border-color: rgba(34, 197, 94, 0.3); }
+.dark .border-red-200 { border-color: rgba(239, 68, 68, 0.3); }
+.dark .border-yellow-200 { border-color: rgba(234, 179, 8, 0.3); }
+.dark .border-orange-200 { border-color: rgba(249, 115, 22, 0.3); }
+.dark .border-purple-200 { border-color: rgba(147, 51, 234, 0.3); }
+.dark .border-amber-200 { border-color: rgba(245, 158, 11, 0.3); }
+
+
+/* ==========================================================================
+   DIVIDE (řádkové oddělovače)
+   ========================================================================== */
+
+.dark .divide-gray-50 > :not([hidden]) ~ :not([hidden]) { border-color: #1f2937; }
+.dark .divide-gray-100 > :not([hidden]) ~ :not([hidden]) { border-color: #1f2937; }
+.dark .divide-gray-200 > :not([hidden]) ~ :not([hidden]) { border-color: #374151; }
+
+
+/* ==========================================================================
+   STÍNY
+   ========================================================================== */
+
+.dark .shadow-sm { box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.3); }
+.dark .shadow { box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.4), 0 1px 2px -1px rgba(0, 0, 0, 0.4); }
+.dark .shadow-md { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -2px rgba(0, 0, 0, 0.4); }
+.dark .shadow-lg { box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -4px rgba(0, 0, 0, 0.5); }
+.dark .shadow-xl { box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5); }
+
+
+/* ==========================================================================
+   HOVER POZADÍ
+   ========================================================================== */
+
+.dark .hover\:bg-gray-50:hover { background-color: #1f2937; }     /* gray-800 */
+.dark .hover\:bg-gray-100:hover { background-color: #374151; }    /* gray-700 */
+.dark .hover\:bg-gray-200:hover { background-color: #4b5563; }    /* gray-600 */
+.dark .hover\:bg-gray-300:hover { background-color: #6b7280; }    /* gray-500 */
+
+.dark .hover\:bg-blue-50:hover { background-color: rgba(59, 130, 246, 0.15); }
+.dark .hover\:bg-blue-100:hover { background-color: rgba(59, 130, 246, 0.2); }
+.dark .hover\:bg-blue-200:hover { background-color: rgba(59, 130, 246, 0.3); }
+
+.dark .hover\:bg-green-50:hover { background-color: rgba(34, 197, 94, 0.15); }
+.dark .hover\:bg-green-100:hover { background-color: rgba(34, 197, 94, 0.2); }
+.dark .hover\:bg-green-200:hover { background-color: rgba(34, 197, 94, 0.3); }
+
+.dark .hover\:bg-red-50:hover { background-color: rgba(239, 68, 68, 0.15); }
+.dark .hover\:bg-red-100:hover { background-color: rgba(239, 68, 68, 0.2); }
+.dark .hover\:bg-red-200:hover { background-color: rgba(239, 68, 68, 0.3); }
+
+.dark .hover\:bg-yellow-100:hover { background-color: rgba(234, 179, 8, 0.2); }
+
+.dark .hover\:bg-orange-50:hover { background-color: rgba(249, 115, 22, 0.15); }
+.dark .hover\:bg-orange-100:hover { background-color: rgba(249, 115, 22, 0.2); }
+.dark .hover\:bg-orange-200:hover { background-color: rgba(249, 115, 22, 0.3); }
+
+.dark .hover\:bg-purple-200:hover { background-color: rgba(147, 51, 234, 0.3); }
+
+.dark .hover\:bg-amber-200:hover { background-color: rgba(245, 158, 11, 0.3); }
+
+.dark .hover\:bg-emerald-200:hover { background-color: rgba(16, 185, 129, 0.3); }
+
+.dark .hover\:bg-teal-50:hover { background-color: rgba(20, 184, 166, 0.15); }
+
+
+/* ==========================================================================
+   HOVER TEXT
+   ========================================================================== */
+
+.dark .hover\:text-gray-500:hover { color: #d1d5db; }
+.dark .hover\:text-gray-600:hover { color: #d1d5db; }
+.dark .hover\:text-gray-700:hover { color: #e5e7eb; }
+.dark .hover\:text-gray-800:hover { color: #f3f4f6; }
+.dark .hover\:text-gray-900:hover { color: #f9fafb; }
+
+.dark .hover\:text-blue-600:hover { color: #60a5fa; }
+.dark .hover\:text-blue-800:hover { color: #93c5fd; }
+
+.dark .hover\:text-green-600:hover { color: #4ade80; }
+.dark .hover\:text-green-800:hover { color: #86efac; }
+
+.dark .hover\:text-red-600:hover { color: #f87171; }
+.dark .hover\:text-red-800:hover { color: #fca5a5; }
+
+.dark .hover\:text-orange-600:hover { color: #fb923c; }
+
+.dark .hover\:text-amber-500:hover { color: #fbbf24; }
+.dark .hover\:text-amber-600:hover { color: #fbbf24; }
+.dark .hover\:text-amber-700:hover { color: #f59e0b; }
+
+.dark .hover\:text-purple-600:hover { color: #c084fc; }
+
+.dark .hover\:text-emerald-600:hover { color: #34d399; }
+
+
+/* ==========================================================================
+   HOVER RING
+   ========================================================================== */
+
+.dark .hover\:ring-gray-300:hover { --tw-ring-color: #4b5563; }
+.dark .hover\:ring-blue-300:hover { --tw-ring-color: rgba(59, 130, 246, 0.5); }
+.dark .hover\:ring-green-300:hover { --tw-ring-color: rgba(34, 197, 94, 0.5); }
+.dark .hover\:ring-red-300:hover { --tw-ring-color: rgba(239, 68, 68, 0.5); }
+.dark .hover\:ring-orange-300:hover { --tw-ring-color: rgba(249, 115, 22, 0.5); }
+.dark .hover\:ring-yellow-300:hover { --tw-ring-color: rgba(234, 179, 8, 0.5); }
+
+
+/* ==========================================================================
+   HOVER SHADOW
+   ========================================================================== */
+
+.dark .hover\:shadow-md:hover {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -2px rgba(0, 0, 0, 0.4);
+}
+
+
+/* ==========================================================================
+   GROUP-HOVER (admin karty)
+   ========================================================================== */
+
+.dark .group:hover .group-hover\:bg-blue-200 { background-color: rgba(59, 130, 246, 0.3); }
+.dark .group:hover .group-hover\:bg-purple-200 { background-color: rgba(147, 51, 234, 0.3); }
+.dark .group:hover .group-hover\:bg-green-200 { background-color: rgba(34, 197, 94, 0.3); }
+.dark .group:hover .group-hover\:bg-emerald-200 { background-color: rgba(16, 185, 129, 0.3); }
+.dark .group:hover .group-hover\:bg-amber-200 { background-color: rgba(245, 158, 11, 0.3); }
+.dark .group:hover .group-hover\:bg-orange-200 { background-color: rgba(249, 115, 22, 0.3); }
+.dark .group:hover .group-hover\:bg-red-200 { background-color: rgba(239, 68, 68, 0.3); }
+
+.dark .group:hover .group-hover\:text-blue-600 { color: #60a5fa; }
+.dark .group:hover .group-hover\:text-purple-600 { color: #c084fc; }
+.dark .group:hover .group-hover\:text-green-600 { color: #4ade80; }
+.dark .group:hover .group-hover\:text-emerald-600 { color: #34d399; }
+.dark .group:hover .group-hover\:text-amber-600 { color: #fbbf24; }
+.dark .group:hover .group-hover\:text-amber-700 { color: #f59e0b; }
+.dark .group:hover .group-hover\:text-amber-500 { color: #fbbf24; }
+.dark .group:hover .group-hover\:text-orange-600 { color: #fb923c; }
+
+
+/* ==========================================================================
+   FORMULÁŘE (input, select, textarea)
+   ========================================================================== */
+
+.dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]):not([type="hidden"]),
+.dark select,
+.dark textarea {
+    background-color: #1f2937;  /* gray-800 */
+    color: #e5e7eb;             /* gray-200 */
+    border-color: #4b5563;      /* gray-600 */
+}
+
+.dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]):not([type="hidden"])::placeholder,
+.dark textarea::placeholder {
+    color: #6b7280;             /* gray-500 */
+}
+
+.dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]):not([type="hidden"]):focus,
+.dark select:focus,
+.dark textarea:focus {
+    border-color: #3b82f6;      /* blue-500 */
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+}
+
+/* File input — text vedle tlačítka */
+.dark input[type="file"] {
+    color: #d1d5db;
+}
+
+/* File input — tlačítko "Vybrat soubor" (::file-selector-button)
+   Tailwind file: prefix generuje pseudo-element, .dark .bg-* ho nepokryje */
+.dark input[type="file"]::file-selector-button {
+    background-color: rgba(59, 130, 246, 0.15);
+    color: #93c5fd;             /* blue-300 */
+    border: none;
+    border-radius: 0.5rem;
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    margin-right: 1rem;
+}
+.dark input[type="file"]:hover::file-selector-button {
+    background-color: rgba(59, 130, 246, 0.25);
+}
+
+/* Checkbox a radio — akcentová barva */
+.dark input[type="checkbox"],
+.dark input[type="radio"] {
+    background-color: #374151;  /* gray-700 */
+    border-color: #6b7280;      /* gray-500 */
+}
+
+/* Select options (dropdown) */
+.dark option {
+    background-color: #1f2937;
+    color: #e5e7eb;
+}
+
+/* Disabled inputs */
+.dark input:disabled,
+.dark select:disabled,
+.dark textarea:disabled {
+    background-color: #111827;  /* gray-900 */
+    color: #6b7280;             /* gray-500 */
+}
+
+
+/* ==========================================================================
+   TABULKY — specifické elementy
+   ========================================================================== */
+
+/* Sticky thead bg — musí být plné (ne průhledné) */
+.dark thead.sticky { background-color: #111827; }
+.dark thead th { background-color: inherit; }
+
+/* Tfoot */
+.dark tfoot td { color: #9ca3af; }
+
+/* Stripe pattern (pokud by se používal) */
+.dark .even\:bg-gray-50:nth-child(even) { background-color: rgba(255, 255, 255, 0.02); }
+
+
+/* ==========================================================================
+   DETAILS / SUMMARY (kolapsovatelné sekce)
+   ========================================================================== */
+
+.dark details { border-color: #374151; }
+.dark summary { color: #e5e7eb; }
+
+
+/* ==========================================================================
+   LINK hover (underline text)
+   ========================================================================== */
+
+.dark .hover\:underline:hover { text-decoration-color: currentColor; }
+
+
+/* ==========================================================================
+   SCROLLBAR
+   ========================================================================== */
+
+/* WebKit (Chrome, Safari, Edge) */
+.dark ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+.dark ::-webkit-scrollbar-track {
+    background: #1f2937;
+}
+.dark ::-webkit-scrollbar-thumb {
+    background: #4b5563;
+    border-radius: 4px;
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+    background: #6b7280;
+}
+
+/* Firefox */
+.dark * {
+    scrollbar-color: #4b5563 #1f2937;
+}
+
+
+/* ==========================================================================
+   LABEL element
+   ========================================================================== */
+
+.dark label {
+    color: #d1d5db;  /* gray-300 */
+}
+
+
+/* ==========================================================================
+   MODAL overlay — bg-black/50 je OK v obou režimech
+   ========================================================================== */
+
+
+/* ==========================================================================
+   PLACEHOLDER TEXT pro bg-gray-400 v context textu
+   ========================================================================== */
+
+.dark .placeholder-gray-400::placeholder { color: #6b7280; }
+
+
+/* ==========================================================================
+   FOCUS RING & BORDER — funguje v obou režimech, žádné změny
+   ========================================================================== */
+
+
+/* ==========================================================================
+   PDF preview — canvas zůstává bílý (inline style background:#fff)
+   ========================================================================== */
+
+
+/* ==========================================================================
+   AKČNÍ TLAČÍTKA (bg-green-600, bg-red-600, bg-blue-600 s text-white)
+   — kontrastní barvy fungují v obou režimech, žádné změny
+   ========================================================================== */
+
+
+/* ==========================================================================
+   PROGRESS BARY (bg-blue-600, bg-green-500 atd.)
+   — výrazné barvy na tmavém pozadí fungují, žádné změny
+   ========================================================================== */

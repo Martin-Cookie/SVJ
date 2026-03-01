@@ -4,9 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}SVJ Správa{% endblock %}</title>
+    <script>
+    (function(){var s=localStorage.getItem('svj-theme');
+    if(s==='dark'||(!s&&matchMedia('(prefers-color-scheme:dark)').matches))
+    document.documentElement.classList.add('dark')})();
+    </script>
+    <script>tailwind.config={darkMode:'class'}</script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
     <link rel="stylesheet" href="/static/css/custom.css">
+    <link rel="stylesheet" href="/static/css/dark-mode.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 </head>
 <body class="bg-gray-50 min-h-screen" hx-boost="true">
@@ -116,6 +123,17 @@
                     </a>
                 </li>
             </ul>
+            <div class="px-3 py-3 border-t border-gray-700">
+                <button onclick="toggleTheme()" class="flex items-center gap-2 px-2 py-1.5 text-xs text-gray-400 hover:text-white rounded-lg hover:bg-gray-700 w-full transition-colors">
+                    <svg id="theme-icon-sun" class="w-4 h-4 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
+                    </svg>
+                    <svg id="theme-icon-moon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+                    </svg>
+                    <span id="theme-label">Tmavý režim</span>
+                </button>
+            </div>
         </nav>
 
         <!-- Main content -->
@@ -151,6 +169,6 @@
         </div>
     </div>
 
-    <script src="/static/js/app.js?v=4"></script>
+    <script src="/static/js/app.js?v=5"></script>
 </body>
 </html>

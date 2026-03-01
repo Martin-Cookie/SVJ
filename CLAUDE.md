@@ -258,7 +258,7 @@
 
 - Stránkový JS jde do `<script>` na konci `{% block content %}` — ne do separátních `.js` souborů
 - Vanilla JS only (žádný jQuery, žádné external knihovny kromě HTMX)
-- `/static/js/app.js` pouze pro HTMX globální handlery
+- `/static/js/app.js` pro HTMX globální handlery + dark mode toggle
 - Jinja2 macro je OK pro opakující se UI struktury v rámci jedné šablony, pokud všechna data přijdou jako parametry macro
 - **`<script>` tagy v HTML vloženém přes `innerHTML` se NESPUSTÍ** — prohlížeč je ignoruje. HTMX (`hx-swap`) naopak skripty vyhodnotí. Pokud je nutné fetch + innerHTML, definovat funkce v nadřazené šabloně.
 
@@ -266,8 +266,9 @@
 
 - Tailwind CSS z CDN (`cdn.tailwindcss.com`) — žádný build pipeline
 - HTMX z CDN (`unpkg.com`)
-- Custom CSS pouze pro HTMX animace (`custom.css`, ~17 řádků)
+- Custom CSS: `custom.css` (HTMX animace), `dark-mode.css` (dark mode override)
 - Vše stylováno přes Tailwind utility classes
+- Dark mode — přepínač v sidebaru, detaily viz [UI_GUIDE.md § 19](docs/UI_GUIDE.md)
 
 ## Startup (lifespan)
 

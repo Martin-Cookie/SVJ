@@ -639,3 +639,73 @@ if has_documents and max_done < 1:
 - Tlačítko exportu: světle modré obrysové (jako Uložit)
 - Pokud je export filtrovaný: hidden inputy přenáší aktuální filtr do POST endpointu
 - Více kategorií s checkboxy: vzor "Vybrat/Zrušit vše" (viz § 15)
+
+---
+
+## 19. Dark mode
+
+### Princip — CSS override (žádné změny v šablonách)
+
+Dark mode funguje přes CSS specificitu: `.dark .bg-white` (0,2,0) > `.bg-white` (0,1,0) — bez `!important`. Třída `.dark` se přidává na `<html>` element. Všechny Tailwind utility třídy se přepisují v jednom CSS souboru.
+
+**Soubory:**
+- `app/static/css/dark-mode.css` — CSS pravidla (~300 řádků), jediný zdroj pravdy pro dark mode barvy
+- `app/static/js/app.js` — `toggleTheme()`, `updateThemeUI()`, `initThemeUI()` funkce
+- `app/templates/base.html` — anti-flash skript v `<head>`, přepínač v sidebar footer
+
+### Přepínač
+
+Tlačítko v patičce sidebaru (pod navigací, nad `</nav>`):
+- **Light mode:** ikona měsíce + text „Tmavý režim"
+- **Dark mode:** ikona slunce + text „Světlý režim"
+- Stav uložen v `localStorage('svj-theme')`: `'dark'` / `'light'` / `null` (auto = OS preference)
+
+### Anti-flash skript
+
+Inline `<script>` v `<head>` PŘED Tailwind CDN — čte localStorage a přidá `.dark` třídu na `<html>` synchronně, než se vykreslí první frame. Zabraňuje bliknutí bílé stránky při načtení v dark mode.
+
+### HTMX kompatibilita
+
+- `hx-boost` swapuje `<body>`, `<html>` (s `.dark`) přežívá → dark mode zůstává
+- HTMX partial swapy (`hx-target`) dědí `.dark` z `<html>` → nový obsah automaticky tmavý
+- `initThemeUI()` v `htmx:afterSettle` handleru synchronizuje ikonu tlačítka po navigaci
+
+### Barevná mapa (hlavní přechody)
+
+| Light třída | Dark hodnota | Použití |
+|-------------|-------------|---------|
+| `bg-gray-50` | `#030712` (gray-950) | Pozadí stránky |
+| `bg-white` | `#111827` (gray-900) | Karty, tabulky, modály |
+| `bg-gray-100` | `#1f2937` (gray-800) | Hlavičky tabulek |
+| `bg-gray-200` | `#374151` (gray-700) | Cancel tlačítka |
+| `text-gray-800` | `#e5e7eb` (gray-200) | Nadpisy |
+| `text-gray-700` | `#d1d5db` (gray-300) | Labely |
+| `border-gray-200` | `#374151` (gray-700) | Standardní okraje |
+| `bg-{color}-100` | `rgba({color}, 0.15)` | Badge pozadí |
+| `text-{color}-800` | `{color}-300` | Badge text |
+
+### Co se NEMĚNÍ (v dark mode funguje beze změn)
+
+- **Sidebar** (`bg-gray-800`) — už je tmavý
+- **Akční tlačítka** (`bg-green-600 text-white`, `bg-red-600 text-white`) — kontrastní
+- **Progress bary** (`bg-blue-600`, `bg-green-500`) — výrazné barvy
+- **Focus ring** (`focus:ring-blue-500`) — funguje v obou režimech
+- **Ring na bublinách** (`ring-{color}-400`) — funguje v obou
+- **PDF canvas** (`background:#fff` inline) — obsah PDF zůstává bílý
+
+### Přidání nové barvy/komponenty
+
+1. Přidat Tailwind třídy do šablony normálně (light mode)
+2. Přidat odpovídající `.dark .třída { ... }` pravidlo do `dark-mode.css`
+3. Pro `file:` prefix (file input button) přidat `::file-selector-button` pravidlo
+4. Pro `hover:` / `group-hover:` prefix escapovat tečky: `.dark .hover\:bg-gray-50:hover`
+
+### File input (tlačítko „Vybrat soubor")
+
+Tailwind `file:` prefix generuje `::file-selector-button` pseudo-element — `.dark .bg-*` ho nepokryje. Proto má `dark-mode.css` explicitní pravidlo:
+```css
+.dark input[type="file"]::file-selector-button {
+    background-color: rgba(59, 130, 246, 0.15);
+    color: #93c5fd;
+}
+```

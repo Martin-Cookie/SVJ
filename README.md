@@ -5,7 +5,7 @@ Webová aplikace pro automatizaci správy SVJ (Společenství vlastníků jednot
 ## Tech stack
 
 - **Backend:** FastAPI + SQLAlchemy ORM + SQLite
-- **Frontend:** Jinja2 šablony + HTMX + Tailwind CSS (CDN)
+- **Frontend:** Jinja2 šablony + HTMX + Tailwind CSS (CDN) + dark mode (CSS override, přepínač v sidebaru)
 - **Dokumenty:** openpyxl (Excel), docxtpl (Word), pdfplumber (PDF), Tesseract (OCR)
 - **Email:** SMTP s TLS
 
@@ -450,8 +450,9 @@ app/
 │       ├── unit_owners.html
 │       └── unit_owner_edit_row.html
 └── static/                    # CSS, JS
-    ├── css/custom.css
-    └── js/app.js
+    ├── css/custom.css         # HTMX animace
+    ├── css/dark-mode.css      # Dark mode CSS override (~300 pravidel)
+    └── js/app.js              # HTMX handlery, dark mode toggle, PDF modal
 CLAUDE.md                          # Pravidla pro vývoj (backend, routery, modely, workflow)
 docs/
 └── UI_GUIDE.md                # UI/frontend konvence — jediný zdroj pravdy pro UI vzory
@@ -653,4 +654,4 @@ LIBREOFFICE_PATH=/Applications/LibreOffice.app/Contents/MacOS/soffice
 
 ## UI vzory
 
-Kompletní UI/frontend konvence (layout, tabulky, formuláře, tlačítka, bubliny, badge, inline editace, HTMX vzory, back URL navigace, checkboxy, stepper, formátování) jsou v **[docs/UI_GUIDE.md](docs/UI_GUIDE.md)**.
+Kompletní UI/frontend konvence (layout, tabulky, formuláře, tlačítka, bubliny, badge, inline editace, HTMX vzory, back URL navigace, checkboxy, stepper, formátování, dark mode) jsou v **[docs/UI_GUIDE.md](docs/UI_GUIDE.md)**.

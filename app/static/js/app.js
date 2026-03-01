@@ -1,3 +1,37 @@
+// =========================================================================
+// Dark mode toggle
+// =========================================================================
+function toggleTheme() {
+    document.documentElement.classList.add('dark-transition');
+    var isDark = document.documentElement.classList.toggle('dark');
+    localStorage.setItem('svj-theme', isDark ? 'dark' : 'light');
+    updateThemeUI(isDark);
+    setTimeout(function() { document.documentElement.classList.remove('dark-transition'); }, 300);
+}
+
+function updateThemeUI(isDark) {
+    var sun = document.getElementById('theme-icon-sun');
+    var moon = document.getElementById('theme-icon-moon');
+    var label = document.getElementById('theme-label');
+    if (sun) sun.classList.toggle('hidden', !isDark);
+    if (moon) moon.classList.toggle('hidden', isDark);
+    if (label) label.textContent = isDark ? 'Světlý režim' : 'Tmavý režim';
+}
+
+function initThemeUI() {
+    updateThemeUI(document.documentElement.classList.contains('dark'));
+}
+
+document.addEventListener('DOMContentLoaded', initThemeUI);
+
+// OS preference listener (auto-switch when no manual choice)
+matchMedia('(prefers-color-scheme:dark)').addEventListener('change', function(e) {
+    if (!localStorage.getItem('svj-theme')) {
+        document.documentElement.classList.toggle('dark', e.matches);
+        updateThemeUI(e.matches);
+    }
+});
+
 // HTMX configuration
 document.body.addEventListener('htmx:afterSwap', function(event) {
     // Auto-dismiss flash messages after 5 seconds
@@ -175,6 +209,7 @@ document.body.addEventListener('htmx:beforeRequest', function() {
 
 // Restore after ANY htmx settle (partial swap into tbody OR full boost page swap)
 document.body.addEventListener('htmx:afterSettle', function() {
+    initThemeUI();
     _restoreCheckedKeys();
     _loadTestEmail();
     updateSendButtonCount();
