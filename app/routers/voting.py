@@ -774,6 +774,101 @@ async def update_voting_status(
     return RedirectResponse(f"/hlasovani/{voting_id}", status_code=302)
 
 
+@router.get("/{voting_id}/exportovat")
+async def voting_export(voting_id: int, db: Session = Depends(get_db)):
+    """Export voting results to Excel."""
+    from io import BytesIO
+    from fastapi.responses import Response
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment
+
+    voting = db.query(Voting).options(
+        joinedload(Voting.items),
+        joinedload(Voting.ballots).joinedload(Ballot.owner),
+        joinedload(Voting.ballots).joinedload(Ballot.votes),
+    ).get(voting_id)
+    if not voting:
+        return RedirectResponse("/hlasovani", status_code=302)
+
+    declared = _get_declared_shares(db) or 1
+    items = sorted(voting.items, key=lambda i: i.order)
+    processed = [b for b in voting.ballots if b.status == BallotStatus.PROCESSED]
+    processed.sort(key=lambda b: (b.owner.name_normalized or ""))
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Výsledky hlasování"
+
+    bold = Font(bold=True)
+    header_fill = PatternFill(start_color="D9E1F2", end_color="D9E1F2", fill_type="solid")
+    green_fill = PatternFill(start_color="E2EFDA", end_color="E2EFDA", fill_type="solid")
+    red_fill = PatternFill(start_color="FCE4EC", end_color="FCE4EC", fill_type="solid")
+
+    # Header row
+    headers = ["Vlastník", "Jednotky", "Hlasy"]
+    for item in items:
+        headers.append(f"Bod {item.order}: {item.title}")
+    for col, h in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=h)
+        cell.font = bold
+        cell.fill = header_fill
+
+    # Data rows
+    vote_labels = {"for": "PRO", "against": "PROTI", "abstain": "Zdržel se", "invalid": "Neplatný"}
+    for row_idx, ballot in enumerate(processed, 2):
+        ws.cell(row=row_idx, column=1, value=ballot.owner.display_name)
+        ws.cell(row=row_idx, column=2, value=ballot.units_text or "")
+        ws.cell(row=row_idx, column=3, value=ballot.total_votes)
+        for item_idx, item in enumerate(items):
+            bv = next((v for v in ballot.votes if v.voting_item_id == item.id), None)
+            if bv and bv.vote:
+                cell = ws.cell(row=row_idx, column=4 + item_idx, value=vote_labels.get(bv.vote.value, ""))
+                if bv.vote == VoteValue.FOR:
+                    cell.fill = green_fill
+                elif bv.vote == VoteValue.AGAINST:
+                    cell.fill = red_fill
+            else:
+                ws.cell(row=row_idx, column=4 + item_idx, value="—")
+
+    # Summary row
+    summary_row = len(processed) + 3
+    ws.cell(row=summary_row, column=1, value="CELKEM").font = bold
+    for item_idx, item in enumerate(items):
+        votes_for = sum(
+            bv.votes_count for b in processed for bv in b.votes
+            if bv.voting_item_id == item.id and bv.vote == VoteValue.FOR
+        )
+        votes_against = sum(
+            bv.votes_count for b in processed for bv in b.votes
+            if bv.voting_item_id == item.id and bv.vote == VoteValue.AGAINST
+        )
+        pct_for = round(votes_for / declared * 100, 2) if declared else 0
+        pct_against = round(votes_against / declared * 100, 2) if declared else 0
+        cell = ws.cell(row=summary_row, column=4 + item_idx,
+                       value=f"PRO: {votes_for} ({pct_for}%) | PROTI: {votes_against} ({pct_against}%)")
+        cell.font = bold
+
+    # Auto-width
+    for col in ws.columns:
+        max_len = 0
+        col_letter = col[0].column_letter
+        for cell in col:
+            if cell.value:
+                max_len = max(max_len, len(str(cell.value)))
+        ws.column_dimensions[col_letter].width = min(max_len + 2, 45)
+
+    buf = BytesIO()
+    wb.save(buf)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"hlasovani_{voting.id}_{timestamp}.xlsx"
+
+    return Response(
+        content=buf.getvalue(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 @router.post("/{voting_id}/smazat")
 async def voting_delete(voting_id: int, db: Session = Depends(get_db)):
     """Delete a voting, its items, ballots, and associated files."""

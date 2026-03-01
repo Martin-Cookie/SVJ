@@ -1593,6 +1593,85 @@ async def save_send_settings(
     return RedirectResponse(f"/dane/{session_id}/rozeslat", status_code=302)
 
 
+@router.get("/{session_id}/exportovat")
+async def tax_export(session_id: int, db: Session = Depends(get_db)):
+    """Export distribution overview to Excel."""
+    from io import BytesIO
+    from fastapi.responses import Response
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill
+
+    session = db.query(TaxSession).options(
+        joinedload(TaxSession.documents)
+        .joinedload(TaxDocument.distributions)
+        .joinedload(TaxDistribution.owner),
+    ).get(session_id)
+    if not session:
+        return RedirectResponse("/dane", status_code=302)
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Přehled rozesílání"
+
+    bold = Font(bold=True)
+    header_fill = PatternFill(start_color="D9E1F2", end_color="D9E1F2", fill_type="solid")
+    sent_fill = PatternFill(start_color="E2EFDA", end_color="E2EFDA", fill_type="solid")
+    failed_fill = PatternFill(start_color="FCE4EC", end_color="FCE4EC", fill_type="solid")
+
+    headers = ["Dokument", "Jednotka", "Vlastník", "Email", "Status", "Odesláno"]
+    for col, h in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=h)
+        cell.font = bold
+        cell.fill = header_fill
+
+    email_status_labels = {
+        "pending": "Čeká",
+        "queued": "Ve frontě",
+        "sent": "Odesláno",
+        "failed": "Chyba",
+        "skipped": "Přeskočeno",
+    }
+
+    row_idx = 2
+    for doc in sorted(session.documents, key=lambda d: d.filename or ""):
+        for dist in doc.distributions:
+            ws.cell(row=row_idx, column=1, value=doc.filename or "")
+            ws.cell(row=row_idx, column=2, value=doc.unit_number or "")
+            if dist.owner:
+                ws.cell(row=row_idx, column=3, value=dist.owner.display_name)
+            elif dist.ad_hoc_name:
+                ws.cell(row=row_idx, column=3, value=dist.ad_hoc_name)
+            ws.cell(row=row_idx, column=4, value=dist.email_address_used or (dist.owner.email if dist.owner else dist.ad_hoc_email) or "")
+            status_val = dist.email_status.value if dist.email_status else "pending"
+            status_cell = ws.cell(row=row_idx, column=5, value=email_status_labels.get(status_val, status_val))
+            if status_val == "sent":
+                status_cell.fill = sent_fill
+            elif status_val == "failed":
+                status_cell.fill = failed_fill
+            ws.cell(row=row_idx, column=6, value=dist.email_sent_at.strftime("%d.%m.%Y %H:%M") if dist.email_sent_at else "")
+            row_idx += 1
+
+    # Auto-width
+    for col in ws.columns:
+        max_len = 0
+        col_letter = col[0].column_letter
+        for cell in col:
+            if cell.value:
+                max_len = max(max_len, len(str(cell.value)))
+        ws.column_dimensions[col_letter].width = min(max_len + 2, 45)
+
+    buf = BytesIO()
+    wb.save(buf)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"rozeslani_{session_id}_{timestamp}.xlsx"
+
+    return Response(
+        content=buf.getvalue(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 @router.post("/{session_id}/smazat")
 async def delete_session(
     session_id: int,

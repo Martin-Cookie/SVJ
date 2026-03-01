@@ -1,4 +1,5 @@
 import os
+import re
 import shutil
 import tempfile
 from datetime import datetime
@@ -549,6 +550,50 @@ async def backup_delete(filename: str):
     if file_path.is_file() and filename.endswith(".zip"):
         file_path.unlink()
     return RedirectResponse("/sprava/zalohy", status_code=302)
+
+
+@router.post("/zaloha/{filename}/prejmenovat")
+async def backup_rename(filename: str, new_name: str = Form(...)):
+    """Rename an existing backup ZIP file."""
+    file_path = BACKUP_DIR / filename
+    if not file_path.is_file() or not filename.endswith(".zip"):
+        return RedirectResponse("/sprava/zalohy", status_code=302)
+
+    # Sanitize new_name: keep only safe chars
+    safe = re.sub(r"[^\w\-.]", "_", new_name.strip())
+    safe = safe.strip("._")
+    if not safe:
+        return RedirectResponse("/sprava/zalohy?chyba=nazev", status_code=302)
+    if not safe.endswith(".zip"):
+        safe += ".zip"
+
+    new_path = BACKUP_DIR / safe
+    if new_path.exists() and new_path != file_path:
+        return RedirectResponse("/sprava/zalohy?chyba=duplicita", status_code=302)
+
+    file_path.rename(new_path)
+    return RedirectResponse("/sprava/zalohy", status_code=302)
+
+
+@router.post("/zaloha/{filename}/obnovit")
+async def backup_restore_existing(filename: str):
+    """Restore from an existing backup in the backups directory."""
+    file_path = BACKUP_DIR / filename
+    if not file_path.is_file() or not filename.endswith(".zip"):
+        return RedirectResponse("/sprava/zalohy", status_code=302)
+
+    # Track existing backups to find safety backup name
+    existing = set(p.name for p in BACKUP_DIR.glob("*.zip")) if BACKUP_DIR.is_dir() else set()
+
+    restore_backup(
+        str(file_path), str(DB_PATH), str(UPLOADS_DIR),
+        str(GENERATED_DIR), str(BACKUP_DIR),
+    )
+    new_backups = set(p.name for p in BACKUP_DIR.glob("*.zip")) - existing
+    safety = next(iter(new_backups), "")
+    log_restore(str(BACKUP_DIR), filename, "Existující záloha", safety_backup=safety)
+    run_post_restore_migrations()
+    return RedirectResponse("/sprava/zalohy?zprava=obnoveno", status_code=302)
 
 
 @router.post("/zaloha/obnovit")
