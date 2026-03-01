@@ -486,7 +486,8 @@ async def contact_import_confirm(
     )
     db.add(log)
     log_activity(db, ActivityAction.IMPORTED, "import", "vlastnici",
-                 description=f"Import kontaktů: {result['owners_updated']} vlastníků, {result['fields_updated']} polí")
+                 entity_name="Import kontaktů",
+                 description=f"{result['owners_updated']} vlastníků, {result['fields_updated']} polí")
     db.commit()
 
     return templates.TemplateResponse("owners/contact_import_result.html", {
@@ -585,7 +586,8 @@ async def import_excel_confirm(
     )
     db.add(log)
     log_activity(db, ActivityAction.IMPORTED, "import", "vlastnici",
-                 description=f"Import vlastníků: {result['owners_created']} vlastníků, {result.get('units_created', 0)} jednotek")
+                 entity_name="Import vlastníků",
+                 description=f"{result['owners_created']} vlastníků, {result.get('units_created', 0)} jednotek")
     db.commit()
 
     return templates.TemplateResponse("owners/import_result.html", {
