@@ -2,10 +2,10 @@
 {% block title %}Mapování sloupců - {{ voting.title }} - SVJ Správa{% endblock %}
 
 {% block content %}
-<div class="flex flex-col overflow-x-hidden" style="height:calc(100vh - 3rem)">
+<div class="flex flex-col" style="height:calc(100vh - 3rem)">
 <div class="shrink-0">
 {% include "voting/_voting_header.html" %}
-</div><!-- /bubble+search kontejner -->
+</div><!-- /bubble+search kontejner (zavírá div otevřený v headeru) -->
 
 <div class="flex items-center justify-between mb-3">
     <div>
@@ -21,7 +21,7 @@
         </a>
     </div>
 </div>
-</div>
+</div><!-- /shrink-0 -->
 
 <div class="flex-1 overflow-y-auto min-h-0">
     <form action="/hlasovani/{{ voting.id }}/import/nahled" method="post" id="mapping-form">
@@ -106,6 +106,12 @@
                 </div>
             </div>
             {% endfor %}
+        </div>
+
+        <div class="flex items-center gap-2 mb-4">
+            <input type="checkbox" id="save_mapping" name="save_mapping" value="1" checked
+                   class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+            <label for="save_mapping" class="text-sm text-gray-600">Uložit nastavení pro příští import</label>
         </div>
 
         <input type="hidden" name="mapping_json" id="mapping_json" value="">

@@ -72,6 +72,10 @@ html.dark-transition *::after {
 .dark .bg-teal-50 { background-color: rgba(20, 184, 166, 0.1); }
 
 
+/* Globální výchozí barva textu (body nemá Tailwind text-* třídu) */
+.dark body { color: #d1d5db; }  /* gray-300 */
+
+
 /* ==========================================================================
    TEXT
    ========================================================================== */

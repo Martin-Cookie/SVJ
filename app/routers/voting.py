@@ -1104,6 +1104,7 @@ async def import_preview(
     request: Request,
     file_path: str = Form(...),
     mapping_json: str = Form(...),
+    save_mapping: str = Form(""),
     db: Session = Depends(get_db),
 ):
     voting = db.query(Voting).options(
@@ -1119,9 +1120,10 @@ async def import_preview(
     except (json.JSONDecodeError, TypeError):
         return RedirectResponse(f"/hlasovani/{voting_id}/import", status_code=302)
 
-    # Save mapping for next time (already at preview step)
-    voting.import_column_mapping = mapping_json
-    db.commit()
+    # Save mapping for next time (only if user checked the box)
+    if save_mapping:
+        voting.import_column_mapping = mapping_json
+        db.commit()
 
     preview = preview_voting_import(file_path, mapping, voting, db)
 
