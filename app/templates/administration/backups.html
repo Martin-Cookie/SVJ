@@ -58,7 +58,7 @@
                         <label class="block text-xs text-gray-500 mb-1">ZIP soubor</label>
                         <input type="file" name="file" accept=".zip" required
                                onchange="restoreZipCheck(this)"
-                               class="w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 dark:file:bg-gray-700 dark:file:text-gray-300 dark:hover:file:bg-gray-600">
+                               class="file-input file-input-gray w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200">
                     </div>
                     <button type="submit" id="restore-zip-btn" disabled
                             class="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 text-sm font-medium whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed">
@@ -75,7 +75,7 @@
                         <label class="block text-xs text-gray-500 mb-1">Složka rozbalené zálohy (z Finderu)</label>
                         <input type="file" name="files" webkitdirectory required
                                onchange="restoreFolderCheck(this)"
-                               class="w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 dark:file:bg-gray-700 dark:file:text-gray-300 dark:hover:file:bg-gray-600">
+                               class="file-input file-input-gray w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200">
                         <p id="restore-folder-info" class="text-xs text-gray-400 mt-1 hidden"></p>
                     </div>
                     <button type="submit" id="restore-folder-btn" disabled

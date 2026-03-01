@@ -702,14 +702,16 @@ Inline `<script>` v `<head>` PŘED Tailwind CDN — čte localStorage a přidá 
 
 ### File input (tlačítko „Vybrat soubor")
 
-Tailwind `file:` prefix generuje `::file-selector-button` pseudo-element — `.dark .bg-*` CSS override ho nepokryje. Proto file inputy jako **jediná výjimka** používají `dark:file:` třídy přímo v šablonách:
+Tailwind `file:` prefix generuje `::file-selector-button` pseudo-element — `.dark .bg-*` CSS override ho nepokryje a Tailwind CDN nepodporuje `dark:file:` variantu. Proto file inputy používají vlastní CSS třídu `file-input` (+ `file-input-gray` pro šedou variantu) a cílený override v `dark-mode.css`:
 
 ```html
-<!-- Modrý (standardní) -->
-file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100
-dark:file:bg-blue-500/20 dark:file:text-blue-300 dark:hover:file:bg-blue-500/30
+<!-- Modrý (standardní) — přidat class="file-input" -->
+<input type="file" class="file-input block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4
+       file:rounded-lg file:border-0 file:text-sm file:font-medium
+       file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
 
-<!-- Šedý (backups) -->
-file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200
-dark:file:bg-gray-700 dark:file:text-gray-300 dark:hover:file:bg-gray-600
+<!-- Šedý (backups) — přidat class="file-input file-input-gray" -->
+<input type="file" class="file-input file-input-gray w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-4
+       file:rounded-lg file:border-0 file:text-sm file:font-medium
+       file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200">
 ```
