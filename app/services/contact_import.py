@@ -229,6 +229,8 @@ def preview_contact_import(file_path: str, db: Session, progress: dict | None = 
                             "new": excel_val,
                             "is_overwrite": False,
                             "is_secondary": True,
+                            "primary_label": label,
+                            "primary_current": current_val,
                         })
                         changes_by_field[sec_field] = changes_by_field.get(sec_field, 0) + 1
                         continue
