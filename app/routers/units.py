@@ -264,11 +264,21 @@ async def unit_update(
     db.commit()
 
     if request.headers.get("HX-Request"):
-        return templates.TemplateResponse("partials/unit_info.html", {
+        # Refresh unit + owners (recalculate changed owner votes)
+        db.expire(unit, ["owners"])
+        info_html = templates.TemplateResponse("partials/unit_info.html", {
             "request": request,
             "unit": unit,
             "saved": True,
-        })
+        }).body.decode()
+        owners_html = templates.TemplateResponse("partials/unit_owners.html", {
+            "request": request,
+            "unit": unit,
+        }).body.decode()
+        # OOB swap: main target gets unit_info, owners section updates out-of-band
+        # unit_owners.html already has <div id="unit-owners">, add hx-swap-oob attribute
+        owners_oob = owners_html.replace('<div id="unit-owners">', '<div id="unit-owners" hx-swap-oob="true">', 1)
+        return HTMLResponse(content=info_html + owners_oob)
     return RedirectResponse(f"/jednotky/{unit_id}", status_code=302)
 
 
