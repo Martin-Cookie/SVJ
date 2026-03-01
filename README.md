@@ -689,7 +689,7 @@ Projekt prošel bezpečnostním auditem (52 nálezů). Opraveny všechny CRITICA
 - HTMX error handler pro server chyby
 - Accessibility: aria-label na search inputech, label binding na checkboxech
 
-**MEDIUM/LOW (opraveno 13/32):**
+**MEDIUM/LOW (opraveno 19/32):**
 - `aria-hidden="true"` na 100 dekorativních SVG ikonách (WCAG AA)
 - Thread safety: `threading.Lock` pro sdílené progress dict v tax.py
 - SMTP timeout (10s) proti indefinite hang
@@ -697,8 +697,14 @@ Projekt prošel bezpečnostním auditem (52 nálezů). Opraveny všechny CRITICA
 - Dark mode focus ring CSS pro lepší viditelnost
 - Flash message auto-dismiss přes `data-auto-dismiss` atribut
 - Odstranění nepoužitých importů
+- Bounds checking na numerických inputech (HTML min/max + backend validace)
+- Sjednocení button stylingu (`rounded-lg`, `transition-colors`, `bg-green-600`)
+- Sjednocení input padding outliers (tax send, recipient row)
+- HTMX loading indikátor — globální CSS disabled styl na submit tlačítkách během requestu
+- Heading hierarchy — sidebar `<h1>` → `<div>`, jediný `<h1>` v obsahu
+- `role="alert"` na error zprávách a flash messages (screen reader podpora)
 
-Zbývající nálezy jsou designová rozhodnutí (UI konzistence, touch targets, heading hierarchy) a dokumentační úpravy.
+Zbývající nálezy jsou designová rozhodnutí (touch targets, responsive layout) a dokumentační úpravy.
 
 ## UI vzory
 
