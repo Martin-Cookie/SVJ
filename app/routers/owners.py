@@ -266,15 +266,9 @@ async def owner_list(
 
 
 @router.get("/import-kontaktu")
-async def contact_import_page(
-    request: Request,
-    hotovo: str = Query("", alias="hotovo"),
-):
-    return templates.TemplateResponse("owners/contact_import.html", {
-        "request": request,
-        "active_nav": "owners",
-        "hotovo": hotovo,
-    })
+async def contact_import_page():
+    """Redirect to unified import page (contacts section)."""
+    return RedirectResponse("/vlastnici/import#kontakty", status_code=302)
 
 
 @router.post("/import-kontaktu")
@@ -283,12 +277,7 @@ async def contact_import_upload(
     file: UploadFile = File(...),
 ):
     if not file.filename or not file.filename.endswith((".xlsx", ".xls")):
-        return templates.TemplateResponse("owners/contact_import.html", {
-            "request": request,
-            "active_nav": "owners",
-            "flash_message": "Nahrajte soubor ve formátu .xlsx",
-            "flash_type": "error",
-        })
+        return RedirectResponse("/vlastnici/import?chyba_kontakty=format#kontakty", status_code=302)
 
     from datetime import datetime as _dt
     timestamp = _dt.now().strftime("%Y%m%d_%H%M%S")
@@ -375,7 +364,7 @@ async def contact_import_processing(
     """Progress page — HTMX polls /import-kontaktu/zpracovani-stav."""
     progress = _contact_import_progress.get(soubor)
     if not progress:
-        return RedirectResponse("/vlastnici/import-kontaktu", status_code=302)
+        return RedirectResponse("/vlastnici/import#kontakty", status_code=302)
     if progress.get("done"):
         from urllib.parse import quote
         return RedirectResponse(f"/vlastnici/import-kontaktu/nahled?soubor={quote(soubor)}", status_code=302)
@@ -397,7 +386,7 @@ async def contact_import_status(
     progress = _contact_import_progress.get(soubor)
     if not progress:
         response = HTMLResponse("")
-        response.headers["HX-Redirect"] = "/vlastnici/import-kontaktu"
+        response.headers["HX-Redirect"] = "/vlastnici/import#kontakty"
         return response
 
     if progress.get("done"):
@@ -422,13 +411,8 @@ async def contact_import_preview_page(
     if not data or not data.get("result"):
         # Check for error
         if data and data.get("error"):
-            return templates.TemplateResponse("owners/contact_import.html", {
-                "request": request,
-                "active_nav": "owners",
-                "flash_message": f"Chyba při zpracování: {data['error']}",
-                "flash_type": "error",
-            })
-        return RedirectResponse("/vlastnici/import-kontaktu", status_code=302)
+            return RedirectResponse(f"/vlastnici/import?chyba_kontakty=zpracovani#kontakty", status_code=302)
+        return RedirectResponse("/vlastnici/import#kontakty", status_code=302)
 
     return templates.TemplateResponse("owners/contact_import_preview.html", {
         "request": request,
@@ -447,7 +431,7 @@ async def contact_import_rerun(
     """Re-run preview for an already uploaded file."""
     from pathlib import Path
     if not soubor or not Path(soubor).is_file():
-        return RedirectResponse("/vlastnici/import-kontaktu", status_code=302)
+        return RedirectResponse("/vlastnici/import#kontakty", status_code=302)
 
     file_key = Path(soubor).name
 
@@ -485,11 +469,22 @@ async def contact_import_confirm(
     selected = [int(v) for v in form_data.getlist("selected_owners")]
 
     if not selected:
-        return RedirectResponse("/vlastnici/import-kontaktu", status_code=302)
+        return RedirectResponse("/vlastnici/import#kontakty", status_code=302)
 
+    from pathlib import Path
     from app.services.contact_import import execute_contact_import
     result = execute_contact_import(file_path, db, selected, overwrite_existing=bool(overwrite))
 
+    # Log the import
+    log = ImportLog(
+        filename=Path(file_path).name,
+        file_path=file_path,
+        import_type="contacts_excel",
+        rows_total=result["owners_updated"] + (len(selected) - result["owners_updated"]),
+        rows_imported=result["owners_updated"],
+        rows_skipped=len(selected) - result["owners_updated"],
+    )
+    db.add(log)
     log_activity(db, ActivityAction.IMPORTED, "import", "vlastnici",
                  description=f"Import kontaktů: {result['owners_updated']} vlastníků, {result['fields_updated']} polí")
     db.commit()
@@ -503,12 +498,26 @@ async def contact_import_confirm(
 
 
 @router.get("/import")
-async def import_page(request: Request, db: Session = Depends(get_db)):
+async def import_page(
+    request: Request,
+    chyba_kontakty: str = Query("", alias="chyba_kontakty"),
+    db: Session = Depends(get_db),
+):
     imports = db.query(ImportLog).filter_by(import_type="owners_excel").order_by(ImportLog.created_at.desc()).all()
+    contact_imports = db.query(ImportLog).filter_by(import_type="contacts_excel").order_by(ImportLog.created_at.desc()).all()
+
+    contact_flash = None
+    if chyba_kontakty == "format":
+        contact_flash = "Nahrajte soubor ve formátu .xlsx"
+    elif chyba_kontakty == "zpracovani":
+        contact_flash = "Chyba při zpracování souboru"
+
     return templates.TemplateResponse("owners/import.html", {
         "request": request,
         "active_nav": "import",
         "imports": imports,
+        "contact_imports": contact_imports,
+        "contact_flash": contact_flash,
     })
 
 
@@ -607,6 +616,31 @@ async def import_delete(
         pass
 
     # Remove log entry only
+    db.delete(log)
+    db.commit()
+
+    return RedirectResponse("/vlastnici/import", status_code=302)
+
+
+@router.post("/import-kontaktu/{log_id}/smazat")
+async def contact_import_delete(
+    log_id: int,
+    db: Session = Depends(get_db),
+):
+    """Delete a contact import log entry and its uploaded file."""
+    from pathlib import Path
+
+    log = db.query(ImportLog).filter_by(id=log_id, import_type="contacts_excel").first()
+    if not log:
+        return RedirectResponse("/vlastnici/import", status_code=302)
+
+    try:
+        p = Path(log.file_path)
+        if p.exists():
+            p.unlink()
+    except Exception:
+        pass
+
     db.delete(log)
     db.commit()
 
