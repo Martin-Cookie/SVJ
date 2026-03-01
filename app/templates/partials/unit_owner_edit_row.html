@@ -4,13 +4,13 @@
     </td>
     <td class="px-3 py-2 text-sm text-gray-500 whitespace-nowrap">{{ ou.ownership_type or '—' }}</td>
     <td class="px-3 py-2 text-right">
-        <input type="text" name="share" value="{{ ou.share }}"
+        <input type="text" name="share" id="share-edit-{{ ou.id }}" value="{{ ou.share }}"
                class="w-20 px-2 py-1 text-sm text-right border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
     </td>
     <td class="px-3 py-2 text-sm text-gray-400 text-right font-mono whitespace-nowrap italic" title="Přepočítá se automaticky">{{ "{:,}".format(ou.votes).replace(",", " ") }}</td>
     <td class="px-3 py-2 text-right whitespace-nowrap">
         <button hx-post="/jednotky/{{ unit.id }}/vlastnik/{{ ou.id }}/upravit"
-                hx-include="closest tr"
+                hx-include="#share-edit-{{ ou.id }}"
                 hx-target="#unit-owners" hx-swap="outerHTML"
                 class="px-2 py-1 text-xs font-medium text-blue-600 border border-blue-300 rounded hover:bg-blue-50">Uložit</button>
         <button hx-get="/jednotky/{{ unit.id }}/vlastnici-sekce"
