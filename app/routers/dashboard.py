@@ -7,10 +7,11 @@ from app.database import get_db
 from app.models import ActivityLog, EmailLog, Owner, OwnerUnit, SvjInfo, Unit, Voting, VotingStatus
 from app.models.voting import Ballot, BallotStatus
 from app.models.tax import TaxSession, TaxDistribution, EmailDeliveryStatus
-from app.utils import strip_diacritics
+from app.utils import setup_jinja_filters, strip_diacritics
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
+setup_jinja_filters(templates)
 
 
 @router.get("/prehled/rozdil-podilu")

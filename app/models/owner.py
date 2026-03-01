@@ -105,7 +105,7 @@ class Unit(Base):
     id = Column(Integer, primary_key=True)
     unit_number = Column(Integer, nullable=False, unique=True, index=True)
     building_number = Column(String(20), nullable=True, index=True)
-    podil_scd = Column(Integer, nullable=True)
+    podil_scd = Column(Float, nullable=True)
     floor_area = Column(Float, nullable=True)
     room_count = Column(String(20), nullable=True)
     space_type = Column(String(50), nullable=True, index=True)

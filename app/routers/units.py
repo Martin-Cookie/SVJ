@@ -8,10 +8,11 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.models import Owner, OwnerUnit, SvjInfo, Unit
-from app.utils import build_list_url, is_htmx_partial, strip_diacritics
+from app.utils import build_list_url, is_htmx_partial, setup_jinja_filters, strip_diacritics
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
+setup_jinja_filters(templates)
 
 
 SORT_COLUMNS = {
@@ -80,7 +81,7 @@ async def unit_create(
         lv_number=int(lv_number.strip()) if lv_number.strip() else None,
         room_count=room_count.strip() or None,
         floor_area=float(floor_area.strip()) if floor_area.strip() else None,
-        podil_scd=int(podil_scd.strip()) if podil_scd.strip() else None,
+        podil_scd=float(podil_scd.strip()) if podil_scd.strip() else None,
         created_at=datetime.utcnow(),
     )
     db.add(unit)
@@ -258,7 +259,7 @@ async def unit_update(
     unit.lv_number = int(lv_number.strip()) if lv_number.strip() else None
     unit.room_count = room_count.strip() or None
     unit.floor_area = float(floor_area.strip()) if floor_area.strip() else None
-    unit.podil_scd = int(podil_scd.strip()) if podil_scd.strip() else None
+    unit.podil_scd = float(podil_scd.strip()) if podil_scd.strip() else None
 
     from app.services.owner_exchange import recalculate_unit_votes
     recalculate_unit_votes(unit, db)

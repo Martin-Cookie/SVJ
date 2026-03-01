@@ -262,7 +262,7 @@ def _parse_row(row: tuple, row_idx: int) -> dict | None:
         # Unit data
         "unit_kn": unit_kn,
         "building_number": _cell(row, COL_BUILDING_NUM),
-        "podil_scd": _cell_int(row, COL_PODIL_SCD),
+        "podil_scd": _cell_float(row, COL_PODIL_SCD),
         "floor_area": _cell_float(row, COL_FLOOR_AREA),
         "room_count": _cell(row, COL_ROOM_COUNT),
         "space_type": _cell(row, COL_SPACE_TYPE),

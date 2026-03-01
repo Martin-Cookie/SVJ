@@ -24,3 +24,18 @@ def is_htmx_partial(request: Request) -> bool:
         request.headers.get("HX-Request")
         and not request.headers.get("HX-Boosted")
     )
+
+
+def fmt_num(value) -> str:
+    """Format number with thousand separators. Hides .0 for whole numbers."""
+    if value is None:
+        return "—"
+    if float(value) == int(value):
+        return "{:,}".format(int(value)).replace(",", " ")
+    return "{:,}".format(value).replace(",", " ")
+
+
+def setup_jinja_filters(templates):
+    """Register custom Jinja2 filters on a Jinja2Templates instance."""
+    templates.env.filters["fmt_num"] = fmt_num
+    return templates

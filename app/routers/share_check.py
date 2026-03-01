@@ -17,10 +17,11 @@ from app.models import (
 from app.services.share_check_comparator import (
     compare_shares, get_file_headers, get_file_preview, parse_file, suggest_mapping,
 )
-from app.utils import build_list_url, is_htmx_partial, strip_diacritics
+from app.utils import build_list_url, is_htmx_partial, setup_jinja_filters, strip_diacritics
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
+setup_jinja_filters(templates)
 
 
 SORT_COLUMNS = {

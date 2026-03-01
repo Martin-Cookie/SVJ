@@ -40,8 +40,8 @@
         Celkem hlasů: <strong>{{ "{:,}".format(total_votes).replace(",", " ") }}</strong>
         {% if unit.podil_scd and total_votes != (unit.podil_scd | int) %}
         <span class="ml-2 text-red-600 font-medium">
-            ≠ Podíl SČD: {{ "{:,}".format(unit.podil_scd | int).replace(",", " ") }}
-            (rozdíl: {{ "{:,}".format(total_votes - (unit.podil_scd | int)).replace(",", " ") }})
+            ≠ Podíl SČD: {{ (unit.podil_scd or 0)|fmt_num }}
+            (rozdíl: {{ (total_votes - (unit.podil_scd or 0))|fmt_num }})
         </span>
         {% elif unit.podil_scd %}
         <span class="ml-2 text-green-600">= Podíl SČD</span>

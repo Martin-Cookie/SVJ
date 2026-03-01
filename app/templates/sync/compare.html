@@ -47,10 +47,10 @@
         <p class="text-sm font-bold text-gray-800">{{ session.total_records }}</p>
         <p class="text-xs text-gray-500">Vše</p>
         <table class="text-xs" style="border-spacing:0;border-collapse:collapse;margin:0 auto">
-            <tr><td class="text-left text-gray-500 pr-1" style="white-space:nowrap">Kat:</td><td class="text-right font-mono text-gray-500" style="white-space:nowrap">{{ "{:,}".format(katastr).replace(",", " ") }}</td></tr>
-            <tr><td class="text-left text-gray-500 pr-1" style="white-space:nowrap">Ev:</td><td class="text-right font-mono text-gray-800" style="white-space:nowrap">{{ "{:,}".format(total_excel_podil).replace(",", " ") }}</td></tr>
-            <tr><td class="text-left text-gray-400 pr-1" style="white-space:nowrap">CSV:</td><td class="text-right font-mono text-gray-400" style="white-space:nowrap">{{ "{:,}".format(total_csv_podil).replace(",", " ") }}</td></tr>
-            <tr><td class="text-left pr-1 {% if d_ev != 0 %}text-red-500{% else %}text-green-500{% endif %}" style="white-space:nowrap">± E-C:</td><td class="text-right font-mono {% if d_ev != 0 %}text-red-500{% else %}text-green-500{% endif %}" style="white-space:nowrap">{{ "{:,}".format(d_ev).replace(",", " ") }} {{ pct_ev }}%</td></tr>
+            <tr><td class="text-left text-gray-500 pr-1" style="white-space:nowrap">Kat:</td><td class="text-right font-mono text-gray-500" style="white-space:nowrap">{{ katastr|fmt_num }}</td></tr>
+            <tr><td class="text-left text-gray-500 pr-1" style="white-space:nowrap">Ev:</td><td class="text-right font-mono text-gray-800" style="white-space:nowrap">{{ total_excel_podil|fmt_num }}</td></tr>
+            <tr><td class="text-left text-gray-400 pr-1" style="white-space:nowrap">CSV:</td><td class="text-right font-mono text-gray-400" style="white-space:nowrap">{{ total_csv_podil|fmt_num }}</td></tr>
+            <tr><td class="text-left pr-1 {% if d_ev != 0 %}text-red-500{% else %}text-green-500{% endif %}" style="white-space:nowrap">± E-C:</td><td class="text-right font-mono {% if d_ev != 0 %}text-red-500{% else %}text-green-500{% endif %}" style="white-space:nowrap">{{ d_ev|fmt_num }} {{ pct_ev }}%</td></tr>
             <tr><td class="text-left pr-1 {% if d_kat != 0 %}text-red-500{% else %}text-green-500{% endif %}" style="white-space:nowrap">± K-C:</td><td class="text-right font-mono {% if d_kat != 0 %}text-red-500{% else %}text-green-500{% endif %}" style="white-space:nowrap">{{ "{:,}".format(d_kat).replace(",", " ") }} {{ pct_kat }}%</td></tr>
         </table>
     </a>

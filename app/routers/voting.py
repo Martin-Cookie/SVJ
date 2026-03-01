@@ -20,11 +20,12 @@ from app.services.word_parser import extract_voting_items, extract_voting_metada
 from app.services.voting_import import (
     read_excel_headers, preview_voting_import, execute_voting_import,
 )
-from app.utils import build_list_url, is_htmx_partial, strip_diacritics
+from app.utils import build_list_url, is_htmx_partial, setup_jinja_filters, strip_diacritics
 
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
+setup_jinja_filters(templates)
 
 
 _VOTING_WIZARD_STEPS = [

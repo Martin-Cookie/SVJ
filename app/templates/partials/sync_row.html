@@ -32,7 +32,7 @@
         </td>
         <td class="px-1 py-1 text-gray-500" style="text-overflow:ellipsis;overflow:hidden;white-space:nowrap" title="{{ record.excel_space_type or '' }}">{{ record.excel_space_type or '—' }}</td>
         <td class="px-1 py-1 text-gray-500">{{ record.excel_ownership_type or '—' }}</td>
-        <td class="px-1 py-1 text-gray-800 text-right font-mono whitespace-nowrap">{% if record.excel_podil_scd %}{{ "{:,}".format(record.excel_podil_scd).replace(",", " ") }}{% else %}—{% endif %}</td>
+        <td class="px-1 py-1 text-gray-800 text-right font-mono whitespace-nowrap">{% if record.excel_podil_scd %}{{ record.excel_podil_scd|fmt_num }}{% else %}—{% endif %}</td>
         <td class="px-1 py-1 text-center font-bold whitespace-nowrap {% if st == 'match' %}text-green-600{% elif st == 'name_order' %}text-orange-500{% else %}text-red-500{% endif %}" rowspan="2">{{ record.match_details.split('|')[0].strip() if record.match_details else '' }}</td>
         <td class="px-1 py-1" rowspan="2">
             {% if record.resolution.value == 'exchanged' %}
@@ -65,8 +65,8 @@
         </td>
         <td class="px-1 py-1 text-right font-mono whitespace-nowrap {% if podil_diff %}text-orange-600 font-bold{% else %}text-gray-400{% endif %}">
             {% if podil_diff %}
-            <label class="inline-flex items-center gap-0.5 cursor-pointer"><input type="checkbox" name="update__{{ record.id }}__podil_scd" value="{{ record.csv_share or 0 }}" class="sync-checkbox" onchange="syncUpdateRowCheckbox(this);syncUpdateCount()"><span>{{ "{:,}".format(record.csv_share or 0).replace(",", " ") }}</span></label>
-            {% elif record.csv_share %}{{ "{:,}".format(record.csv_share).replace(",", " ") }}{% else %}—{% endif %}
+            <label class="inline-flex items-center gap-0.5 cursor-pointer"><input type="checkbox" name="update__{{ record.id }}__podil_scd" value="{{ record.csv_share or 0 }}" class="sync-checkbox" onchange="syncUpdateRowCheckbox(this);syncUpdateCount()"><span>{{ (record.csv_share or 0)|fmt_num }}</span></label>
+            {% elif record.csv_share %}{{ record.csv_share|fmt_num }}{% else %}—{% endif %}
         </td>
     </tr>
 </tbody>

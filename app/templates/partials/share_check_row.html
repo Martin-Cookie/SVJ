@@ -30,14 +30,14 @@
         {% endif %}
     </td>
     <td class="px-1 py-1.5 text-right font-mono whitespace-nowrap text-gray-800">
-        {% if record.db_share is not none %}{{ "{:,}".format(record.db_share).replace(",", " ") }}{% else %}&mdash;{% endif %}
+        {{ record.db_share|fmt_num }}
     </td>
     <td class="px-1 py-1.5 text-right font-mono whitespace-nowrap {% if is_diff %}text-red-600 font-bold{% else %}text-gray-500{% endif %}">
-        {% if record.file_share is not none %}{{ "{:,}".format(record.file_share).replace(",", " ") }}{% else %}&mdash;{% endif %}
+        {{ record.file_share|fmt_num }}
     </td>
     <td class="px-1 py-1.5 text-right font-mono whitespace-nowrap {% if diff_val > 0 %}text-blue-600{% elif diff_val < 0 %}text-red-600{% else %}text-green-600{% endif %}">
         {% if record.db_share is not none and record.file_share is not none %}
-        {{ "{:+,}".format(diff_val).replace(",", " ") }}
+        {% if diff_val > 0 %}+{% endif %}{{ diff_val|fmt_num }}
         {% else %}&mdash;{% endif %}
     </td>
     <td class="px-1 py-1.5 text-center">

@@ -234,13 +234,13 @@ def _parse_unit_number(raw: str) -> int | None:
         return None
 
 
-def _parse_share_value(raw: str) -> int | None:
-    """Extract share: '12212/4103391' → 12212, '12212' → 12212."""
+def _parse_share_value(raw: str) -> float | None:
+    """Extract share: '12212.5/4103391' → 12212.5, '12212' → 12212.0."""
     raw = str(raw).strip()
     if "/" in raw:
         raw = raw.split("/")[0].strip()
     try:
-        return int(float(raw))
+        return float(raw)
     except (ValueError, TypeError):
         return None
 
@@ -359,12 +359,12 @@ def compare_shares(file_records: list[dict], db: Session) -> list[dict]:
 
     # Load all units from DB
     units = db.query(Unit).all()
-    db_by_unit: dict[int, int | None] = {}
+    db_by_unit: dict[int, float | None] = {}
     for u in units:
         db_by_unit[u.unit_number] = u.podil_scd
 
     # Aggregate file records — sum shares per unit (multiple co-owner rows)
-    summed: dict[int, int] = {}
+    summed: dict[int, float] = {}
     for rec in file_records:
         unit_num = rec["unit_number"]
         share = rec["file_share"] or 0

@@ -13,10 +13,11 @@ from app.config import settings
 from app.database import SessionLocal, get_db
 from app.models import ImportLog, Owner, OwnerType, OwnerUnit, SvjInfo, Unit, ActivityAction, log_activity
 from app.services.excel_import import import_owners_from_excel, preview_owners_from_excel
-from app.utils import build_list_url, is_htmx_partial, strip_diacritics
+from app.utils import build_list_url, is_htmx_partial, setup_jinja_filters, strip_diacritics
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
+setup_jinja_filters(templates)
 
 # In-memory progress tracker for contact import background processing
 _contact_import_progress: dict[str, dict] = {}

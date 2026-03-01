@@ -52,7 +52,7 @@
     </div>
     <div class="flex justify-between">
         <dt class="text-gray-500">Podíl SČD</dt>
-        <dd class="text-gray-900 font-medium">{{ "{:,}".format(unit.podil_scd or 0).replace(",", " ") }}</dd>
+        <dd class="text-gray-900 font-medium">{{ (unit.podil_scd or 0)|fmt_num }}</dd>
     </div>
     <div class="flex justify-between">
         <dt class="text-gray-500">Vytvořeno</dt>

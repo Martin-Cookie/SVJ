@@ -99,7 +99,7 @@
                 <td class="px-2 py-1.5 text-gray-500">{{ row.unit_number }}</td>
                 <td class="px-2 py-1.5 text-gray-500" data-sort="{{ row.section or 'zzz' }}">{{ row.section or '—' }}</td>
                 <td class="px-2 py-1.5 text-gray-500">{{ row.ownership_type_raw }}</td>
-                <td class="px-2 py-1.5 text-gray-500 text-right font-mono whitespace-nowrap">{{ "{:,}".format(row.podil_scd).replace(",", " ") }}</td>
+                <td class="px-2 py-1.5 text-gray-500 text-right font-mono whitespace-nowrap">{{ row.podil_scd|fmt_num }}</td>
                 <td class="px-2 py-1.5 text-gray-500 overflow-hidden" style="text-overflow:ellipsis;white-space:nowrap" title="{{ row.email or '' }}">{{ row.email or '—' }}</td>
             </tr>
             {% endfor %}

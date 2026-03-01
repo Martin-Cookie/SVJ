@@ -19,11 +19,12 @@ from app.models import (
 from app.services.csv_comparator import compare_owners, parse_sousede_csv
 from app.services.owner_exchange import execute_exchange, prepare_exchange_preview
 from app.services.owner_matcher import normalize_for_matching
-from app.utils import build_list_url, is_htmx_partial, strip_diacritics
+from app.utils import build_list_url, is_htmx_partial, setup_jinja_filters, strip_diacritics
 
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
+setup_jinja_filters(templates)
 
 
 @router.get("/")
@@ -775,8 +776,8 @@ async def apply_selected_updates(
                 changes.append(f"typ: {old_val} → {new_value}")
             elif field == "podil_scd":
                 old_val = record.excel_podil_scd or unit.podil_scd
-                unit.podil_scd = int(new_value)
-                record.excel_podil_scd = int(new_value)
+                unit.podil_scd = float(new_value)
+                record.excel_podil_scd = float(new_value)
                 from app.services.owner_exchange import recalculate_unit_votes
                 recalculate_unit_votes(unit, db)
                 changes.append(

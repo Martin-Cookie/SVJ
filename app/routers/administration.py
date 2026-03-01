@@ -88,8 +88,11 @@ _ROLE_SORT = case(
     else_=2,
 )
 
+from app.utils import setup_jinja_filters
+
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
+setup_jinja_filters(templates)
 
 
 def _get_or_create_svj_info(db: Session) -> SvjInfo:

@@ -2,7 +2,7 @@ import enum
 from datetime import datetime
 
 from sqlalchemy import (
-    Column, DateTime, Enum, ForeignKey, Integer, String, Text,
+    Column, DateTime, Enum, Float, ForeignKey, Integer, String, Text,
     UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
@@ -49,8 +49,8 @@ class ShareCheckRecord(Base):
     id = Column(Integer, primary_key=True)
     session_id = Column(Integer, ForeignKey("share_check_sessions.id"), nullable=False, index=True)
     unit_number = Column(Integer, nullable=True)
-    db_share = Column(Integer, nullable=True)
-    file_share = Column(Integer, nullable=True)
+    db_share = Column(Float, nullable=True)
+    file_share = Column(Float, nullable=True)
     status = Column(Enum(ShareCheckStatus), nullable=False, index=True)
     resolution = Column(Enum(ShareCheckResolution), default=ShareCheckResolution.PENDING, index=True)
     admin_note = Column(Text, nullable=True)

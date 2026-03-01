@@ -2,7 +2,7 @@ import enum
 from datetime import datetime
 
 from sqlalchemy import (
-    Boolean, Column, DateTime, Enum, ForeignKey, Integer, String, Text,
+    Boolean, Column, DateTime, Enum, Float, ForeignKey, Integer, String, Text,
 )
 from sqlalchemy.orm import relationship
 
@@ -58,8 +58,8 @@ class SyncRecord(Base):
     csv_phone = Column(String(50), nullable=True)
     excel_space_type = Column(String(50), nullable=True)
     csv_space_type = Column(String(50), nullable=True)
-    excel_podil_scd = Column(Integer, nullable=True)
-    csv_share = Column(Integer, nullable=True)
+    excel_podil_scd = Column(Float, nullable=True)
+    csv_share = Column(Float, nullable=True)
     status = Column(Enum(SyncStatus), nullable=False, index=True)
     resolution = Column(Enum(SyncResolution), default=SyncResolution.PENDING, index=True)
     admin_corrected_name = Column(String(300), nullable=True)

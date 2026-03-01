@@ -23,7 +23,7 @@ from app.models import (
     ActivityAction, log_activity,
 )
 from app.services.email_service import send_email
-from app.utils import build_list_url, is_htmx_partial, strip_diacritics
+from app.utils import build_list_url, is_htmx_partial, setup_jinja_filters, strip_diacritics
 from app.services.owner_matcher import match_name
 from app.services.pdf_extractor import (
     extract_owner_from_tax_pdf, parse_unit_from_filename,
@@ -31,6 +31,7 @@ from app.services.pdf_extractor import (
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
+setup_jinja_filters(templates)
 
 # In-memory progress tracker for background PDF processing
 _processing_progress: dict[int, dict] = {}
