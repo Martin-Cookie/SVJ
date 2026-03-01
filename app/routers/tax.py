@@ -20,6 +20,7 @@ from app.database import SessionLocal, get_db
 from app.models import (
     EmailDeliveryStatus, MatchStatus, Owner, OwnerUnit, SendStatus,
     TaxDistribution, TaxDocument, TaxSession, Unit,
+    ActivityAction, log_activity,
 )
 from app.services.email_service import send_email
 from app.utils import build_list_url, is_htmx_partial, strip_diacritics
@@ -421,6 +422,9 @@ async def tax_create(
         db.rollback()
         return RedirectResponse("/dane", status_code=302)
 
+    log_activity(db, ActivityAction.CREATED, "tax_session", "dane",
+                 entity_id=session.id, entity_name=session.title,
+                 description=f"Nahráno {len(saved_files)} PDF souborů")
     db.commit()
 
     # Initialize progress tracker
@@ -1026,6 +1030,9 @@ async def finalize_session(
     session = db.query(TaxSession).get(session_id)
     if session:
         session.send_status = SendStatus.READY
+        log_activity(db, ActivityAction.STATUS_CHANGED, "tax_session", "dane",
+                     entity_id=session.id, entity_name=session.title,
+                     description="Stav: koncept → připraveno k odeslání")
         db.commit()
     return RedirectResponse(f"/dane/{session_id}", status_code=302)
 
@@ -1039,6 +1046,9 @@ async def reopen_session(
     session = db.query(TaxSession).get(session_id)
     if session:
         session.send_status = SendStatus.DRAFT
+        log_activity(db, ActivityAction.STATUS_CHANGED, "tax_session", "dane",
+                     entity_id=session.id, entity_name=session.title,
+                     description="Stav: znovu otevřeno pro úpravy")
         db.commit()
     return RedirectResponse(f"/dane/{session_id}", status_code=302)
 
@@ -1691,6 +1701,8 @@ async def delete_session(
     except Exception:
         pass
 
+    log_activity(db, ActivityAction.DELETED, "tax_session", "dane",
+                 entity_id=session.id, entity_name=session.title)
     db.delete(session)
     db.commit()
 
@@ -1894,6 +1906,9 @@ async def start_batch_send(
                 dist.email_status = EmailDeliveryStatus.QUEUED
 
     session.send_status = SendStatus.SENDING
+    log_activity(db, ActivityAction.STATUS_CHANGED, "tax_session", "dane",
+                 entity_id=session.id, entity_name=session.title,
+                 description=f"Rozesílka zahájena: {len(recipients_to_send)} příjemců")
     db.commit()
 
     # Initialize progress

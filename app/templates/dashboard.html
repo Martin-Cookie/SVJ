@@ -139,7 +139,7 @@
 </div>
 
 <!-- Recent activity -->
-{% if recent_emails or q %}
+{% if recent_activity or q %}
     <h2 class="text-sm font-semibold text-gray-700 mb-2">Poslední aktivita</h2>
 
     <!-- Search -->
@@ -148,7 +148,7 @@
         <input type="hidden" name="order" value="{{ order }}">
         <div class="flex-1">
             <input type="text" name="q" value="{{ q }}"
-                   placeholder="Hledat příjemce, email, předmět, modul..."
+                   placeholder="Hledat v aktivitě..."
                    hx-get="/"
                    hx-trigger="keyup changed delay:300ms"
                    hx-target="#activity-tbody"
@@ -160,7 +160,7 @@
 {% endif %}
 </div>
 
-{% if recent_emails or q %}
+{% if recent_activity or q %}
     <!-- Scrollable activity table -->
     <div class="flex-1 overflow-y-auto min-h-0 bg-white rounded-lg shadow">
         <table class="min-w-full divide-y divide-gray-200">
@@ -184,8 +184,8 @@
                 <tr>
                     {{ sort_th("Datum", "date") }}
                     {{ sort_th("Modul", "module") }}
-                    {{ sort_th("Příjemce", "recipient") }}
-                    {{ sort_th("Předmět", "subject") }}
+                    {{ sort_th("Popis", "description") }}
+                    {{ sort_th("Detail", "detail") }}
                     {{ sort_th("Stav", "status") }}
                 </tr>
             </thead>

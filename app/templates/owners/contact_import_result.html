@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Import kontaktů dokončen - SVJ Správa{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <div class="mb-3">
+        <a href="/vlastnici" class="text-sm text-gray-500 hover:text-gray-700">&larr; Zpět na seznam vlastníků</a>
+    </div>
+    <h1 class="text-xl font-bold text-gray-800 mb-4">Import kontaktů dokončen</h1>
+
+    <div class="bg-white rounded-lg shadow p-6">
+        <div class="flex items-center gap-3 mb-4">
+            <div class="p-2 bg-green-100 rounded-full">
+                <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                </svg>
+            </div>
+            <div>
+                <p class="text-lg font-semibold text-gray-800">Úspěšně aktualizováno</p>
+                <p class="text-sm text-gray-500">{{ result.owners_updated }} vlastníků, {{ result.fields_updated }} polí</p>
+            </div>
+        </div>
+
+        {% if result.per_field %}
+        <div class="mb-4">
+            <h3 class="text-sm font-medium text-gray-700 mb-2">Aktualizovaná pole:</h3>
+            <div class="flex flex-wrap gap-2">
+                {% set field_labels = {
+                    'email': 'Email', 'phone': 'Telefon', 'phone_landline': 'Pevný tel.',
+                    'birth_number': 'RČ/IČ',
+                    'perm_street': 'Trv. ulice', 'perm_city': 'Trv. obec', 'perm_zip': 'Trv. PSČ',
+                    'perm_district': 'Trv. část', 'perm_country': 'Trv. země',
+                    'corr_street': 'Kor. ulice', 'corr_city': 'Kor. obec', 'corr_zip': 'Kor. PSČ',
+                    'corr_district': 'Kor. část', 'corr_country': 'Kor. země'
+                } %}
+                {% for field, count in result.per_field.items() %}
+                <span class="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
+                    {{ field_labels.get(field, field) }}: {{ count }}
+                </span>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="flex gap-3 mt-6">
+            <a href="/vlastnici" class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">
+                Zobrazit vlastníky
+            </a>
+            <a href="/vlastnici/import-kontaktu" class="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">
+                Nový import
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

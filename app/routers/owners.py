@@ -1,20 +1,25 @@
 import shutil
+import threading
+import time as _time
 from datetime import date, datetime
 
 from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
-from fastapi.responses import RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import cast, func, String
 from sqlalchemy.orm import Session, joinedload
 
 from app.config import settings
-from app.database import get_db
-from app.models import ImportLog, Owner, OwnerType, OwnerUnit, SvjInfo, Unit
+from app.database import SessionLocal, get_db
+from app.models import ImportLog, Owner, OwnerType, OwnerUnit, SvjInfo, Unit, ActivityAction, log_activity
 from app.services.excel_import import import_owners_from_excel, preview_owners_from_excel
 from app.utils import build_list_url, is_htmx_partial, strip_diacritics
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
+
+# In-memory progress tracker for contact import background processing
+_contact_import_progress: dict[str, dict] = {}
 
 
 SORT_COLUMNS = {
@@ -260,6 +265,181 @@ async def owner_list(
     })
 
 
+@router.get("/import-kontaktu")
+async def contact_import_page(
+    request: Request,
+    hotovo: str = Query("", alias="hotovo"),
+):
+    return templates.TemplateResponse("owners/contact_import.html", {
+        "request": request,
+        "active_nav": "owners",
+        "hotovo": hotovo,
+    })
+
+
+@router.post("/import-kontaktu")
+async def contact_import_upload(
+    request: Request,
+    file: UploadFile = File(...),
+):
+    if not file.filename or not file.filename.endswith((".xlsx", ".xls")):
+        return templates.TemplateResponse("owners/contact_import.html", {
+            "request": request,
+            "active_nav": "owners",
+            "flash_message": "Nahrajte soubor ve formátu .xlsx",
+            "flash_type": "error",
+        })
+
+    from datetime import datetime as _dt
+    timestamp = _dt.now().strftime("%Y%m%d_%H%M%S")
+    dest = settings.upload_dir / "excel" / f"{timestamp}_{file.filename}"
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    with open(dest, "wb") as f:
+        shutil.copyfileobj(file.file, f)
+
+    file_key = dest.name  # unique key for progress tracking
+
+    # Initialize progress tracker
+    _contact_import_progress[file_key] = {
+        "done": False,
+        "error": None,
+        "result": None,
+        "file_path": str(dest),
+        "filename": file.filename,
+        "started_at": _time.monotonic(),
+    }
+
+    # Start background processing thread
+    thread = threading.Thread(
+        target=_run_contact_preview,
+        args=(file_key, str(dest)),
+        daemon=True,
+    )
+    thread.start()
+
+    from urllib.parse import quote
+    return RedirectResponse(f"/vlastnici/import-kontaktu/zpracovani?soubor={quote(file_key)}", status_code=302)
+
+
+def _run_contact_preview(file_key: str, file_path: str):
+    """Background thread: parse Excel and compare with DB."""
+    db = SessionLocal()
+    try:
+        from app.services.contact_import import preview_contact_import
+        result = preview_contact_import(file_path, db)
+        _contact_import_progress[file_key]["result"] = result
+    except Exception as e:
+        _contact_import_progress[file_key]["error"] = str(e)
+    finally:
+        _contact_import_progress[file_key]["done"] = True
+        db.close()
+
+
+@router.get("/import-kontaktu/zpracovani")
+async def contact_import_processing(
+    request: Request,
+    soubor: str = Query("", alias="soubor"),
+):
+    """Progress page — HTMX polls /import-kontaktu/zpracovani-stav."""
+    progress = _contact_import_progress.get(soubor)
+    if not progress:
+        return RedirectResponse("/vlastnici/import-kontaktu", status_code=302)
+    if progress.get("done"):
+        from urllib.parse import quote
+        return RedirectResponse(f"/vlastnici/import-kontaktu/nahled?soubor={quote(soubor)}", status_code=302)
+
+    elapsed = _time.monotonic() - progress["started_at"]
+    elapsed_text = f"{int(elapsed // 60)} min {int(elapsed % 60)} s" if elapsed >= 60 else f"{int(elapsed)} s"
+
+    return templates.TemplateResponse("owners/contact_import_processing.html", {
+        "request": request,
+        "active_nav": "owners",
+        "file_key": soubor,
+        "elapsed": elapsed_text,
+    })
+
+
+@router.get("/import-kontaktu/zpracovani-stav")
+async def contact_import_status(
+    request: Request,
+    soubor: str = Query("", alias="soubor"),
+):
+    """HTMX polling endpoint — returns progress partial or HX-Redirect when done."""
+    progress = _contact_import_progress.get(soubor)
+    if not progress:
+        response = HTMLResponse("")
+        response.headers["HX-Redirect"] = "/vlastnici/import-kontaktu"
+        return response
+
+    if progress.get("done"):
+        from urllib.parse import quote
+        response = HTMLResponse("")
+        response.headers["HX-Redirect"] = f"/vlastnici/import-kontaktu/nahled?soubor={quote(soubor)}"
+        return response
+
+    elapsed = _time.monotonic() - progress["started_at"]
+    elapsed_text = f"{int(elapsed // 60)} min {int(elapsed % 60)} s" if elapsed >= 60 else f"{int(elapsed)} s"
+
+    return templates.TemplateResponse("partials/contact_import_progress.html", {
+        "request": request,
+        "elapsed": elapsed_text,
+    })
+
+
+@router.get("/import-kontaktu/nahled")
+async def contact_import_preview_page(
+    request: Request,
+    soubor: str = Query("", alias="soubor"),
+):
+    """Show preview from cached result after background processing."""
+    data = _contact_import_progress.pop(soubor, None)
+    if not data or not data.get("result"):
+        # Check for error
+        if data and data.get("error"):
+            return templates.TemplateResponse("owners/contact_import.html", {
+                "request": request,
+                "active_nav": "owners",
+                "flash_message": f"Chyba při zpracování: {data['error']}",
+                "flash_type": "error",
+            })
+        return RedirectResponse("/vlastnici/import-kontaktu", status_code=302)
+
+    return templates.TemplateResponse("owners/contact_import_preview.html", {
+        "request": request,
+        "active_nav": "owners",
+        "preview": data["result"],
+        "file_path": data["file_path"],
+        "filename": data.get("filename", ""),
+    })
+
+
+@router.post("/import-kontaktu/potvrdit")
+async def contact_import_confirm(
+    request: Request,
+    file_path: str = Form(...),
+    overwrite: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    form_data = await request.form()
+    selected = [int(v) for v in form_data.getlist("selected_owners")]
+
+    if not selected:
+        return RedirectResponse("/vlastnici/import-kontaktu", status_code=302)
+
+    from app.services.contact_import import execute_contact_import
+    result = execute_contact_import(file_path, db, selected, overwrite_existing=bool(overwrite))
+
+    log_activity(db, ActivityAction.IMPORTED, "import", "vlastnici",
+                 description=f"Import kontaktů: {result['owners_updated']} vlastníků, {result['fields_updated']} polí")
+    db.commit()
+
+    return templates.TemplateResponse("owners/contact_import_result.html", {
+        "request": request,
+        "active_nav": "owners",
+        "result": result,
+    })
+
+
 @router.get("/import")
 async def import_page(request: Request, db: Session = Depends(get_db)):
     imports = db.query(ImportLog).filter_by(import_type="owners_excel").order_by(ImportLog.created_at.desc()).all()
@@ -333,6 +513,8 @@ async def import_excel_confirm(
         errors="\n".join(result["errors"]) if result["errors"] else None,
     )
     db.add(log)
+    log_activity(db, ActivityAction.IMPORTED, "import", "vlastnici",
+                 description=f"Import vlastníků: {result['owners_created']} vlastníků, {result.get('units_created', 0)} jednotek")
     db.commit()
 
     return templates.TemplateResponse("owners/import_result.html", {

@@ -4,7 +4,7 @@ from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import EmailLog, Owner, OwnerUnit, SvjInfo, Unit, Voting, VotingStatus
+from app.models import ActivityLog, EmailLog, Owner, OwnerUnit, SvjInfo, Unit, Voting, VotingStatus
 from app.models.voting import Ballot, BallotStatus
 from app.models.tax import TaxSession, TaxDistribution, EmailDeliveryStatus
 from app.utils import strip_diacritics
@@ -147,36 +147,59 @@ async def home(
             }
         tax_by_status[s]["count"] += 1
 
-    recent_emails = (
-        db.query(EmailLog)
-        .order_by(EmailLog.created_at.desc())
-        .limit(50)
-        .all()
-    )
+    # Unified activity: EmailLog + ActivityLog
+    recent_emails = db.query(EmailLog).order_by(EmailLog.created_at.desc()).limit(30).all()
+    recent_activity = db.query(ActivityLog).order_by(ActivityLog.created_at.desc()).limit(30).all()
+
+    unified = []
+    for e in recent_emails:
+        unified.append({
+            "type": "email",
+            "created_at": e.created_at,
+            "module": e.module or "",
+            "description": e.subject or "",
+            "detail": e.recipient_name or e.recipient_email or "",
+            "status": e.status.value if e.status else "",
+            "entity": e,
+        })
+    for a in recent_activity:
+        unified.append({
+            "type": "activity",
+            "created_at": a.created_at,
+            "module": a.module or "",
+            "description": a.entity_name or "",
+            "detail": a.description or "",
+            "status": a.action.value if a.action else "",
+            "entity": a,
+        })
+
+    # Sort combined and limit
+    unified.sort(key=lambda x: x["created_at"] or x["created_at"], reverse=True)
+    unified = unified[:50]
 
     # Search filtering
     if q:
         q_lower = q.lower()
         q_ascii = strip_diacritics(q)
-        recent_emails = [
-            e for e in recent_emails
-            if q_lower in (e.recipient_name or "").lower()
-            or q_ascii in strip_diacritics(e.recipient_name or "")
-            or q_lower in (e.recipient_email or "").lower()
-            or q_lower in (e.subject or "").lower()
-            or q_lower in (e.module or "").lower()
+        unified = [
+            item for item in unified
+            if q_lower in item["description"].lower()
+            or q_ascii in strip_diacritics(item["description"])
+            or q_lower in item["detail"].lower()
+            or q_ascii in strip_diacritics(item["detail"])
+            or q_lower in item["module"].lower()
         ]
 
     # Sorting
     SORT_KEYS = {
-        "date": lambda e: e.created_at,
-        "module": lambda e: (e.module or "").lower(),
-        "recipient": lambda e: strip_diacritics(e.recipient_name or e.recipient_email or ""),
-        "subject": lambda e: (e.subject or "").lower(),
-        "status": lambda e: e.status.value if e.status else "",
+        "date": lambda x: x["created_at"],
+        "module": lambda x: x["module"].lower(),
+        "description": lambda x: strip_diacritics(x["description"]),
+        "detail": lambda x: strip_diacritics(x["detail"]),
+        "status": lambda x: x["status"],
     }
     sort_fn = SORT_KEYS.get(sort, SORT_KEYS["date"])
-    recent_emails.sort(key=sort_fn, reverse=(order == "desc"))
+    unified.sort(key=sort_fn, reverse=(order == "desc"))
 
     # Share statistics
     svj_info = db.query(SvjInfo).first()
@@ -193,7 +216,7 @@ async def home(
         "voting_by_status": voting_by_status,
         "active_tax_count": len(active_tax_sessions),
         "tax_by_status": tax_by_status,
-        "recent_emails": recent_emails,
+        "recent_activity": unified,
         "declared_shares": declared_shares,
         "owners_scd": owners_scd,
         "units_scd": units_scd,

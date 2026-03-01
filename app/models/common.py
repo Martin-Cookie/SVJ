@@ -2,6 +2,7 @@ import enum
 from datetime import datetime
 
 from sqlalchemy import Column, DateTime, Enum, Integer, String, Text
+from sqlalchemy.orm import Session
 
 from app.database import Base
 
@@ -41,3 +42,36 @@ class ImportLog(Base):
     rows_skipped = Column(Integer, default=0)
     errors = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class ActivityAction(str, enum.Enum):
+    CREATED = "created"
+    UPDATED = "updated"
+    DELETED = "deleted"
+    STATUS_CHANGED = "status_changed"
+    IMPORTED = "imported"
+    EXPORTED = "exported"
+    RESTORED = "restored"
+
+
+class ActivityLog(Base):
+    __tablename__ = "activity_logs"
+
+    id = Column(Integer, primary_key=True)
+    action = Column(Enum(ActivityAction), nullable=False, index=True)
+    entity_type = Column(String(50), nullable=False, index=True)
+    entity_id = Column(Integer, nullable=True, index=True)
+    entity_name = Column(String(300), nullable=True)
+    description = Column(String(500), nullable=True)
+    module = Column(String(50), nullable=False, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+def log_activity(db: Session, action: ActivityAction, entity_type: str,
+                 module: str, entity_id: int = None, entity_name: str = None,
+                 description: str = None):
+    """Log an activity event. Call before db.commit() in the router."""
+    db.add(ActivityLog(
+        action=action, entity_type=entity_type, entity_id=entity_id,
+        entity_name=entity_name, description=description, module=module,
+    ))

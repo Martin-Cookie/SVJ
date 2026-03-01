@@ -185,6 +185,11 @@ def _ensure_indexes():
         ("ix_share_check_records_resolution", "share_check_records", "resolution"),
         # administration.py — code lists
         ("ix_code_list_items_category", "code_list_items", "category"),
+        # activity_logs
+        ("ix_activity_logs_action", "activity_logs", "action"),
+        ("ix_activity_logs_entity_type", "activity_logs", "entity_type"),
+        ("ix_activity_logs_module", "activity_logs", "module"),
+        ("ix_activity_logs_created_at", "activity_logs", "created_at"),
     ]
     with engine.connect() as conn:
         for idx_name, table, column in _INDEXES:

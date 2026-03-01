@@ -14,6 +14,7 @@ from app.database import get_db
 from app.models import (
     Ballot, BallotStatus, BallotVote, Owner, OwnerUnit, SvjInfo, Voting,
     VotingItem, VotingStatus, VoteValue,
+    ActivityAction, log_activity,
 )
 from app.services.word_parser import extract_voting_items, extract_voting_metadata
 from app.services.voting_import import (
@@ -334,6 +335,8 @@ async def voting_create(
     total = db.query(func.sum(OwnerUnit.votes)).filter(OwnerUnit.valid_to.is_(None)).scalar() or 0
     voting.total_votes_possible = total
 
+    log_activity(db, ActivityAction.CREATED, "voting", "hlasovani",
+                 entity_id=voting.id, entity_name=voting.title)
     db.commit()
     return RedirectResponse(f"/hlasovani/{voting.id}", status_code=302)
 
@@ -486,6 +489,9 @@ async def generate_ballots(
     if voting.status == VotingStatus.DRAFT:
         voting.status = VotingStatus.ACTIVE
 
+    log_activity(db, ActivityAction.STATUS_CHANGED, "voting", "hlasovani",
+                 entity_id=voting.id, entity_name=voting.title,
+                 description=f"Vygenerováno {created} lístků, stav → aktivní")
     db.commit()
     return RedirectResponse(f"/hlasovani/{voting_id}", status_code=302)
 
@@ -768,8 +774,12 @@ async def update_voting_status(
 ):
     voting = db.query(Voting).get(voting_id)
     if voting:
+        old_status = voting.status.value
         voting.status = VotingStatus(status)
         voting.updated_at = datetime.utcnow()
+        log_activity(db, ActivityAction.STATUS_CHANGED, "voting", "hlasovani",
+                     entity_id=voting.id, entity_name=voting.title,
+                     description=f"Stav: {old_status} → {status}")
         db.commit()
     return RedirectResponse(f"/hlasovani/{voting_id}", status_code=302)
 
@@ -894,6 +904,8 @@ async def voting_delete(voting_id: int, db: Session = Depends(get_db)):
                     except Exception:
                         pass
         # Cascade deletes VotingItem, Ballot, BallotVote
+        log_activity(db, ActivityAction.DELETED, "voting", "hlasovani",
+                     entity_id=voting.id, entity_name=voting.title)
         db.delete(voting)
         db.commit()
     return RedirectResponse("/hlasovani", status_code=302)
@@ -1169,6 +1181,11 @@ async def import_confirm(
         return RedirectResponse(f"/hlasovani/{voting_id}/import", status_code=302)
 
     result = execute_voting_import(file_path, mapping, voting, db)
+
+    log_activity(db, ActivityAction.IMPORTED, "voting", "hlasovani",
+                 entity_id=voting.id, entity_name=voting.title,
+                 description=f"Import výsledků: {result.get('processed', 0)} lístků")
+    db.commit()
 
     has_processed = any(b.status.value == "processed" for b in voting.ballots)
     return templates.TemplateResponse("voting/import_result.html", {

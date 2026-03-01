@@ -21,6 +21,7 @@ from app.models import (
     SyncSession, SyncRecord,
     ShareCheckSession, ShareCheckRecord, ShareCheckColumnMapping,
     EmailLog, ImportLog,
+    ActivityLog, ActivityAction, log_activity,
 )
 from app.services.backup_service import (
     create_backup, restore_backup, restore_from_directory,
@@ -529,6 +530,17 @@ async def backup_create(filename: str = Form(""), db: Session = Depends(get_db))
 
     name = filename.strip() or None
     create_backup(str(DB_PATH), str(UPLOADS_DIR), str(GENERATED_DIR), str(BACKUP_DIR), custom_name=name)
+
+    # Log activity — backup is file-based, use separate session
+    from app.database import SessionLocal
+    _db = SessionLocal()
+    try:
+        log_activity(_db, ActivityAction.CREATED, "backup", "sprava",
+                     entity_name=name or "Automatická záloha")
+        _db.commit()
+    finally:
+        _db.close()
+
     return RedirectResponse("/sprava/zalohy?zprava=vytvoreno", status_code=302)
 
 
@@ -593,6 +605,16 @@ async def backup_restore_existing(filename: str):
     safety = next(iter(new_backups), "")
     log_restore(str(BACKUP_DIR), filename, "Existující záloha", safety_backup=safety)
     run_post_restore_migrations()
+
+    from app.database import SessionLocal
+    _db = SessionLocal()
+    try:
+        log_activity(_db, ActivityAction.RESTORED, "backup", "sprava",
+                     entity_name=filename, description="Obnova z existující zálohy")
+        _db.commit()
+    finally:
+        _db.close()
+
     return RedirectResponse("/sprava/zalohy?zprava=obnoveno", status_code=302)
 
 
@@ -621,6 +643,16 @@ async def backup_restore(file: UploadFile = File(...)):
             temp_path.unlink()
 
     run_post_restore_migrations()
+
+    from app.database import SessionLocal
+    _db = SessionLocal()
+    try:
+        log_activity(_db, ActivityAction.RESTORED, "backup", "sprava",
+                     entity_name=file.filename or "upload.zip", description="Obnova z nahraného ZIP souboru")
+        _db.commit()
+    finally:
+        _db.close()
+
     return RedirectResponse("/sprava/zalohy?zprava=obnoveno", status_code=302)
 
 
@@ -640,6 +672,16 @@ async def backup_restore_directory(dir_path: str = Form(...)):
     safety = next(iter(new_backups), "")
     log_restore(str(BACKUP_DIR), dir_path, "Adresář", safety_backup=safety)
     run_post_restore_migrations()
+
+    from app.database import SessionLocal
+    _db = SessionLocal()
+    try:
+        log_activity(_db, ActivityAction.RESTORED, "backup", "sprava",
+                     entity_name=dir_path, description="Obnova z adresáře")
+        _db.commit()
+    finally:
+        _db.close()
+
     return RedirectResponse("/sprava/zalohy?zprava=obnoveno", status_code=302)
 
 
@@ -657,6 +699,16 @@ async def backup_restore_db_file(file: UploadFile = File(...)):
 
     log_restore(str(BACKUP_DIR), file.filename or "svj.db", "DB soubor", safety_backup=safety)
     run_post_restore_migrations()
+
+    from app.database import SessionLocal
+    _db = SessionLocal()
+    try:
+        log_activity(_db, ActivityAction.RESTORED, "backup", "sprava",
+                     entity_name=file.filename or "svj.db", description="Obnova z DB souboru")
+        _db.commit()
+    finally:
+        _db.close()
+
     return RedirectResponse("/sprava/zalohy?zprava=obnoveno", status_code=302)
 
 
@@ -720,6 +772,16 @@ async def backup_restore_folder(files: List[UploadFile] = File(...)):
         shutil.rmtree(tmp, ignore_errors=True)
 
     run_post_restore_migrations()
+
+    from app.database import SessionLocal
+    _db = SessionLocal()
+    try:
+        log_activity(_db, ActivityAction.RESTORED, "backup", "sprava",
+                     entity_name=folder_name or "složka", description="Obnova ze složky (Finder)")
+        _db.commit()
+    finally:
+        _db.close()
+
     return RedirectResponse("/sprava/zalohy?zprava=obnoveno", status_code=302)
 
 
@@ -831,8 +893,8 @@ _PURGE_CATEGORIES = {
     },
     "logs": {
         "label": "Logy",
-        "description": "E-mailové logy, importní logy",
-        "models": [EmailLog, ImportLog],
+        "description": "E-mailové logy, importní logy, logy aktivity",
+        "models": [EmailLog, ImportLog, ActivityLog],
     },
     "administration": {
         "label": "Administrace SVJ",
@@ -930,6 +992,8 @@ async def purge_data(request: Request, db: Session = Depends(get_db)):
         if log_path.is_file():
             log_path.unlink()
 
+    log_activity(db, ActivityAction.DELETED, "system", "sprava",
+                 description=f"Smazáno: {', '.join(categories)}")
     db.commit()
     return RedirectResponse("/sprava", status_code=302)
 
