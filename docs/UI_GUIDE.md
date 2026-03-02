@@ -184,6 +184,81 @@ if (!titleInput.value.trim() && meta.title) {
 }
 ```
 
+**Vzor s XHR upload progress barem** (pro upload stovek souborů):
+
+Standardní `<form>` submit neposkytuje zpětnou vazbu o průběhu uploadu. Pro velké uploady (stovky PDF) se používá `XMLHttpRequest` s `upload.onprogress`:
+
+```html
+<div id="upload-progress" class="hidden bg-white rounded-lg shadow p-6 max-w-2xl mt-4">
+    <div class="flex justify-between items-center">
+        <span class="text-sm font-medium text-gray-700">Nahrávání souborů na server...</span>
+        <span id="upload-pct-text" class="text-sm text-gray-500">0 %</span>
+    </div>
+    <div class="relative w-full bg-gray-200 rounded-full h-5 overflow-hidden mt-2">
+        <div id="upload-bar" class="bg-blue-600 h-5 rounded-full transition-all duration-300" style="width:0%"></div>
+        <span id="upload-bar-text" class="absolute inset-0 flex items-center justify-center text-xs font-medium text-gray-700">0 %</span>
+    </div>
+    <p id="upload-status" class="text-xs text-gray-400 mt-2">Připravuji nahrání...</p>
+</div>
+```
+
+```javascript
+function startUpload() {
+    var form = document.getElementById('upload-form');
+    var fd = new FormData(form);
+    var xhr = new XMLHttpRequest();
+    document.getElementById('upload-progress').classList.remove('hidden');
+    xhr.upload.onprogress = function(e) {
+        if (e.lengthComputable) {
+            var pct = Math.round(e.loaded / e.total * 100);
+            document.getElementById('upload-bar').style.width = pct + '%';
+            document.getElementById('upload-bar-text').textContent = pct + ' %';
+            document.getElementById('upload-pct-text').textContent = pct + ' %';
+        }
+    };
+    xhr.onload = function() { window.location.href = /* redirect URL */; };
+    xhr.open('POST', form.action);
+    xhr.send(fd);
+}
+```
+
+- Submit tlačítko `type="button" onclick="startUpload()"` (ne `type="submit"`)
+- Progress overlay se zobrazí ihned po kliknutí
+- Po dokončení uploadu `xhr.onload` provede redirect na processing stránku
+- Používáno v `tax/upload.html` a `tax/upload_additional.html`
+
+### Lazy dropdown přes `<template>` element
+
+Pro tabulky s mnoha řádky a opakovaným `<select>` (např. 221 řádků × 446 vlastníků = ~98 000 `<option>`) — options se renderují jednou v `<template>` a klonují na focus:
+
+```html
+<!-- Jednou na stránce (server-rendered, není v DOM) -->
+<template id="owner-options">
+    {% for owner in owners %}
+    <option value="{{ owner.id }}">{{ owner.display_name }} (j. {{ units }})</option>
+    {% endfor %}
+</template>
+
+<!-- V každém řádku tabulky -->
+<select name="owner_id" onfocus="populateSelect(this)" class="...">
+    <option value="">Vybrat...</option>
+</select>
+```
+
+```javascript
+function populateSelect(sel) {
+    if (sel.options.length > 1) return;  // už naplněno
+    var tpl = document.getElementById('owner-options');
+    if (!tpl) return;
+    var frag = tpl.content.cloneNode(true);
+    sel.appendChild(frag);
+}
+```
+
+- `<template>` obsah není součástí DOM → nezvyšuje počet elementů na stránce
+- `cloneNode(true)` je bezpečný (DOM API, ne innerHTML)
+- Používáno v `tax/matching.html` — snížení HTML z ~5 MB na ~924 KB
+
 ---
 
 ## 4. Inline editace (info/form partial vzor)

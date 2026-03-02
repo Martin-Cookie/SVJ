@@ -354,14 +354,14 @@ app/
 ├── main.py                    # FastAPI aplikace
 ├── config.py                  # Nastavení (Pydantic)
 ├── database.py                # SQLAlchemy engine + session
-├── utils.py                   # Sdílené utility (strip_diacritics, build_list_url, is_htmx_partial)
+├── utils.py                   # Sdílené utility (strip_diacritics, build_list_url, is_htmx_partial, fmt_num, is_safe_path, validate_upload, validate_uploads, setup_jinja_filters)
 ├── models/                    # Databázové modely
 │   ├── owner.py               #   Owner, Unit, OwnerUnit, Proxy
 │   ├── voting.py              #   Voting, VotingItem, Ballot, BallotVote
 │   ├── tax.py                 #   TaxSession, TaxDocument, TaxDistribution
 │   ├── sync.py                #   SyncSession, SyncRecord
 │   ├── share_check.py         #   ShareCheckSession, ShareCheckRecord, ShareCheckColumnMapping
-│   ├── common.py              #   EmailLog, ImportLog
+│   ├── common.py              #   EmailLog, ImportLog, ActivityLog, ActivityAction, log_activity()
 │   └── administration.py      #   SvjInfo, SvjAddress, BoardMember, CodeListItem, EmailTemplate
 ├── routers/                   # HTTP endpointy
 │   ├── dashboard.py           #   GET /
@@ -509,10 +509,11 @@ wheels/                        # Offline Python balíčky (gitignored)
 
 ## API endpointy
 
-### Dashboard (`/prehled`)
+### Dashboard (`/`)
 
 | Metoda | Cesta | Popis |
 |--------|-------|-------|
+| GET | `/` | Hlavní dashboard (statistiky, poslední aktivita) |
 | GET | `/prehled/rozdil-podilu` | Breakdown rozdílu podílů |
 
 ### Vlastníci (`/vlastnici`)

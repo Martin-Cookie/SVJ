@@ -57,7 +57,7 @@
 > **Při JAKÉKOLIV úpravě stránky s tabulkou (nová stránka, redesign, přidání sloupce) VŽDY zkontrolovat a doplnit VŠECHNY body:**
 
 1. **Řaditelné sloupce** — KAŽDÝ datový sloupec musí být řaditelný kliknutím na hlavičku (šipka nahoru/dolů). Implementace přes `_cols` loop nebo `sort_th` macro, `SORT_COLUMNS` dict v routeru
-2. **Hledání** — HTMX search bar s `hx-trigger="keyup changed delay:300ms"`, prohledává všechna relevantní textová pole, diacritics-insensitive přes `_strip_diacritics()`
+2. **Hledání** — HTMX search bar s `hx-trigger="keyup changed delay:300ms"`, prohledává všechna relevantní textová pole, diacritics-insensitive přes `strip_diacritics()`
 3. **Klikací entity** — každý odkaz na entitu (vlastník, jednotka, lístek) musí být `<a href>`, nikdy plain text pokud existuje detail stránka. Vyžaduje lookup v routeru (např. `owner_by_email` dict)
 4. **Eager loading** — klikací entity vyžadují `joinedload()` v routeru, jinak lazy loading selže nebo způsobí N+1
 5. **HTMX partial** — search aktualizuje jen `<tbody>` přes partial šablonu, zbytek stránky zůstane
@@ -260,14 +260,14 @@
 ## Logování aktivit — `ActivityLog`
 
 - Model `ActivityLog` + enum `ActivityAction` v `app/models/common.py`
-- Helper `log_activity(db, action, entity_type, module, entity_id=None)` — zápis do DB
-- Používá se v routerech: `dashboard.py`, `owners.py`, `tax.py`, `administration.py`, `voting.py`
+- Helper `log_activity(db, action, entity_type, module, entity_id=None, entity_name=None, description=None)` — zápis do DB
+- Používá se v routerech: `owners.py`, `tax.py`, `administration.py`, `voting.py`
 - Dashboard zobrazuje posledních N záznamů jako „Poslední aktivita"
 
 ## Background processing (threading)
 
-- Dlouhotrvající operace (import kontaktů, odesílání emailů) běží v `threading.Thread`
-- Progress tracking přes module-level dict: `_sending_progress[session_id] = {...}`
+- Dlouhotrvající operace (zpracování PDF, import kontaktů, odesílání emailů) běží v `threading.Thread`
+- Progress tracking přes module-level dict: `_processing_progress[session_id]` (PDF zpracování), `_sending_progress[session_id]` (odesílání emailů)
 - HTMX polling endpointy vracejí partial s aktuálním stavem
 - `tax.py` používá `threading.Lock()` pro thread-safe přístup k progress dict
 - Frontend polluje přes `hx-trigger="every 2s"` na progress endpoint
