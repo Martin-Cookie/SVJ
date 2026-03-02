@@ -40,7 +40,7 @@
                     </div>
                     <p class="text-xs text-gray-500 mt-0.5">{{ cat.description }}</p>
                     {% if key == 'owners' %}
-                    <p class="text-xs text-amber-600 hidden mt-1" id="purge-cascade-warn">Automaticky smaže i sync data a soubory</p>
+                    <p class="text-xs text-amber-600 hidden mt-1" id="purge-cascade-warn">Automaticky smaže i hlasování, daňové podklady, sync data a soubory</p>
                     {% endif %}
                     {% if key == 'backups' and purge_counts['backups'] > 0 %}
                     <p class="text-xs text-gray-400 mt-0.5">{{ purge_counts['backups'] }} ZIP {% if purge_counts['backups'] == 1 %}soubor{% elif purge_counts['backups'] < 5 %}soubory{% else %}souborů{% endif %}</p>
@@ -100,16 +100,18 @@
 </div>
 
 <script>
+var _ownersDeps = ['votings', 'tax'];
 function purgeToggleAll(checked) {
-    document.querySelectorAll('.purge-cb').forEach(function(cb) { cb.checked = checked; });
+    document.querySelectorAll('.purge-cb').forEach(function(cb) { cb.checked = checked; cb.disabled = false; });
     document.querySelectorAll('.purge-group-cb').forEach(function(cb) { cb.checked = checked; });
+    purgeHandleOwnersDeps();
     purgeUpdateButton();
 }
 function purgeToggleGroup(groupCb) {
     var keys = groupCb.dataset.groupKeys.split(',');
     keys.forEach(function(key) {
         var cb = document.querySelector('.purge-cb[data-key="' + key + '"]');
-        if (cb) cb.checked = groupCb.checked;
+        if (cb && !cb.disabled) cb.checked = groupCb.checked;
     });
     purgeUpdateSelectAll();
 }
@@ -124,10 +126,25 @@ function purgeUpdateGroupCb(cb) {
     var groupCb = document.querySelector('.purge-group-cb[data-group-keys="' + groupKeys + '"]');
     if (groupCb) groupCb.checked = allChecked;
 }
+function purgeHandleOwnersDeps() {
+    var ownersCb = document.querySelector('.purge-cb[data-key="owners"]');
+    if (!ownersCb) return;
+    _ownersDeps.forEach(function(key) {
+        var cb = document.querySelector('.purge-cb[data-key="' + key + '"]');
+        if (!cb) return;
+        if (ownersCb.checked) {
+            cb.checked = true;
+            cb.disabled = true;
+        } else {
+            cb.disabled = false;
+        }
+    });
+}
 function purgeUpdateSelectAll() {
     var cbs = document.querySelectorAll('.purge-cb');
     var all = document.getElementById('purge-select-all');
     if (all) all.checked = Array.from(cbs).every(function(cb) { return cb.checked; });
+    purgeHandleOwnersDeps();
     purgeUpdateButton();
     var ownersCb = document.querySelector('.purge-cb[data-key="owners"]');
     var warn = document.getElementById('purge-cascade-warn');
@@ -143,6 +160,8 @@ function purgeValidate() {
     var inp = document.getElementById('purge-confirm-input');
     if (inp.value.trim() !== 'DELETE') { alert('Pro potvrzení zadejte slovo DELETE.'); inp.focus(); return false; }
     if (!Array.from(document.querySelectorAll('.purge-cb')).some(function(cb) { return cb.checked; })) { alert('Vyberte alespoň jednu kategorii.'); return false; }
+    // Re-enable disabled checkboxes so their values are submitted
+    document.querySelectorAll('.purge-cb:disabled').forEach(function(cb) { cb.disabled = false; });
     return true;
 }
 (function() {
