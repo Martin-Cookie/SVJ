@@ -1,7 +1,7 @@
 {% for session in sessions %}
 <tr id="session-{{ session.id }}" class="hover:bg-gray-50">
     <td class="px-3 py-1.5">
-        <a href="/kontrola-podilu/{{ session.id }}?back={{ ((list_url or '/kontrola-podilu') ~ '#session-' ~ session.id)|urlencode }}" class="text-blue-600 hover:text-blue-800 hover:underline font-medium truncate block" style="max-width:160px" title="{{ session.filename }}">{{ session.filename }}</a>
+        <a href="/kontrola-podilu/{{ session.id }}?back={{ ((list_url or '/synchronizace') ~ '#session-' ~ session.id)|urlencode }}" class="text-blue-600 hover:text-blue-800 hover:underline font-medium truncate block" style="max-width:160px" title="{{ session.filename }}">{{ session.filename }}</a>
     </td>
     <td class="px-3 py-1.5 text-gray-500 text-xs whitespace-nowrap">{{ session.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
     <td class="px-3 py-1.5 text-green-600 text-right whitespace-nowrap">{{ session.total_matches }}</td>

@@ -13,8 +13,8 @@ from sqlalchemy.orm import Session, joinedload
 from app.config import settings
 from app.database import get_db
 from app.models import (
-    ImportLog, Owner, OwnerUnit, SyncRecord, SyncResolution, SyncSession,
-    SyncStatus, Unit,
+    ImportLog, Owner, OwnerUnit, ShareCheckSession, SyncRecord, SyncResolution,
+    SyncSession, SyncStatus, Unit,
 )
 from app.services.csv_comparator import compare_owners, parse_sousede_csv
 from app.services.owner_exchange import execute_exchange, prepare_exchange_preview
@@ -30,50 +30,95 @@ setup_jinja_filters(templates)
 @router.get("/")
 async def sync_list(
     request: Request,
+    sync_q: str = Query("", alias="sync_q"),
+    sync_sort: str = Query("date", alias="sync_sort"),
+    sync_order: str = Query("desc", alias="sync_order"),
+    sc_q: str = Query("", alias="sc_q"),
+    sc_sort: str = Query("date", alias="sc_sort"),
+    sc_order: str = Query("desc", alias="sc_order"),
+    # Legacy params (HTMX search uses these)
     q: str = Query(""),
-    sort: str = Query("date"),
-    order: str = Query("desc"),
+    sort: str = Query(""),
+    order: str = Query(""),
     back: str = Query("", alias="back"),
     db: Session = Depends(get_db),
 ):
-    sessions = db.query(SyncSession).order_by(SyncSession.created_at.desc()).all()
+    # Legacy fallback: if old q/sort/order params are used (HTMX partial)
+    _sync_q = sync_q or q
+    _sync_sort = sync_sort if sync_sort != "date" or not sort else sort
+    _sync_order = sync_order if sync_order != "desc" or not order else order
 
-    # Search filtering
-    if q:
-        q_lower = q.lower()
-        q_ascii = strip_diacritics(q)
-        sessions = [
-            s for s in sessions
+    # --- Sync sessions ---
+    sync_sessions = db.query(SyncSession).order_by(SyncSession.created_at.desc()).all()
+    if _sync_q:
+        q_lower = _sync_q.lower()
+        q_ascii = strip_diacritics(_sync_q)
+        sync_sessions = [
+            s for s in sync_sessions
             if q_lower in (s.csv_filename or "").lower()
             or q_ascii in strip_diacritics(s.csv_filename or "")
             or q_lower in s.created_at.strftime("%d.%m.%Y %H:%M")
         ]
 
-    # Sorting
-    SORT_KEYS = {
+    SYNC_SORT_KEYS = {
         "filename": lambda s: (s.csv_filename or "").lower(),
         "date": lambda s: s.created_at,
         "matches": lambda s: s.total_matches or 0,
         "differences": lambda s: (s.total_differences or 0) + (s.total_missing or 0),
     }
-    sort_fn = SORT_KEYS.get(sort, SORT_KEYS["date"])
-    sessions.sort(key=sort_fn, reverse=(order == "desc"))
+    sort_fn = SYNC_SORT_KEYS.get(_sync_sort, SYNC_SORT_KEYS["date"])
+    sync_sessions.sort(key=sort_fn, reverse=(_sync_order == "desc"))
 
     list_url = build_list_url(request)
 
+    # HTMX partial for sync search
+    if is_htmx_partial(request):
+        ctx = {
+            "request": request,
+            "sessions": sync_sessions,
+            "list_url": list_url,
+            "q": _sync_q,
+        }
+        return templates.TemplateResponse("partials/sync_list_body.html", ctx)
+
+    # --- Share check sessions (for full page only) ---
+    sc_sessions = db.query(ShareCheckSession).order_by(ShareCheckSession.created_at.desc()).all()
+    if sc_q:
+        q_lower = sc_q.lower()
+        q_ascii = strip_diacritics(sc_q)
+        sc_sessions = [
+            s for s in sc_sessions
+            if q_lower in (s.filename or "").lower()
+            or q_ascii in strip_diacritics(s.filename or "")
+            or q_lower in s.created_at.strftime("%d.%m.%Y %H:%M")
+        ]
+
+    SC_SORT_KEYS = {
+        "filename": lambda s: (s.filename or "").lower(),
+        "date": lambda s: s.created_at,
+        "matches": lambda s: s.total_matches or 0,
+        "differences": lambda s: (s.total_differences or 0) + (s.total_missing_db or 0) + (s.total_missing_file or 0),
+    }
+    sc_sort_fn = SC_SORT_KEYS.get(sc_sort, SC_SORT_KEYS["date"])
+    sc_sessions.sort(key=sc_sort_fn, reverse=(sc_order == "desc"))
+
     ctx = {
         "request": request,
-        "active_nav": "sync",
-        "sessions": sessions,
+        "active_nav": "kontroly",
+        "sync_sessions": sync_sessions,
+        "sc_sessions": sc_sessions,
         "back_url": back,
         "list_url": list_url,
-        "q": q,
-        "sort": sort,
-        "order": order,
+        "sync_q": _sync_q,
+        "sync_sort": _sync_sort,
+        "sync_order": _sync_order,
+        "sc_q": sc_q,
+        "sc_sort": sc_sort,
+        "sc_order": sc_order,
+        # Legacy: partials use "sessions" and "q"
+        "sessions": sync_sessions,
+        "q": _sync_q,
     }
-
-    if is_htmx_partial(request):
-        return templates.TemplateResponse("partials/sync_list_body.html", ctx)
 
     return templates.TemplateResponse("sync/index.html", ctx)
 
@@ -335,11 +380,11 @@ async def sync_detail(
         unit_map[short] = unit_id
 
     back_url = back or "/synchronizace"
-    back_label = "Zpět na přehled" if back == "/" else "Zpět"
+    back_label = "Zpět na přehled" if back == "/" else "Zpět na kontroly" if "/synchronizace" in (back or "") else "Zpět"
 
     return templates.TemplateResponse("sync/compare.html", {
         "request": request,
-        "active_nav": "sync",
+        "active_nav": "kontroly",
         "session": session,
         "records": records,
         "filtr": filtr,
@@ -912,7 +957,7 @@ async def contacts_preview(
 
     return templates.TemplateResponse("sync/contacts_preview.html", {
         "request": request,
-        "active_nav": "sync",
+        "active_nav": "kontroly",
         "session": session,
         "preview": preview,
         "total_email": sum(1 for p in preview if p["will_email"]),
@@ -995,7 +1040,7 @@ async def exchange_preview_single(
 
     return templates.TemplateResponse("sync/exchange_preview.html", {
         "request": request,
-        "active_nav": "sync",
+        "active_nav": "kontroly",
         "session": session,
         "previews": previews,
         "batch": False,
@@ -1064,7 +1109,7 @@ async def exchange_preview_batch(
 
     return templates.TemplateResponse("sync/exchange_preview.html", {
         "request": request,
-        "active_nav": "sync",
+        "active_nav": "kontroly",
         "session": session,
         "previews": previews,
         "batch": True,

@@ -35,52 +35,46 @@ SORT_COLUMNS = {
 @router.get("/")
 async def share_check_list(
     request: Request,
-    q: str = Query(""),
-    sort: str = Query("date"),
-    order: str = Query("desc"),
+    q: str = Query("", alias="sc_q"),
+    sort: str = Query("date", alias="sc_sort"),
+    order: str = Query("desc", alias="sc_order"),
     back: str = Query("", alias="back"),
     db: Session = Depends(get_db),
 ):
-    sessions = db.query(ShareCheckSession).order_by(ShareCheckSession.created_at.desc()).all()
-
-    # Search filtering
-    if q:
-        q_lower = q.lower()
-        q_ascii = strip_diacritics(q)
-        sessions = [
-            s for s in sessions
-            if q_lower in (s.filename or "").lower()
-            or q_ascii in strip_diacritics(s.filename or "")
-            or q_lower in s.created_at.strftime("%d.%m.%Y %H:%M")
-        ]
-
-    # Sorting
-    SORT_KEYS = {
-        "filename": lambda s: (s.filename or "").lower(),
-        "date": lambda s: s.created_at,
-        "matches": lambda s: s.total_matches or 0,
-        "differences": lambda s: (s.total_differences or 0) + (s.total_missing_db or 0) + (s.total_missing_file or 0),
-    }
-    sort_fn = SORT_KEYS.get(sort, SORT_KEYS["date"])
-    sessions.sort(key=sort_fn, reverse=(order == "desc"))
-
-    list_url = build_list_url(request)
-
-    ctx = {
-        "request": request,
-        "active_nav": "share_check",
-        "sessions": sessions,
-        "back_url": back,
-        "list_url": list_url,
-        "q": q,
-        "sort": sort,
-        "order": order,
-    }
-
+    # HTMX partial search — return just tbody rows
     if is_htmx_partial(request):
+        sessions = db.query(ShareCheckSession).order_by(ShareCheckSession.created_at.desc()).all()
+
+        if q:
+            q_lower = q.lower()
+            q_ascii = strip_diacritics(q)
+            sessions = [
+                s for s in sessions
+                if q_lower in (s.filename or "").lower()
+                or q_ascii in strip_diacritics(s.filename or "")
+                or q_lower in s.created_at.strftime("%d.%m.%Y %H:%M")
+            ]
+
+        SORT_KEYS = {
+            "filename": lambda s: (s.filename or "").lower(),
+            "date": lambda s: s.created_at,
+            "matches": lambda s: s.total_matches or 0,
+            "differences": lambda s: (s.total_differences or 0) + (s.total_missing_db or 0) + (s.total_missing_file or 0),
+        }
+        sort_fn = SORT_KEYS.get(sort, SORT_KEYS["date"])
+        sessions.sort(key=sort_fn, reverse=(order == "desc"))
+
+        list_url = build_list_url(request)
+        ctx = {
+            "request": request,
+            "sessions": sessions,
+            "list_url": list_url,
+            "q": q,
+        }
         return templates.TemplateResponse("partials/share_check_list_body.html", ctx)
 
-    return templates.TemplateResponse("share_check/index.html", ctx)
+    # Full page → redirect to combined page
+    return RedirectResponse("/synchronizace#kontrola-podilu", status_code=302)
 
 
 @router.post("/nova")
@@ -90,11 +84,11 @@ async def share_check_upload(
     db: Session = Depends(get_db),
 ):
     if not file.filename:
-        return RedirectResponse("/kontrola-podilu", status_code=302)
+        return RedirectResponse("/synchronizace#kontrola-podilu", status_code=302)
 
     err = await validate_upload(file, max_size_mb=50, allowed_extensions=[".csv", ".xlsx", ".xls"])
     if err:
-        return RedirectResponse("/kontrola-podilu?chyba=upload", status_code=302)
+        return RedirectResponse("/synchronizace?chyba=upload#kontrola-podilu", status_code=302)
 
     # Save file
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -117,15 +111,15 @@ async def share_check_mapping(
     db: Session = Depends(get_db),
 ):
     if not Path(file_path).is_file():
-        return RedirectResponse("/kontrola-podilu", status_code=302)
+        return RedirectResponse("/synchronizace#kontrola-podilu", status_code=302)
 
     try:
         headers = get_file_headers(file_path)
     except Exception:
-        return RedirectResponse("/kontrola-podilu", status_code=302)
+        return RedirectResponse("/synchronizace#kontrola-podilu", status_code=302)
 
     if not headers:
-        return RedirectResponse("/kontrola-podilu", status_code=302)
+        return RedirectResponse("/synchronizace#kontrola-podilu", status_code=302)
 
     col_unit, col_share, from_history = suggest_mapping(headers, db)
 
@@ -136,7 +130,7 @@ async def share_check_mapping(
 
     return templates.TemplateResponse("share_check/mapping.html", {
         "request": request,
-        "active_nav": "share_check",
+        "active_nav": "kontroly",
         "headers": headers,
         "col_unit": col_unit,
         "col_share": col_share,
@@ -158,12 +152,12 @@ async def share_check_confirm_mapping(
 ):
     # Validate file exists
     if not Path(file_path).is_file():
-        return RedirectResponse("/kontrola-podilu", status_code=302)
+        return RedirectResponse("/synchronizace#kontrola-podilu", status_code=302)
 
     # Parse file
     file_records = parse_file(file_path, col_unit, col_share)
     if not file_records:
-        return RedirectResponse("/kontrola-podilu", status_code=302)
+        return RedirectResponse("/synchronizace#kontrola-podilu", status_code=302)
 
     # Compare with DB
     comparison = compare_shares(file_records, db)
@@ -231,7 +225,7 @@ async def share_check_detail(
 ):
     session = db.query(ShareCheckSession).get(session_id)
     if not session:
-        return RedirectResponse("/kontrola-podilu", status_code=302)
+        return RedirectResponse("/synchronizace#kontrola-podilu", status_code=302)
 
     base = db.query(ShareCheckRecord).filter_by(session_id=session_id)
 
@@ -323,12 +317,12 @@ async def share_check_detail(
     for oid, unit_num, oname in owner_units:
         owner_map.setdefault(unit_num, []).append((oid, oname))
 
-    back_url = back or "/kontrola-podilu"
-    back_label = "Zpět na přehled" if back == "/" else "Zpět"
+    back_url = back or "/synchronizace#kontrola-podilu"
+    back_label = "Zpět na přehled" if back == "/" else "Zpět na kontroly" if "/synchronizace" in (back or "") else "Zpět"
 
     return templates.TemplateResponse("share_check/compare.html", {
         "request": request,
-        "active_nav": "share_check",
+        "active_nav": "kontroly",
         "session": session,
         "records": records,
         "filtr": filtr,
@@ -368,7 +362,7 @@ async def share_check_export(
 
     session = db.query(ShareCheckSession).get(session_id)
     if not session:
-        return RedirectResponse("/kontrola-podilu", status_code=302)
+        return RedirectResponse("/synchronizace#kontrola-podilu", status_code=302)
 
     query = db.query(ShareCheckRecord).filter_by(session_id=session_id)
     if filtr == "match":
@@ -474,7 +468,7 @@ async def share_check_delete(session_id: int, db: Session = Depends(get_db)):
             pass
         db.delete(session)
         db.commit()
-    return RedirectResponse("/kontrola-podilu", status_code=302)
+    return RedirectResponse("/synchronizace#kontrola-podilu", status_code=302)
 
 
 @router.post("/{session_id}/aktualizovat")
@@ -488,7 +482,7 @@ async def share_check_apply_updates(
 
     session = db.query(ShareCheckSession).get(session_id)
     if not session:
-        return RedirectResponse("/kontrola-podilu", status_code=302)
+        return RedirectResponse("/synchronizace#kontrola-podilu", status_code=302)
 
     # Collect record IDs from checkboxes: update__{record_id}
     record_ids = []
