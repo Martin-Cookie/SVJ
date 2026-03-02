@@ -202,7 +202,11 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
   - Stavové badge: „Rozpracováno" (žlutá), „Dokončeno" (zelená), „Odesílá se" (modrá), „Odesláno" (modrá), „Pozastaveno" (žlutá)
 - Smazání celé relace (session + dokumenty + distribuce + soubory)
 
-### E. Kontrola vlastníků (`/synchronizace`)
+### E. Kontroly (`/synchronizace`)
+
+Sloučená stránka se dvěma sekcemi — Kontrola vlastníků (nahoře) a Kontrola podílů (dole). Každá sekce má upload formulář a historii kontrol s nezávislým vyhledáváním.
+
+#### Kontrola vlastníků
 
 - Nahrání CSV exportu (sousede.cz nebo interní export aplikace) — stránka s formulářem a historií kontrol (search + sort s HTMX partial)
 - Automatická detekce formátu CSV: sousede.cz (Vlastníci jednotky) i interní export (Příjmení + Jméno)
@@ -308,7 +312,7 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
 - Všechny sekce zabaleny do skládacích `<details>` bloků
 - Modely: `SvjInfo`, `SvjAddress`, `BoardMember`, `CodeListItem`, `EmailTemplate`
 
-### G. Kontrola podílu SČD (`/kontrola-podilu`)
+#### Kontrola podílů
 
 - Nahrání CSV, XLSX nebo XLS souboru s podíly SČD
 - Automatická detekce sloupců (case-insensitive kandidáti) s fallbackem na uloženou historii mapování
@@ -325,8 +329,9 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
 - Třídění kliknutím na hlavičky sloupců
 - Selektivní aktualizace: checkboxy u rozdílů → batch update Unit.podil_scd
 - Historie kontrol s vyhledáváním a řazením (soubor, datum, shoda, rozdíly) s HTMX partial
+- Stará URL `/kontrola-podilu` automaticky přesměruje na `/synchronizace#kontrola-podilu`
 
-### H. Nastavení (`/nastaveni`)
+### G. Nastavení (`/nastaveni`)
 
 - SMTP konfigurace — read-only přehled (4-sloupcový grid) + inline editace (HTMX)
 - Historie odeslaných emailů (posledních 100):
@@ -360,8 +365,8 @@ app/
 │   ├── units.py               #   /jednotky
 │   ├── voting.py              #   /hlasovani
 │   ├── tax.py                 #   /dane
-│   ├── sync.py                #   /synchronizace
-│   ├── share_check.py         #   /kontrola-podilu
+│   ├── sync.py                #   /synchronizace (sloučená stránka Kontroly)
+│   ├── share_check.py         #   /kontrola-podilu (detail + redirect na /synchronizace)
 │   ├── administration.py      #   /sprava
 │   └── settings_page.py       #   /nastaveni
 ├── services/                  # Business logika
@@ -614,11 +619,11 @@ wheels/                        # Offline Python balíčky (gitignored)
 | POST | `/dane/{id}/rozeslat/email/{dist_id}` | Individuální odeslání |
 | GET | `/dane/{id}/exportovat` | Export do Excelu |
 
-### Kontrola vlastníků (`/synchronizace`)
+### Kontroly (`/synchronizace` + `/kontrola-podilu`)
 
 | Metoda | Cesta | Popis |
 |--------|-------|-------|
-| GET | `/synchronizace` | Nahrání CSV + historie kontrol (search, sort) |
+| GET | `/synchronizace` | Sloučená stránka: kontrola vlastníků + kontrola podílů (search, sort) |
 | GET | `/synchronizace/nova` | Redirect na seznam |
 | POST | `/synchronizace/nova` | Nahrání a porovnání CSV |
 | POST | `/synchronizace/{id}/smazat` | Smazání kontroly (záznamy + CSV) |
@@ -635,11 +640,7 @@ wheels/                        # Offline Python balíčky (gitignored)
 | POST | `/synchronizace/{id}/upravit/{rec_id}` | Ruční úprava jména |
 | GET | `/synchronizace/{id}/nahled-kontaktu` | Náhled přenosu kontaktů |
 
-### Kontrola podílu SČD (`/kontrola-podilu`)
-
-| Metoda | Cesta | Popis |
-|--------|-------|-------|
-| GET | `/kontrola-podilu` | Historie kontrol + upload formulář (search, sort) |
+| GET | `/kontrola-podilu` | Redirect → `/synchronizace#kontrola-podilu` |
 | POST | `/kontrola-podilu/nova` | Nahrání souboru → redirect na mapování |
 | GET | `/kontrola-podilu/mapovani` | Mapování sloupců (auto-detekce + preview) |
 | POST | `/kontrola-podilu/potvrdit-mapovani` | Porovnání → uložení → redirect na detail |
