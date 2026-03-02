@@ -83,27 +83,40 @@
         <!-- Stats + Toolbar + Search (unified container) -->
         {% set _back = "&back=" ~ (back_url|default('')|urlencode) if back_url else "" %}
         {% set _qso = "&q=" ~ (q|default('')|urlencode) ~ "&sort=" ~ sort ~ "&order=" ~ order %}
+        {% set _htmx = filtr != 'missing' %}
         <div class="bg-white rounded-lg shadow mb-2">
             <div class="flex gap-2 p-3 pb-2">
                 <a href="/dane/{{ session.id }}?filtr={{ _qso }}{{ _back }}" style="flex:1"
+                   {% if _htmx %}hx-get="/dane/{{ session.id }}?filtr={{ _qso }}{{ _back }}" hx-target="#tax-tbody" hx-push-url="true"
+                   hx-on::before-request="document.querySelector('input[name=filtr]').value=''; updateBubbleRing('')"{% endif %}
+                   data-filtr="" data-ring="gray"
                    class="block rounded p-2 text-center border border-gray-200 hover:bg-gray-100 transition-colors
                           {% if not filtr %}ring-2 ring-gray-400{% endif %}">
                     <p class="text-lg font-bold text-gray-800">{{ stat_total }}</p>
                     <p class="text-xs text-gray-500 mt-1">Celkem PDF</p>
                 </a>
                 <a href="/dane/{{ session.id }}?filtr=confirmed{{ _qso }}{{ _back }}" style="flex:1"
+                   {% if _htmx %}hx-get="/dane/{{ session.id }}?filtr=confirmed{{ _qso }}{{ _back }}" hx-target="#tax-tbody" hx-push-url="true"
+                   hx-on::before-request="document.querySelector('input[name=filtr]').value='confirmed'; updateBubbleRing('confirmed')"{% endif %}
+                   data-filtr="confirmed" data-ring="green"
                    class="block bg-green-50 rounded p-2 text-center border border-green-200 hover:bg-green-100 transition-colors
                           {% if filtr == 'confirmed' %}ring-2 ring-green-400{% endif %}">
                     <p class="text-lg font-bold text-green-600">{{ stat_confirmed }}</p>
                     <p class="text-xs text-gray-500 mt-1">Potvrzeno</p>
                 </a>
                 <a href="/dane/{{ session.id }}?filtr=auto{{ _qso }}{{ _back }}" style="flex:1"
+                   {% if _htmx %}hx-get="/dane/{{ session.id }}?filtr=auto{{ _qso }}{{ _back }}" hx-target="#tax-tbody" hx-push-url="true"
+                   hx-on::before-request="document.querySelector('input[name=filtr]').value='auto'; updateBubbleRing('auto')"{% endif %}
+                   data-filtr="auto" data-ring="yellow"
                    class="block bg-yellow-50 rounded p-2 text-center border border-yellow-200 hover:bg-yellow-100 transition-colors
                           {% if filtr == 'auto' %}ring-2 ring-yellow-400{% endif %}">
                     <p class="text-lg font-bold text-yellow-600">{{ stat_to_confirm }}</p>
                     <p class="text-xs text-gray-500 mt-1">K potvrzení</p>
                 </a>
                 <a href="/dane/{{ session.id }}?filtr=unmatched{{ _qso }}{{ _back }}" style="flex:1"
+                   {% if _htmx %}hx-get="/dane/{{ session.id }}?filtr=unmatched{{ _qso }}{{ _back }}" hx-target="#tax-tbody" hx-push-url="true"
+                   hx-on::before-request="document.querySelector('input[name=filtr]').value='unmatched'; updateBubbleRing('unmatched')"{% endif %}
+                   data-filtr="unmatched" data-ring="red"
                    class="block bg-red-50 rounded p-2 text-center border border-red-200 hover:bg-red-100 transition-colors
                           {% if filtr == 'unmatched' %}ring-2 ring-red-400{% endif %}">
                     <p class="text-lg font-bold text-red-600">{{ stat_unmatched }}</p>
@@ -111,6 +124,7 @@
                 </a>
                 {% if stat_missing > 0 %}
                 <a href="/dane/{{ session.id }}?filtr=missing{{ _qso }}{{ _back }}" style="flex:1"
+                   data-filtr="missing" data-ring="orange"
                    class="block bg-orange-50 rounded p-2 text-center border border-orange-200 hover:bg-orange-100 transition-colors
                           {% if filtr == 'missing' %}ring-2 ring-orange-400{% endif %}">
                     <p class="text-lg font-bold text-orange-600">{{ stat_missing }}</p>
@@ -202,6 +216,9 @@
         <th class="px-3 py-3 text-left text-xs font-medium {% if sort == col %}text-blue-600{% else %}text-gray-500{% endif %} uppercase">
             {% set _all = "q=" ~ (q|default('')|urlencode) ~ "&filtr=" ~ filtr ~ _back %}
             <a href="/dane/{{ session.id }}?sort={{ col }}&order={{ next_order }}&{{ _all }}"
+               hx-get="/dane/{{ session.id }}?sort={{ col }}&order={{ next_order }}&{{ _all }}"
+               hx-target="#tax-tbody" hx-push-url="true"
+               hx-on::before-request="document.querySelector('input[name=sort]').value='{{ col }}';document.querySelector('input[name=order]').value='{{ next_order }}'"
                class="inline-flex items-center gap-0.5 cursor-pointer hover:text-blue-600 select-none">
                 {{ label }}
                 {% if sort == col %}
@@ -300,6 +317,18 @@ function toggleExternalForm(docId) {
     if (form) form.classList.toggle('hidden');
 }
 
+function updateBubbleRing(filtr) {
+    document.querySelectorAll('[data-filtr]').forEach(function(el) {
+        el.classList.remove('ring-2');
+        ['gray','green','yellow','red','orange'].forEach(function(c) {
+            el.classList.remove('ring-' + c + '-400');
+        });
+        if (el.dataset.filtr === filtr) {
+            el.classList.add('ring-2', 'ring-' + el.dataset.ring + '-400');
+        }
+    });
+}
+
 // Re-attach checkbox listeners after HTMX swap
 document.body.addEventListener('htmx:afterSwap', function() {
     updateSelectAll();
@@ -321,6 +350,12 @@ function hideTitleEdit() {
     var edit = document.getElementById('session-title-edit');
     edit.classList.add('hidden');
     edit.classList.remove('flex');
+}
+
+// Scroll to row when returning via back URL with hash
+if (location.hash) {
+    var el = document.querySelector(location.hash);
+    if (el) el.scrollIntoView({block: 'center'});
 }
 </script>
 {% endblock %}

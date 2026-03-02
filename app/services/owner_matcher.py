@@ -69,17 +69,53 @@ def name_parts_match(name1: str, name2: str) -> float:
     return max(jaccard, overlap * 0.8)
 
 
+def _get_stemmed_parts(name: str) -> tuple[set, set]:
+    """Return (all_stemmed_parts, parts_where_suffix_was_removed).
+
+    The second set identifies likely surnames (words that had a Czech
+    gender suffix stripped, e.g. -ová, -ková).
+    """
+    result = name.strip()
+    for pattern in TITLE_PATTERNS:
+        result = re.sub(pattern, " ", result, flags=re.IGNORECASE)
+    result = re.sub(r"^SJM?\s+", "", result, flags=re.IGNORECASE)
+    result = re.sub(r"\s+SJM?\s*$", "", result, flags=re.IGNORECASE)
+    result = re.sub(r"\([^)]*\)", "", result)
+    result = " ".join(result.split()).strip(" ,")
+    result = result.lower()
+    result = unidecode(result)
+
+    connectors = {"a", "and", "und"}
+    all_parts = set()
+    surname_parts = set()
+    for w in result.split():
+        if w in connectors:
+            continue
+        stemmed = _stem_czech_surname(w)
+        all_parts.add(stemmed)
+        if stemmed != w:
+            surname_parts.add(stemmed)
+    return all_parts, surname_parts
+
+
 def match_name(
     candidate: str,
     known_owners: list[dict],
     threshold: float = 0.70,
+    require_stem_overlap: bool = False,
 ) -> list[dict]:
     """
     Find best matches for a candidate name among known owners.
     known_owners: [{"id": int, "name": str, "name_normalized": str}, ...]
+    require_stem_overlap: if True, at least one stemmed surname part must
+        be shared (prevents false positives like Bartíková→Birčáková where
+        only the first name "Barbora" matches).
     Returns matches sorted by confidence descending.
     """
     candidate_norm = normalize_for_matching(candidate)
+    cand_parts, cand_surnames = (
+        _get_stemmed_parts(candidate) if require_stem_overlap else (None, None)
+    )
     matches = []
 
     for owner in known_owners:
@@ -91,6 +127,17 @@ def match_name(
         # No shared stemmed parts and low sequence similarity → skip
         if parts_ratio == 0 and seq_ratio < 0.75:
             continue
+
+        # Surname stem check: if either name has a detected surname
+        # (Czech suffix removed), require at least one surname stem to match
+        if require_stem_overlap:
+            own_parts, own_surnames = _get_stemmed_parts(owner["name"])
+            surname_stems = cand_surnames | own_surnames
+            if surname_stems:
+                shared = cand_parts & own_parts
+                if not (shared & surname_stems):
+                    continue  # only first names match, surnames differ
+
         # Use the better of the two
         confidence = max(seq_ratio, parts_ratio)
 

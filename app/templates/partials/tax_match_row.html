@@ -4,7 +4,7 @@
 {%- set all_confirmed = doc.distributions and status_values|reject('in', ['confirmed', 'manual'])|list|length == 0 -%}
 {%- set has_auto = 'auto_matched' in status_values -%}
 {%- set _conf_values = doc.distributions|selectattr('match_confidence')|map(attribute='match_confidence')|list -%}
-{%- set _total = doc.distributions|list|length -%}
+{%- set _total = _conf_values|length -%}
 {%- set avg_confidence = (_conf_values|sum / _total) if _total > 0 and _conf_values else None -%}
 <tr id="tax-row-{{ doc.id }}"
     class="{% if all_confirmed %}bg-green-50{% elif has_unmatched %}bg-red-50{% elif has_auto %}bg-yellow-50{% endif %}">
@@ -30,7 +30,7 @@
     {%- set _unit = unit_by_number.get(doc.unit_number) if unit_by_number is defined and doc.unit_number else None -%}
     <td class="px-3 py-3 text-sm" data-v="{{ doc.unit_number or '' }}">
         {% if _unit %}
-        <a href="/jednotky/{{ _unit.id }}?back={{ list_url|urlencode }}" class="text-blue-600 hover:text-blue-800 hover:underline">{{ doc.unit_number }}{{ doc.unit_letter }}</a>
+        <a href="/jednotky/{{ _unit.id }}?back={{ (list_url ~ '#tax-row-' ~ doc.id)|urlencode }}" class="text-blue-600 hover:text-blue-800 hover:underline">{{ doc.unit_number }}{{ doc.unit_letter }}</a>
         {% else %}
         <span class="text-gray-500">{{ doc.unit_number }}{{ doc.unit_letter }}</span>
         {% endif %}
@@ -51,7 +51,7 @@
                 {% elif dist.match_status.value == 'auto_matched' %}bg-yellow-100 text-yellow-800
                 {% endif %}">
                 {% if dist.owner %}
-                <a href="/vlastnici/{{ dist.owner.id }}?back={{ list_url|urlencode }}" class="hover:underline">{{ dist.owner.display_name }}</a>
+                <a href="/vlastnici/{{ dist.owner.id }}?back={{ (list_url ~ '#tax-row-' ~ doc.id)|urlencode }}" class="hover:underline">{{ dist.owner.display_name }}</a>
                 {% elif dist.ad_hoc_name %}
                 {{ dist.ad_hoc_name }} <span class="text-gray-400">(externí)</span>
                 {% endif %}

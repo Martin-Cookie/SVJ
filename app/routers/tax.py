@@ -12,7 +12,7 @@ from typing import List
 from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import cast, Integer
+from sqlalchemy import cast, Integer, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.config import settings
@@ -570,8 +570,25 @@ def _process_tax_files(session_id: int, file_paths: list, tax_year):
             for o in owners
         ]
 
-        # Build unit->owner mapping (only current)
-        owner_units = db.query(OwnerUnit).filter(OwnerUnit.valid_to.is_(None)).all()
+        # Build unit->owner mapping — include owners overlapping with tax year
+        if tax_year:
+            year_start = date(tax_year, 1, 1)
+            year_end = date(tax_year, 12, 31)
+            owner_units = (
+                db.query(OwnerUnit)
+                .options(joinedload(OwnerUnit.unit))
+                .filter(
+                    or_(OwnerUnit.valid_to.is_(None), OwnerUnit.valid_to >= year_start),
+                    or_(OwnerUnit.valid_from.is_(None), OwnerUnit.valid_from <= year_end),
+                )
+                .all()
+            )
+        else:
+            owner_units = (
+                db.query(OwnerUnit)
+                .options(joinedload(OwnerUnit.unit))
+                .all()
+            )
         unit_to_owners = {}
         for ou in owner_units:
             unit_num = str(ou.unit.unit_number)
@@ -637,7 +654,7 @@ def _process_tax_files(session_id: int, file_paths: list, tax_year):
 
                 # For non-SJM: also try global match
                 if not is_sjm:
-                    global_matches = match_name(candidate, owner_dicts, threshold=0.75)
+                    global_matches = match_name(candidate, owner_dicts, threshold=0.75, require_stem_overlap=True)
                     if global_matches:
                         if not local_matches or global_matches[0]["confidence"] > local_matches[0]["confidence"]:
                             local_matches = [global_matches[0]]

@@ -112,18 +112,27 @@
         <div class="bg-white rounded-lg shadow mb-2">
             <div class="flex gap-2 p-3 pb-2">
                 <a href="{{ filter_base }}?filtr={{ _qs }}" style="flex:1"
+                   hx-get="{{ filter_base }}?filtr={{ _qs }}" hx-target="#send-tbody" hx-push-url="true"
+                   hx-on::before-request="document.querySelector('input[name=filtr]').value=''; updateSendBubbleRing('')"
+                   data-filtr="" data-ring="gray"
                    class="block rounded p-2 text-center border border-gray-200 hover:bg-gray-100 transition-colors
                           {% if not filtr %}ring-2 ring-gray-400{% endif %}">
                     <p class="text-lg font-bold text-gray-600">{{ total_recipients }}</p>
                     <p class="text-xs text-gray-500 mt-1">Celkem</p>
                 </a>
                 <a href="{{ filter_base }}?filtr=with_email{{ _qs }}" style="flex:1"
+                   hx-get="{{ filter_base }}?filtr=with_email{{ _qs }}" hx-target="#send-tbody" hx-push-url="true"
+                   hx-on::before-request="document.querySelector('input[name=filtr]').value='with_email'; updateSendBubbleRing('with_email')"
+                   data-filtr="with_email" data-ring="green"
                    class="block bg-green-50 rounded p-2 text-center border border-green-200 hover:bg-green-100 transition-colors
                           {% if filtr == 'with_email' %}ring-2 ring-green-400{% endif %}">
                     <p class="text-lg font-bold text-green-600">{{ with_email }}</p>
                     <p class="text-xs text-gray-500 mt-1">S emailem</p>
                 </a>
                 <a href="{{ filter_base }}?filtr=pending{{ _qs }}" style="flex:1"
+                   hx-get="{{ filter_base }}?filtr=pending{{ _qs }}" hx-target="#send-tbody" hx-push-url="true"
+                   hx-on::before-request="document.querySelector('input[name=filtr]').value='pending'; updateSendBubbleRing('pending')"
+                   data-filtr="pending" data-ring="yellow"
                    class="block bg-yellow-50 rounded p-2 text-center border border-yellow-200 hover:bg-yellow-100 transition-colors
                           {% if filtr == 'pending' %}ring-2 ring-yellow-400{% endif %}">
                     <p class="text-lg font-bold text-yellow-600">{{ count_pending|default(0) }}</p>
@@ -131,6 +140,9 @@
                 </a>
                 {% if count_sent|default(0) > 0 %}
                 <a href="{{ filter_base }}?filtr=sent{{ _qs }}" style="flex:1"
+                   hx-get="{{ filter_base }}?filtr=sent{{ _qs }}" hx-target="#send-tbody" hx-push-url="true"
+                   hx-on::before-request="document.querySelector('input[name=filtr]').value='sent'; updateSendBubbleRing('sent')"
+                   data-filtr="sent" data-ring="blue"
                    class="block bg-blue-50 rounded p-2 text-center border border-blue-200 hover:bg-blue-100 transition-colors
                           {% if filtr == 'sent' %}ring-2 ring-blue-400{% endif %}">
                     <p class="text-lg font-bold text-blue-600">{{ count_sent|default(0) }}</p>
@@ -139,6 +151,9 @@
                 {% endif %}
                 {% if count_failed|default(0) > 0 %}
                 <a href="{{ filter_base }}?filtr=failed{{ _qs }}" style="flex:1"
+                   hx-get="{{ filter_base }}?filtr=failed{{ _qs }}" hx-target="#send-tbody" hx-push-url="true"
+                   hx-on::before-request="document.querySelector('input[name=filtr]').value='failed'; updateSendBubbleRing('failed')"
+                   data-filtr="failed" data-ring="red"
                    class="block bg-red-50 rounded p-2 text-center border border-red-200 hover:bg-red-100 transition-colors
                           {% if filtr == 'failed' %}ring-2 ring-red-400{% endif %}">
                     <p class="text-lg font-bold text-red-600">{{ count_failed|default(0) }}</p>
@@ -188,6 +203,9 @@
                 <th class="px-4 py-3 text-left text-xs font-medium {% if sort == col %}text-blue-600{% else %}text-gray-500{% endif %} uppercase">
                     {% set _all = "q=" ~ (q|default('')|urlencode) ~ "&filtr=" ~ (filtr|default('')) ~ "&back=" ~ (back_url|default('')|urlencode) %}
                     <a href="/dane/{{ session.id }}/rozeslat?sort={{ col }}&order={{ next_order }}&{{ _all }}"
+                       hx-get="/dane/{{ session.id }}/rozeslat?sort={{ col }}&order={{ next_order }}&{{ _all }}"
+                       hx-target="#send-tbody" hx-push-url="true"
+                       hx-on::before-request="document.querySelector('input[name=sort]').value='{{ col }}';document.querySelector('input[name=order]').value='{{ next_order }}'"
                        class="inline-flex items-center gap-0.5 cursor-pointer hover:text-blue-600 select-none">
                         {{ label }}
                         {% if sort == col %}
@@ -236,4 +254,24 @@
         </div>
     </div>
 </div>
+
+<script>
+function updateSendBubbleRing(filtr) {
+    document.querySelectorAll('[data-filtr]').forEach(function(el) {
+        el.classList.remove('ring-2');
+        ['gray','green','yellow','red','blue'].forEach(function(c) {
+            el.classList.remove('ring-' + c + '-400');
+        });
+        if (el.dataset.filtr === filtr) {
+            el.classList.add('ring-2', 'ring-' + el.dataset.ring + '-400');
+        }
+    });
+}
+
+// Scroll to row when returning via back URL with hash
+if (location.hash) {
+    var el = document.querySelector(location.hash);
+    if (el) el.scrollIntoView({block: 'center'});
+}
+</script>
 {% endblock %}

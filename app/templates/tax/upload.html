@@ -13,7 +13,7 @@
 <div class="flex items-center justify-between mb-4 max-w-2xl">
     <h1 class="text-2xl font-bold text-gray-800">Nové rozesílání</h1>
     <div class="flex items-center gap-2">
-        <button id="submit-btn" type="submit" form="upload-form" class="hidden px-3 py-1.5 text-sm font-medium text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors">
+        <button id="submit-btn" type="button" onclick="startUpload()" class="hidden px-3 py-1.5 text-sm font-medium text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors">
             Nahrát a zpracovat
         </button>
         <a href="/dane" class="px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm font-medium">
@@ -94,7 +94,75 @@
     </form>
 </div>
 
+<div id="upload-progress" class="hidden max-w-2xl mt-4">
+    <div class="bg-white rounded-lg shadow p-6">
+        <div class="space-y-4">
+            <div class="flex justify-between items-center">
+                <span class="text-sm font-medium text-gray-700">Nahrávání souborů na server...</span>
+                <span id="upload-pct-text" class="text-sm text-gray-500">0 %</span>
+            </div>
+            <div class="relative w-full bg-gray-200 rounded-full h-5 overflow-hidden">
+                <div id="upload-bar" class="bg-blue-600 h-5 rounded-full transition-all duration-300" style="width:0%"></div>
+                <span id="upload-bar-text" class="absolute inset-0 flex items-center justify-center text-xs font-medium text-gray-700">0 %</span>
+            </div>
+            <p id="upload-status" class="text-xs text-gray-400">Připravuji nahrání...</p>
+        </div>
+    </div>
+</div>
+
 <script>
+function startUpload() {
+    var form = document.getElementById('upload-form');
+    var formData = new FormData(form);
+    var progress = document.getElementById('upload-progress');
+    var bar = document.getElementById('upload-bar');
+    var barText = document.getElementById('upload-bar-text');
+    var pctText = document.getElementById('upload-pct-text');
+    var status = document.getElementById('upload-status');
+
+    // Show progress, hide form
+    progress.classList.remove('hidden');
+    document.getElementById('submit-btn').disabled = true;
+    document.getElementById('submit-btn').classList.add('opacity-50', 'cursor-not-allowed');
+
+    var fileCount = document.getElementById('file-input').files.length;
+    status.textContent = 'Nahrávání ' + fileCount + ' souborů...';
+
+    var xhr = new XMLHttpRequest();
+    xhr.upload.addEventListener('progress', function(e) {
+        if (e.lengthComputable) {
+            var pct = Math.round(e.loaded / e.total * 100);
+            bar.style.width = pct + '%';
+            barText.textContent = pct + ' %';
+            pctText.textContent = pct + ' %';
+            if (pct === 100) {
+                status.textContent = 'Soubory nahrány. Zpracovávám...';
+            }
+        }
+    });
+    xhr.addEventListener('load', function() {
+        if (xhr.status >= 200 && xhr.status < 400) {
+            // Follow redirect — get Location from response URL
+            window.location.href = xhr.responseURL;
+        } else {
+            status.textContent = 'Chyba při nahrávání (' + xhr.status + ')';
+            bar.classList.remove('bg-blue-600');
+            bar.classList.add('bg-red-500');
+            document.getElementById('submit-btn').disabled = false;
+            document.getElementById('submit-btn').classList.remove('opacity-50', 'cursor-not-allowed');
+        }
+    });
+    xhr.addEventListener('error', function() {
+        status.textContent = 'Chyba připojení k serveru.';
+        bar.classList.remove('bg-blue-600');
+        bar.classList.add('bg-red-500');
+        document.getElementById('submit-btn').disabled = false;
+        document.getElementById('submit-btn').classList.remove('opacity-50', 'cursor-not-allowed');
+    });
+    xhr.open('POST', form.action);
+    xhr.send(formData);
+}
+
 function checkFormReady() {
     var hasFile = document.getElementById('file-input').files.length > 0;
     var hasTitle = document.getElementById('title-input').value.trim() !== '';
