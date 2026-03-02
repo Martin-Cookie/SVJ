@@ -168,18 +168,9 @@ def _reload_doc_row(doc_id: int, session_id: int, request: Request, db: Session)
         .filter_by(id=doc_id)
         .options(
             joinedload(TaxDocument.distributions)
-            .joinedload(TaxDistribution.owner)
-            .joinedload(Owner.units)
-            .joinedload(OwnerUnit.unit),
+            .joinedload(TaxDistribution.owner),
         )
         .first()
-    )
-    owners = (
-        db.query(Owner)
-        .filter_by(is_active=True)
-        .options(joinedload(Owner.units).joinedload(OwnerUnit.unit))
-        .order_by(Owner.name_normalized)
-        .all()
     )
 
     # Build list_url from current browser URL for back navigation
@@ -201,7 +192,6 @@ def _reload_doc_row(doc_id: int, session_id: int, request: Request, db: Session)
     return templates.TemplateResponse("partials/tax_match_row.html", {
         "request": request,
         "doc": doc,
-        "owners": owners,
         "session": doc.session,
         "list_url": list_url,
         "unit_by_number": unit_by_number,
@@ -883,39 +873,19 @@ async def tax_detail(
     if not session:
         return RedirectResponse("/dane", status_code=302)
 
+    is_partial = is_htmx_partial(request)
+
+    # Light join: no Owner.units chain (unit numbers come from separate owners query)
     all_documents = (
         db.query(TaxDocument)
         .filter_by(session_id=session_id)
         .options(
             joinedload(TaxDocument.distributions)
-            .joinedload(TaxDistribution.owner)
-            .joinedload(Owner.units)
-            .joinedload(OwnerUnit.unit),
+            .joinedload(TaxDistribution.owner),
         )
         .order_by(cast(TaxDocument.unit_number, Integer), TaxDocument.unit_letter)
         .all()
     )
-
-    # Stats are always computed from ALL documents (unfiltered)
-    stats = _session_stats(all_documents)
-
-    # Compute missing units: units with current owners but no document in this session
-    doc_unit_numbers = {d.unit_number for d in all_documents if d.unit_number}
-    current_ous = (
-        db.query(OwnerUnit)
-        .filter(OwnerUnit.valid_to.is_(None))
-        .options(joinedload(OwnerUnit.unit), joinedload(OwnerUnit.owner))
-        .all()
-    )
-    missing_units = {}  # unit_number -> {"unit": Unit, "owners": [Owner]}
-    for ou in current_ous:
-        unum = str(ou.unit.unit_number)
-        if unum not in doc_unit_numbers:
-            if unum not in missing_units:
-                missing_units[unum] = {"unit": ou.unit, "owners": []}
-            missing_units[unum]["owners"].append(ou.owner)
-    missing_list = sorted(missing_units.values(), key=lambda m: m["unit"].unit_number)
-    stats["stat_missing"] = len(missing_list)
 
     # Apply filter
     if filtr == "confirmed":
@@ -981,6 +951,39 @@ async def tax_detail(
     sort_fn = SORT_KEYS.get(sort, SORT_KEYS["unit_number"])
     documents.sort(key=sort_fn, reverse=(order == "desc"))
 
+    is_completed = session.send_status and session.send_status.value == "ready"
+    list_url = build_list_url(request)
+
+    # HTMX partial response — skip stats, missing units, owners (not in tbody)
+    if is_partial:
+        return templates.TemplateResponse("partials/tax_table_body.html", {
+            "request": request,
+            "documents": documents,
+            "is_completed": is_completed,
+            "list_url": list_url,
+            "unit_by_number": _unit_by_number(db),
+        })
+
+    # --- Full page: stats + missing units + owners ---
+    stats = _session_stats(all_documents)
+
+    doc_unit_numbers = {d.unit_number for d in all_documents if d.unit_number}
+    current_ous = (
+        db.query(OwnerUnit)
+        .filter(OwnerUnit.valid_to.is_(None))
+        .options(joinedload(OwnerUnit.unit), joinedload(OwnerUnit.owner))
+        .all()
+    )
+    missing_units = {}
+    for ou in current_ous:
+        unum = str(ou.unit.unit_number)
+        if unum not in doc_unit_numbers:
+            if unum not in missing_units:
+                missing_units[unum] = {"unit": ou.unit, "owners": []}
+            missing_units[unum]["owners"].append(ou.owner)
+    missing_list = sorted(missing_units.values(), key=lambda m: m["unit"].unit_number)
+    stats["stat_missing"] = len(missing_list)
+
     owners = (
         db.query(Owner)
         .filter_by(is_active=True)
@@ -991,21 +994,6 @@ async def tax_detail(
 
     back_url = back or "/dane"
     back_label = "Zpět na přehled" if back == "/" else "Zpět na rozesílání"
-
-    list_url = build_list_url(request)
-
-    is_completed = session.send_status and session.send_status.value == "ready"
-
-    # HTMX partial response — return only tbody
-    if is_htmx_partial(request):
-        return templates.TemplateResponse("partials/tax_table_body.html", {
-            "request": request,
-            "documents": documents,
-            "owners": owners,
-            "is_completed": is_completed,
-            "list_url": list_url,
-            "unit_by_number": _unit_by_number(db),
-        })
 
     return templates.TemplateResponse("tax/matching.html", {
         "request": request,
@@ -1314,9 +1302,7 @@ async def tax_send_preview(
         .filter_by(session_id=session_id)
         .options(
             joinedload(TaxDocument.distributions)
-            .joinedload(TaxDistribution.owner)
-            .joinedload(Owner.units)
-            .joinedload(OwnerUnit.unit),
+            .joinedload(TaxDistribution.owner),
         )
         .order_by(cast(TaxDocument.unit_number, Integer), TaxDocument.unit_letter)
         .all()
@@ -1501,9 +1487,7 @@ async def update_recipient_email(
         .filter_by(session_id=session_id)
         .options(
             joinedload(TaxDocument.distributions)
-            .joinedload(TaxDistribution.owner)
-            .joinedload(Owner.units)
-            .joinedload(OwnerUnit.unit),
+            .joinedload(TaxDistribution.owner),
         )
         .order_by(cast(TaxDocument.unit_number, Integer), TaxDocument.unit_letter)
         .all()
@@ -1578,9 +1562,7 @@ async def send_test_email(
         .filter_by(session_id=session_id)
         .options(
             joinedload(TaxDocument.distributions)
-            .joinedload(TaxDistribution.owner)
-            .joinedload(Owner.units)
-            .joinedload(OwnerUnit.unit),
+            .joinedload(TaxDistribution.owner),
         )
         .all()
     )
@@ -1943,9 +1925,7 @@ async def start_batch_send(
         .filter_by(session_id=session_id)
         .options(
             joinedload(TaxDocument.distributions)
-            .joinedload(TaxDistribution.owner)
-            .joinedload(Owner.units)
-            .joinedload(OwnerUnit.unit),
+            .joinedload(TaxDistribution.owner),
         )
         .all()
     )
@@ -2117,9 +2097,7 @@ async def retry_failed(
         .filter_by(session_id=session_id)
         .options(
             joinedload(TaxDocument.distributions)
-            .joinedload(TaxDistribution.owner)
-            .joinedload(Owner.units)
-            .joinedload(OwnerUnit.unit),
+            .joinedload(TaxDistribution.owner),
         )
         .all()
     )
