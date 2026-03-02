@@ -29,7 +29,7 @@
 {% endif %}
 </div>
 
-<div class="flex-1 overflow-y-auto min-h-0">
+<div class="flex-1 overflow-y-auto overflow-x-hidden min-h-0">
 <!-- Voting items & results -->
 {% set _all = "q=" ~ (q|urlencode) ~ "&sort=" ~ sort ~ "&order=" ~ order ~ _back %}
 {% set _svg_up = '<svg aria-hidden="true" class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L10 6.414l-3.293 3.293a1 1 0 01-1.414 0z"/></svg>' %}
@@ -47,9 +47,9 @@
         <h2 class="text-lg font-semibold text-gray-700">Výsledky po bodech</h2>
     </div>
     {% if results %}
-    <div class="overflow-x-auto">
+    <div>
         <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-50 border-b-2 border-gray-300 sticky top-0 z-10">
+            <thead class="bg-gray-50 border-b-2 border-gray-300">
                 <tr>
                     {% for label, col, align in _cols %}
                     {% set next_order = "desc" if sort == col and order == "asc" else "asc" %}
