@@ -10,16 +10,16 @@
     </div>
     <h1 class="text-xl font-bold text-gray-800 mb-4 flex-none">Kontroly</h1>
 
-    <div class="flex-1 flex flex-col gap-6 min-h-0 overflow-y-auto">
+    <div class="flex-1 flex flex-col gap-4 min-h-0">
         <!-- ═══════ Sekce 1: Kontrola vlastníků ═══════ -->
-        <div class="flex-none">
-            <h2 class="text-sm font-semibold text-gray-600 mb-3 flex items-center gap-1.5">
+        <div class="flex-1 flex flex-col min-h-0">
+            <h2 class="text-sm font-semibold text-gray-600 mb-2 flex items-center gap-1.5 flex-none">
                 <svg aria-hidden="true" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
                 </svg>
                 Kontrola vlastníků
             </h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 min-h-0">
                 <!-- Upload form -->
                 <div class="bg-white rounded-lg shadow p-5">
                     <div class="flex items-center justify-between mb-3">
@@ -51,7 +51,7 @@
                 </div>
 
                 <!-- History -->
-                <div class="bg-white rounded-lg shadow flex flex-col" style="max-height:320px">
+                <div class="bg-white rounded-lg shadow flex flex-col min-h-0 h-full">
                     <div class="px-4 pt-4 flex-none">
                         <h3 class="text-sm font-semibold text-gray-700 mb-2">Historie kontrol</h3>
                         <div class="mb-2">
@@ -113,14 +113,14 @@
         </div>
 
         <!-- ═══════ Sekce 2: Kontrola podílů ═══════ -->
-        <div id="kontrola-podilu" class="flex-none">
-            <h2 class="text-sm font-semibold text-gray-600 mb-3 flex items-center gap-1.5">
+        <div id="kontrola-podilu" class="flex-1 flex flex-col min-h-0">
+            <h2 class="text-sm font-semibold text-gray-600 mb-2 flex items-center gap-1.5 flex-none">
                 <svg aria-hidden="true" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
                 </svg>
                 Kontrola podílů
             </h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 min-h-0">
                 <!-- Upload form -->
                 <div class="bg-white rounded-lg shadow p-5">
                     <div class="flex items-center justify-between mb-3">
@@ -152,7 +152,7 @@
                 </div>
 
                 <!-- History -->
-                <div class="bg-white rounded-lg shadow flex flex-col" style="max-height:320px">
+                <div class="bg-white rounded-lg shadow flex flex-col min-h-0 h-full">
                     <div class="px-4 pt-4 flex-none">
                         <h3 class="text-sm font-semibold text-gray-700 mb-2">Historie kontrol</h3>
                         <div class="mb-2">
