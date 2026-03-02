@@ -157,8 +157,9 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
 ### D. Hromadné rozesílání (`/dane`)
 
 - Nahrání daňových PDF dokumentů (jednotlivě nebo celý adresář) s progress barem:
+  - Upload progress bar (XMLHttpRequest s upload.onprogress) — okamžitá zpětná vazba při nahrávání stovek souborů
   - Soubory se uloží na disk, zpracování běží na pozadí (vlákno)
-  - Progress bar s počtem zpracovaných/celkem, procentuální lištou, názvem aktuálního souboru, uplynulým časem a odhadem zbývajícího (ETA)
+  - Zpracovací progress bar s počtem zpracovaných/celkem, procentuální lištou, názvem aktuálního souboru, uplynulým časem a odhadem zbývajícího (ETA)
   - HTMX polling (500ms), po dokončení automatický redirect na párování
 - Extrakce jmen z PDF (pdfplumber):
   - Primárně jednotlivá jména ze sekce „Údaje o vlastníkovi:" (SP řádky na str. 1)
@@ -166,13 +167,16 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
   - Slučování firemních názvů rozlomených přes více SP řádků (detekce suffixů s.r.o., a.s., z.s. atd. a all-uppercase fragmentů)
 - Fuzzy párování jmen na vlastníky v databázi — každé jméno z PDF se páruje zvlášť:
   - Nejdřív shoda na vlastníky dané jednotky (práh 0.6), pak globální hledání (práh 0.75)
+  - Lokální matching zahrnuje i bývalé vlastníky překrývající se s daňovým rokem (valid_from/valid_to)
+  - Globální matching vyžaduje shodu stemovaného příjmení (`require_stem_overlap`) — zabraňuje false positive kde se shoduje jen křestní jméno (např. Bartíková→Birčáková přes sdílené „Barbora")
   - Sloupec „Jméno z PDF" zobrazuje všechna individuální jména oddělená čárkou
   - Spoluvlastníci se přidávají pouze pokud jsou nalezeni v PDF, nikoliv z databáze
   - Ruční přiřazení automaticky přidá spoluvlastníky na stejné jednotce
 - X tlačítko (odebrat vlastníka) skryto u potvrzených distribucí a u 100% shody
 - Redesignovaná stránka přiřazení:
-  - Fixní header s 5 stat kartami (celkem / potvrzeno / k potvrzení / nepřiřazeno / bez PDF)
+  - Fixní header s 5 stat kartami (celkem / potvrzeno / k potvrzení / nepřiřazeno / bez PDF) — HTMX partial swap při kliknutí na bublinu/řadící hlavičku (bez full reload)
   - Bublina „Bez PDF" (oranžová) — jednotky s vlastníky, pro které nebyl nahrán žádný dokument; tabulka s prokliky na jednotku a vlastníky
+  - Obnova scroll pozice při návratu z detailu vlastníka/jednotky (#hash v back URL + scrollIntoView)
   - Toolbar s checkboxy: vybrat/zrušit vše, potvrdit vybrané, potvrdit vše
   - Multi-owner zobrazení: barevné badge s X odebráním pro každého vlastníka
   - Dropdown přiřazení s `display_name (j. X, Y)` — zobrazuje čísla jednotek
@@ -189,7 +193,7 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
   - Re-import: volba režimu „Doplnit k existujícím" / „Přepsat stávající" (smaže staré PDF + přiřazení)
   - Read-only mód: skryté checkboxy, assign dropdown, potvrdit/odebrat tlačítka, externí formulář; viditelné statusové štítky (Potvrzeno/Nepřiřazeno/Nepotvrzeno)
 - Rozesílka (`/dane/{id}/rozeslat`):
-  - Stat karty jako filtry (celkem, s emailem, čekající, odesláno, chyba) ve stylu shodném s matchingem — podmíněné zobrazení karet odesláno/chyba
+  - Stat karty jako filtry (celkem, s emailem, čekající, odesláno, chyba) — HTMX partial swap, scroll pozice při návratu z detailu
   - Samostatný search bar pod kartami s HTMX partial swapem
   - Vyhledávání příjemců (jméno, email, název souboru) s diacritics-insensitive porovnáním
   - Server-side řazení (příjemce, email, počet dokumentů, stav) s HTMX partial
