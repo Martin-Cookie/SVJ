@@ -3,32 +3,32 @@
 
 {% block content %}
 <div class="flex flex-col" style="height:calc(100vh - 48px)">
-    <div class="mb-3 flex-none">
+    <div class="mb-2 flex-none">
         {% if back_url %}
         <a href="{{ back_url }}" class="text-sm text-gray-500 hover:text-gray-700">&larr; Zpět na přehled</a>
         {% endif %}
     </div>
-    <h1 class="text-xl font-bold text-gray-800 mb-4 flex-none">Kontroly</h1>
+    <h1 class="text-lg font-bold text-gray-800 mb-3 flex-none">Kontroly</h1>
 
-    <div class="flex-1 flex flex-col gap-6 min-h-0 overflow-y-auto">
+    <div class="flex-1 flex flex-col gap-4 min-h-0">
         <!-- ═══════ Sekce 1: Kontrola vlastníků ═══════ -->
-        <div class="flex-none">
-            <h2 class="text-sm font-semibold text-gray-600 mb-3 flex items-center gap-1.5">
+        <div class="flex-1 flex flex-col min-h-0">
+            <h2 class="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2 flex-none">
                 <svg aria-hidden="true" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
                 </svg>
                 Kontrola vlastníků
             </h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-start flex-1 min-h-0">
                 <!-- Upload form -->
-                <div class="bg-white rounded-lg shadow p-5">
-                    <div class="flex items-center justify-between mb-3">
-                        <h3 class="text-sm font-semibold text-gray-700">Nahrát CSV export</h3>
-                        <button id="sync-submit-btn" type="submit" form="sync-upload-form" class="hidden px-3 py-1.5 text-sm font-medium text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors">
+                <div class="bg-white rounded-lg shadow p-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-xs font-semibold text-gray-700">Nahrát CSV export</h3>
+                        <button id="sync-submit-btn" type="submit" form="sync-upload-form" class="hidden px-2.5 py-1 text-xs font-medium text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors">
                             Nahrát a porovnat
                         </button>
                     </div>
-                    <div class="mb-4">
+                    <div class="mb-2">
                         <ol class="text-xs text-gray-500 list-decimal list-inside space-y-0.5">
                             <li>Exportujte seznam vlastníků ze sousede.cz jako CSV</li>
                             <li>Nahrajte CSV soubor níže</li>
@@ -40,20 +40,16 @@
                         <div class="mb-3">
                             <input type="file" name="file" accept=".csv" required
                                    onchange="document.getElementById('sync-submit-btn').classList.toggle('hidden', !this.files.length)"
-                                   class="file-input block w-full text-sm text-gray-500 file:mr-4 file:py-1.5 file:px-3
-                                          file:rounded file:border-0 file:text-sm file:font-medium
+                                   class="file-input block w-full text-xs text-gray-500 file:mr-3 file:py-1 file:px-2.5
+                                          file:rounded file:border-0 file:text-xs file:font-medium
                                           file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
-                            <p class="text-xs text-gray-400 mt-1">
-                                CSV s oddělovačem středník nebo čárka, kódování UTF-8 nebo Windows-1250.
-                            </p>
-                        </div>
                     </form>
                 </div>
 
                 <!-- History -->
-                <div class="bg-white rounded-lg shadow flex flex-col" style="max-height:320px">
-                    <div class="px-4 pt-4 flex-none">
-                        <h3 class="text-sm font-semibold text-gray-700 mb-2">Historie kontrol</h3>
+                <div class="bg-white rounded-lg shadow flex flex-col min-h-0 h-full">
+                    <div class="px-3 pt-3 flex-none">
+                        <h3 class="text-xs font-semibold text-gray-700 mb-1">Historie kontrol</h3>
                         <div class="mb-2">
                             <input type="hidden" name="sync_sort" value="{{ sync_sort }}">
                             <input type="hidden" name="sync_order" value="{{ sync_order }}">
@@ -69,7 +65,7 @@
                         </div>
                     </div>
                     {% if sync_sessions or sync_q %}
-                    <div class="flex-none px-4">
+                    <div class="flex-none px-3">
                         <table class="w-full text-sm">
                             <thead class="border-b border-gray-200">
                                 <tr>
@@ -94,7 +90,7 @@
                             </thead>
                         </table>
                     </div>
-                    <div class="flex-1 overflow-y-auto px-4 pb-4 min-h-0">
+                    <div class="flex-1 overflow-y-auto px-3 pb-3 min-h-0">
                         <table class="w-full text-sm">
                             <tbody id="sync-history-body" class="divide-y divide-gray-100">
                                 {% with sessions=sync_sessions, q=sync_q %}
@@ -104,7 +100,7 @@
                         </table>
                     </div>
                     {% else %}
-                    <div class="px-4 pb-4">
+                    <div class="px-3 pb-3">
                         <p class="text-sm text-gray-500">Zatím žádné kontroly.</p>
                     </div>
                     {% endif %}
@@ -113,23 +109,23 @@
         </div>
 
         <!-- ═══════ Sekce 2: Kontrola podílů ═══════ -->
-        <div id="kontrola-podilu" class="flex-none">
-            <h2 class="text-sm font-semibold text-gray-600 mb-3 flex items-center gap-1.5">
+        <div id="kontrola-podilu" class="flex-1 flex flex-col min-h-0">
+            <h2 class="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2 flex-none">
                 <svg aria-hidden="true" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
                 </svg>
                 Kontrola podílů
             </h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-start flex-1 min-h-0">
                 <!-- Upload form -->
-                <div class="bg-white rounded-lg shadow p-5">
-                    <div class="flex items-center justify-between mb-3">
-                        <h3 class="text-sm font-semibold text-gray-700">Nahrát soubor s podíly</h3>
-                        <button id="sc-submit-btn" type="submit" form="sc-upload-form" class="hidden px-3 py-1.5 text-sm font-medium text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors">
+                <div class="bg-white rounded-lg shadow p-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-xs font-semibold text-gray-700">Nahrát soubor s podíly</h3>
+                        <button id="sc-submit-btn" type="submit" form="sc-upload-form" class="hidden px-2.5 py-1 text-xs font-medium text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors">
                             Nahrát a pokračovat
                         </button>
                     </div>
-                    <div class="mb-4">
+                    <div class="mb-2">
                         <ol class="text-xs text-gray-500 list-decimal list-inside space-y-0.5">
                             <li>Připravte CSV nebo XLSX soubor s podíly SČD</li>
                             <li>Nahrajte soubor níže</li>
@@ -138,23 +134,18 @@
                         </ol>
                     </div>
                     <form id="sc-upload-form" action="/kontrola-podilu/nova" method="post" enctype="multipart/form-data" hx-boost="false">
-                        <div class="mb-3">
                             <input type="file" name="file" accept=".csv,.xlsx,.xls" required
                                    onchange="document.getElementById('sc-submit-btn').classList.toggle('hidden', !this.files.length)"
-                                   class="file-input block w-full text-sm text-gray-500 file:mr-4 file:py-1.5 file:px-3
-                                          file:rounded file:border-0 file:text-sm file:font-medium
+                                   class="file-input block w-full text-xs text-gray-500 file:mr-3 file:py-1 file:px-2.5
+                                          file:rounded file:border-0 file:text-xs file:font-medium
                                           file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
-                            <p class="text-xs text-gray-400 mt-1">
-                                CSV (středník/čárka, UTF-8/Windows-1250) nebo XLSX soubor.
-                            </p>
-                        </div>
                     </form>
                 </div>
 
                 <!-- History -->
-                <div class="bg-white rounded-lg shadow flex flex-col" style="max-height:320px">
-                    <div class="px-4 pt-4 flex-none">
-                        <h3 class="text-sm font-semibold text-gray-700 mb-2">Historie kontrol</h3>
+                <div class="bg-white rounded-lg shadow flex flex-col min-h-0 h-full">
+                    <div class="px-3 pt-3 flex-none">
+                        <h3 class="text-xs font-semibold text-gray-700 mb-1">Historie kontrol</h3>
                         <div class="mb-2">
                             <input type="hidden" name="sc_sort" value="{{ sc_sort }}">
                             <input type="hidden" name="sc_order" value="{{ sc_order }}">
@@ -169,7 +160,7 @@
                         </div>
                     </div>
                     {% if sc_sessions or sc_q %}
-                    <div class="flex-none px-4">
+                    <div class="flex-none px-3">
                         <table class="w-full text-sm">
                             <thead class="border-b border-gray-200">
                                 <tr>
@@ -194,7 +185,7 @@
                             </thead>
                         </table>
                     </div>
-                    <div class="flex-1 overflow-y-auto px-4 pb-4 min-h-0">
+                    <div class="flex-1 overflow-y-auto px-3 pb-3 min-h-0">
                         <table class="w-full text-sm">
                             <tbody id="sc-history-body" class="divide-y divide-gray-100">
                                 {% with sessions=sc_sessions, q=sc_q %}
@@ -204,7 +195,7 @@
                         </table>
                     </div>
                     {% else %}
-                    <div class="px-4 pb-4">
+                    <div class="px-3 pb-3">
                         <p class="text-sm text-gray-500">Zatím žádné kontroly.</p>
                     </div>
                     {% endif %}
