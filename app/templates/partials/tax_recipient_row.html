@@ -1,7 +1,7 @@
-<tr id="rcpt-{{ r.key }}" class="{% if not r.email %}bg-red-50{% endif %}">
+<tr id="rcpt-{{ r.key }}" class="{% if not r.selected_emails|default([]) %}bg-red-50{% endif %}">
     {# Checkbox #}
     <td class="px-2 py-3 text-center">
-        {% set can_send = r.email and r.email_status != 'sent' %}
+        {% set can_send = r.selected_emails|default([])|length > 0 and r.email_status != 'sent' %}
         <input type="checkbox" name="selected_keys" value="{{ r.key }}"
                class="rcpt-cb rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                {% if not can_send %}disabled{% endif %}>
@@ -17,14 +17,30 @@
         {% endif %}
     </td>
 
-    {# Email — display + inline edit #}
+    {# Email — dual checkboxes / single display / inline edit #}
     <td class="px-4 py-3 text-sm" id="email-cell-{{ r.key }}">
+        {% if r.has_dual_email|default(false) %}
+        {# Dual email: two checkboxes #}
+        <div class="space-y-1">
+            {% set sel = r.selected_emails|default([]) %}
+            <label class="flex items-center gap-1.5 cursor-pointer group">
+                <input type="checkbox" {% if r.primary_email in sel %}checked{% endif %}
+                       onchange="toggleEmailSelect(this, '{{ session.id }}', '{{ r.dist_ids[0] }}', '{{ r.primary_email }}', '{{ r.key }}')"
+                       class="rounded border-gray-300 text-blue-600 focus:ring-blue-500 shrink-0">
+                <span class="text-gray-700 truncate group-hover:text-blue-600" title="{{ r.primary_email }}">{{ r.primary_email }}</span>
+                <span class="text-xs text-gray-400 shrink-0">(hlavní)</span>
+            </label>
+            <label class="flex items-center gap-1.5 cursor-pointer group">
+                <input type="checkbox" {% if r.secondary_email in sel %}checked{% endif %}
+                       onchange="toggleEmailSelect(this, '{{ session.id }}', '{{ r.dist_ids[0] }}', '{{ r.secondary_email }}', '{{ r.key }}')"
+                       class="rounded border-gray-300 text-blue-600 focus:ring-blue-500 shrink-0">
+                <span class="text-gray-700 truncate group-hover:text-blue-600" title="{{ r.secondary_email }}">{{ r.secondary_email }}</span>
+            </label>
+        </div>
+        {% elif r.email %}
+        {# Single email: display + edit pencil #}
         <div class="email-display flex items-center gap-1.5">
-            {% if r.email %}
             <span class="text-gray-700 truncate" title="{{ r.email }}">{{ r.email }}</span>
-            {% else %}
-            <span class="text-red-500 font-medium">Doplnit email</span>
-            {% endif %}
             <button type="button" onclick="toggleEmailEdit('{{ r.key }}')"
                     class="shrink-0 text-gray-400 hover:text-blue-600" title="Upravit email">
                 <svg aria-hidden="true" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -44,6 +60,30 @@
                         class="px-2 py-1 bg-gray-200 text-gray-600 rounded text-xs hover:bg-gray-300">Zrušit</button>
             </div>
         </form>
+        {% else %}
+        {# No email: prompt + inline edit #}
+        <div class="email-display flex items-center gap-1.5">
+            <span class="text-red-500 font-medium">Doplnit email</span>
+            <button type="button" onclick="toggleEmailEdit('{{ r.key }}')"
+                    class="shrink-0 text-gray-400 hover:text-blue-600" title="Upravit email">
+                <svg aria-hidden="true" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+                </svg>
+            </button>
+        </div>
+        <form class="email-edit hidden mt-1"
+              hx-post="/dane/{{ session.id }}/rozeslat/email/{{ r.dist_ids[0] }}"
+              hx-target="#rcpt-{{ r.key }}" hx-swap="outerHTML">
+            <div class="flex items-center gap-1">
+                <input type="email" name="email" value="" placeholder="email@example.com"
+                       class="flex-1 border border-gray-300 rounded px-1 py-1 text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                <button type="submit" class="px-2 py-1 text-xs font-medium text-blue-600 border border-blue-300 rounded hover:bg-blue-50">Uložit</button>
+                <button type="button" onclick="toggleEmailEdit('{{ r.key }}')"
+                        class="px-2 py-1 bg-gray-200 text-gray-600 rounded text-xs hover:bg-gray-300">Zrušit</button>
+            </div>
+        </form>
+        {% endif %}
     </td>
 
     {# Documents #}

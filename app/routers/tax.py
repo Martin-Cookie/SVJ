@@ -204,7 +204,9 @@ def _build_recipients(documents):
 
     Returns list of dicts:
         {key, name, email, docs: [{filename, file_path}], dist_ids: [int],
-         owner_id: int|None, is_external: bool, email_status: str}
+         owner_id: int|None, is_external: bool, email_status: str,
+         primary_email: str|None, secondary_email: str|None,
+         selected_emails: [str], has_dual_email: bool}
     """
     recipients = {}  # key -> recipient dict
 
@@ -220,19 +222,41 @@ def _build_recipients(documents):
                 key = f"ext_{dist.id}"
 
             if key not in recipients:
-                # Determine email: dist.email_address_used → owner.email → None
-                email = dist.email_address_used
-                if not email and dist.owner:
-                    email = dist.owner.email
-                if not email and dist.ad_hoc_email:
-                    email = dist.ad_hoc_email
+                owner = dist.owner
+                primary_email = owner.email if owner else None
+                secondary_email = owner.email_secondary if owner else None
 
-                name = dist.owner.display_name if dist.owner else (dist.ad_hoc_name or "Neznámý")
+                # Determine selected_emails from email_address_used or defaults
+                if dist.email_address_used:
+                    selected_emails = [e.strip() for e in dist.email_address_used.split(",") if e.strip()]
+                elif primary_email:
+                    selected_emails = [primary_email]
+                elif secondary_email:
+                    selected_emails = [secondary_email]
+                elif dist.ad_hoc_email:
+                    selected_emails = [dist.ad_hoc_email]
+                else:
+                    selected_emails = []
+
+                # has_dual_email: both present and different
+                has_dual_email = bool(
+                    primary_email and secondary_email
+                    and primary_email.strip().lower() != secondary_email.strip().lower()
+                )
+
+                # Backward-compatible email field
+                email = ",".join(selected_emails) if selected_emails else None
+
+                name = owner.display_name if owner else (dist.ad_hoc_name or "Neznámý")
 
                 recipients[key] = {
                     "key": key,
                     "name": name,
                     "email": email,
+                    "primary_email": primary_email,
+                    "secondary_email": secondary_email,
+                    "selected_emails": selected_emails,
+                    "has_dual_email": has_dual_email,
                     "docs": [],
                     "dist_ids": [],
                     "owner_id": dist.owner_id,
@@ -1321,6 +1345,8 @@ async def tax_send_preview(
     # Filter by status
     if filtr == "with_email":
         recipients = [r for r in all_recipients if r["email"]]
+    elif filtr == "no_email":
+        recipients = [r for r in all_recipients if not r["email"]]
     elif filtr == "pending":
         recipients = [r for r in all_recipients if r["email_status"] in ("pending", "queued")]
     elif filtr == "sent":
@@ -1500,6 +1526,83 @@ async def update_recipient_email(
     else:
         key = f"ext_{dist.id}"
 
+    recipient = next((r for r in recipients if r["key"] == key), None)
+    if not recipient:
+        return RedirectResponse(f"/dane/{session_id}/rozeslat", status_code=302)
+
+    list_url = build_list_url(request)
+
+    return templates.TemplateResponse("partials/tax_recipient_row.html", {
+        "request": request,
+        "r": recipient,
+        "session": db.query(TaxSession).get(session_id),
+        "list_url": list_url,
+    })
+
+
+@router.post("/{session_id}/rozeslat/email-vyber/{dist_id}")
+async def toggle_recipient_email(
+    session_id: int,
+    dist_id: int,
+    request: Request,
+    email: str = Form(""),
+    checked: str = Form("true"),
+    db: Session = Depends(get_db),
+):
+    """Toggle an individual email address on/off for a recipient."""
+    dist = db.query(TaxDistribution).get(dist_id)
+    if not dist:
+        return RedirectResponse(f"/dane/{session_id}/rozeslat", status_code=302)
+
+    email = email.strip()
+    is_checked = checked == "true"
+
+    # Parse current selected emails
+    current = set()
+    if dist.email_address_used:
+        current = {e.strip() for e in dist.email_address_used.split(",") if e.strip()}
+
+    # Add or remove email
+    if is_checked and email:
+        current.add(email)
+    elif not is_checked and email:
+        current.discard(email)
+
+    new_value = ",".join(sorted(current)) if current else None
+
+    # Propagate to all sibling distributions of same owner in this session
+    if dist.owner_id:
+        all_docs = db.query(TaxDocument).filter_by(session_id=session_id).all()
+        doc_ids = [d.id for d in all_docs]
+        sibling_dists = (
+            db.query(TaxDistribution)
+            .filter(
+                TaxDistribution.document_id.in_(doc_ids),
+                TaxDistribution.owner_id == dist.owner_id,
+            )
+            .all()
+        )
+        for d in sibling_dists:
+            d.email_address_used = new_value
+    else:
+        dist.email_address_used = new_value
+
+    db.commit()
+
+    # Rebuild and return updated row
+    documents = (
+        db.query(TaxDocument)
+        .filter_by(session_id=session_id)
+        .options(
+            joinedload(TaxDocument.distributions)
+            .joinedload(TaxDistribution.owner),
+        )
+        .order_by(cast(TaxDocument.unit_number, Integer), TaxDocument.unit_letter)
+        .all()
+    )
+    recipients = _build_recipients(documents)
+
+    key = f"owner_{dist.owner_id}" if dist.owner_id else f"ext_{dist.id}"
     recipient = next((r for r in recipients if r["key"] == key), None)
     if not recipient:
         return RedirectResponse(f"/dane/{session_id}/rozeslat", status_code=302)

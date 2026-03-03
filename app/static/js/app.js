@@ -345,6 +345,26 @@ function _loadTestEmail() {
     } catch(e) {}
 }
 
+function toggleEmailSelect(checkbox, sessionId, distId, email, key) {
+    var checked = checkbox.checked;
+    var form = new FormData();
+    form.append('email', email);
+    form.append('checked', checked ? 'true' : 'false');
+    fetch('/dane/' + sessionId + '/rozeslat/email-vyber/' + distId, {
+        method: 'POST',
+        body: form,
+        headers: {'HX-Request': 'true'}
+    }).then(function(resp) { return resp.text(); })
+    .then(function(html) {
+        var row = document.getElementById('rcpt-' + key);
+        if (row) {
+            row.outerHTML = html;
+            _restoreCheckedKeys();
+            updateSendButtonCount();
+        }
+    });
+}
+
 function toggleEmailEdit(key) {
     var cell = document.getElementById('email-cell-' + key);
     if (!cell) return;

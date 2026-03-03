@@ -28,9 +28,14 @@ def send_email(
     reference_id: int | None = None,
     db: Session | None = None,
 ) -> dict:
+    # Support comma-separated multiple recipients
+    email_list = [e.strip() for e in to_email.split(",") if e.strip()]
+    if not email_list:
+        return {"success": False, "error": "Žádná emailová adresa"}
+
     msg = MIMEMultipart()
     msg["From"] = f"{settings.smtp_from_name} <{settings.smtp_from_email}>"
-    msg["To"] = f"{to_name} <{to_email}>"
+    msg["To"] = ", ".join(f"{to_name} <{e}>" for e in email_list)
     msg["Subject"] = subject
 
     # Plain text z formuláře (bez HTML tagů) → konverze \n na <br>
