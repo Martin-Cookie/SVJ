@@ -193,7 +193,11 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
   - Re-import: volba režimu „Doplnit k existujícím" / „Přepsat stávající" (smaže staré PDF + přiřazení)
   - Read-only mód: skryté checkboxy, assign dropdown, potvrdit/odebrat tlačítka, externí formulář; viditelné statusové štítky (Potvrzeno/Nepřiřazeno/Nepotvrzeno)
 - Rozesílka (`/dane/{id}/rozeslat`):
-  - Stat karty jako filtry (celkem, s emailem, čekající, odesláno, chyba) — HTMX partial swap, scroll pozice při návratu z detailu
+  - Stat karty jako filtry (celkem, s emailem, čekající, odesláno, chyba, bez emailu) — HTMX partial swap, scroll pozice při návratu z detailu
+  - Bublina „Bez emailu" (oranžová) — filtruje příjemce bez nastavené emailové adresy
+  - Duální email: vlastníci se dvěma emaily (primární + sekundární) mají checkboxy pro výběr kam poslat; HTMX toggle s propagací na sibling distribuce
+  - Multi-adresní odesílání: email se odešle na všechny zaškrtnuté adresy (multiple To: headers)
+  - Tlačítko „Uložit a zavřít" — návrat na seznam s automaticky uloženým výběrem emailů
   - Samostatný search bar pod kartami s HTMX partial swapem
   - Vyhledávání příjemců (jméno, email, název souboru) s diacritics-insensitive porovnáním
   - Server-side řazení (příjemce, email, počet dokumentů, stav) s HTMX partial
@@ -204,6 +208,7 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
   - Compact wizard stepper na kartě každé relace
   - Progress bar „Potvrzeno X / Y" na každé kartě relace
   - Stavové badge: „Rozpracováno" (žlutá), „Dokončeno" (zelená), „Odesílá se" (modrá), „Odesláno" (modrá), „Pozastaveno" (žlutá)
+  - Odkaz „Rozeslat →" u READY session — přímý přístup k rozesílce ze seznamu
 - Smazání celé relace (session + dokumenty + distribuce + soubory)
 
 ### E. Kontroly (`/synchronizace`)
@@ -621,7 +626,8 @@ wheels/                        # Offline Python balíčky (gitignored)
 | POST | `/dane/{id}/rozeslat/retry` | Opakování neúspěšných |
 | POST | `/dane/{id}/rozeslat/test` | Odeslání testovacího emailu |
 | POST | `/dane/{id}/rozeslat/nastaveni` | Uložení nastavení odesílání |
-| POST | `/dane/{id}/rozeslat/email/{dist_id}` | Individuální odeslání |
+| POST | `/dane/{id}/rozeslat/email/{dist_id}` | Úprava emailu příjemce |
+| POST | `/dane/{id}/rozeslat/email-vyber/{dist_id}` | Toggle email checkboxu (duální email) |
 | GET | `/dane/{id}/exportovat` | Export do Excelu |
 
 ### Kontroly (`/synchronizace` + `/kontrola-podilu`)
