@@ -88,7 +88,7 @@ async def home(
     units_count = db.query(Unit).count()
     active_votings_list = (
         db.query(Voting)
-        .options(joinedload(Voting.ballots))
+        .options(joinedload(Voting.ballots).joinedload(Ballot.votes))
         .order_by(
             case(
                 (Voting.status == VotingStatus.ACTIVE, 0),
@@ -107,21 +107,23 @@ async def home(
     )
 
     # Group votings by status: {status_value: {"count": N, "latest": Voting, "date": ..., "progress": ...}}
+    svj_info = db.query(SvjInfo).first()
+    declared_shares = svj_info.total_shares if svj_info else 0
     voting_by_status = {}
     for v in active_votings_list:
         s = v.status.value
         if s not in voting_by_status:
-            # Calculate progress from eager-loaded ballots (no extra queries)
-            total_ballots = len(v.ballots)
-            processed_ballots = sum(1 for b in v.ballots if b.status == BallotStatus.PROCESSED)
-            pct = round(processed_ballots / total_ballots * 100) if total_ballots else 0
+            # Calculate quorum percentage (same as detail page)
+            processed = [b for b in v.ballots if b.status == BallotStatus.PROCESSED]
+            voted = [b for b in processed if any(bv.vote is not None for bv in b.votes)]
+            processed_votes = sum(b.total_votes for b in voted)
+            quorum_pct = round(processed_votes / declared_shares * 100, 2) if declared_shares else 0
             voting_by_status[s] = {
                 "count": 0,
                 "latest": v,
                 "date": v.start_date or v.created_at,
-                "processed": processed_ballots,
-                "total_ballots": total_ballots,
-                "progress_pct": pct,
+                "total_ballots": len(v.ballots),
+                "quorum_pct": quorum_pct,
             }
         voting_by_status[s]["count"] += 1
 

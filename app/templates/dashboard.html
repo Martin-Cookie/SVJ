@@ -7,8 +7,8 @@
 <h1 class="text-lg font-bold text-gray-800 mb-2">Přehled</h1>
 
 <!-- Stats cards -->
-<div class="flex gap-3 mb-3">
-    <a href="/vlastnici?back=/" class="flex-1 block bg-white rounded-lg shadow p-3 hover:shadow-md transition-shadow">
+<div class="grid grid-cols-4 gap-3 mb-3">
+    <a href="/vlastnici?back=/" class="block bg-white rounded-lg shadow p-3 hover:shadow-md transition-shadow">
         <div class="flex items-center">
             <div class="p-2 bg-blue-100 rounded-lg">
                 <svg aria-hidden="true" class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -42,7 +42,7 @@
         </table>
         {% endif %}
     </a>
-    <a href="/jednotky?back=/" class="flex-1 block bg-white rounded-lg shadow p-3 hover:shadow-md transition-shadow">
+    <a href="/jednotky?back=/" class="block bg-white rounded-lg shadow p-3 hover:shadow-md transition-shadow">
         <div class="flex items-center">
             <div class="p-2 bg-green-100 rounded-lg">
                 <svg aria-hidden="true" class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -76,7 +76,7 @@
         </table>
         {% endif %}
     </a>
-    <div class="flex-1 block bg-white rounded-lg shadow p-3 hover:shadow-md transition-shadow">
+    <div class="min-w-0 block bg-white rounded-lg shadow p-3 hover:shadow-md transition-shadow">
         <a href="/hlasovani?back=/" class="flex items-center">
             <div class="p-2 bg-purple-100 rounded-lg">
                 <svg aria-hidden="true" class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -97,8 +97,8 @@
             <a href="/hlasovani/{{ info.latest.id }}?back=/" class="flex items-center gap-1 text-xs hover:bg-gray-50 rounded -mx-1 px-1" onclick="event.stopPropagation()">
                 <span class="shrink-0 px-1 py-0.5 font-medium {{ vs_map[status].bg }} rounded-full text-xs leading-none">{{ info.count }} {{ vs_map[status].label }}</span>
                 <span class="text-gray-500 truncate" title="{{ info.latest.title }}">&rarr; {{ info.latest.title }}</span>
-                {% if info.total_ballots > 0 %}
-                <span class="shrink-0 px-1.5 py-0.5 text-xs font-semibold bg-purple-100 text-purple-700 rounded-full">{{ info.progress_pct }}%</span>
+                {% if info.quorum_pct > 0 %}
+                <span class="shrink-0 px-1.5 py-0.5 text-xs font-semibold bg-purple-100 text-purple-700 rounded-full">{{ "%.2f"|format(info.quorum_pct) }}%</span>
                 {% endif %}
             </a>
             {% endif %}
@@ -106,7 +106,7 @@
         </div>
         {% endif %}
     </div>
-    <div class="flex-1 block bg-white rounded-lg shadow p-3 hover:shadow-md transition-shadow">
+    <div class="min-w-0 block bg-white rounded-lg shadow p-3 hover:shadow-md transition-shadow">
         <a href="/dane?back=/" class="flex items-center">
             <div class="p-2 bg-emerald-100 rounded-lg">
                 <svg aria-hidden="true" class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
