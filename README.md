@@ -158,11 +158,15 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
 
 - Nahrání daňových PDF dokumentů (jednotlivě nebo celý adresář) s progress barem:
   - Upload progress bar (XMLHttpRequest s upload.onprogress) — okamžitá zpětná vazba při nahrávání stovek souborů
+  - Automatické filtrování ne-PDF souborů při uploadu adresáře (webkitdirectory posílá i .DS_Store apod.)
+  - Zvýšený limit max_files na 5000 (Starlette default 1000), optimalizovaná validace velikosti bez čtení celého souboru do paměti
   - Soubory se uloží na disk, zpracování běží na pozadí (vlákno)
   - Zpracovací progress bar s počtem zpracovaných/celkem, procentuální lištou, názvem aktuálního souboru, uplynulým časem a odhadem zbývajícího (ETA)
   - HTMX polling (500ms), po dokončení automatický redirect na párování
 - Extrakce jmen z PDF (pdfplumber):
   - Primárně jednotlivá jména ze sekce „Údaje o vlastníkovi:" (SP řádky na str. 1)
+  - Podpora formátu bez SP řádků (Příjmy) — standalone jména za hlavičkou sekce
+  - Podpora firemních názvů začínajících číslem (např. „35 ASSOCIATES INVESTMENT GROUP s.r.o.")
   - Fallback na kombinované jméno ze sekce „Vlastník:" (str. 2)
   - Slučování firemních názvů rozlomených přes více SP řádků (detekce suffixů s.r.o., a.s., z.s. atd. a all-uppercase fragmentů)
 - Fuzzy párování jmen na vlastníky v databázi — každé jméno z PDF se páruje zvlášť:
