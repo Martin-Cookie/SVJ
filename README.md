@@ -6,7 +6,7 @@ Webová aplikace pro automatizaci správy SVJ (Společenství vlastníků jednot
 
 - **Backend:** FastAPI + SQLAlchemy ORM + SQLite
 - **Frontend:** Jinja2 šablony + HTMX + Tailwind CSS (CDN) + dark mode (CSS override, přepínač v sidebaru)
-- **Dokumenty:** openpyxl (Excel), docxtpl (Word), pdfplumber (PDF), Tesseract (OCR)
+- **Dokumenty:** openpyxl (Excel), docxtpl (Word), pdfplumber (PDF)
 - **Email:** SMTP s TLS
 
 ## Instalace
@@ -201,7 +201,7 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
   - Bublina „Bez emailu" (oranžová) — filtruje příjemce bez nastavené emailové adresy
   - Duální email: vlastníci se dvěma emaily (primární + sekundární) mají checkboxy pro výběr kam poslat; HTMX toggle s propagací na sibling distribuce
   - Multi-adresní odesílání: email se odešle na všechny zaškrtnuté adresy (multiple To: headers)
-  - Tlačítko „Zavřít" — zahodí neuložené změny checkboxů (snapshot pattern), tlačítko „Uložit a zavřít" — návrat s uloženým výběrem emailů
+  - Tlačítko „Zavřít" — návrat na seznam relací (výběr emailů se ukládá automaticky přes HTMX)
   - Samostatný search bar pod kartami s HTMX partial swapem
   - Vyhledávání příjemců (jméno, email, název souboru) s diacritics-insensitive porovnáním
   - Server-side řazení (příjemce, email, počet dokumentů, stav) s HTMX partial
@@ -571,6 +571,7 @@ wheels/                        # Offline Python balíčky (gitignored)
 | GET | `/jednotky/{id}/vlastnici-sekce` | HTMX: sekce vlastníků na detailu |
 | GET | `/jednotky/{id}/vlastnik/{ou_id}/upravit-formular` | HTMX: editační formulář vlastníka |
 | POST | `/jednotky/{id}/vlastnik/{ou_id}/upravit` | Uložení úpravy vlastníka |
+| POST | `/jednotky/{id}/smazat` | Smazání jednotky (cascade smaže přiřazení) |
 
 ### Hlasování (`/hlasovani`)
 
@@ -745,7 +746,7 @@ LIBREOFFICE_PATH=/Applications/LibreOffice.app/Contents/MacOS/soffice
 - **BoardMember** — členové výboru a kontrolního orgánu (group: board/control)
 - **CodeListItem** — položky číselníků (category: space_type/section/room_count/ownership_type, value, order); unique index na (category, value)
 - **EmailTemplate** — šablony emailů pro hromadné rozesílání (name, subject_template, body_template, order); placeholder `{rok}` nahrazen při výběru
-- **ActivityLog** — log aktivit (modul, akce, entita, timestamp); **ActivityAction** — enum typů aktivit (CREATE, UPDATE, DELETE, IMPORT, EXPORT, SEND)
+- **ActivityLog** — log aktivit (modul, akce, entita, timestamp); **ActivityAction** — enum typů aktivit (CREATED, UPDATED, DELETED, STATUS_CHANGED, IMPORTED, EXPORTED, RESTORED)
 - **EmailLog**, **ImportLog** — systémové logy
 
 ## Bezpečnost a kvalita kódu

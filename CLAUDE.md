@@ -164,7 +164,18 @@
 - Každý router: `router = APIRouter()` + `templates = Jinja2Templates(directory="app/templates")` + `setup_jinja_filters(templates)`
 - `setup_jinja_filters()` z `app.utils` registruje custom Jinja2 filtry (např. `fmt_num`) — volat **ihned po** vytvoření `Jinja2Templates`
 - Žádné prefixy na `APIRouter()` — všechny prefixy v `main.py` přes `include_router(prefix=...)`
-- Každý `TemplateResponse` musí obsahovat `"active_nav": "module_key"` pro zvýraznění sidebaru
+- Každý `TemplateResponse` musí obsahovat `"active_nav": "module_key"` pro zvýraznění sidebaru:
+  | Modul | `active_nav` | Prefix |
+  |-------|-------------|--------|
+  | Dashboard | `dashboard` | `/` |
+  | Vlastníci | `owners` | `/vlastnici` |
+  | Import | `import` | `/vlastnici/import` |
+  | Jednotky | `units` | `/jednotky` |
+  | Hlasování | `voting` | `/hlasovani` |
+  | Rozesílání | `tax` | `/dane` |
+  | Kontroly (sync+share) | `kontroly` | `/synchronizace`, `/kontrola-podilu` |
+  | Administrace | `administration` | `/sprava` |
+  | Nastavení | `settings` | `/nastaveni` |
 
 ### POST-Redirect-GET (PRG)
 - Všechny POST endpointy po mutaci: `RedirectResponse(url, status_code=302)` pro non-HTMX requesty
@@ -240,6 +251,8 @@
 - Podadresáře: `excel/`, `word_templates/`, `scanned_ballots/`, `tax_pdfs/`, `csv/`, `share_check/`
 - Zápis přes `shutil.copyfileobj(file.file, f)` + `dest.parent.mkdir(parents=True, exist_ok=True)`
 - Multi-step import workflow: Upload → Preview → Confirm. Cesta k souboru se předává jako hidden field, ne přes session
+- **`webkitdirectory` upload** posílá VŠECHNY soubory v adresáři (včetně `.DS_Store`). Router MUSÍ filtrovat na cílovou příponu (např. `[f for f in files if f.filename and f.filename.lower().endswith(".pdf")]`) PŘED voláním `validate_uploads()`
+- **Starlette multipart limit**: výchozí `max_files=1000` nestačí pro velké adresáře. V `main.py` se patchuje na 5000 přes `Request._get_form.__kwdefaults__` a `Request.form.__kwdefaults__`
 
 ## Mazání entit se soubory
 
@@ -253,7 +266,7 @@
 - `is_htmx_partial(request)` — `True` pokud HX-Request a ne HX-Boosted
 - `fmt_num(value)` — formátování čísel s mezerou jako oddělovačem tisíců
 - `is_safe_path(path, allowed_dirs)` — ochrana proti path traversal
-- `validate_upload(file, allowed_ext, max_size)` — validace přípony a velikosti souboru, vrací českou chybovou hlášku
+- `validate_upload(file, max_size_mb, allowed_extensions)` — validace přípony a velikosti souboru, vrací českou chybovou hlášku. Preferuje `file.size` (Starlette metadata) místo čtení celého souboru do paměti
 - `validate_uploads(files, ...)` — batch verze pro více souborů
 - `setup_jinja_filters(templates)` — registrace custom Jinja2 filtrů (`fmt_num`)
 
