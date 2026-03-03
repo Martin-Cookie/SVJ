@@ -411,9 +411,14 @@ async def tax_create(
     files: List[UploadFile] = File(...),
     db: Session = Depends(get_db),
 ):
-    err = await validate_uploads(files, max_size_mb=100, allowed_extensions=[".pdf"])
+    # Filter to PDF files only (webkitdirectory sends all files including .DS_Store)
+    pdf_files = [f for f in files if f.filename and f.filename.lower().endswith(".pdf")]
+    if not pdf_files:
+        return RedirectResponse("/dane", status_code=302)
+
+    err = await validate_uploads(pdf_files, max_size_mb=100, allowed_extensions=[".pdf"])
     if err:
-        return RedirectResponse("/dane?chyba=upload", status_code=302)
+        return RedirectResponse("/dane", status_code=302)
 
     year = datetime.now().year
     session = TaxSession(
@@ -430,9 +435,7 @@ async def tax_create(
     upload_dir.mkdir(parents=True, exist_ok=True)
 
     saved_files = []
-    for file in files:
-        if not file.filename or not file.filename.lower().endswith(".pdf"):
-            continue
+    for file in pdf_files:
         basename = Path(file.filename).name
         dest = upload_dir / basename
         with open(dest, "wb") as f:
@@ -505,9 +508,14 @@ async def tax_upload_additional(
     db: Session = Depends(get_db),
 ):
     """Upload additional PDFs to an existing session with append/overwrite mode."""
-    err = await validate_uploads(files, max_size_mb=100, allowed_extensions=[".pdf"])
+    # Filter to PDF files only (webkitdirectory sends all files including .DS_Store)
+    pdf_files = [f for f in files if f.filename and f.filename.lower().endswith(".pdf")]
+    if not pdf_files:
+        return RedirectResponse(f"/dane/{session_id}", status_code=302)
+
+    err = await validate_uploads(pdf_files, max_size_mb=100, allowed_extensions=[".pdf"])
     if err:
-        return RedirectResponse(f"/dane/{session_id}?chyba=upload", status_code=302)
+        return RedirectResponse(f"/dane/{session_id}", status_code=302)
 
     session = db.query(TaxSession).options(
         joinedload(TaxSession.documents).joinedload(TaxDocument.distributions),
@@ -536,9 +544,7 @@ async def tax_upload_additional(
     upload_dir.mkdir(parents=True, exist_ok=True)
 
     saved_files = []
-    for file in files:
-        if not file.filename or not file.filename.lower().endswith(".pdf"):
-            continue
+    for file in pdf_files:
         basename = Path(file.filename).name
         dest = upload_dir / basename
         with open(dest, "wb") as f:

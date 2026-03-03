@@ -124,15 +124,24 @@ def parse_owner_names_from_details(text: str) -> list[str]:
 
         if in_details:
             # Stop at known section boundaries
-            if re.match(r"(Vlastn[ií]k:|Vyúčtov|Případné|Stavy|Typ vlastnictv|Služba|Celkem)", stripped, re.IGNORECASE):
+            if re.match(
+                r"(Vlastn[ií]k:|Vyúčtov|Případné|Stavy|Typ vlastnictv|Služba|Celkem|Celkov|Výnos|Tento)",
+                stripped, re.IGNORECASE,
+            ):
                 break
             # Try to extract name from SP line
             name = _extract_name_from_sp_line(stripped)
             if name:
                 names.append(name)
             # Standalone name line (not an SP line) — e.g. "SJM Kočovi" between SP rows
+            # or name starting with digit (e.g. "35 ASSOCIATES INVESTMENT GROUP")
+            # or company suffix fragment (e.g. "s.r.o.", "a.s.")
             elif not re.match(r"^SP\s", stripped) and stripped:
                 if re.match(r"(?:SJM?\s|[A-ZÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ][a-záčďéěíňóřšťúůýž])", stripped):
+                    names.append(stripped)
+                elif re.match(r"\d+\s+[A-ZÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ]", stripped):
+                    names.append(stripped)
+                elif _COMPANY_SUFFIXES.search(stripped):
                     names.append(stripped)
 
     return _merge_company_fragments(names)
@@ -150,13 +159,15 @@ def parse_owner_name(text: str) -> str | None:
         )
         if match:
             value = match.group(1).strip()
+            value_from_next = False
             if not value:
                 # Name might be on the next line
                 if i + 1 < len(lines) and lines[i + 1].strip():
                     value = lines[i + 1].strip()
+                    value_from_next = True
             if value:
                 # Append continuation lines for company names (e.g. "GROUP s.r.o.")
-                j = i + 1
+                j = (i + 2) if value_from_next else (i + 1)
                 while j < len(lines):
                     next_line = lines[j].strip()
                     if next_line and _is_company_suffix(next_line):

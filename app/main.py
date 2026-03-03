@@ -375,6 +375,13 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title=settings.app_name, lifespan=lifespan)
 
+# Raise default Starlette multipart limits (default max_files=1000 is too low
+# for large PDF directories uploaded via webkitdirectory)
+from starlette.requests import Request as _StarletteRequest
+for _method in (_StarletteRequest._get_form, _StarletteRequest.form):
+    _method.__kwdefaults__["max_files"] = 5000
+    _method.__kwdefaults__["max_fields"] = 5000
+
 # Static files
 app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
 

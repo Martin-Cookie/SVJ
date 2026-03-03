@@ -76,12 +76,14 @@ async def validate_upload(
         return f"Nepovolený typ souboru ({ext or 'bez přípony'}). Povolené: {nice}"
 
     # --- Size check ---
-    # Read entire content to measure size, then seek back.
-    content = await file.read()
-    size_bytes = len(content)
-    await file.seek(0)  # reset so caller can read again
-
     max_bytes = max_size_mb * 1024 * 1024
+    # Use pre-computed size if available (avoids reading entire file into memory)
+    if file.size is not None:
+        size_bytes = file.size
+    else:
+        content = await file.read()
+        size_bytes = len(content)
+        await file.seek(0)
     if size_bytes > max_bytes:
         size_nice = f"{size_bytes / (1024 * 1024):.1f}"
         return f"Soubor je příliš velký ({size_nice} MB). Maximum: {max_size_mb} MB"
