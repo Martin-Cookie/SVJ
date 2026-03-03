@@ -38,7 +38,7 @@
                     </form>
                 </div>
                 {% if is_completed %}
-                <p class="text-sm text-green-600 mt-1">Dokončeno — přiřazení uzamčeno</p>
+                <p class="text-sm text-green-600 mt-1">Přiřazení uzamčeno</p>
                 {% else %}
                 <p class="text-sm text-gray-500 mt-1">Zkontrolujte přiřazení PDF k vlastníkům</p>
                 {% endif %}
@@ -51,7 +51,7 @@
                 </a>
                 <form method="post" action="/dane/{{ session.id }}/znovu-otevrit" hx-boost="false">
                     <button type="submit" class="px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">
-                        Znovu otevřít
+                        Odemknout
                     </button>
                 </form>
                 {% else %}
@@ -59,13 +59,14 @@
                    class="px-3 py-1.5 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 text-sm font-medium">
                     Nahrát další PDF
                 </a>
-                <a href="/dane" class="px-3 py-1.5 text-sm font-medium text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors">
-                    Uložit a zavřít
+                <a href="/dane"
+                   class="px-3 py-1.5 text-sm font-medium text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                    Zavřít
                 </a>
                 <form method="post" action="/dane/{{ session.id }}/dokoncit" hx-boost="false"
-                      onsubmit="return confirm('Dokončit zpracování? Přiřazení bude uzamčeno.')">
+                      onsubmit="return confirm('Uzamknout přiřazení? Nebude možné měnit bez odemčení.')">
                     <button type="submit" class="px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium transition-colors">
-                        Dokončit
+                        Uzamknout
                     </button>
                 </form>
                 {% endif %}
@@ -259,6 +260,7 @@ function toggleAll(checked) {
         cb.checked = checked;
     });
     updateButtons();
+    _saveTaxChecked();
     // Sync both select-all checkboxes
     var sa = document.getElementById('select-all-cb');
     var ta = document.getElementById('thead-select-all');

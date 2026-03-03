@@ -228,6 +228,32 @@ function _syncSelectAll() {
     if (master) master.checked = (all > 0 && all === checked);
 }
 
+// --- Tax assignment checkbox state (tax-cb) in sessionStorage ---
+var _TAX_KEY = 'svj_tax_checked';
+function _saveTaxChecked() {
+    var keys = [];
+    document.querySelectorAll('.tax-cb:checked').forEach(function(cb) {
+        keys.push(cb.value);
+    });
+    try { sessionStorage.setItem(_TAX_KEY, JSON.stringify(keys)); } catch(e) {}
+}
+
+function _restoreTaxChecked() {
+    var tbody = document.getElementById('tax-tbody');
+    if (!tbody) return;
+    var raw;
+    try { raw = sessionStorage.getItem(_TAX_KEY); } catch(e) {}
+    if (!raw) return;
+    var saved = JSON.parse(raw);
+    if (saved.length === 0) return;
+    var savedSet = new Set(saved);
+    tbody.querySelectorAll('.tax-cb').forEach(function(cb) {
+        if (savedSet.has(cb.value)) cb.checked = true;
+    });
+    // Trigger updateSelectAll/updateButtons if they exist on the page
+    if (typeof updateSelectAll === 'function') updateSelectAll();
+}
+
 // === Scroll position save/restore for HTMX boosted navigation ===
 // Before navigating away via boosted link, save the scrollable container's scrollTop
 // into sessionStorage keyed by current URL. On return, restore exact pixel position.
@@ -269,6 +295,9 @@ document.body.addEventListener('htmx:beforeRequest', function(event) {
     if (document.getElementById('send-tbody')) {
         _saveCheckedKeys();
     }
+    if (document.getElementById('tax-tbody')) {
+        _saveTaxChecked();
+    }
     // Save scroll position before boosted link navigation (not partial HTMX requests)
     var _elt = event.detail.elt;
     if (_elt && _elt.tagName === 'A' && !_elt.hasAttribute('hx-target') && !_elt.hasAttribute('hx-get')) {
@@ -280,6 +309,7 @@ document.body.addEventListener('htmx:beforeRequest', function(event) {
 document.body.addEventListener('htmx:afterSettle', function(event) {
     initThemeUI();
     _restoreCheckedKeys();
+    _restoreTaxChecked();
     _loadTestEmail();
     updateSendButtonCount();
 
@@ -291,7 +321,6 @@ document.body.addEventListener('htmx:afterSettle', function(event) {
             }
         } catch(e) {}
     }
-
     // Restore exact scroll position when returning to a page
     _restoreScrollPos();
 });
@@ -299,6 +328,7 @@ document.body.addEventListener('htmx:afterSettle', function(event) {
 // Initial page load
 document.addEventListener('DOMContentLoaded', function() {
     _restoreCheckedKeys();
+    _restoreTaxChecked();
     _loadTestEmail();
     updateSendButtonCount();
     // Save snapshot once on first entry to send page (for "Zavřít" = discard unsaved changes)
@@ -319,6 +349,9 @@ document.addEventListener('change', function(e) {
         _saveCheckedKeys();
         _syncSelectAll();
         updateSendButtonCount();
+    }
+    if (e.target.classList.contains('tax-cb')) {
+        _saveTaxChecked();
     }
 });
 
