@@ -185,9 +185,9 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
 - Přidání externího příjemce (ad-hoc jméno + email)
 - Přejmenování relace (inline HTMX editace názvu — tlačítko „Uložit")
 - Workflow dokončení relace:
-  - „Uložit a zavřít" — nedestruktivní zavření, návrat na seznam
-  - „Dokončit" — uzamknutí relace (read-only mód, nelze měnit přiřazení)
-  - „Znovu otevřít" — odemknutí dokončené relace pro další úpravy (krok 1 zůstane zelený pokud existují dokumenty)
+  - „Zavřít" — návrat na seznam relací
+  - „Uzamknout" — uzamknutí relace (read-only mód, nelze měnit přiřazení)
+  - „Odemknout" — odemknutí uzamčené relace pro další úpravy (krok 1 zůstane zelený pokud existují dokumenty)
   - „Pokračovat na rozesílku →" — přechod k odesílání emailů (pouze u dokončených)
   - „Nahrát další PDF" — obrysové tlačítko na stránce přiřazení pro doplnění/přepsání dokumentů
   - Re-import: volba režimu „Doplnit k existujícím" / „Přepsat stávající" (smaže staré PDF + přiřazení)
@@ -197,7 +197,7 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
   - Bublina „Bez emailu" (oranžová) — filtruje příjemce bez nastavené emailové adresy
   - Duální email: vlastníci se dvěma emaily (primární + sekundární) mají checkboxy pro výběr kam poslat; HTMX toggle s propagací na sibling distribuce
   - Multi-adresní odesílání: email se odešle na všechny zaškrtnuté adresy (multiple To: headers)
-  - Tlačítko „Uložit a zavřít" — návrat na seznam s automaticky uloženým výběrem emailů
+  - Tlačítko „Zavřít" — zahodí neuložené změny checkboxů (snapshot pattern), tlačítko „Uložit a zavřít" — návrat s uloženým výběrem emailů
   - Samostatný search bar pod kartami s HTMX partial swapem
   - Vyhledávání příjemců (jméno, email, název souboru) s diacritics-insensitive porovnáním
   - Server-side řazení (příjemce, email, počet dokumentů, stav) s HTMX partial
