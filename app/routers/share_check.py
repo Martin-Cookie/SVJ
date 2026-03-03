@@ -17,7 +17,7 @@ from app.models import (
 from app.services.share_check_comparator import (
     compare_shares, get_file_headers, get_file_preview, parse_file, suggest_mapping,
 )
-from app.utils import build_list_url, is_htmx_partial, setup_jinja_filters, strip_diacritics, validate_upload
+from app.utils import build_list_url, is_htmx_partial, is_safe_path, setup_jinja_filters, strip_diacritics, validate_upload
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -110,6 +110,8 @@ async def share_check_mapping(
     filename: str = Query(...),
     db: Session = Depends(get_db),
 ):
+    if not is_safe_path(Path(file_path), settings.upload_dir):
+        return RedirectResponse("/synchronizace#kontrola-podilu", status_code=302)
     if not Path(file_path).is_file():
         return RedirectResponse("/synchronizace#kontrola-podilu", status_code=302)
 
@@ -150,7 +152,9 @@ async def share_check_confirm_mapping(
     col_share: str = Form(...),
     db: Session = Depends(get_db),
 ):
-    # Validate file exists
+    # Validate file path and existence
+    if not is_safe_path(Path(file_path), settings.upload_dir):
+        return RedirectResponse("/synchronizace#kontrola-podilu", status_code=302)
     if not Path(file_path).is_file():
         return RedirectResponse("/synchronizace#kontrola-podilu", status_code=302)
 

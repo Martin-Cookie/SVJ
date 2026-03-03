@@ -50,7 +50,7 @@
 {% set d = db_val - file_val %}
 <table class="text-xs" style="border-spacing:0;border-collapse:collapse;margin:0 auto">
     <tr><td class="text-left text-gray-500 pr-1" style="white-space:nowrap">DB:</td><td class="text-right font-mono text-gray-800" style="white-space:nowrap">{{ db_val|fmt_num }}</td></tr>
-    <tr><td class="text-left text-gray-400 pr-1" style="white-space:nowrap">Soub:</td><td class="text-right font-mono text-gray-400" style="white-space:nowrap">{{ file_val|fmt_num }}</td></tr>
+    <tr><td class="text-left text-gray-500 pr-1" style="white-space:nowrap">Soub:</td><td class="text-right font-mono text-gray-500" style="white-space:nowrap">{{ file_val|fmt_num }}</td></tr>
     <tr><td class="text-left pr-1 {% if d != 0 %}text-red-500{% else %}text-green-500{% endif %}" style="white-space:nowrap">&plusmn;</td><td class="text-right font-mono {% if d != 0 %}text-red-500{% else %}text-green-500{% endif %}" style="white-space:nowrap">{{ d|fmt_num }}</td></tr>
 </table>
 {% endmacro %}
@@ -147,7 +147,7 @@
 </div>
 </form>
 
-<div class="shrink-0 mt-2 text-xs text-gray-400">Zobrazeno: {{ records|length }} záznamů</div>
+<div class="shrink-0 mt-2 text-xs text-gray-500">Zobrazeno: {{ records|length }} záznamů</div>
 </div>
 
 <script>

@@ -51,7 +51,7 @@
                             hx-target="#owner-units-section"
                             hx-confirm="Opravdu odebrat jednotku {{ ou.unit.unit_number }} od tohoto vlastníka?"
                             title="Odebrat"
-                            class="p-1 text-gray-400 hover:text-red-600 rounded hover:bg-red-50">
+                            class="p-1 text-gray-500 hover:text-red-600 rounded hover:bg-red-50">
                         <svg aria-hidden="true" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
                         </svg>
@@ -121,17 +121,17 @@
     <table class="min-w-full divide-y divide-gray-200 text-sm mt-2">
         <thead>
             <tr>
-                <th class="px-2 py-1.5 text-left text-xs font-medium text-gray-400 uppercase">Jedn.</th>
-                <th class="px-2 py-1.5 text-left text-xs font-medium text-gray-400 uppercase">Typ</th>
-                <th class="px-2 py-1.5 text-right text-xs font-medium text-gray-400 uppercase">Podíl SČD</th>
-                <th class="px-2 py-1.5 text-left text-xs font-medium text-gray-400 uppercase">Od</th>
-                <th class="px-2 py-1.5 text-left text-xs font-medium text-gray-400 uppercase">Do</th>
+                <th class="px-2 py-1.5 text-left text-xs font-medium text-gray-500 uppercase">Jedn.</th>
+                <th class="px-2 py-1.5 text-left text-xs font-medium text-gray-500 uppercase">Typ</th>
+                <th class="px-2 py-1.5 text-right text-xs font-medium text-gray-500 uppercase">Podíl SČD</th>
+                <th class="px-2 py-1.5 text-left text-xs font-medium text-gray-500 uppercase">Od</th>
+                <th class="px-2 py-1.5 text-left text-xs font-medium text-gray-500 uppercase">Do</th>
             </tr>
         </thead>
         <tbody class="divide-y divide-gray-100">
             {% for ou in owner.historical_units %}
-            <tr class="text-gray-400">
-                <td class="px-2 py-1.5"><a href="/jednotky/{{ ou.unit.id }}?back={{ ('/vlastnici/' ~ owner.id ~ '?back=' ~ (back_url|default('/vlastnici')|urlencode))|urlencode }}" class="text-gray-400 hover:text-gray-600 hover:underline">{{ ou.unit.unit_number }}</a></td>
+            <tr class="text-gray-500">
+                <td class="px-2 py-1.5"><a href="/jednotky/{{ ou.unit.id }}?back={{ ('/vlastnici/' ~ owner.id ~ '?back=' ~ (back_url|default('/vlastnici')|urlencode))|urlencode }}" class="text-gray-500 hover:text-gray-600 hover:underline">{{ ou.unit.unit_number }}</a></td>
                 <td class="px-2 py-1.5">{{ ou.ownership_type or '—' }}</td>
                 <td class="px-2 py-1.5 text-right font-mono whitespace-nowrap">{{ (ou.unit.podil_scd or 0)|fmt_num }}</td>
                 <td class="px-2 py-1.5 whitespace-nowrap">{{ ou.valid_from.strftime('%d.%m.%Y') if ou.valid_from else '—' }}</td>

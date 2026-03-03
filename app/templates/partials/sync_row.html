@@ -47,23 +47,23 @@
         </td>
     </tr>
     <tr class="{{ bg_class }} border-b-2 border-gray-200">
-        <td class="px-0 py-1"><span class="text-gray-400 font-bold">C</span></td>
+        <td class="px-0 py-1"><span class="text-gray-500 font-bold">C</span></td>
         <td class="px-1 py-1 overflow-hidden {% if st == 'match' %}text-gray-500{% elif st == 'name_order' %}text-orange-600{% else %}text-red-600{% endif %}" style="text-overflow:ellipsis;white-space:nowrap" title="{{ record.csv_owner_name or '' }}">
             {% if has_name_diff %}
             <label class="inline-flex items-center gap-0.5 cursor-pointer"><input type="checkbox" name="update__{{ record.id }}__owner_name" value="{{ record.csv_owner_name }}" class="sync-checkbox" onchange="syncUpdateRowCheckbox(this);syncUpdateCount()"><span>{{ record.csv_owner_name }}</span></label>
             {% else %}{{ record.csv_owner_name or '—' }}{% endif %}
         </td>
-        <td class="px-1 py-1 {% if has_space_diff %}text-orange-600{% else %}text-gray-400{% endif %}" style="text-overflow:ellipsis;overflow:hidden;white-space:nowrap">
+        <td class="px-1 py-1 {% if has_space_diff %}text-orange-600{% else %}text-gray-500{% endif %}" style="text-overflow:ellipsis;overflow:hidden;white-space:nowrap">
             {% if has_space_diff %}
             <label class="inline-flex items-center gap-0.5 cursor-pointer"><input type="checkbox" name="update__{{ record.id }}__space_type" value="{{ record.csv_space_type }}" class="sync-checkbox" onchange="syncUpdateRowCheckbox(this);syncUpdateCount()"><span>{{ record.csv_space_type }}</span></label>
             {% else %}{{ record.csv_space_type or '—' }}{% endif %}
         </td>
-        <td class="px-1 py-1 {% if has_ownership_diff %}text-orange-600{% else %}text-gray-400{% endif %}">
+        <td class="px-1 py-1 {% if has_ownership_diff %}text-orange-600{% else %}text-gray-500{% endif %}">
             {% if has_ownership_diff %}
             <label class="inline-flex items-center gap-0.5 cursor-pointer"><input type="checkbox" name="update__{{ record.id }}__ownership_type" value="{{ record.csv_ownership_type }}" class="sync-checkbox" onchange="syncUpdateRowCheckbox(this);syncUpdateCount()"><span>{{ record.csv_ownership_type }}</span></label>
             {% else %}{{ record.csv_ownership_type or '—' }}{% endif %}
         </td>
-        <td class="px-1 py-1 text-right font-mono whitespace-nowrap {% if podil_diff %}text-orange-600 font-bold{% else %}text-gray-400{% endif %}">
+        <td class="px-1 py-1 text-right font-mono whitespace-nowrap {% if podil_diff %}text-orange-600 font-bold{% else %}text-gray-500{% endif %}">
             {% if podil_diff %}
             <label class="inline-flex items-center gap-0.5 cursor-pointer"><input type="checkbox" name="update__{{ record.id }}__podil_scd" value="{{ record.csv_share or 0 }}" class="sync-checkbox" onchange="syncUpdateRowCheckbox(this);syncUpdateCount()"><span>{{ (record.csv_share or 0)|fmt_num }}</span></label>
             {% elif record.csv_share %}{{ record.csv_share|fmt_num }}{% else %}—{% endif %}

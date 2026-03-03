@@ -71,7 +71,7 @@
                     {% elif bv.vote and bv.vote.value == 'abstain' %}
                     <span class="px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-600 rounded-full">Zdržel se</span>
                     {% else %}
-                    <span class="text-gray-400">—</span>
+                    <span class="text-gray-500">—</span>
                     {% endif %}
                 </td>
                 <td class="px-3 py-2 text-right font-mono text-gray-600 whitespace-nowrap" data-v="{{ bv.votes_count }}">{{ "{:,}".format(bv.votes_count).replace(",", " ") }}</td>
@@ -80,7 +80,7 @@
         </tbody>
     </table>
     {% if ballot.processed_at %}
-    <p class="mt-4 text-xs text-gray-400">Zpracováno {{ ballot.processed_at.strftime('%d.%m.%Y %H:%M') }}</p>
+    <p class="mt-4 text-xs text-gray-500">Zpracováno {{ ballot.processed_at.strftime('%d.%m.%Y %H:%M') }}</p>
     {% endif %}
 
     {% else %}

@@ -84,7 +84,7 @@
                         <input type="file" name="files" webkitdirectory required
                                onchange="restoreFolderCheck(this)"
                                class="file-input file-input-gray w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200">
-                        <p id="restore-folder-info" class="text-xs text-gray-400 mt-1 hidden"></p>
+                        <p id="restore-folder-info" class="text-xs text-gray-500 mt-1 hidden"></p>
                     </div>
                     <button type="submit" id="restore-folder-btn" disabled
                             class="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 text-sm font-medium whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed">
@@ -129,7 +129,7 @@
                                         </svg>
                                     </button>
                                 </div>
-                                <div class="text-xs text-gray-400">{{ b.created.strftime('%d.%m.%Y %H:%M') }}</div>
+                                <div class="text-xs text-gray-500">{{ b.created.strftime('%d.%m.%Y %H:%M') }}</div>
                             </div>
                             <!-- Rename mode -->
                             <form action="/sprava/zaloha/{{ b.filename }}/prejmenovat" method="post" hx-boost="false"
@@ -144,7 +144,7 @@
                                         </svg>
                                     </button>
                                     <button type="button" onclick="cancelRename({{ loop.index }})" title="Zrušit"
-                                            class="shrink-0 p-0.5 text-gray-400 hover:text-red-600 rounded hover:bg-red-50">
+                                            class="shrink-0 p-0.5 text-gray-500 hover:text-red-600 rounded hover:bg-red-50">
                                         <svg aria-hidden="true" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                                         </svg>
@@ -165,21 +165,21 @@
                                     <button type="submit"
                                             onclick="return confirm('Obnovit ze zálohy {{ b.filename }}?\n\nAktuální data budou nejprve zálohována.')"
                                             title="Obnovit z této zálohy"
-                                            class="p-1 text-gray-400 hover:text-green-600 rounded hover:bg-green-50">
+                                            class="p-1 text-gray-500 hover:text-green-600 rounded hover:bg-green-50">
                                         <svg aria-hidden="true" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
                                         </svg>
                                     </button>
                                 </form>
                                 <a href="/sprava/zaloha/{{ b.filename }}/stahnout" hx-boost="false" title="Stáhnout"
-                                   class="p-1 text-gray-400 hover:text-blue-600 rounded hover:bg-blue-50">
+                                   class="p-1 text-gray-500 hover:text-blue-600 rounded hover:bg-blue-50">
                                     <svg aria-hidden="true" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                                     </svg>
                                 </a>
                                 <form action="/sprava/zaloha/{{ b.filename }}/smazat" method="post" hx-boost="false" class="inline">
                                     <button type="submit" onclick="return confirm('Opravdu smazat zálohu {{ b.filename }}?')" title="Smazat"
-                                            class="p-1 text-gray-400 hover:text-red-600 rounded hover:bg-red-50">
+                                            class="p-1 text-gray-500 hover:text-red-600 rounded hover:bg-red-50">
                                         <svg aria-hidden="true" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
                                         </svg>
@@ -192,7 +192,7 @@
                 </tbody>
             </table>
             {% else %}
-            <p class="text-sm text-gray-400">Zatím nejsou vytvořeny žádné zálohy.</p>
+            <p class="text-sm text-gray-500">Zatím nejsou vytvořeny žádné zálohy.</p>
             {% endif %}
         </div>
 
@@ -219,7 +219,7 @@
                         <td class="px-2 py-1.5 min-w-0">
                             <div class="truncate text-xs font-mono text-gray-800" title="{{ entry.source }}">{{ entry.source }}</div>
                             {% if entry.safety_backup is defined and entry.safety_backup %}
-                            <div class="truncate text-xs text-gray-400" title="Pojistná záloha: {{ entry.safety_backup }}">pojistná: {{ entry.safety_backup }}</div>
+                            <div class="truncate text-xs text-gray-500" title="Pojistná záloha: {{ entry.safety_backup }}">pojistná: {{ entry.safety_backup }}</div>
                             {% endif %}
                         </td>
                         <td class="px-2 py-1.5 text-xs text-gray-500 whitespace-nowrap">{{ entry.timestamp[:16].replace('T', ' ') }}</td>
@@ -229,7 +229,7 @@
                 </tbody>
             </table>
             {% else %}
-            <p class="text-sm text-gray-400">Zatím nebyla provedena žádná obnova.</p>
+            <p class="text-sm text-gray-500">Zatím nebyla provedena žádná obnova.</p>
             {% endif %}
         </div>
     </div>

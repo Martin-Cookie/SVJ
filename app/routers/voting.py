@@ -21,7 +21,7 @@ from app.services.word_parser import extract_voting_items, extract_voting_metada
 from app.services.voting_import import (
     read_excel_headers, preview_voting_import, execute_voting_import,
 )
-from app.utils import build_list_url, is_htmx_partial, setup_jinja_filters, strip_diacritics, validate_upload
+from app.utils import build_list_url, is_htmx_partial, is_safe_path, setup_jinja_filters, strip_diacritics, validate_upload
 
 
 logger = logging.getLogger(__name__)
@@ -1141,6 +1141,9 @@ async def import_preview(
     if not voting:
         return RedirectResponse("/hlasovani", status_code=302)
 
+    if not is_safe_path(Path(file_path), settings.upload_dir):
+        return RedirectResponse(f"/hlasovani/{voting_id}/import", status_code=302)
+
     try:
         mapping = json.loads(mapping_json)
     except (json.JSONDecodeError, TypeError):
@@ -1188,6 +1191,9 @@ async def import_confirm(
     ).get(voting_id)
     if not voting:
         return RedirectResponse("/hlasovani", status_code=302)
+
+    if not is_safe_path(Path(file_path), settings.upload_dir):
+        return RedirectResponse(f"/hlasovani/{voting_id}/import", status_code=302)
 
     try:
         mapping = json.loads(mapping_json)

@@ -9,10 +9,10 @@
         {% else %}
         <span class="text-gray-800">{{ email.recipient_name or '' }}</span>
         {% endif %}
-        <span class="text-gray-400">&lt;{{ email.recipient_email }}&gt;</span>
+        <span class="text-gray-500">&lt;{{ email.recipient_email }}&gt;</span>
     </td>
     <td class="px-3 py-1.5 text-xs text-gray-500 overflow-hidden" style="text-overflow:ellipsis;white-space:nowrap" title="{{ email.subject }}">{{ email.subject }}</td>
-    <td class="px-3 py-1.5 text-xs text-gray-400 overflow-hidden" style="text-overflow:ellipsis;white-space:nowrap">
+    <td class="px-3 py-1.5 text-xs text-gray-500 overflow-hidden" style="text-overflow:ellipsis;white-space:nowrap">
         {% set atts = attachments_by_id.get(email.id, []) %}
         {% if atts %}
             {% for att in atts %}{% if not loop.first %}, {% endif %}{% if att.exists %}<a href="/nastaveni/priloha/{{ email.id }}/{{ att.name }}" target="_blank" hx-boost="false" class="text-blue-600 hover:text-blue-800 hover:underline" title="{{ att.name }}">{{ att.name }}</a>{% else %}<span title="{{ att.name }}">{{ att.name }}</span>{% endif %}{% endfor %}

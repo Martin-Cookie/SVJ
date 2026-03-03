@@ -42,11 +42,11 @@
                     {% endif %}
                     <!-- Usage count + actions -->
                     <div id="cl-actions-{{ item.id }}" class="flex items-center gap-1 flex-shrink-0">
-                        <span class="text-xs text-gray-400">{{ usage }}&times;</span>
+                        <span class="text-xs text-gray-500">{{ usage }}&times;</span>
                         {% if usage == 0 %}
                         <form action="/sprava/ciselnik/{{ item.id }}/smazat" method="post" hx-boost="false" class="inline">
                             <button type="submit" onclick="return confirm('Opravdu smazat „{{ item.value }}"?')" title="Smazat"
-                                    class="p-1 text-gray-400 hover:text-red-600 rounded hover:bg-red-50">
+                                    class="p-1 text-gray-500 hover:text-red-600 rounded hover:bg-red-50">
                                 <svg aria-hidden="true" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
                                 </svg>
@@ -59,7 +59,7 @@
             {% endfor %}
         </ul>
         {% else %}
-        <p class="text-sm text-gray-400">Zatím žádné položky.</p>
+        <p class="text-sm text-gray-500">Zatím žádné položky.</p>
         {% endif %}
 
         <!-- Add form (hidden) -->
@@ -95,7 +95,7 @@
                            class="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                 </div>
                 <div>
-                    <label class="block text-xs text-gray-500 mb-1">Předmět emailu <span class="text-gray-400">({rok} = rok rozesílání)</span></label>
+                    <label class="block text-xs text-gray-500 mb-1">Předmět emailu <span class="text-gray-500">({rok} = rok rozesílání)</span></label>
                     <input type="text" name="subject_template" required placeholder="Rozúčtování příjmů za rok {rok}"
                            class="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                 </div>
@@ -122,14 +122,14 @@
                 <h3 class="text-base font-semibold text-gray-800">{{ tpl.name }}</h3>
                 <div class="flex items-center gap-1">
                     <button onclick="etEdit({{ tpl.id }})" title="Upravit"
-                            class="p-1 text-gray-400 hover:text-blue-600 rounded hover:bg-blue-50">
+                            class="p-1 text-gray-500 hover:text-blue-600 rounded hover:bg-blue-50">
                         <svg aria-hidden="true" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
                         </svg>
                     </button>
                     <form action="/sprava/sablona/{{ tpl.id }}/smazat" method="post" hx-boost="false" class="inline">
                         <button type="submit" onclick="return confirm('Opravdu smazat šablonu „{{ tpl.name }}"?')" title="Smazat"
-                                class="p-1 text-gray-400 hover:text-red-600 rounded hover:bg-red-50">
+                                class="p-1 text-gray-500 hover:text-red-600 rounded hover:bg-red-50">
                             <svg aria-hidden="true" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
                             </svg>
@@ -137,7 +137,7 @@
                     </form>
                 </div>
             </div>
-            <p class="text-sm text-gray-600"><span class="text-xs text-gray-400">Předmět:</span> {{ tpl.subject_template }}</p>
+            <p class="text-sm text-gray-600"><span class="text-xs text-gray-500">Předmět:</span> {{ tpl.subject_template }}</p>
             <p class="text-sm text-gray-500 mt-1 whitespace-pre-line text-xs">{{ tpl.body_template[:120] }}{% if tpl.body_template|length > 120 %}…{% endif %}</p>
         </div>
 
@@ -150,7 +150,7 @@
                            class="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                 </div>
                 <div>
-                    <label class="block text-xs text-gray-500 mb-1">Předmět emailu <span class="text-gray-400">({rok} = rok rozesílání)</span></label>
+                    <label class="block text-xs text-gray-500 mb-1">Předmět emailu <span class="text-gray-500">({rok} = rok rozesílání)</span></label>
                     <input type="text" name="subject_template" value="{{ tpl.subject_template }}" required
                            class="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                 </div>
@@ -170,7 +170,7 @@
     {% endfor %}
 
     {% if not email_templates %}
-    <div class="bg-white rounded-lg shadow p-6 text-center text-gray-400 text-sm">
+    <div class="bg-white rounded-lg shadow p-6 text-center text-gray-500 text-sm">
         Zatím nejsou vytvořeny žádné emailové šablony.
     </div>
     {% endif %}

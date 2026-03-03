@@ -375,6 +375,42 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title=settings.app_name, lifespan=lifespan)
 
+
+# Custom error pages
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
+
+_error_templates = Jinja2Templates(directory="app/templates")
+
+
+@app.exception_handler(404)
+async def not_found_handler(request, exc):
+    return _error_templates.TemplateResponse("error.html", {
+        "request": request,
+        "status_code": 404,
+        "title": "Stránka nenalezena",
+        "message": "Požadovaná stránka neexistuje nebo byla přesunuta.",
+    }, status_code=404)
+
+
+@app.exception_handler(500)
+async def server_error_handler(request, exc):
+    return _error_templates.TemplateResponse("error.html", {
+        "request": request,
+        "status_code": 500,
+        "title": "Chyba serveru",
+        "message": "Nastala neočekávaná chyba. Zkuste to prosím znovu.",
+    }, status_code=500)
+
+# Security headers middleware
+@app.middleware("http")
+async def add_security_headers(request, call_next):
+    response = await call_next(request)
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return response
+
 # Raise default Starlette multipart limits (default max_files=1000 is too low
 # for large PDF directories uploaded via webkitdirectory)
 from starlette.requests import Request as _StarletteRequest

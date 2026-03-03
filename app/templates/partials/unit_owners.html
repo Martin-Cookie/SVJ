@@ -24,7 +24,7 @@
                         <button hx-get="/jednotky/{{ unit.id }}/vlastnik/{{ ou.id }}/upravit-formular"
                                 hx-target="#owner-row-{{ ou.id }}" hx-swap="outerHTML"
                                 title="Upravit"
-                                class="p-1 text-gray-400 hover:text-blue-600 rounded hover:bg-blue-50">
+                                class="p-1 text-gray-500 hover:text-blue-600 rounded hover:bg-blue-50">
                             <svg aria-hidden="true" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
                             </svg>
@@ -59,16 +59,16 @@
         <table class="min-w-full divide-y divide-gray-200 text-sm mt-2">
             <thead>
                 <tr>
-                    <th class="px-3 py-1.5 text-left text-xs font-medium text-gray-400 uppercase">Jméno</th>
-                    <th class="px-3 py-1.5 text-left text-xs font-medium text-gray-400 uppercase">Od</th>
-                    <th class="px-3 py-1.5 text-left text-xs font-medium text-gray-400 uppercase">Do</th>
-                    <th class="px-3 py-1.5 text-right text-xs font-medium text-gray-400 uppercase">Hlasy</th>
+                    <th class="px-3 py-1.5 text-left text-xs font-medium text-gray-500 uppercase">Jméno</th>
+                    <th class="px-3 py-1.5 text-left text-xs font-medium text-gray-500 uppercase">Od</th>
+                    <th class="px-3 py-1.5 text-left text-xs font-medium text-gray-500 uppercase">Do</th>
+                    <th class="px-3 py-1.5 text-right text-xs font-medium text-gray-500 uppercase">Hlasy</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
                 {% for ou in unit.historical_owners %}
-                <tr class="text-gray-400">
-                    <td class="px-3 py-1.5"><a href="/vlastnici/{{ ou.owner.id }}?back={{ ('/jednotky/' ~ unit.id ~ '?back=' ~ (back_url|default('/jednotky')|urlencode))|urlencode }}" class="text-gray-400 hover:text-gray-600 hover:underline">{{ ou.owner.display_name }}</a></td>
+                <tr class="text-gray-500">
+                    <td class="px-3 py-1.5"><a href="/vlastnici/{{ ou.owner.id }}?back={{ ('/jednotky/' ~ unit.id ~ '?back=' ~ (back_url|default('/jednotky')|urlencode))|urlencode }}" class="text-gray-500 hover:text-gray-600 hover:underline">{{ ou.owner.display_name }}</a></td>
                     <td class="px-3 py-1.5 whitespace-nowrap">{{ ou.valid_from.strftime('%d.%m.%Y') if ou.valid_from else '—' }}</td>
                     <td class="px-3 py-1.5 whitespace-nowrap">{{ ou.valid_to.strftime('%d.%m.%Y') if ou.valid_to else '—' }}</td>
                     <td class="px-3 py-1.5 text-right font-mono whitespace-nowrap">{{ "{:,}".format(ou.votes).replace(",", " ") }}</td>

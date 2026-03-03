@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import case, func
@@ -6,7 +8,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.database import get_db
 from app.models import ActivityLog, EmailLog, Owner, OwnerUnit, SvjInfo, Unit, Voting, VotingStatus
 from app.models.voting import Ballot, BallotStatus
-from app.models.tax import TaxSession, TaxDistribution, EmailDeliveryStatus
+from app.models.tax import TaxDocument, TaxSession, TaxDistribution, EmailDeliveryStatus
 from app.utils import setup_jinja_filters, strip_diacritics
 
 router = APIRouter()
@@ -86,68 +88,82 @@ async def home(
 ):
     owners_count = db.query(Owner).filter_by(is_active=True).count()
     units_count = db.query(Unit).count()
-    active_votings_list = (
-        db.query(Voting)
-        .options(joinedload(Voting.ballots).joinedload(Ballot.votes))
-        .order_by(
-            case(
-                (Voting.status == VotingStatus.ACTIVE, 0),
-                (Voting.status == VotingStatus.DRAFT, 1),
-                (Voting.status == VotingStatus.CLOSED, 2),
-                (Voting.status == VotingStatus.CANCELLED, 3),
-            ),
-            Voting.updated_at.desc(),
-        )
+    # Voting stats: count per status (lightweight)
+    svj_info = db.query(SvjInfo).first()
+    declared_shares = svj_info.total_shares if svj_info and svj_info.total_shares else 0
+
+    voting_counts = (
+        db.query(Voting.status, func.count(Voting.id))
+        .group_by(Voting.status)
         .all()
     )
+    total_votings = sum(c for _, c in voting_counts)
+
+    # Latest voting per status (with eager loading for quorum calc)
+    voting_by_status = {}
+    for status, count in voting_counts:
+        latest = (
+            db.query(Voting)
+            .options(joinedload(Voting.ballots).joinedload(Ballot.votes))
+            .filter(Voting.status == status)
+            .order_by(Voting.updated_at.desc())
+            .first()
+        )
+        if latest:
+            processed = [b for b in latest.ballots if b.status == BallotStatus.PROCESSED]
+            voted = [b for b in processed if any(bv.vote is not None for bv in b.votes)]
+            processed_votes = sum(b.total_votes for b in voted)
+            quorum_pct = round(processed_votes / declared_shares * 100, 2) if declared_shares else 0
+            voting_by_status[status.value] = {
+                "count": count,
+                "latest": latest,
+                "date": latest.start_date or latest.created_at,
+                "total_ballots": len(latest.ballots),
+                "quorum_pct": quorum_pct,
+            }
+
     active_tax_sessions = (
         db.query(TaxSession)
         .order_by(TaxSession.created_at.desc())
         .all()
     )
 
-    # Group votings by status: {status_value: {"count": N, "latest": Voting, "date": ..., "progress": ...}}
-    svj_info = db.query(SvjInfo).first()
-    declared_shares = svj_info.total_shares if svj_info else 0
-    voting_by_status = {}
-    for v in active_votings_list:
-        s = v.status.value
-        if s not in voting_by_status:
-            # Calculate quorum percentage (same as detail page)
-            processed = [b for b in v.ballots if b.status == BallotStatus.PROCESSED]
-            voted = [b for b in processed if any(bv.vote is not None for bv in b.votes)]
-            processed_votes = sum(b.total_votes for b in voted)
-            quorum_pct = round(processed_votes / declared_shares * 100, 2) if declared_shares else 0
-            voting_by_status[s] = {
-                "count": 0,
-                "latest": v,
-                "date": v.start_date or v.created_at,
-                "total_ballots": len(v.ballots),
-                "quorum_pct": quorum_pct,
-            }
-        voting_by_status[s]["count"] += 1
-
-    # Group tax sessions by status
+    # Group tax sessions by status — pre-fetch dist stats in one query
+    latest_session_ids = {}
     tax_by_status = {}
     for t in active_tax_sessions:
         s = t.send_status.value
         if s not in tax_by_status:
-            # Calculate send progress for the latest tax session of this status
-            total_dists = db.query(TaxDistribution).join(TaxDistribution.document).filter(
-                TaxDistribution.document.has(session_id=t.id)
-            ).count()
-            sent_dists = db.query(TaxDistribution).join(TaxDistribution.document).filter(
-                TaxDistribution.document.has(session_id=t.id),
-                TaxDistribution.email_status == EmailDeliveryStatus.SENT,
-            ).count()
+            latest_session_ids[t.id] = s
             tax_by_status[s] = {
                 "count": 0,
                 "latest": t,
                 "date": t.created_at,
-                "sent": sent_dists,
-                "total_dists": total_dists,
+                "sent": 0,
+                "total_dists": 0,
             }
         tax_by_status[s]["count"] += 1
+
+    # Single query for distribution stats of latest sessions per status
+    if latest_session_ids:
+        dist_stats = (
+            db.query(
+                TaxDocument.session_id,
+                func.count(TaxDistribution.id),
+                func.sum(case(
+                    (TaxDistribution.email_status == EmailDeliveryStatus.SENT, 1),
+                    else_=0,
+                )),
+            )
+            .join(TaxDistribution.document)
+            .filter(TaxDocument.session_id.in_(latest_session_ids.keys()))
+            .group_by(TaxDocument.session_id)
+            .all()
+        )
+        for session_id, total, sent in dist_stats:
+            s = latest_session_ids[session_id]
+            tax_by_status[s]["total_dists"] = total
+            tax_by_status[s]["sent"] = sent or 0
 
     # Unified activity: EmailLog + ActivityLog
     recent_emails = db.query(EmailLog).order_by(EmailLog.created_at.desc()).limit(30).all()
@@ -176,7 +192,7 @@ async def home(
         })
 
     # Sort combined and limit
-    unified.sort(key=lambda x: x["created_at"] or x["created_at"], reverse=True)
+    unified.sort(key=lambda x: x["created_at"] or datetime.min, reverse=True)
     unified = unified[:50]
 
     # Search filtering
@@ -203,9 +219,7 @@ async def home(
     sort_fn = SORT_KEYS.get(sort, SORT_KEYS["date"])
     unified.sort(key=sort_fn, reverse=(order == "desc"))
 
-    # Share statistics
-    svj_info = db.query(SvjInfo).first()
-    declared_shares = svj_info.total_shares if svj_info and svj_info.total_shares else 0
+    # Share statistics (svj_info + declared_shares already loaded above)
     owners_scd = db.query(func.sum(OwnerUnit.votes)).filter(OwnerUnit.valid_to.is_(None)).scalar() or 0
     units_scd = db.query(func.sum(Unit.podil_scd)).scalar() or 0
 
@@ -214,7 +228,7 @@ async def home(
         "active_nav": "dashboard",
         "owners_count": owners_count,
         "units_count": units_count,
-        "active_votings": len(active_votings_list),
+        "active_votings": total_votings,
         "voting_by_status": voting_by_status,
         "active_tax_count": len(active_tax_sessions),
         "tax_by_status": tax_by_status,

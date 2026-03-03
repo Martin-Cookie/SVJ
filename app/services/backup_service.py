@@ -148,10 +148,14 @@ def _restore_directory_from_zip(
         shutil.rmtree(target_dir)
     os.makedirs(target_dir, exist_ok=True)
 
+    resolved_target = os.path.realpath(target_dir)
     for name in zf.namelist():
         if name.startswith(zip_prefix + "/") and not name.endswith("/"):
             rel_path = os.path.relpath(name, zip_prefix)
-            target_path = os.path.join(target_dir, rel_path)
+            target_path = os.path.realpath(os.path.join(target_dir, rel_path))
+            # Zip Slip protection: ensure extracted path stays within target
+            if not target_path.startswith(resolved_target + os.sep):
+                continue
             os.makedirs(os.path.dirname(target_path), exist_ok=True)
             with zf.open(name) as src, open(target_path, "wb") as dst:
                 dst.write(src.read())

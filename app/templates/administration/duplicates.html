@@ -30,7 +30,7 @@
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
     </svg>
     <p class="text-gray-600 font-medium">Žádné duplicity</p>
-    <p class="text-sm text-gray-400 mt-1">Všichni aktivní vlastníci mají unikátní jméno.</p>
+    <p class="text-sm text-gray-500 mt-1">Všichni aktivní vlastníci mají unikátní jméno.</p>
 </div>
 {% else %}
 
@@ -89,7 +89,7 @@
                         {% elif o.data_source == 'manual' %}
                         <span class="px-2 py-0.5 text-xs bg-gray-100 text-gray-800 rounded-full">manual</span>
                         {% else %}
-                        <span class="text-xs text-gray-400">{{ o.data_source or '—' }}</span>
+                        <span class="text-xs text-gray-500">{{ o.data_source or '—' }}</span>
                         {% endif %}
                     </td>
                     <td class="px-4 py-2 text-gray-600">{{ o.email or '—' }}</td>
@@ -98,9 +98,9 @@
                         {% set units = o.current_units %}
                         {% if units %}
                         <span class="font-medium">{{ units|length }}</span>
-                        <span class="text-xs text-gray-400 ml-1">({% for u in units %}{{ u.unit.unit_number }}{% if not loop.last %}, {% endif %}{% endfor %})</span>
+                        <span class="text-xs text-gray-500 ml-1">({% for u in units %}{{ u.unit.unit_number }}{% if not loop.last %}, {% endif %}{% endfor %})</span>
                         {% else %}
-                        <span class="text-gray-400">0</span>
+                        <span class="text-gray-500">0</span>
                         {% endif %}
                     </td>
                 </tr>

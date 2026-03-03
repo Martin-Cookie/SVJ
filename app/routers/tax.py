@@ -1644,7 +1644,9 @@ async def send_test_email(
 
     attachments = [first_doc.file_path] if first_doc else []
 
-    result = send_email(
+    import asyncio
+    result = await asyncio.to_thread(
+        send_email,
         to_email=test_email.strip(),
         to_name="Test",
         subject=session.email_subject or "Test email",

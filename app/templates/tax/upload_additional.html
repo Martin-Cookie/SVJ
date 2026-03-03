@@ -41,7 +41,7 @@
                            class="text-blue-600 focus:ring-blue-500">
                     <span class="text-sm text-gray-700">Přepsat stávající</span>
                 </label>
-                <p class="text-xs text-gray-400 mt-1">Přepsat smaže všechny existující PDF a přiřazení.</p>
+                <p class="text-xs text-gray-500 mt-1">Přepsat smaže všechny existující PDF a přiřazení.</p>
             </div>
             {% else %}
             <input type="hidden" name="import_mode" value="append">
@@ -67,7 +67,7 @@
                 <input type="file" id="file-input" name="files" accept=".pdf" multiple required
                        onchange="updateFileName(this); document.getElementById('submit-btn').classList.toggle('hidden', !this.files.length)"
                        class="hidden">
-                <p id="file-hint" class="text-xs text-gray-400 mt-1">
+                <p id="file-hint" class="text-xs text-gray-500 mt-1">
                     Pojmenování souborů: {číslo_jednotky}{písmeno}.pdf (např. 9A.pdf, 101B.pdf).
                     Vyberte všechny PDF najednou.
                 </p>
@@ -88,7 +88,7 @@
                 <div id="upload-bar" class="bg-blue-600 h-5 rounded-full transition-all duration-300" style="width:0%"></div>
                 <span id="upload-bar-text" class="absolute inset-0 flex items-center justify-center text-xs font-medium text-gray-700">0 %</span>
             </div>
-            <p id="upload-status" class="text-xs text-gray-400">Připravuji nahrání...</p>
+            <p id="upload-status" class="text-xs text-gray-500">Připravuji nahrání...</p>
         </div>
     </div>
 </div>

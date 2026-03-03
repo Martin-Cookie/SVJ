@@ -14,7 +14,7 @@
             <p class="text-xs font-medium text-gray-500 mb-2">Nalezené sloupce v souboru:</p>
             <div class="flex flex-wrap gap-1.5">
                 {% for h in headers %}
-                <span class="px-2 py-0.5 bg-gray-100 text-gray-700 rounded-full text-xs" title="{% if preview and h in preview %}{{ preview[h]|join(', ') }}{% endif %}">{{ h }}{% if preview and h in preview %} <span class="text-gray-400">({{ preview[h][0] }}{% if preview[h]|length > 1 %}, {{ preview[h][1] }}{% endif %}…)</span>{% endif %}</span>
+                <span class="px-2 py-0.5 bg-gray-100 text-gray-700 rounded-full text-xs" title="{% if preview and h in preview %}{{ preview[h]|join(', ') }}{% endif %}">{{ h }}{% if preview and h in preview %} <span class="text-gray-500">({{ preview[h][0] }}{% if preview[h]|length > 1 %}, {{ preview[h][1] }}{% endif %}…)</span>{% endif %}</span>
                 {% endfor %}
             </div>
         </div>

@@ -110,7 +110,7 @@
                     </td>
                     <td class="px-3 py-2 text-sm text-gray-800">
                         {{ row.excel_name }}
-                        <span class="text-xs text-gray-400 ml-1">(ř. {{ row.excel_row }})</span>
+                        <span class="text-xs text-gray-500 ml-1">(ř. {{ row.excel_row }})</span>
                     </td>
                     <td class="px-3 py-2 text-sm">
                         {% if row.matched %}
@@ -129,7 +129,7 @@
                             {% endfor %}
                         </div>
                         {% elif row.matched %}
-                        <span class="text-xs text-gray-400">Beze změn</span>
+                        <span class="text-xs text-gray-500">Beze změn</span>
                         {% endif %}
                     </td>
                 </tr>
@@ -147,7 +147,7 @@
                             <tbody>
                                 {% for ch in row.changes %}
                                 {% if ch.get('is_secondary') and ch.get('primary_current') %}
-                                <tr class="text-gray-400">
+                                <tr class="text-gray-500">
                                     <td class="py-1 pr-3">{{ ch.primary_label }}</td>
                                     <td class="py-1 pr-3">{{ ch.primary_current }}</td>
                                     <td class="py-1 italic">obsazeno</td>
@@ -155,7 +155,7 @@
                                 {% endif %}
                                 <tr>
                                     <td class="py-1 pr-3 text-gray-600">{{ ch.label }}</td>
-                                    <td class="py-1 pr-3 {% if ch.is_overwrite %}text-orange-600{% else %}text-gray-400{% endif %}">{{ ch.current or "—" }}</td>
+                                    <td class="py-1 pr-3 {% if ch.is_overwrite %}text-orange-600{% else %}text-gray-500{% endif %}">{{ ch.current or "—" }}</td>
                                     <td class="py-1 {% if ch.get('is_secondary') %}text-blue-700{% else %}text-green-700{% endif %} font-medium">{{ ch.new }}</td>
                                 </tr>
                                 {% endfor %}

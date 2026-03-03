@@ -19,7 +19,7 @@
             <div class="flex items-center justify-center w-7 h-7 rounded-full text-xs font-medium
                 {% if is_done %}bg-green-100 text-green-700 border-2 border-green-400
                 {% elif is_active %}bg-green-600 text-white border-2 border-green-600
-                {% else %}bg-gray-100 text-gray-400 border-2 border-gray-200
+                {% else %}bg-gray-100 text-gray-500 border-2 border-gray-200
                 {% endif %}">
                 {% if is_done %}
                 <svg aria-hidden="true" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -34,7 +34,7 @@
         <span class="hidden md:inline ml-1.5 text-xs
             {% if is_done %}text-green-700 font-medium
             {% elif is_active %}text-green-700 font-semibold
-            {% else %}text-gray-400
+            {% else %}text-gray-500
             {% endif %}">{{ step.label }}</span>
         {# Connector line (not after last step) #}
         {% if not loop.last %}

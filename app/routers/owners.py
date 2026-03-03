@@ -2,6 +2,7 @@ import shutil
 import threading
 import time as _time
 from datetime import date, datetime
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -13,7 +14,7 @@ from app.config import settings
 from app.database import SessionLocal, get_db
 from app.models import ImportLog, Owner, OwnerType, OwnerUnit, SvjInfo, Unit, ActivityAction, log_activity
 from app.services.excel_import import import_owners_from_excel, preview_owners_from_excel
-from app.utils import build_list_url, is_htmx_partial, setup_jinja_filters, strip_diacritics, validate_upload
+from app.utils import build_list_url, is_htmx_partial, is_safe_path, setup_jinja_filters, strip_diacritics, validate_upload
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -470,13 +471,15 @@ async def contact_import_confirm(
     overwrite: str = Form(""),
     db: Session = Depends(get_db),
 ):
+    if not is_safe_path(Path(file_path), settings.upload_dir):
+        return RedirectResponse("/vlastnici/import#kontakty", status_code=302)
+
     form_data = await request.form()
     selected = [int(v) for v in form_data.getlist("selected_owners")]
 
     if not selected:
         return RedirectResponse("/vlastnici/import#kontakty", status_code=302)
 
-    from pathlib import Path
     from app.services.contact_import import execute_contact_import
     result = execute_contact_import(file_path, db, selected, overwrite_existing=bool(overwrite))
 
@@ -569,6 +572,9 @@ async def import_excel_confirm(
     db: Session = Depends(get_db),
 ):
     """Step 2: Confirm preview and save to DB."""
+    if not is_safe_path(Path(file_path), settings.upload_dir):
+        return RedirectResponse("/vlastnici/import", status_code=302)
+
     from app.models.owner import OwnerUnit
 
     # Clear existing owners

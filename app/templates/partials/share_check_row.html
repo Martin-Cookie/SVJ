@@ -24,9 +24,9 @@
         {% if owner_map is defined and record.unit_number in owner_map %}
             {% for oid, oname in owner_map[record.unit_number] %}{% if not loop.first %}<span class="text-gray-300">;</span> {% endif %}<a href="/vlastnici/{{ oid }}?back={{ back_url_rec|urlencode }}" class="text-gray-700 hover:text-blue-600 hover:underline" title="{{ oname }}">{{ oname }}</a>{% endfor %}
         {% elif is_missing_db %}
-            <span class="text-gray-400">&mdash;</span>
+            <span class="text-gray-500">&mdash;</span>
         {% else %}
-            <span class="text-gray-400">&mdash;</span>
+            <span class="text-gray-500">&mdash;</span>
         {% endif %}
     </td>
     <td class="px-1 py-1.5 text-right font-mono whitespace-nowrap text-gray-800">

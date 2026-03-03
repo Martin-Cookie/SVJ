@@ -92,8 +92,8 @@
     </div>
     {% if stats.no_units_count %}
     <a href="/vlastnici?stav=bez_jednotky&{{ _base }}" class="flex-1 block bg-gray-50 rounded p-2 text-center border border-gray-200 hover:bg-gray-100 transition-colors {% if stav == 'bez_jednotky' %}ring-2 ring-gray-400{% endif %}">
-        <p class="text-lg font-bold text-gray-400">{{ stats.no_units_count }}</p>
-        <p class="text-xs text-gray-400">Bez&nbsp;jednotky</p>
+        <p class="text-lg font-bold text-gray-500">{{ stats.no_units_count }}</p>
+        <p class="text-xs text-gray-500">Bez&nbsp;jednotky</p>
     </a>
     {% endif %}
 </div>
@@ -212,7 +212,7 @@
     {% endif %}
 </div>
 
-<div class="shrink-0 mt-2 text-xs text-gray-400">Zobrazeno: {{ owners|length }} vlastníků</div>
+<div class="shrink-0 mt-2 text-xs text-gray-500">Zobrazeno: {{ owners|length }} vlastníků</div>
 </div>
 <script>
 if (location.hash) {

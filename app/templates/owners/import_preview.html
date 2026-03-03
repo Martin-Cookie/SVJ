@@ -41,7 +41,7 @@
         <p class="text-xs text-blue-600">Právnická os.</p>
     </a>
     <a href="#" onclick="filterPreview('error');return false" class="filter-bubble block bg-red-50 rounded-lg shadow p-2 text-center border border-red-200 hover:ring-2 hover:ring-red-300" data-filter="error">
-        <p class="text-lg font-bold {% if preview.errors %}text-red-600{% else %}text-gray-400{% endif %}">{{ preview.errors|length }}</p>
+        <p class="text-lg font-bold {% if preview.errors %}text-red-600{% else %}text-gray-500{% endif %}">{{ preview.errors|length }}</p>
         <p class="text-xs text-red-600">Chyby</p>
     </a>
 </div>
@@ -87,7 +87,7 @@
         <tbody class="divide-y divide-gray-200">
             {% for row in preview.preview_rows %}
             <tr class="hover:bg-gray-50 preview-row" data-type="{{ row.owner_type }}">
-                <td class="px-2 py-1.5 text-gray-400">{{ row.row }}</td>
+                <td class="px-2 py-1.5 text-gray-500">{{ row.row }}</td>
                 <td class="px-2 py-1.5 font-medium text-gray-900 overflow-hidden" style="text-overflow:ellipsis;white-space:nowrap" title="{{ row.name }}" data-sort="{{ row.sort_name }}">{{ row.name }}</td>
                 <td class="px-2 py-1.5">
                     {% if row.owner_type == 'legal' %}
@@ -107,7 +107,7 @@
     </table>
 </div>
 
-<div class="shrink-0 mt-2 text-xs text-gray-400" id="visible-count">Zobrazeno: {{ preview.preview_rows|length }} řádků</div>
+<div class="shrink-0 mt-2 text-xs text-gray-500" id="visible-count">Zobrazeno: {{ preview.preview_rows|length }} řádků</div>
 </div>
 
 <script>

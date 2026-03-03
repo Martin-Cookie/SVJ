@@ -53,13 +53,13 @@
                 {% if dist.owner %}
                 <a href="/vlastnici/{{ dist.owner.id }}?back={{ (list_url ~ '#tax-row-' ~ doc.id)|urlencode }}" class="hover:underline">{{ dist.owner.display_name }}</a>
                 {% elif dist.ad_hoc_name %}
-                {{ dist.ad_hoc_name }} <span class="text-gray-400">(externí)</span>
+                {{ dist.ad_hoc_name }} <span class="text-gray-500">(externí)</span>
                 {% endif %}
                 {% if not is_completed and dist.match_status.value not in ('confirmed', 'manual') and (not dist.match_confidence or dist.match_confidence < 1.0) %}
                 <button hx-post="/dane/{{ doc.session_id }}/odebrat/{{ dist.id }}"
                         hx-target="#tax-row-{{ doc.id }}" hx-swap="outerHTML"
                         hx-confirm="Odebrat tohoto vlastníka z dokumentu?"
-                        class="ml-0.5 text-gray-400 hover:text-red-600" title="Odebrat">
+                        class="ml-0.5 text-gray-500 hover:text-red-600" title="Odebrat">
                     <svg aria-hidden="true" class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                     </svg>

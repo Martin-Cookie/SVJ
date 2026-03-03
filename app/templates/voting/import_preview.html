@@ -45,17 +45,17 @@
     </a>
     <a href="#" onclick="filterImport('unmatched');return false"
        class="filter-bubble flex-1 block bg-red-50 rounded-lg shadow p-2 text-center border border-red-200 hover:ring-2 hover:ring-red-300" data-filter="unmatched">
-        <p class="text-lg font-bold {% if preview.unmatched %}text-red-600{% else %}text-gray-400{% endif %}">{{ preview.unmatched|length }}</p>
+        <p class="text-lg font-bold {% if preview.unmatched %}text-red-600{% else %}text-gray-500{% endif %}">{{ preview.unmatched|length }}</p>
         <p class="text-xs text-red-600">Nepřiřazeno</p>
     </a>
     <a href="#" onclick="filterImport('no_match');return false"
        class="filter-bubble flex-1 block bg-orange-50 rounded-lg shadow p-2 text-center border border-orange-200 hover:ring-2 hover:ring-orange-300" data-filter="no_match">
-        <p class="text-lg font-bold {% if preview.no_match %}text-orange-600{% else %}text-gray-400{% endif %}">{{ preview.no_match|length }}</p>
+        <p class="text-lg font-bold {% if preview.no_match %}text-orange-600{% else %}text-gray-500{% endif %}">{{ preview.no_match|length }}</p>
         <p class="text-xs text-orange-600">Nerozpoznáno</p>
     </a>
     <a href="#" onclick="filterImport('error');return false"
        class="filter-bubble flex-1 block bg-yellow-50 rounded-lg shadow p-2 text-center border border-yellow-200 hover:ring-2 hover:ring-yellow-300" data-filter="error">
-        <p class="text-lg font-bold {% if preview.errors %}text-yellow-600{% else %}text-gray-400{% endif %}">{{ preview.errors|length }}</p>
+        <p class="text-lg font-bold {% if preview.errors %}text-yellow-600{% else %}text-gray-500{% endif %}">{{ preview.errors|length }}</p>
         <p class="text-xs text-yellow-600">Chyby</p>
     </a>
 </div>
@@ -97,7 +97,7 @@
         <tbody class="divide-y divide-gray-200">
             {% for entry in preview.matched %}
             <tr class="hover:bg-gray-50 import-row" data-match="matched">
-                <td class="px-3 py-1.5 text-gray-400">{{ entry.row }}</td>
+                <td class="px-3 py-1.5 text-gray-500">{{ entry.row }}</td>
                 <td class="px-3 py-1.5 font-medium text-gray-900">{{ entry.owner_name }}</td>
                 <td class="px-3 py-1.5 text-gray-500">{{ entry.unit_number }}</td>
                 {% for item in voting.items %}
@@ -126,7 +126,7 @@
             {% endfor %}
             {% for entry in preview.unmatched %}
             <tr class="hover:bg-red-50 import-row bg-red-50/50" data-match="unmatched">
-                <td class="px-3 py-1.5 text-gray-400">{{ entry.row }}</td>
+                <td class="px-3 py-1.5 text-gray-500">{{ entry.row }}</td>
                 <td class="px-3 py-1.5 font-medium text-gray-900">{{ entry.owner_name }}</td>
                 <td class="px-3 py-1.5 text-gray-500">{{ entry.unit_number }}</td>
                 {% for item in voting.items %}
@@ -139,7 +139,7 @@
             {% endfor %}
             {% for entry in preview.no_match %}
             <tr class="hover:bg-orange-50 import-row bg-orange-50/50" data-match="no_match">
-                <td class="px-3 py-1.5 text-gray-400">{{ entry.row }}</td>
+                <td class="px-3 py-1.5 text-gray-500">{{ entry.row }}</td>
                 <td class="px-3 py-1.5 font-medium text-gray-900">{{ entry.owner_name }}</td>
                 <td class="px-3 py-1.5 text-gray-500">{{ entry.unit_number }}</td>
                 {% for item in voting.items %}
@@ -160,7 +160,7 @@
     </table>
 </div>
 
-<div class="mt-2 text-xs text-gray-400" id="visible-count">Zobrazeno: {{ preview.matched|length + preview.unmatched|length + preview.no_match|length }} řádků</div>
+<div class="mt-2 text-xs text-gray-500" id="visible-count">Zobrazeno: {{ preview.matched|length + preview.unmatched|length + preview.no_match|length }} řádků</div>
 </div>
 </div>
 

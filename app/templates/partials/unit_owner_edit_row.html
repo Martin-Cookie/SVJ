@@ -16,7 +16,7 @@
                pattern="[0-9/.]*" title="Číslo nebo zlomek (např. 1/2)"
                class="w-20 px-2 py-1 text-sm text-right border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
     </td>
-    <td class="px-3 py-2 text-sm text-gray-400 text-right font-mono whitespace-nowrap italic" title="Přepočítá se automaticky">{{ "{:,}".format(ou.votes).replace(",", " ") }}</td>
+    <td class="px-3 py-2 text-sm text-gray-500 text-right font-mono whitespace-nowrap italic" title="Přepočítá se automaticky">{{ "{:,}".format(ou.votes).replace(",", " ") }}</td>
     <td class="px-3 py-2 text-right whitespace-nowrap">
         <button hx-post="/jednotky/{{ unit.id }}/vlastnik/{{ ou.id }}/upravit"
                 hx-include="#share-edit-{{ ou.id }}, #otype-edit-{{ ou.id }}"

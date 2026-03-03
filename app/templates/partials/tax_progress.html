@@ -10,11 +10,11 @@
     </div>
     <div class="flex justify-between items-center">
         {% if current_file %}
-        <p class="text-xs text-gray-400">Zpracovávám: {{ current_file }}</p>
+        <p class="text-xs text-gray-500">Zpracovávám: {{ current_file }}</p>
         {% else %}
-        <p class="text-xs text-gray-400">Připravuji zpracování...</p>
+        <p class="text-xs text-gray-500">Připravuji zpracování...</p>
         {% endif %}
-        <div class="text-xs text-gray-400 text-right">
+        <div class="text-xs text-gray-500 text-right">
             <span>{{ elapsed }}</span>
             {% if eta %}
             <span class="mx-1">/</span>

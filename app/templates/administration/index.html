@@ -16,7 +16,7 @@
             <div>
                 <p class="text-sm font-semibold text-gray-700 group-hover:text-blue-600 transition-colors">Info o SVJ</p>
                 {% if info %}
-                <p class="text-xs text-gray-400">{{ board_count }} výbor, {{ control_count }} kontrola</p>
+                <p class="text-xs text-gray-500">{{ board_count }} výbor, {{ control_count }} kontrola</p>
                 {% endif %}
             </div>
         </div>
@@ -32,7 +32,7 @@
             </div>
             <div>
                 <p class="text-sm font-semibold text-gray-700 group-hover:text-purple-600 transition-colors">Číselníky</p>
-                <p class="text-xs text-gray-400">{{ code_list_total }} položek v {{ code_list_categories|length }} kat.</p>
+                <p class="text-xs text-gray-500">{{ code_list_total }} položek v {{ code_list_categories|length }} kat.</p>
             </div>
         </div>
     </a>
@@ -47,7 +47,7 @@
             </div>
             <div>
                 <p class="text-sm font-semibold text-gray-700 group-hover:text-green-600 transition-colors">Zálohy</p>
-                <p class="text-xs text-gray-400">{{ backup_count }} záloh{% if last_backup %}, {{ last_backup }}{% endif %}</p>
+                <p class="text-xs text-gray-500">{{ backup_count }} záloh{% if last_backup %}, {{ last_backup }}{% endif %}</p>
             </div>
         </div>
     </a>
@@ -62,7 +62,7 @@
             </div>
             <div>
                 <p class="text-sm font-semibold text-gray-700 group-hover:text-emerald-600 transition-colors">Export dat</p>
-                <p class="text-xs text-gray-400">Excel, CSV</p>
+                <p class="text-xs text-gray-500">Excel, CSV</p>
             </div>
         </div>
     </a>
@@ -77,7 +77,7 @@
             </div>
             <div>
                 <p class="text-sm font-semibold text-gray-700 group-hover:text-amber-600 transition-colors">Hromadné úpravy</p>
-                <p class="text-xs text-gray-400">Oprava polí jednotek a vlastnictví</p>
+                <p class="text-xs text-gray-500">Oprava polí jednotek a vlastnictví</p>
             </div>
         </div>
     </a>
@@ -92,7 +92,7 @@
             </div>
             <div>
                 <p class="text-sm font-semibold text-gray-700 group-hover:text-orange-600 transition-colors">Duplicity</p>
-                <p class="text-xs text-gray-400">{{ duplicate_count }} skupin duplicit</p>
+                <p class="text-xs text-gray-500">{{ duplicate_count }} skupin duplicit</p>
             </div>
         </div>
     </a>
@@ -107,7 +107,7 @@
             </div>
             <div>
                 <p class="text-sm font-semibold text-red-600">Smazat data</p>
-                <p class="text-xs text-gray-400">Hromadné mazání po kategoriích</p>
+                <p class="text-xs text-gray-500">Hromadné mazání po kategoriích</p>
             </div>
         </div>
     </a>

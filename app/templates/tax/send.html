@@ -242,7 +242,7 @@
         <div class="space-y-2 text-sm text-gray-600 mb-4">
             <p>Bude odesláno <strong id="modal-count" class="text-blue-600">0</strong> emailů.</p>
             <p>Předmět: <em id="modal-subject" class="text-gray-800"></em></p>
-            <p class="text-xs text-gray-400">Dávka: {{ session.send_batch_size or 10 }} emailů, interval: {{ session.send_batch_interval or 5 }}s</p>
+            <p class="text-xs text-gray-500">Dávka: {{ session.send_batch_size or 10 }} emailů, interval: {{ session.send_batch_interval or 5 }}s</p>
         </div>
         <div class="flex justify-end gap-2">
             <button type="button" onclick="closeSendConfirmModal()"

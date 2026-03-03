@@ -1,5 +1,5 @@
 {% if not values %}
-<p class="text-sm text-gray-400">Žádná data.</p>
+<p class="text-sm text-gray-500">Žádná data.</p>
 {% else %}
 <style>.bulk-row-hidden { display: none !important; }</style>
 
@@ -26,11 +26,11 @@
             onclick="toggleDetail({{ loop.index }}, '{{ field_key }}', '{{ '__null__' if v.value is none else v.value|urlencode }}')">
             <td class="px-3 py-2 text-gray-800" data-v="{{ v.value if v.value is not none else '' }}">
                 <div class="flex items-center gap-2">
-                    <svg aria-hidden="true" class="w-3 h-3 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg aria-hidden="true" class="w-3 h-3 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                     </svg>
                     {% if v.value is none %}
-                    <span class="text-gray-400 italic">Bez hodnoty</span>
+                    <span class="text-gray-500 italic">Bez hodnoty</span>
                     {% else %}
                     <span class="font-mono">{{ v.value }}</span>
                     {% endif %}

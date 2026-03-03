@@ -63,18 +63,18 @@
                 </td>
                 <td class="px-2 py-1.5">
                     {% if item.will_email %}
-                    <span class="text-gray-400">{{ item.current_email or '—' }}</span>
+                    <span class="text-gray-500">{{ item.current_email or '—' }}</span>
                     <span class="text-green-600 font-medium">&larr; {{ item.csv_email }}</span>
                     {% else %}
-                    <span class="text-gray-400">{{ item.current_email or '—' }}</span>
+                    <span class="text-gray-500">{{ item.current_email or '—' }}</span>
                     {% endif %}
                 </td>
                 <td class="px-2 py-1.5">
                     {% if item.will_phone %}
-                    <span class="text-gray-400">{{ item.current_phone or '—' }}</span>
+                    <span class="text-gray-500">{{ item.current_phone or '—' }}</span>
                     <span class="text-green-600 font-medium">&larr; {{ item.csv_phone }}</span>
                     {% else %}
-                    <span class="text-gray-400">{{ item.current_phone or '—' }}</span>
+                    <span class="text-gray-500">{{ item.current_phone or '—' }}</span>
                     {% endif %}
                 </td>
                 <td class="px-2 py-1.5">

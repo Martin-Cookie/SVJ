@@ -24,22 +24,22 @@
         {% endif %}
         <span class="text-gray-500">Celkem: {{ total }}</span>
         {% if total_batches > 0 %}
-        <span class="text-gray-400">Dávka {{ batch_number }} z {{ total_batches }}</span>
+        <span class="text-gray-500">Dávka {{ batch_number }} z {{ total_batches }}</span>
         {% endif %}
     </div>
 
     {# Current recipient #}
     <div class="flex justify-between items-center">
         {% if current_recipient %}
-        <p class="text-xs text-gray-400">Odesílám: {{ current_recipient }}</p>
+        <p class="text-xs text-gray-500">Odesílám: {{ current_recipient }}</p>
         {% elif paused %}
         <p class="text-xs text-yellow-600 font-medium">Pozastaveno</p>
         {% elif waiting_batch_confirm %}
         <p class="text-xs text-blue-600 font-medium">Čeká na potvrzení dávky {{ batch_number }}</p>
         {% else %}
-        <p class="text-xs text-gray-400">Připravuji...</p>
+        <p class="text-xs text-gray-500">Připravuji...</p>
         {% endif %}
-        <div class="text-xs text-gray-400 text-right">
+        <div class="text-xs text-gray-500 text-right">
             <span>{{ elapsed }}</span>
             {% if eta %}
             <span class="mx-1">/</span>
