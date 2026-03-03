@@ -176,7 +176,7 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
 - Redesignovaná stránka přiřazení:
   - Fixní header s 5 stat kartami (celkem / potvrzeno / k potvrzení / nepřiřazeno / bez PDF) — HTMX partial swap při kliknutí na bublinu/řadící hlavičku (bez full reload)
   - Bublina „Bez PDF" (oranžová) — jednotky s vlastníky, pro které nebyl nahrán žádný dokument; tabulka s prokliky na jednotku a vlastníky
-  - Obnova scroll pozice při návratu z detailu vlastníka/jednotky (#hash v back URL + scrollIntoView)
+  - Obnova scroll pozice při návratu z detailu vlastníka/jednotky (globální mechanismus v app.js — sessionStorage + přesná pixelová pozice)
   - Toolbar s checkboxy: vybrat/zrušit vše, potvrdit vybrané, potvrdit vše
   - Multi-owner zobrazení: barevné badge s X odebráním pro každého vlastníka
   - Dropdown přiřazení s `display_name (j. X, Y)` — zobrazuje čísla jednotek
