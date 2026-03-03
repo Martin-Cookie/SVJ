@@ -227,10 +227,51 @@ function _syncSelectAll() {
     if (master) master.checked = (all > 0 && all === checked);
 }
 
+// === Scroll position save/restore for HTMX boosted navigation ===
+// Before navigating away via boosted link, save the scrollable container's scrollTop
+// into sessionStorage keyed by current URL. On return, restore exact pixel position.
+
+function _getScrollContainer() {
+    // Find the actually scrollable container (not sidebar nav or hidden elements)
+    var els = document.querySelectorAll('.overflow-y-auto');
+    for (var i = 0; i < els.length; i++) {
+        if (els[i].scrollHeight > els[i].clientHeight && els[i].clientHeight > 0) {
+            return els[i];
+        }
+    }
+    return null;
+}
+
+function _saveScrollPos() {
+    var sc = _getScrollContainer();
+    if (!sc) return;
+    var key = 'svj_scroll_' + location.pathname + location.search;
+    try { sessionStorage.setItem(key, String(Math.round(sc.scrollTop))); } catch(e) {}
+}
+
+function _restoreScrollPos() {
+    var key = 'svj_scroll_' + location.pathname + location.search;
+    var val;
+    try { val = sessionStorage.getItem(key); } catch(e) {}
+    if (val === null) return false;
+    try { sessionStorage.removeItem(key); } catch(e) {}
+    var top = parseInt(val, 10);
+    if (isNaN(top) || top <= 0) return false;
+    var sc = _getScrollContainer();
+    if (!sc) return false;
+    setTimeout(function() { sc.scrollTop = top; }, 50);
+    return true;
+}
+
 // Save checked state before ANY htmx request (partial swap or boost)
-document.body.addEventListener('htmx:beforeRequest', function() {
+document.body.addEventListener('htmx:beforeRequest', function(event) {
     if (document.getElementById('send-tbody')) {
         _saveCheckedKeys();
+    }
+    // Save scroll position before boosted link navigation (not partial HTMX requests)
+    var _elt = event.detail.elt;
+    if (_elt && _elt.tagName === 'A' && !_elt.hasAttribute('hx-target') && !_elt.hasAttribute('hx-get')) {
+        _saveScrollPos();
     }
 });
 
@@ -240,6 +281,9 @@ document.body.addEventListener('htmx:afterSettle', function() {
     _restoreCheckedKeys();
     _loadTestEmail();
     updateSendButtonCount();
+
+    // Restore exact scroll position when returning to a page
+    _restoreScrollPos();
 });
 
 // Initial page load
@@ -247,6 +291,8 @@ document.addEventListener('DOMContentLoaded', function() {
     _restoreCheckedKeys();
     _loadTestEmail();
     updateSendButtonCount();
+    // Restore scroll for direct page loads (non-HTMX, e.g. full page refresh)
+    setTimeout(_restoreScrollPos, 100);
 });
 
 // Individual checkbox change
