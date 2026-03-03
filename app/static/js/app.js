@@ -189,6 +189,7 @@ function sortTableCol(th) {
 
 // --- Checkbox state in sessionStorage (survives hx-boost page swaps) ---
 var _SS_KEY = 'svj_send_checked';
+var _SS_SNAP = 'svj_send_snapshot';
 
 function _getCheckedKeys() {
     try {
@@ -276,11 +277,20 @@ document.body.addEventListener('htmx:beforeRequest', function(event) {
 });
 
 // Restore after ANY htmx settle (partial swap into tbody OR full boost page swap)
-document.body.addEventListener('htmx:afterSettle', function() {
+document.body.addEventListener('htmx:afterSettle', function(event) {
     initThemeUI();
     _restoreCheckedKeys();
     _loadTestEmail();
     updateSendButtonCount();
+
+    // Save snapshot once on first entry to send page (not on filter/sort within it)
+    if (document.getElementById('send-tbody')) {
+        try {
+            if (!sessionStorage.getItem(_SS_SNAP)) {
+                sessionStorage.setItem(_SS_SNAP, sessionStorage.getItem(_SS_KEY) || '[]');
+            }
+        } catch(e) {}
+    }
 
     // Restore exact scroll position when returning to a page
     _restoreScrollPos();
@@ -291,6 +301,14 @@ document.addEventListener('DOMContentLoaded', function() {
     _restoreCheckedKeys();
     _loadTestEmail();
     updateSendButtonCount();
+    // Save snapshot once on first entry to send page (for "Zavřít" = discard unsaved changes)
+    if (document.getElementById('send-tbody')) {
+        try {
+            if (!sessionStorage.getItem(_SS_SNAP)) {
+                sessionStorage.setItem(_SS_SNAP, sessionStorage.getItem(_SS_KEY) || '[]');
+            }
+        } catch(e) {}
+    }
     // Restore scroll for direct page loads (non-HTMX, e.g. full page refresh)
     setTimeout(_restoreScrollPos, 100);
 });
@@ -343,6 +361,20 @@ function _loadTestEmail() {
         var saved = sessionStorage.getItem(_TE_KEY);
         if (saved) input.value = saved;
     } catch(e) {}
+}
+
+function discardAndClose(url) {
+    // Restore snapshot (state from when page was loaded) and navigate away
+    try {
+        var snap = sessionStorage.getItem(_SS_SNAP);
+        if (snap !== null) {
+            sessionStorage.setItem(_SS_KEY, snap);
+        } else {
+            sessionStorage.removeItem(_SS_KEY);
+        }
+        sessionStorage.removeItem(_SS_SNAP);
+    } catch(e) {}
+    window.location.href = url;
 }
 
 function toggleEmailSelect(checkbox, sessionId, distId, email, key) {
