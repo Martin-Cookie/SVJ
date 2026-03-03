@@ -781,7 +781,17 @@ Projekt prošel bezpečnostním auditem (52 nálezů). Opraveny všechny CRITICA
 - Heading hierarchy — sidebar `<h1>` → `<div>`, jediný `<h1>` v obsahu
 - `role="alert"` na error zprávách a flash messages (screen reader podpora)
 
-Zbývající nálezy jsou designová rozhodnutí (touch targets, responsive layout) a dokumentační úpravy.
+**Druhý audit (2026-03-03) — 42 nálezů, opraveno 10:**
+- Zip Slip ochrana při rozbalování záloh (`backup_service.py`)
+- Path traversal: `is_safe_path()` na 6 endpointech (voting, share_check, owners)
+- Custom 404/500 chybové stránky v designu aplikace (`error.html`)
+- Security headers middleware (X-Frame-Options: DENY, X-Content-Type-Options, Referrer-Policy)
+- Dashboard výkon: N+1 tax stats → GROUP BY, voting COUNT + selective eager load
+- Test email: `asyncio.to_thread()` pro neblokující SMTP
+- Responsive dashboard grid (`grid-cols-1 sm:grid-cols-2 lg:grid-cols-4`)
+- WCAG AA kontrast: `text-gray-400` → `text-gray-500` napříč ~60 šablonami
+
+Zbývající nálezy z druhého auditu: autentizace (plánováno), CSRF ochrana, testy, mobilní sidebar.
 
 ## UI vzory
 
