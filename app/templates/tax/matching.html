@@ -64,7 +64,7 @@
                     Zavřít
                 </a>
                 <form method="post" action="/dane/{{ session.id }}/dokoncit" hx-boost="false"
-                      onsubmit="return confirm('Data nebude možné měnit bez odemčení.')">
+                      onsubmit="return confirm('Uzamknout přiřazení?\n\nData nebude možné měnit bez odemčení.{% if stat_unmatched > 0 %}\n\nPozor: {{ stat_unmatched }} dokumentů zůstane nepřiřazeno.{% endif %}')">
                     <button type="submit" class="px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium transition-colors">
                         Uzamknout
                     </button>
@@ -135,9 +135,9 @@
                     </button>
                 </form>
                 <form method="post" action="/dane/{{ session.id }}/potvrdit-vse" hx-boost="false"
-                      onsubmit="return confirm('Potvrdit všechny automaticky přiřazené?')" class="inline">
+                      onsubmit="return confirm('Potvrdit {{ stat_to_confirm }} automaticky přiřazených dokumentů?\n\nPo potvrzení zůstane {{ stat_unmatched }} nepřiřazených.')" class="inline">
                     <button type="submit" class="px-3 py-1 bg-green-600 text-white rounded-lg text-xs hover:bg-green-700 transition-colors">
-                        Potvrdit vše
+                        Potvrdit vše ({{ stat_to_confirm }})
                     </button>
                 </form>
             </div>

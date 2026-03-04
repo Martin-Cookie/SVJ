@@ -18,6 +18,19 @@ from app.config import settings
 from app.models.common import EmailLog, EmailStatus
 
 
+def create_smtp_connection():
+    """Create and return an authenticated SMTP connection for batch reuse."""
+    if settings.smtp_host in ("smtp.example.com", ""):
+        return None
+
+    server = smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=30)
+    if settings.smtp_use_tls:
+        server.starttls()
+    if settings.smtp_user:
+        server.login(settings.smtp_user, settings.smtp_password)
+    return server
+
+
 def send_email(
     to_email: str,
     to_name: str,
@@ -27,6 +40,7 @@ def send_email(
     module: str = "",
     reference_id: int | None = None,
     db: Session | None = None,
+    smtp_server: smtplib.SMTP | None = None,
 ) -> dict:
     # Support comma-separated multiple recipients
     email_list = [e.strip() for e in to_email.split(",") if e.strip()]
@@ -82,17 +96,24 @@ def send_email(
         return {"success": False, "error": error_msg}
 
     try:
-        if settings.smtp_use_tls:
-            server = smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=10)
-            server.starttls()
-        else:
-            server = smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=10)
+        # Reuse provided connection or create a new one
+        own_server = smtp_server is None
+        if own_server:
+            if settings.smtp_use_tls:
+                server = smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=10)
+                server.starttls()
+            else:
+                server = smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=10)
 
-        if settings.smtp_user:
-            server.login(settings.smtp_user, settings.smtp_password)
+            if settings.smtp_user:
+                server.login(settings.smtp_user, settings.smtp_password)
+        else:
+            server = smtp_server
 
         server.send_message(msg)
-        server.quit()
+
+        if own_server:
+            server.quit()
 
         if log:
             log.status = EmailStatus.SENT

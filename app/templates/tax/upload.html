@@ -52,6 +52,14 @@
             </div>
 
             <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Rok</label>
+                <input type="number" name="year" id="year-input" value=""
+                       min="2020" max="2099"
+                       class="w-24 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+                <p class="text-xs text-gray-500 mt-0.5">Rok, za který se rozesílají dokumenty (pro správné párování spoluvlastníků).</p>
+            </div>
+
+            <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Předmět emailu</label>
                 <input type="text" name="email_subject" id="email-subject-input"
                        value=""
@@ -203,15 +211,18 @@ function toggleDirMode(on) {
 function applyTemplate(sel) {
     var opt = sel.options[sel.selectedIndex];
     if (!opt.value) return;
-    var year = new Date().getFullYear();
+    var yearInput = document.getElementById('year-input');
+    var year = yearInput.value || new Date().getFullYear();
     var r = function(s) { return s.replace(/\{rok\}/g, year); };
     document.getElementById('title-input').value = opt.dataset.name + ' ' + year;
     document.getElementById('email-subject-input').value = r(opt.dataset.subject);
     document.getElementById('email-body-input').value = r(opt.dataset.body);
     checkFormReady();
 }
-// Auto-select first template on page load
+// Set default year and auto-select first template on page load
 (function() {
+    var yearInput = document.getElementById('year-input');
+    if (yearInput && !yearInput.value) yearInput.value = new Date().getFullYear();
     var sel = document.getElementById('template-select');
     if (sel && sel.options.length > 1) {
         sel.selectedIndex = 1;

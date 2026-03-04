@@ -1,4 +1,17 @@
 <div class="space-y-4">
+    {% if error %}
+    <div class="p-3 bg-red-50 border border-red-200 rounded-lg">
+        <div class="flex items-center gap-2 mb-1">
+            <svg class="w-5 h-5 text-red-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <span class="text-sm font-medium text-red-700">Zpracování selhalo</span>
+        </div>
+        <p class="text-xs text-red-600">{{ error }}</p>
+        <p class="text-xs text-gray-500 mt-2">Zpracováno {{ current }} z {{ total }} souborů před chybou.</p>
+        <a href="/dane" class="inline-block mt-2 text-sm text-blue-600 hover:text-blue-800">&larr; Zpět na rozesílání</a>
+    </div>
+    {% else %}
     <div class="flex justify-between items-center">
         <span class="text-sm font-medium text-gray-700">Zpracování PDF souborů</span>
         <span class="text-sm text-gray-500">{{ current }} / {{ total }}</span>
@@ -22,4 +35,5 @@
             {% endif %}
         </div>
     </div>
+    {% endif %}
 </div>

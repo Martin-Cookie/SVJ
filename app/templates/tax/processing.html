@@ -6,6 +6,12 @@
     <a href="/dane" class="text-sm text-gray-500 hover:text-gray-700">&larr; Zpět na rozesílání</a>
 </div>
 
+{% if wizard_steps is defined and wizard_steps %}
+<div class="mb-2">
+{% include "partials/wizard_stepper.html" %}
+</div>
+{% endif %}
+
 <h1 class="text-2xl font-bold text-gray-800 mb-6">{{ session.title }}</h1>
 
 <div class="bg-white rounded-lg shadow p-6 max-w-xl">

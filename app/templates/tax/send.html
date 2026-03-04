@@ -21,14 +21,9 @@
             </div>
             <div class="flex items-center gap-2">
                 <a href="/dane/{{ session.id }}" hx-boost="false"
-                   onclick="event.preventDefault(); discardAndClose('/dane/{{ session.id }}')"
+                   onclick="try{sessionStorage.removeItem('svj_send_snapshot')}catch(e){}"
                    class="px-3 py-1.5 text-sm font-medium text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
                     Zavřít
-                </a>
-                <a href="/dane/{{ session.id }}" hx-boost="false"
-                   onclick="try{sessionStorage.removeItem('svj_send_snapshot')}catch(e){}"
-                   class="px-3 py-1.5 text-sm font-medium text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors">
-                    Uložit a zavřít
                 </a>
                 {% if count_failed|default(0) > 0 %}
                 <form method="post" action="/dane/{{ session.id }}/rozeslat/retry" hx-boost="false">
@@ -40,7 +35,7 @@
                 <button type="button" id="send-btn" onclick="showSendConfirmModal()"
                         class="px-4 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                         {% if not session.test_email_passed %}disabled title="Nejdříve odešlete testovací email"{% endif %}>
-                    Rozeslat (<span id="send-count">0</span>)
+                    Rozeslat (<span id="send-count">{{ count_pending|default(0) }}</span>)
                 </button>
                 {% if session.send_status and session.send_status.value == 'ready' %}
                 <span class="px-2.5 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">Připraveno</span>
@@ -61,6 +56,13 @@
                 Konfigurace emailu
             </summary>
             <div class="px-4 pb-3 border-t border-gray-100">
+                {% if flash_message %}
+                <div class="p-2.5 rounded-lg mt-2 mb-1 text-sm
+                    {% if flash_type == 'error' %}bg-red-50 text-red-700 border border-red-200
+                    {% else %}bg-green-50 text-green-700 border border-green-200{% endif %}">
+                    {{ flash_message }}
+                </div>
+                {% endif %}
                 <form method="post" action="/dane/{{ session.id }}/rozeslat/nastaveni" hx-boost="false">
                     <div class="flex gap-6 mt-3 mb-2">
                         <!-- Left: subject + body -->
@@ -79,16 +81,18 @@
                         <!-- Right: batch, interval, test, save -->
                         <div class="w-64 flex flex-col gap-2">
                             <div>
-                                <label class="block text-xs font-medium text-gray-600 mb-0.5">Velikost dávky</label>
+                                <label class="block text-xs font-medium text-gray-600 mb-0.5" title="Kolik emailů se odešle najednou před pauzou">Velikost dávky</label>
                                 <input type="number" name="send_batch_size" value="{{ session.send_batch_size or 10 }}" min="1" max="100"
+                                       title="Kolik emailů se odešle najednou před pauzou"
                                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                             </div>
                             <div>
-                                <label class="block text-xs font-medium text-gray-600 mb-0.5">Interval mezi dávkami (s)</label>
+                                <label class="block text-xs font-medium text-gray-600 mb-0.5" title="Počet sekund čekání mezi dávkami (ochrana proti rate limitu)">Interval mezi dávkami (s)</label>
                                 <input type="number" name="send_batch_interval" value="{{ session.send_batch_interval or 5 }}" min="1" max="60"
+                                       title="Počet sekund čekání mezi dávkami"
                                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                             </div>
-                            <label class="flex items-center gap-2 text-xs text-gray-600 mt-1">
+                            <label class="flex items-center gap-2 text-xs text-gray-600 mt-1" title="Po odeslání každé dávky se proces pozastaví a počká na vaše potvrzení">
                                 <input type="checkbox" name="send_confirm_each_batch" value="true"
                                        {% if session.send_confirm_each_batch %}checked{% endif %}
                                        class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
@@ -247,7 +251,7 @@
         <div class="flex justify-end gap-2">
             <button type="button" onclick="closeSendConfirmModal()"
                     class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm font-medium">Zrušit</button>
-            <button type="button" onclick="startBatchSend()"
+            <button type="button" id="confirm-send-btn" onclick="startBatchSend(); this.disabled=true; this.textContent='Odesílám...'; this.classList.add('opacity-50','cursor-not-allowed')"
                     class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium transition-colors">Odeslat</button>
         </div>
     </div>

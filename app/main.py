@@ -311,6 +311,11 @@ def run_post_restore_migrations():
         _seed_email_templates()
     except Exception:
         logger.warning("post-restore: email template seeding skipped")
+    try:
+        from app.routers.tax import recover_stuck_sending_sessions
+        recover_stuck_sending_sessions()
+    except Exception:
+        logger.warning("post-restore: sending session recovery skipped")
 
 
 @asynccontextmanager
@@ -361,6 +366,13 @@ async def lifespan(app: FastAPI):
         _seed_email_templates()
     except Exception:
         logger.warning("email template seeding skipped")
+
+    # Recover stuck SENDING sessions (server restart recovery)
+    try:
+        from app.routers.tax import recover_stuck_sending_sessions
+        recover_stuck_sending_sessions()
+    except Exception:
+        logger.warning("sending session recovery skipped")
 
     # Ensure data directories exist
     for d in [settings.upload_dir, settings.generated_dir, settings.temp_dir]:

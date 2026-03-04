@@ -76,5 +76,11 @@
             </button>
         </form>
         {% endif %}
+        <form method="post" action="/dane/{{ session_id }}/rozeslat/zrusit" hx-boost="false"
+              onsubmit="return confirm('Zrušit rozesílku? Již odeslané emaily zůstanou, zbývající se neodešlou.')">
+            <button type="submit" class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm font-medium transition-colors">
+                Zrušit rozesílku
+            </button>
+        </form>
     </div>
 </div>

@@ -22,7 +22,7 @@ from app.models import (
     TaxDistribution, TaxDocument, TaxSession, Unit,
     ActivityAction, log_activity,
 )
-from app.services.email_service import send_email
+from app.services.email_service import create_smtp_connection, send_email
 from app.utils import build_list_url, is_htmx_partial, is_safe_path, setup_jinja_filters, strip_diacritics, validate_uploads
 from app.services.owner_matcher import match_name
 from app.services.pdf_extractor import (
@@ -40,6 +40,20 @@ _processing_lock = threading.Lock()
 # In-memory progress tracker for background email sending
 _sending_progress: dict[int, dict] = {}
 _sending_lock = threading.Lock()
+
+
+def recover_stuck_sending_sessions():
+    """Reset any SENDING sessions to PAUSED on startup (server restart recovery)."""
+    db = SessionLocal()
+    try:
+        stuck = db.query(TaxSession).filter_by(send_status=SendStatus.SENDING).all()
+        for s in stuck:
+            logger.warning("Recovering stuck SENDING session %s → PAUSED", s.id)
+            s.send_status = SendStatus.PAUSED
+        if stuck:
+            db.commit()
+    finally:
+        db.close()
 
 
 # ---------------------------------------------------------------------------
@@ -383,7 +397,11 @@ async def tax_list(request: Request, back: str = Query("", alias="back"), stav: 
 
 
 @router.get("/nova")
-async def tax_create_page(request: Request, db: Session = Depends(get_db)):
+async def tax_create_page(
+    request: Request,
+    chyba: str = Query("", alias="chyba"),
+    db: Session = Depends(get_db),
+):
     from app.models import EmailTemplate
     # Wizard step 1 for new session (no session object yet, build manually)
     steps = [{"label": s["label"], "status": "active" if i == 0 else "pending"} for i, s in enumerate(_TAX_WIZARD_STEPS)]
@@ -392,14 +410,18 @@ async def tax_create_page(request: Request, db: Session = Depends(get_db)):
         .order_by(EmailTemplate.order, EmailTemplate.name)
         .all()
     )
-    return templates.TemplateResponse("tax/upload.html", {
+    ctx = {
         "request": request,
         "active_nav": "tax",
         "wizard_steps": steps,
         "wizard_current": 1,
         "wizard_total": len(_TAX_WIZARD_STEPS),
         "email_templates": email_templates,
-    })
+    }
+    if chyba:
+        ctx["flash_message"] = chyba
+        ctx["flash_type"] = "error"
+    return templates.TemplateResponse("tax/upload.html", ctx)
 
 
 @router.post("/nova")
@@ -408,19 +430,26 @@ async def tax_create(
     title: str = Form(...),
     email_subject: str = Form(""),
     email_body: str = Form(""),
+    year: int = Form(0),
     files: List[UploadFile] = File(...),
     db: Session = Depends(get_db),
 ):
     # Filter to PDF files only (webkitdirectory sends all files including .DS_Store)
     pdf_files = [f for f in files if f.filename and f.filename.lower().endswith(".pdf")]
     if not pdf_files:
-        return RedirectResponse("/dane", status_code=302)
+        from urllib.parse import quote
+        return RedirectResponse(
+            f"/dane/nova?chyba={quote('Nebyly nalezeny žádné PDF soubory. Zkontrolujte, zda vybraný adresář obsahuje soubory s příponou .pdf.')}",
+            status_code=302,
+        )
 
     err = await validate_uploads(pdf_files, max_size_mb=100, allowed_extensions=[".pdf"])
     if err:
-        return RedirectResponse("/dane", status_code=302)
+        from urllib.parse import quote
+        return RedirectResponse(f"/dane/nova?chyba={quote(err)}", status_code=302)
 
-    year = datetime.now().year
+    if not year or year < 2020 or year > 2099:
+        year = datetime.now().year
     session = TaxSession(
         title=title,
         year=year,
@@ -479,6 +508,7 @@ async def tax_upload_page(
     session_id: int,
     request: Request,
     back: str = Query("", alias="back"),
+    chyba: str = Query("", alias="chyba"),
     db: Session = Depends(get_db),
 ):
     """Upload additional PDFs to an existing session."""
@@ -489,14 +519,18 @@ async def tax_upload_page(
         return RedirectResponse("/dane", status_code=302)
 
     has_documents = len(session.documents) > 0
-    return templates.TemplateResponse("tax/upload_additional.html", {
+    ctx = {
         "request": request,
         "active_nav": "tax",
         "session": session,
         "has_documents": has_documents,
         "back_url": back or f"/dane/{session_id}",
         **_tax_wizard(session, 1, has_documents=has_documents),
-    })
+    }
+    if chyba:
+        ctx["flash_message"] = chyba
+        ctx["flash_type"] = "error"
+    return templates.TemplateResponse("tax/upload_additional.html", ctx)
 
 
 @router.post("/{session_id}/upload")
@@ -511,11 +545,16 @@ async def tax_upload_additional(
     # Filter to PDF files only (webkitdirectory sends all files including .DS_Store)
     pdf_files = [f for f in files if f.filename and f.filename.lower().endswith(".pdf")]
     if not pdf_files:
-        return RedirectResponse(f"/dane/{session_id}", status_code=302)
+        from urllib.parse import quote
+        return RedirectResponse(
+            f"/dane/{session_id}/upload?chyba={quote('Nebyly nalezeny žádné PDF soubory.')}",
+            status_code=302,
+        )
 
     err = await validate_uploads(pdf_files, max_size_mb=100, allowed_extensions=[".pdf"])
     if err:
-        return RedirectResponse(f"/dane/{session_id}", status_code=302)
+        from urllib.parse import quote
+        return RedirectResponse(f"/dane/{session_id}/upload?chyba={quote(err)}", status_code=302)
 
     session = db.query(TaxSession).options(
         joinedload(TaxSession.documents).joinedload(TaxDocument.distributions),
@@ -523,23 +562,7 @@ async def tax_upload_additional(
     if not session:
         return RedirectResponse("/dane", status_code=302)
 
-    # If overwrite mode, delete existing documents and files
-    if import_mode == "overwrite":
-        upload_dir = settings.upload_dir / "tax_pdfs" / f"session_{session_id}"
-        for doc in session.documents:
-            # Delete file from disk
-            if doc.file_path:
-                try:
-                    Path(doc.file_path).unlink()
-                except Exception:
-                    pass
-            # Delete distributions
-            for dist in doc.distributions:
-                db.delete(dist)
-            db.delete(doc)
-        db.flush()
-
-    # Save new PDF files to disk
+    # Save new PDF files to disk FIRST (before deleting old ones) (#21)
     upload_dir = settings.upload_dir / "tax_pdfs" / f"session_{session_id}"
     upload_dir.mkdir(parents=True, exist_ok=True)
 
@@ -550,6 +573,23 @@ async def tax_upload_additional(
         with open(dest, "wb") as f:
             shutil.copyfileobj(file.file, f)
         saved_files.append(str(dest))
+
+    # If overwrite mode, delete existing documents and files AFTER new files are saved
+    if import_mode == "overwrite":
+        old_file_paths = []
+        for doc in session.documents:
+            if doc.file_path and str(doc.file_path) not in saved_files:
+                old_file_paths.append(doc.file_path)
+            for dist in doc.distributions:
+                db.delete(dist)
+            db.delete(doc)
+        db.flush()
+        # Remove old files from disk (only those not overwritten by new uploads)
+        for fp in old_file_paths:
+            try:
+                Path(fp).unlink()
+            except Exception:
+                pass
 
     if not saved_files:
         return RedirectResponse(f"/dane/{session_id}", status_code=302)
@@ -802,6 +842,12 @@ def _process_tax_files(session_id: int, file_paths: list, tax_year):
         with _processing_lock:
             _processing_progress[session_id]["error"] = str(e)
         db.rollback()
+        # Cleanup orphaned files on disk (#28)
+        for fp in file_paths:
+            try:
+                Path(fp).unlink(missing_ok=True)
+            except Exception:
+                pass
     finally:
         with _processing_lock:
             _processing_progress[session_id]["done"] = True
@@ -866,7 +912,9 @@ async def tax_processing(
         "request": request,
         "active_nav": "tax",
         "session": session,
+        "error": progress.get("error"),
         **_progress_eta(progress),
+        **_tax_wizard(session, 1),
     })
 
 
@@ -875,7 +923,21 @@ async def tax_processing_status(session_id: int, request: Request):
     """HTMX polling endpoint — returns progress partial or redirect when done."""
     with _processing_lock:
         progress = _processing_progress.get(session_id)
-        if not progress or progress.get("done"):
+        if not progress:
+            response = HTMLResponse("")
+            response.headers["HX-Redirect"] = f"/dane/{session_id}"
+            return response
+        if progress.get("done"):
+            error = progress.get("error")
+            if error:
+                # Show error in progress partial — don't redirect
+                progress = dict(progress)
+                _processing_progress.pop(session_id, None)
+                return templates.TemplateResponse("partials/tax_progress.html", {
+                    "request": request,
+                    "error": error,
+                    **_progress_eta(progress),
+                })
             _processing_progress.pop(session_id, None)
             response = HTMLResponse("")
             response.headers["HX-Redirect"] = f"/dane/{session_id}"
@@ -884,6 +946,7 @@ async def tax_processing_status(session_id: int, request: Request):
 
     return templates.TemplateResponse("partials/tax_progress.html", {
         "request": request,
+        "error": None,
         **_progress_eta(progress),
     })
 
@@ -1023,7 +1086,11 @@ async def tax_detail(
     )
 
     back_url = back or "/dane"
-    back_label = "Zpět na přehled" if back == "/" else "Zpět na rozesílání"
+    back_label = (
+        "Zpět na přehled" if back == "/"
+        else "Zpět na seznam rozesílek" if back.startswith("/dane") and "/" not in back.lstrip("/dane")
+        else "Zpět na rozesílání"
+    )
 
     return templates.TemplateResponse("tax/matching.html", {
         "request": request,
@@ -1429,6 +1496,28 @@ async def update_recipient_email(
 
     email = email.strip()
 
+    # Basic email format validation (#26)
+    import re
+    if email and not re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]+$', email):
+        # Return current row unchanged with no update
+        documents = (
+            db.query(TaxDocument)
+            .filter_by(session_id=session_id)
+            .options(joinedload(TaxDocument.distributions).joinedload(TaxDistribution.owner))
+            .all()
+        )
+        recipients = _build_recipients(documents)
+        key = f"owner_{dist.owner_id}" if dist.owner_id else f"ext_{dist.id}"
+        recipient = next((r for r in recipients if r["key"] == key), None)
+        if recipient:
+            return templates.TemplateResponse("partials/tax_recipient_row.html", {
+                "request": request,
+                "r": recipient,
+                "session": db.query(TaxSession).get(session_id),
+                "list_url": build_list_url(request),
+            })
+        return RedirectResponse(f"/dane/{session_id}/rozeslat", status_code=302)
+
     assignments_changed = False
 
     if dist.owner_id:
@@ -1437,6 +1526,7 @@ async def update_recipient_email(
         doc_ids = [d.id for d in all_docs]
 
         # Propagate to all distributions of this owner in this session
+        # Skip SENT distributions to preserve historical record (#12)
         sibling_dists = (
             db.query(TaxDistribution)
             .filter(
@@ -1446,7 +1536,8 @@ async def update_recipient_email(
             .all()
         )
         for d in sibling_dists:
-            d.email_address_used = email or None
+            if d.email_status != EmailDeliveryStatus.SENT:
+                d.email_address_used = email or None
 
         # If owner has no email, save it to their profile too
         owner = db.query(Owner).get(dist.owner_id)
@@ -1577,6 +1668,7 @@ async def toggle_recipient_email(
     new_value = ",".join(sorted(current)) if current else None
 
     # Propagate to all sibling distributions of same owner in this session
+    # Skip distributions that are already SENT to preserve historical record (#6)
     if dist.owner_id:
         all_docs = db.query(TaxDocument).filter_by(session_id=session_id).all()
         doc_ids = [d.id for d in all_docs]
@@ -1589,9 +1681,11 @@ async def toggle_recipient_email(
             .all()
         )
         for d in sibling_dists:
-            d.email_address_used = new_value
+            if d.email_status != EmailDeliveryStatus.SENT:
+                d.email_address_used = new_value
     else:
-        dist.email_address_used = new_value
+        if dist.email_status != EmailDeliveryStatus.SENT:
+            dist.email_address_used = new_value
 
     db.commit()
 
@@ -1723,6 +1817,11 @@ async def save_send_settings(
     if not session:
         return RedirectResponse("/dane", status_code=302)
 
+    # Invalidate test if email content changed (#8)
+    if (email_subject != (session.email_subject or "")
+            or email_body != (session.email_body or "")):
+        session.test_email_passed = False
+
     session.email_subject = email_subject
     session.email_body = email_body
     session.send_batch_size = send_batch_size
@@ -1730,7 +1829,9 @@ async def save_send_settings(
     session.send_confirm_each_batch = send_confirm_each_batch
     if test_email_inline.strip():
         session.test_email_address = test_email_inline.strip()
-    session.send_status = SendStatus.READY
+    # Only set READY if session is already past DRAFT (i.e. matching was finalized) (#4)
+    if session.send_status != SendStatus.DRAFT:
+        session.send_status = SendStatus.READY
     db.commit()
 
     return RedirectResponse(f"/dane/{session_id}/rozeslat", status_code=302)
@@ -1911,6 +2012,13 @@ def _send_emails_batch(session_id: int, recipient_data: list, email_subject: str
             with _sending_lock:
                 _sending_progress[session_id]["batch_number"] = batch_idx + 1
 
+            # Create shared SMTP connection per batch (#25)
+            smtp_conn = None
+            try:
+                smtp_conn = create_smtp_connection()
+            except Exception:
+                logger.warning("Failed to create shared SMTP connection, falling back to per-email")
+
             for rcpt in batch:
                 # Check paused
                 while True:
@@ -1920,6 +2028,11 @@ def _send_emails_batch(session_id: int, recipient_data: list, email_subject: str
                     if not paused:
                         break
                     if done:
+                        if smtp_conn:
+                            try:
+                                smtp_conn.quit()
+                            except Exception:
+                                pass
                         return
                     time.sleep(0.5)
 
@@ -1929,7 +2042,7 @@ def _send_emails_batch(session_id: int, recipient_data: list, email_subject: str
                 # Gather attachment file paths
                 attachments = [d["file_path"] for d in rcpt["docs"]]
 
-                # Send email
+                # Send email (reuse shared SMTP connection)
                 result = send_email(
                     to_email=rcpt["email"],
                     to_name=rcpt["name"],
@@ -1939,6 +2052,7 @@ def _send_emails_batch(session_id: int, recipient_data: list, email_subject: str
                     module="tax",
                     reference_id=session_id,
                     db=db,
+                    smtp_server=smtp_conn,
                 )
 
                 # Update distribution statuses in DB
@@ -1963,6 +2077,14 @@ def _send_emails_batch(session_id: int, recipient_data: list, email_subject: str
                         _sending_progress[session_id]["sent"] += 1
                     else:
                         _sending_progress[session_id]["failed"] += 1
+
+            # Close shared SMTP connection after batch
+            if smtp_conn:
+                try:
+                    smtp_conn.quit()
+                except Exception:
+                    pass
+                smtp_conn = None
 
             # After batch: wait for confirmation or interval
             if batch_idx < len(batches) - 1:  # not last batch
@@ -2183,6 +2305,38 @@ async def resume_sending(
         db.commit()
 
     return RedirectResponse(f"/dane/{session_id}/rozeslat/prubeh", status_code=302)
+
+
+@router.post("/{session_id}/rozeslat/zrusit")
+async def cancel_sending(
+    session_id: int,
+    db: Session = Depends(get_db),
+):
+    """Cancel the sending process — stop thread, reset QUEUED distributions to PENDING."""
+    with _sending_lock:
+        progress = _sending_progress.get(session_id)
+        if progress and not progress.get("done"):
+            progress["done"] = True  # signal thread to stop
+
+    # Reset QUEUED distributions back to PENDING
+    queued_dists = (
+        db.query(TaxDistribution)
+        .join(TaxDistribution.document)
+        .filter(
+            TaxDocument.session_id == session_id,
+            TaxDistribution.email_status == EmailDeliveryStatus.QUEUED,
+        )
+        .all()
+    )
+    for dist in queued_dists:
+        dist.email_status = EmailDeliveryStatus.PENDING
+
+    session = db.query(TaxSession).get(session_id)
+    if session:
+        session.send_status = SendStatus.PAUSED
+        db.commit()
+
+    return RedirectResponse(f"/dane/{session_id}/rozeslat", status_code=302)
 
 
 @router.post("/{session_id}/rozeslat/retry")

@@ -96,6 +96,13 @@
 <script>
 function startUpload() {
     var form = document.getElementById('upload-form');
+    // Overwrite mode confirmation (#11)
+    var overwriteRadio = form.querySelector('input[name="import_mode"][value="overwrite"]');
+    if (overwriteRadio && overwriteRadio.checked) {
+        if (!confirm('Přepsat stávající?\n\nToto smaže VŠECHNY existující PDF a přiřazení včetně ručně potvrzených. Tato operace je nevratná.')) {
+            return;
+        }
+    }
     var formData = new FormData(form);
     var progress = document.getElementById('upload-progress');
     var bar = document.getElementById('upload-bar');
