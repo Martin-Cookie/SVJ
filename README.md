@@ -793,6 +793,29 @@ Projekt prošel bezpečnostním auditem (52 nálezů). Opraveny všechny CRITICA
 
 Zbývající nálezy z druhého auditu: autentizace (plánováno), CSRF ochrana, testy, mobilní sidebar.
 
+## UX vylepšení
+
+Projekt prošel UX analýzou klíčových modulů (6 expertních perspektiv: UX Designer, Information Architect, Accessibility Specialist, Error Prevention, Interaction Designer, Data Integrity Guardian).
+
+**Hromadné rozesílání — 24 oprav:**
+- Potvrzovací dialogy u destruktivních akcí (smazání, přepsání, odeslání)
+- Disable tlačítek po kliknutí (prevence double-submit)
+- Flash zprávy pro výsledky akcí (smazání, chyby uploadu)
+- Konzistentní back URL navigace a labeling
+- Přesný počet příjemců na tlačítku odeslání
+- Inline validace emailu (formát + vizuální feedback)
+- Scroll-to-top při HTMX swapech na send stránce
+
+**Hlasování per rollam — 14 oprav:**
+- Validace hlasů před zpracováním lístku (alespoň jeden hlas povinný)
+- Flash zprávy při selhání uploadu/extrakce DOCX šablony
+- Potvrzovací dialogy s kontextovými údaji (generování lístků, uzavření hlasování s kvórem)
+- Diacritics-insensitive vyhledávání (lístky, zpracování, výsledky)
+- Kontrola existence souboru před importem + úklid dočasných souborů po importu
+- Statistiky na výsledkové stránce importu (zpracováno, přeskočeno, nepřiřazeno)
+- Zobrazení chybějících hlasů pro dosažení kvóra
+- Export do Excelu dostupný přímo z header tlačítek uzavřeného hlasování
+
 ## UI vzory
 
 Kompletní UI/frontend konvence (layout, tabulky, formuláře, tlačítka, bubliny, badge, inline editace, HTMX vzory, back URL navigace, checkboxy, stepper, formátování, dark mode) jsou v **[docs/UI_GUIDE.md](docs/UI_GUIDE.md)**.
