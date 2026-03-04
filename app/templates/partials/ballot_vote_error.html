@@ -1,0 +1,52 @@
+<div id="ballot-{{ ballot.id }}" class="bg-white rounded-lg shadow p-4 ring-2 ring-red-300">
+    <div class="flex items-center gap-3 mb-3">
+        <input type="checkbox" class="ballot-cb rounded text-blue-600 focus:ring-blue-500"
+               value="{{ ballot.id }}" onchange="toggleBallot(this)">
+        <div class="flex-1">
+            <h3 class="font-semibold text-gray-800">{{ ballot.owner.display_name }}</h3>
+            <p class="text-sm text-gray-500">
+                Jednotky: {{ ballot.units_text }} | Hlasů: {{ "{:,}".format(ballot.total_votes).replace(",", " ") }}
+                {% if ballot.voted_by_proxy %} | Plná moc: {{ ballot.proxy_holder_name }}{% endif %}
+            </p>
+        </div>
+    </div>
+
+    <div class="mb-3 px-3 py-2 bg-red-50 border border-red-200 rounded text-sm text-red-700">
+        {{ error }}
+    </div>
+
+    <form hx-post="/hlasovani/{{ voting.id }}/zpracovat/{{ ballot.id }}"
+          hx-target="#ballot-{{ ballot.id }}" hx-swap="outerHTML">
+        <div class="space-y-2">
+            {% for item in voting.items %}
+            <div class="flex items-center justify-between py-1.5 border-b border-gray-100">
+                <span class="text-sm text-gray-700">
+                    <strong>{{ item.order }}.</strong> {{ item.title }}
+                </span>
+                <div class="flex gap-4">
+                    <label class="flex items-center gap-1.5 cursor-pointer">
+                        <input type="radio" name="vote_{{ item.id }}" value="for"
+                               class="text-green-600 focus:ring-green-500">
+                        <span class="text-sm text-green-700">PRO</span>
+                    </label>
+                    <label class="flex items-center gap-1.5 cursor-pointer">
+                        <input type="radio" name="vote_{{ item.id }}" value="against"
+                               class="text-red-600 focus:ring-red-500">
+                        <span class="text-sm text-red-700">PROTI</span>
+                    </label>
+                    <label class="flex items-center gap-1.5 cursor-pointer">
+                        <input type="radio" name="vote_{{ item.id }}" value="abstain"
+                               class="text-gray-600 focus:ring-gray-500">
+                        <span class="text-sm text-gray-500">Zdržel se</span>
+                    </label>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        <div class="mt-3">
+            <button type="submit" class="px-4 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium transition-colors">
+                Potvrdit zpracování
+            </button>
+        </div>
+    </form>
+</div>

@@ -13,7 +13,8 @@
         <p class="text-xs text-gray-500 mt-0.5">{{ preview.matched|length + preview.unmatched|length + preview.no_match|length }} řádků celkem</p>
     </div>
     <div class="flex items-center gap-2">
-        <form action="/hlasovani/{{ voting.id }}/import/potvrdit" method="post">
+        <form action="/hlasovani/{{ voting.id }}/import/potvrdit" method="post"
+              {% if mapping.get('clear_existing') %}onsubmit="return confirm('Režim „přepsat" smaže hlasy u lístků, které nejsou v importu.\n\nPokračovat?')"{% endif %}>
             <input type="hidden" name="file_path" value="{{ file_path }}">
             <input type="hidden" name="mapping_json" value='{{ mapping_json }}'>
             <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium transition-colors">

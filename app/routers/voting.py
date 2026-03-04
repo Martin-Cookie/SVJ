@@ -223,7 +223,10 @@ async def voting_list(
 
 
 @router.get("/nova")
-async def voting_create_page(request: Request):
+async def voting_create_page(
+    request: Request,
+    chyba: str = Query(""),
+):
     wizard = {
         "wizard_steps": [
             {"label": s["label"], "status": "active" if i == 0 else "pending"}
@@ -232,11 +235,18 @@ async def voting_create_page(request: Request):
         "wizard_current": 1,
         "wizard_total": len(_VOTING_WIZARD_STEPS),
     }
-    return templates.TemplateResponse("voting/create.html", {
+    ctx = {
         "request": request,
         "active_nav": "voting",
         **wizard,
-    })
+    }
+    if chyba == "upload":
+        ctx["flash_message"] = "Nahrání šablony selhalo. Ověřte, že soubor je platný .docx a není příliš velký."
+        ctx["flash_type"] = "error"
+    elif chyba:
+        ctx["flash_message"] = chyba
+        ctx["flash_type"] = "error"
+    return templates.TemplateResponse("voting/create.html", ctx)
 
 
 @router.post("/nova/nahled-metadat")
@@ -312,21 +322,27 @@ async def voting_create(
         voting.template_path = str(dest)
 
         # Extract voting items from template
+        extraction_warning = None
         try:
             items = extract_voting_items(str(dest))
             db.add(voting)
             db.flush()
-            for item_data in items:
-                item = VotingItem(
-                    voting_id=voting.id,
-                    order=item_data["order"],
-                    title=item_data["title"],
-                    description=item_data.get("description", ""),
-                )
-                db.add(item)
+            if items:
+                for item_data in items:
+                    item = VotingItem(
+                        voting_id=voting.id,
+                        order=item_data["order"],
+                        title=item_data["title"],
+                        description=item_data.get("description", ""),
+                    )
+                    db.add(item)
+            else:
+                extraction_warning = "sablona-prazdna"
         except Exception:
+            logger.exception("Chyba při extrakci bodů z DOCX šablony")
             db.add(voting)
             db.flush()
+            extraction_warning = "extrakce-selhala"
 
         # Extract metadata to pre-fill empty fields
         try:
@@ -350,7 +366,10 @@ async def voting_create(
     log_activity(db, ActivityAction.CREATED, "voting", "hlasovani",
                  entity_id=voting.id, entity_name=voting.title)
     db.commit()
-    return RedirectResponse(f"/hlasovani/{voting.id}", status_code=302)
+    redirect_url = f"/hlasovani/{voting.id}"
+    if extraction_warning:
+        redirect_url += f"?info={extraction_warning}"
+    return RedirectResponse(redirect_url, status_code=302)
 
 
 @router.get("/{voting_id}")
@@ -361,6 +380,7 @@ async def voting_detail(
     q: str = Query(""),
     sort: str = Query("order"),
     order: str = Query("asc"),
+    info: str = Query(""),
     db: Session = Depends(get_db),
 ):
     voting = db.query(Voting).options(
@@ -397,10 +417,11 @@ async def voting_detail(
             "pct_missing": round((declared - votes_for - votes_against) / declared * 100, 2) if declared else 0,
         })
 
-    # Search filter
+    # Search filter (diacritics-aware)
     if q:
         q_lower = q.lower()
-        results = [r for r in results if q_lower in r["item"].title.lower()]
+        q_ascii = strip_diacritics(q)
+        results = [r for r in results if q_lower in r["item"].title.lower() or q_ascii in strip_diacritics(r["item"].title)]
 
     # Sort results
     sort_keys = {
@@ -440,6 +461,14 @@ async def voting_detail(
         **_ballot_stats(voting, db),
         **_voting_wizard(voting, detail_step),
     }
+
+    # Flash messages from query params
+    if info == "extrakce-selhala":
+        ctx["flash_message"] = "Body hlasování nebyly extrahovány ze šablony (chyba formátu). Přidejte je ručně."
+        ctx["flash_type"] = "warning"
+    elif info == "sablona-prazdna":
+        ctx["flash_message"] = "V šabloně nebyly nalezeny žádné body hlasování. Přidejte je ručně."
+        ctx["flash_type"] = "warning"
 
     # HTMX partial: return only the results table
     if is_htmx_partial(request):
@@ -531,12 +560,14 @@ async def ballot_list(
     if stav:
         ballots = [b for b in ballots if b.status.value == stav]
 
-    # Search filter
+    # Search filter (diacritics-aware)
     if q:
         q_lower = q.lower()
+        q_ascii = strip_diacritics(q)
         ballots = [
             b for b in ballots
             if q_lower in (b.owner.display_name or "").lower()
+            or q_ascii in strip_diacritics(b.owner.display_name or "")
             or q_lower in (b.units_text or "").lower()
         ]
 
@@ -664,12 +695,14 @@ async def process_page(
         if not (not b.owner.is_active and not b.owner.current_units)
     ]
 
-    # Search filter
+    # Search filter (diacritics-aware)
     if q:
         q_lower = q.lower()
+        q_ascii = strip_diacritics(q)
         unprocessed = [
             b for b in unprocessed
             if q_lower in (b.owner.display_name or "").lower()
+            or q_ascii in strip_diacritics(b.owner.display_name or "")
             or q_lower in (b.units_text or "").lower()
         ]
 
@@ -715,12 +748,27 @@ async def process_ballot(
     if not ballot or ballot.voting_id != voting_id:
         return RedirectResponse(f"/hlasovani/{voting_id}/zpracovani", status_code=302)
 
+    # Collect votes and validate at least one is set
+    has_any_vote = False
     for bv in ballot.votes:
         vote_key = f"vote_{bv.voting_item_id}"
         vote_value = form_data.get(vote_key)
         if vote_value:
             bv.vote = VoteValue(vote_value)
             bv.manually_verified = True
+            has_any_vote = True
+
+    if not has_any_vote:
+        db.rollback()
+        if request.headers.get("HX-Request"):
+            voting = db.query(Voting).options(joinedload(Voting.items)).get(voting_id)
+            return templates.TemplateResponse("partials/ballot_vote_error.html", {
+                "request": request,
+                "ballot": ballot,
+                "voting": voting,
+                "error": "Vyberte hlas alespoň u jednoho bodu.",
+            })
+        return RedirectResponse(f"/hlasovani/{voting_id}/zpracovani", status_code=302)
 
     ballot.status = BallotStatus.PROCESSED
     ballot.processed_at = datetime.utcnow()
@@ -761,6 +809,11 @@ async def process_ballots_bulk(
         .filter(Ballot.id.in_(ballot_ids), Ballot.voting_id == voting_id)
         .all()
     )
+
+    # Check that at least one vote is selected in bulk form
+    has_any_vote = any(form_data.get(f"vote_{item.id}") for item in voting.items)
+    if not has_any_vote:
+        return RedirectResponse(f"/hlasovani/{voting_id}/zpracovani", status_code=302)
 
     count = 0
     for ballot in ballots:
@@ -1195,12 +1248,21 @@ async def import_confirm(
     if not is_safe_path(Path(file_path), settings.upload_dir):
         return RedirectResponse(f"/hlasovani/{voting_id}/import", status_code=302)
 
+    if not Path(file_path).exists():
+        return RedirectResponse(f"/hlasovani/{voting_id}/import", status_code=302)
+
     try:
         mapping = json.loads(mapping_json)
     except (json.JSONDecodeError, TypeError):
         return RedirectResponse(f"/hlasovani/{voting_id}/import", status_code=302)
 
     result = execute_voting_import(file_path, mapping, voting, db)
+
+    # Clean up uploaded Excel file after successful import
+    try:
+        Path(file_path).unlink(missing_ok=True)
+    except Exception:
+        pass
 
     log_activity(db, ActivityAction.IMPORTED, "voting", "hlasovani",
                  entity_id=voting.id, entity_name=voting.title,

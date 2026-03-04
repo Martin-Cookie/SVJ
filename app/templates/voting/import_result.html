@@ -11,14 +11,25 @@
 <div class="flex-1 overflow-y-auto min-h-0">
 <div class="max-w-2xl mt-4">
     <div class="bg-green-50 border border-green-200 rounded-lg p-6">
-        <p class="text-sm text-green-700">
-            Import výsledků dokončen.
-            {% if result.clear_existing %}
-            Režim: vyčistit a přepsat.
-            {% else %}
-            Režim: doplnit data.
+        <p class="text-sm font-medium text-green-800 mb-3">Import výsledků dokončen.</p>
+        <div class="grid grid-cols-2 gap-x-6 gap-y-1 text-sm text-green-700">
+            <span>Režim:</span>
+            <span class="font-medium">{% if result.clear_existing %}vyčistit a přepsat{% else %}doplnit data{% endif %}</span>
+            <span>Zpracováno lístků:</span>
+            <span class="font-medium">{{ result.processed_count|default(0) }}</span>
+            {% if result.skipped_count|default(0) > 0 %}
+            <span>Přeskočeno (již zpracované):</span>
+            <span class="font-medium">{{ result.skipped_count }}</span>
             {% endif %}
-        </p>
+            {% if result.unmatched_count|default(0) > 0 %}
+            <span>Nepřiřazeno řádků:</span>
+            <span class="font-medium text-orange-600">{{ result.unmatched_count }}</span>
+            {% endif %}
+            {% if result.cleared_count|default(0) > 0 %}
+            <span>Vyčištěno lístků:</span>
+            <span class="font-medium">{{ result.cleared_count }}</span>
+            {% endif %}
+        </div>
     </div>
 
     {% if result.errors %}

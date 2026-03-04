@@ -23,6 +23,12 @@
     </div>
 </div>
 
+{% if flash_message %}
+<div class="mb-4 max-w-2xl px-4 py-3 rounded-lg text-sm {% if flash_type == 'error' %}bg-red-50 border border-red-200 text-red-700{% else %}bg-green-50 border border-green-200 text-green-700{% endif %}">
+    {{ flash_message }}
+</div>
+{% endif %}
+
 <div class="bg-white rounded-lg shadow p-6 max-w-2xl">
     <form id="create-form" action="/hlasovani/nova" method="post" enctype="multipart/form-data" hx-boost="false">
         <div class="space-y-4">
