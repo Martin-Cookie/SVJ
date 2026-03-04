@@ -81,6 +81,7 @@ class Ballot(Base):
     proxy_holder_name = Column(String(300), nullable=True)
     total_votes = Column(Integer, default=0)
     units_text = Column(String(200), nullable=True)
+    shared_owners_text = Column(String(500), nullable=True)
     sent_at = Column(DateTime, nullable=True)
     received_at = Column(DateTime, nullable=True)
     processed_at = Column(DateTime, nullable=True)

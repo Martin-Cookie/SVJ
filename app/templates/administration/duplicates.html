@@ -15,7 +15,7 @@
     </div>
     {% if total_groups > 0 %}
     <form action="/sprava/duplicity/sloucit-vse" method="post" hx-boost="false"
-          onsubmit="return confirm('Sloučit všech {{ total_groups }} skupin najednou? Doporučení cíloví vlastníci budou použiti automaticky.')">
+          data-confirm="Sloučit všech {{ total_groups }} skupin najednou? Doporučení cíloví vlastníci budou použiti automaticky.">
         <button type="submit"
                 class="px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium transition-colors">
             Sloučit vše ({{ total_groups }})
@@ -43,7 +43,7 @@
                 <span class="ml-2 px-2 py-0.5 text-xs font-medium bg-orange-100 text-orange-800 rounded-full">{{ group.owners|length }} záznamů</span>
             </div>
             <form action="/sprava/duplicity/sloucit" method="post" hx-boost="false"
-                  onsubmit="return confirm('Sloučit {{ group.owners|length }} záznamů do hlavního (ID {{ group.recommended_id }})?')">
+                  data-confirm="Sloučit {{ group.owners|length }} záznamů do hlavního (ID {{ group.recommended_id }})?">
                 <input type="hidden" name="target_id" value="{{ group.recommended_id }}">
                 {% for o in group.owners %}
                     {% if o.id != group.recommended_id %}

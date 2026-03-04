@@ -171,10 +171,20 @@ function submitBulkEdit(form, idx) {
             input.value = cb.value;
             form.appendChild(input);
         });
-        return confirm('Opravit ' + cbs.length + ' záznamů?');
+        if (form._svjConfirmed) { form._svjConfirmed = false; return true; }
+        svjConfirm('Opravit ' + cbs.length + ' záznamů?', function() {
+            form._svjConfirmed = true;
+            form.requestSubmit ? form.requestSubmit() : form.submit();
+        });
+        return false;
     } else if (detail.children.length === 0 || detail.classList.contains('hidden')) {
         // Detail not expanded — apply to all (old behavior)
-        return confirm('Opravit všechny záznamy s touto hodnotou?');
+        if (form._svjConfirmed) { form._svjConfirmed = false; return true; }
+        svjConfirm('Opravit všechny záznamy s touto hodnotou?', function() {
+            form._svjConfirmed = true;
+            form.requestSubmit ? form.requestSubmit() : form.submit();
+        });
+        return false;
     } else {
         alert('Nejsou vybrány žádné záznamy.');
         return false;

@@ -6,6 +6,15 @@
 </div>
 {% endif %}
 
+{% if snapshot_warning is defined and snapshot_warning %}
+<div class="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg flex items-center gap-2">
+    <svg class="w-5 h-5 text-yellow-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+    </svg>
+    <p class="text-sm text-yellow-800">{{ snapshot_warning }}. Zvažte přegenerování lístků.</p>
+</div>
+{% endif %}
+
 <div class="flex items-center justify-between mt-2 mb-4">
     <div class="min-w-0">
         <h1 class="text-2xl font-bold text-gray-800">{{ voting.title }}</h1>
@@ -21,7 +30,7 @@
         {% if voting.status.value == 'draft' %}
         <span class="px-3 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">Koncept</span>
         <form action="/hlasovani/{{ voting.id }}/generovat" method="post"
-              onsubmit="return confirm('Vygenerovat lístky pro všechny vlastníky?\n\nPo generování nelze přidávat ani odebírat body hlasování. Hlasování přejde do stavu Aktivní.')" hx-boost="false">
+              data-confirm="Vygenerovat lístky pro všechny vlastníky?\n\nPo generování nelze přidávat ani odebírat body hlasování. Hlasování přejde do stavu Aktivní." hx-boost="false">
             <button type="submit" class="px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium transition-colors">
                 Generovat lístky
             </button>
@@ -36,7 +45,7 @@
         </a>
         {% if show_close_voting is defined and show_close_voting %}
         <form action="/hlasovani/{{ voting.id }}/stav" method="post"
-              onsubmit="return confirm('Uzavřít hlasování?\n\nZpracováno: {{ status_counts.get('processed', 0) }} z {{ total_ballots }} lístků\nNeodevzdáno: {{ total_ballots - status_counts.get('processed', 0) }}\nKvórum: {{ '%.1f'|format(total_processed_votes / declared_shares * 100 if declared_shares else 0) }}% — {% if quorum_reached %}dosaženo{% else %}NEDOSAŽENO{% endif %}\n\nPo uzavření nelze přidávat hlasy.')" hx-boost="false">
+              data-confirm="Uzavřít hlasování?\n\nZpracováno: {{ status_counts.get('processed', 0) }} z {{ total_ballots }} lístků\nNeodevzdáno: {{ total_ballots - status_counts.get('processed', 0) }}\nKvórum: {{ '%.1f'|format(total_processed_votes / declared_shares * 100 if declared_shares else 0) }}% — {% if quorum_reached %}dosaženo{% else %}NEDOSAŽENO{% endif %}\n\nPo uzavření nelze přidávat hlasy." hx-boost="false">
             <input type="hidden" name="status" value="closed">
             <button type="submit" class="px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium transition-colors">
                 Uzavřít hlasování
@@ -49,6 +58,13 @@
            class="px-3 py-1.5 text-sm font-medium text-green-600 border border-green-300 rounded-lg hover:bg-green-50 transition-colors">
             Exportovat do Excelu
         </a>
+        <form action="/hlasovani/{{ voting.id }}/stav" method="post"
+              data-confirm="Znovu otevřít hlasování?\n\nUmožní další zpracování lístků." hx-boost="false">
+            <input type="hidden" name="status" value="active">
+            <button type="submit" class="px-3 py-1.5 bg-orange-500 text-white rounded-lg hover:bg-orange-600 text-sm font-medium transition-colors">
+                Znovu otevřít
+            </button>
+        </form>
         {% endif %}
     </div>
 </div>

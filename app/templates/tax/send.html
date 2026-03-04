@@ -102,6 +102,12 @@
                                 <input type="email" name="test_email_inline" id="test-email-input" placeholder="test@example.com"
                                        value="{{ test_email_value|default('') }}"
                                        class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <select id="test-doc-select" class="border border-gray-300 rounded-lg px-2 py-2 text-xs text-gray-600 focus:ring-2 focus:ring-blue-500" title="Vybrat přílohu pro test">
+                                    <option value="0">1. dokument</option>
+                                    {% if all_documents is defined %}{% for doc in all_documents %}
+                                    <option value="{{ doc.id }}">{{ doc.original_filename|truncate(30) }}</option>
+                                    {% endfor %}{% endif %}
+                                </select>
                                 <button type="button" onclick="sendTest(this)"
                                         class="px-2.5 py-1 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 text-xs font-medium whitespace-nowrap transition-colors">
                                     Test
@@ -116,6 +122,7 @@
                 <!-- Hidden test form -->
                 <form id="test-email-form" method="post" action="/dane/{{ session.id }}/rozeslat/test" hx-boost="false" class="hidden">
                     <input type="hidden" name="test_email" id="test-email-hidden">
+                    <input type="hidden" name="test_doc_id" id="test-doc-hidden">
                 </form>
             </div>
         </details>

@@ -40,6 +40,7 @@
     ("PRO (%)", "pct_for", "left"),
     ("PROTI (hlasy)", "votes_against", "left"),
     ("PROTI (%)", "pct_against", "left"),
+    ("Zdržel se", "votes_abstain", "left"),
     ("Neodevzdáno", "votes_missing", "left"),
 ] %}
 <div class="bg-white rounded-lg shadow mb-8">
@@ -97,4 +98,13 @@
 
 </div>
 </div>
+
+{% if voting.status.value == 'draft' %}
+<script>
+function toggleItemEdit(itemId) {
+    var row = document.getElementById('edit-row-' + itemId);
+    if (row) row.classList.toggle('hidden');
+}
+</script>
+{% endif %}
 {% endblock %}

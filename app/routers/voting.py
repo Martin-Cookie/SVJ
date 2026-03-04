@@ -41,17 +41,36 @@ _VOTING_WIZARD_STEPS = [
 ]
 
 
-def _voting_wizard(voting, current_step: int) -> dict:
+def _voting_wizard(voting, current_step: int = None) -> dict:
     """Build wizard stepper context for voting workflow.
     current_step: 1-based step number for the current page.
-    Auto-determines done/active/pending status from voting state + current_step.
+                  If None, auto-computed from voting state (for list view).
     """
     status = voting.status.value
+    has_processed = any(b.status.value == "processed" for b in voting.ballots)
+
+    # Auto-compute current_step if not provided (list view)
+    if current_step is None:
+        has_items = len(voting.items) > 0
+        has_ballots = len(voting.ballots) > 0
+        all_processed = has_ballots and all(
+            b.status == BallotStatus.PROCESSED for b in voting.ballots
+        )
+        if status == "closed":
+            current_step = 5
+        elif status == "active" and all_processed:
+            current_step = 5
+        elif status == "active":
+            current_step = 3
+        elif status == "draft" and has_items:
+            current_step = 2
+        else:
+            current_step = 1
+
     # Determine max completed step based on voting status
     if status == "closed":
         max_done = 5
     elif status == "active":
-        has_processed = any(b.status.value == "processed" for b in voting.ballots)
         max_done = 4 if has_processed else 2
     else:  # draft
         max_done = 1 if voting.items else 0
@@ -72,6 +91,7 @@ def _voting_wizard(voting, current_step: int) -> dict:
         "wizard_steps": steps,
         "wizard_current": current_step,
         "wizard_total": len(_VOTING_WIZARD_STEPS),
+        "wizard_label": _VOTING_WIZARD_STEPS[current_step - 1]["label"],
     }
 
 
@@ -160,41 +180,8 @@ async def voting_list(
                 "pct_against": round(votes_against / total * 100, 2) if total else 0,
             })
 
-        # Determine wizard step for list view
-        status = voting.status.value
-        has_items = len(voting.items) > 0
-        has_ballots = len(voting.ballots) > 0
-        all_processed = has_ballots and all(
-            b.status == BallotStatus.PROCESSED for b in voting.ballots
-        )
-        if status == "closed":
-            wizard_step, wizard_label = 5, "Uzavření"
-        elif status == "active" and all_processed:
-            wizard_step, wizard_label = 5, "Uzavření"
-        elif status == "active":
-            wizard_step, wizard_label = 3, "Zpracování"
-        elif status == "draft" and has_items:
-            wizard_step, wizard_label = 2, "Generování lístků"
-        else:
-            wizard_step, wizard_label = 1, "Nastavení"
-
-        # Build wizard steps for compact stepper
-        # Determine max_done for list wizard
-        if status == "closed":
-            list_max_done = 5
-        elif status == "active":
-            list_max_done = 4 if any(b.status == BallotStatus.PROCESSED for b in voting.ballots) else 2
-        else:
-            list_max_done = 0
-
-        wiz_steps = []
-        for i, ws in enumerate(_VOTING_WIZARD_STEPS, 1):
-            if i < wizard_step:
-                wiz_steps.append({"label": ws["label"], "status": "done"})
-            elif i == wizard_step:
-                wiz_steps.append({"label": ws["label"], "status": "done" if i <= list_max_done else "active"})
-            else:
-                wiz_steps.append({"label": ws["label"], "status": "pending"})
+        # Wizard steps (reuse shared helper)
+        wizard = _voting_wizard(voting)
 
         voting_stats[voting.id] = {
             "processed_count": len(processed),
@@ -202,11 +189,8 @@ async def voting_list(
             "quorum_pct": round(processed_votes / declared_shares * 100, 2) if declared_shares else 0,
             "quorum_reached": processed_votes / declared_shares >= voting.quorum_threshold if declared_shares else False,
             "item_results": item_results,
-            "wizard_step": wizard_step,
-            "wizard_label": wizard_label,
-            "wizard_steps": wiz_steps,
-            "wizard_current": wizard_step,
-            "wizard_total": len(_VOTING_WIZARD_STEPS),
+            "wizard_step": wizard["wizard_current"],
+            **wizard,
         }
 
     list_url = build_list_url(request)
@@ -386,11 +370,22 @@ async def voting_detail(
 ):
     voting = db.query(Voting).options(
         joinedload(Voting.items),
-        joinedload(Voting.ballots).joinedload(Ballot.owner),
+        joinedload(Voting.ballots).joinedload(Ballot.owner).joinedload(Owner.units).joinedload(OwnerUnit.unit),
         joinedload(Voting.ballots).joinedload(Ballot.votes),
     ).get(voting_id)
     if not voting:
         return RedirectResponse("/hlasovani", status_code=302)
+
+    # Snapshot warning: check if ballot total_votes differ from current owner data
+    snapshot_warning = ""
+    if voting.status == VotingStatus.ACTIVE:
+        stale_count = 0
+        for ballot in voting.ballots:
+            current_votes = sum(ou.votes for ou in ballot.owner.current_units)
+            if current_votes != ballot.total_votes:
+                stale_count += 1
+        if stale_count > 0:
+            snapshot_warning = f"U {stale_count} {'lístku se změnil' if stale_count == 1 else 'lístků se změnil'} počet hlasů vlastníka od generování lístků (např. změna podílů nebo vlastníka jednotky)"
 
     # Calculate results per item
     declared = _get_declared_shares(db) or 1
@@ -398,6 +393,7 @@ async def voting_detail(
     for item in voting.items:
         votes_for = 0
         votes_against = 0
+        votes_abstain = 0
         for ballot in voting.ballots:
             if ballot.status != BallotStatus.PROCESSED:
                 continue
@@ -407,15 +403,20 @@ async def voting_detail(
                         votes_for += bv.votes_count
                     elif bv.vote == VoteValue.AGAINST:
                         votes_against += bv.votes_count
+                    elif bv.vote == VoteValue.ABSTAIN:
+                        votes_abstain += bv.votes_count
 
+        votes_missing = declared - votes_for - votes_against - votes_abstain
         results.append({
             "item": item,
             "votes_for": votes_for,
             "votes_against": votes_against,
+            "votes_abstain": votes_abstain,
             "pct_for": round(votes_for / declared * 100, 2) if declared else 0,
             "pct_against": round(votes_against / declared * 100, 2) if declared else 0,
-            "votes_missing": declared - votes_for - votes_against,
-            "pct_missing": round((declared - votes_for - votes_against) / declared * 100, 2) if declared else 0,
+            "pct_abstain": round(votes_abstain / declared * 100, 2) if declared else 0,
+            "votes_missing": votes_missing,
+            "pct_missing": round(votes_missing / declared * 100, 2) if declared else 0,
         })
 
     # Search filter (diacritics-aware)
@@ -431,6 +432,7 @@ async def voting_detail(
         "pct_for": lambda r: r["pct_for"],
         "votes_against": lambda r: r["votes_against"],
         "pct_against": lambda r: r["pct_against"],
+        "votes_abstain": lambda r: r["votes_abstain"],
         "votes_missing": lambda r: r["votes_missing"],
     }
     key_fn = sort_keys.get(sort, sort_keys["order"])
@@ -456,6 +458,7 @@ async def voting_detail(
         "back_label": back_label,
         "active_bubble": "",
         "show_close_voting": has_processed,
+        "snapshot_warning": snapshot_warning,
         "q": q,
         "sort": sort,
         "order": order,
@@ -493,8 +496,113 @@ async def generate_ballots(
     ).all()
 
     created = 0
+    processed_owner_ids = set()
+
+    if voting.partial_owner_mode == "shared":
+        # Group SJM co-owners: find owners sharing units with SJM ownership
+        # Build unit→owners map for SJM units
+        unit_sjm_owners = {}  # unit_id → [owner, ...]
+        for owner in owners:
+            for ou in owner.current_units:
+                if ou.ownership_type and "SJM" in ou.ownership_type.upper():
+                    unit_sjm_owners.setdefault(ou.unit_id, []).append(owner)
+
+        # Build SJM groups — only pair owners on units with exactly 2 SJM owners
+        # Units with >2 SJM owners (e.g. two couples co-owning) don't define pairs
+        owner_to_group = {}
+        group_id = 0
+        for unit_id, group_owners in unit_sjm_owners.items():
+            if len(group_owners) != 2:
+                continue  # Skip multi-owner SJM units for pairing
+            # Same connected components logic, but only for pair units
+            existing_groups = {owner_to_group[o.id] for o in group_owners if o.id in owner_to_group}
+            if existing_groups:
+                target = min(existing_groups)
+                for o in group_owners:
+                    owner_to_group[o.id] = target
+                for oid, gid in list(owner_to_group.items()):
+                    if gid in existing_groups and gid != target:
+                        owner_to_group[oid] = target
+            else:
+                for o in group_owners:
+                    owner_to_group[o.id] = group_id
+                group_id += 1
+
+        # Handle SJM owners who only appear on multi-owner units
+        # (never on a unit with exactly 2 SJM owners → no pair identified)
+        for unit_id, group_owners in unit_sjm_owners.items():
+            if len(group_owners) <= 2:
+                continue
+            for owner in group_owners:
+                if owner.id not in owner_to_group:
+                    owner_to_group[owner.id] = group_id
+                    group_id += 1
+
+        # Invert: group_id → [owners]
+        groups = {}
+        for oid, gid in owner_to_group.items():
+            groups.setdefault(gid, set()).add(oid)
+
+        owner_by_id = {o.id: o for o in owners}
+
+        # Create shared ballots for SJM groups
+        for gid, member_ids in groups.items():
+            members = sorted(
+                [owner_by_id[oid] for oid in member_ids if oid in owner_by_id],
+                key=lambda o: o.name_normalized or "",
+            )
+            if not members:
+                continue
+            primary = members[0]
+
+            # Skip if ballot already exists for primary
+            existing = db.query(Ballot).filter_by(
+                voting_id=voting.id, owner_id=primary.id
+            ).first()
+            if existing:
+                processed_owner_ids.update(member_ids)
+                continue
+
+            # Collect unique units across group (each unit counted once)
+            seen_units = set()
+            total_votes = 0
+            unit_numbers = []
+            for member in members:
+                for ou in member.current_units:
+                    if ou.unit_id not in seen_units:
+                        seen_units.add(ou.unit_id)
+                        total_votes += ou.votes
+                        unit_numbers.append(str(ou.unit.unit_number))
+
+            shared_names = ", ".join(m.display_name for m in members)
+
+            ballot = Ballot(
+                voting_id=voting.id,
+                owner_id=primary.id,
+                total_votes=total_votes,
+                units_text=", ".join(unit_numbers),
+                shared_owners_text=shared_names,
+                status=BallotStatus.GENERATED,
+            )
+            db.add(ballot)
+            db.flush()
+
+            for item in voting.items:
+                bv = BallotVote(
+                    ballot_id=ballot.id,
+                    voting_item_id=item.id,
+                    votes_count=total_votes,
+                )
+                db.add(bv)
+
+            processed_owner_ids.update(member_ids)
+            created += 1
+
+    # Create individual ballots for remaining owners (non-SJM or separate mode)
     for owner in owners:
-        # Check if ballot already exists
+        if owner.id in processed_owner_ids:
+            continue
+
         existing = db.query(Ballot).filter_by(
             voting_id=voting.id, owner_id=owner.id
         ).first()
@@ -517,7 +625,6 @@ async def generate_ballots(
         db.add(ballot)
         db.flush()
 
-        # Create empty vote records for each item
         for item in voting.items:
             bv = BallotVote(
                 ballot_id=ballot.id,
@@ -626,24 +733,35 @@ async def ballot_detail(
     db: Session = Depends(get_db),
 ):
     ballot = db.query(Ballot).options(
-        joinedload(Ballot.owner),
+        joinedload(Ballot.owner).joinedload(Owner.units).joinedload(OwnerUnit.unit),
         joinedload(Ballot.votes).joinedload(BallotVote.voting_item),
         joinedload(Ballot.voting).joinedload(Voting.items),
     ).filter_by(id=ballot_id, voting_id=voting_id).first()
     if not ballot:
         return RedirectResponse(f"/hlasovani/{voting_id}/listky", status_code=302)
 
+    # Load full voting with ballots for stats/wizard
+    voting = db.query(Voting).options(
+        joinedload(Voting.ballots).joinedload(Ballot.votes),
+    ).get(voting_id)
+
     back_url = back or f"/hlasovani/{voting_id}/listky"
     back_label = "Zpět na hlasovací lístky"
+    has_processed = any(b.status.value == "processed" for b in voting.ballots)
 
-    return templates.TemplateResponse("voting/ballot_detail.html", {
+    ctx = {
         "request": request,
         "active_nav": "voting",
-        "voting": ballot.voting,
+        "voting": voting,
         "ballot": ballot,
         "back_url": back_url,
         "back_label": back_label,
-    })
+        "active_bubble": "",
+        "show_close_voting": has_processed,
+        **_ballot_stats(voting, db),
+        **_voting_wizard(voting, 3),
+    }
+    return templates.TemplateResponse("voting/ballot_detail.html", ctx)
 
 
 @router.get("/{voting_id}/zpracovani")
@@ -840,12 +958,19 @@ async def update_voting_status(
 ):
     voting = db.query(Voting).get(voting_id)
     if voting:
-        old_status = voting.status.value
+        old = voting.status.value
+        # Allowed transitions: active→closed, closed→active
+        allowed = {
+            ("active", "closed"),
+            ("closed", "active"),
+        }
+        if (old, status) not in allowed:
+            return RedirectResponse(f"/hlasovani/{voting_id}", status_code=302)
         voting.status = VotingStatus(status)
         voting.updated_at = datetime.utcnow()
         log_activity(db, ActivityAction.STATUS_CHANGED, "voting", "hlasovani",
                      entity_id=voting.id, entity_name=voting.title,
-                     description=f"Stav: {old_status} → {status}")
+                     description=f"Stav: {old} → {status}")
         db.commit()
     return RedirectResponse(f"/hlasovani/{voting_id}", status_code=302)
 
@@ -986,6 +1111,16 @@ async def delete_voting_item(
     item = db.query(VotingItem).filter_by(id=item_id, voting_id=voting_id).first()
     if item:
         db.delete(item)
+        db.flush()
+        # Renumber remaining items 1..N
+        remaining = (
+            db.query(VotingItem)
+            .filter_by(voting_id=voting_id)
+            .order_by(VotingItem.order)
+            .all()
+        )
+        for idx, it in enumerate(remaining, 1):
+            it.order = idx
         db.commit()
     return RedirectResponse(f"/hlasovani/{voting_id}", status_code=302)
 
@@ -1011,6 +1146,82 @@ async def add_voting_item(
     db.add(item)
     db.commit()
     return RedirectResponse(f"/hlasovani/{voting_id}", status_code=302)
+
+
+@router.post("/{voting_id}/bod/{item_id}/upravit")
+async def edit_voting_item(
+    voting_id: int,
+    item_id: int,
+    title: str = Form(...),
+    description: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    """Edit title/description of a voting item (draft only)."""
+    item = db.query(VotingItem).filter_by(id=item_id, voting_id=voting_id).first()
+    if not item:
+        return RedirectResponse(f"/hlasovani/{voting_id}", status_code=302)
+    voting = db.query(Voting).get(voting_id)
+    if not voting or voting.status != VotingStatus.DRAFT:
+        return RedirectResponse(f"/hlasovani/{voting_id}", status_code=302)
+    item.title = title.strip()
+    item.description = description.strip()
+    db.commit()
+    return RedirectResponse(f"/hlasovani/{voting_id}", status_code=302)
+
+
+@router.post("/{voting_id}/bod/{item_id}/posunout")
+async def move_voting_item(
+    voting_id: int,
+    item_id: int,
+    direction: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    """Move a voting item up or down (draft only)."""
+    voting = db.query(Voting).options(joinedload(Voting.items)).get(voting_id)
+    if not voting or voting.status != VotingStatus.DRAFT:
+        return RedirectResponse(f"/hlasovani/{voting_id}", status_code=302)
+
+    items_sorted = sorted(voting.items, key=lambda i: i.order)
+    target = next((i for i in items_sorted if i.id == item_id), None)
+    if not target:
+        return RedirectResponse(f"/hlasovani/{voting_id}", status_code=302)
+
+    idx = items_sorted.index(target)
+    if direction == "up" and idx > 0:
+        neighbor = items_sorted[idx - 1]
+        target.order, neighbor.order = neighbor.order, target.order
+    elif direction == "down" and idx < len(items_sorted) - 1:
+        neighbor = items_sorted[idx + 1]
+        target.order, neighbor.order = neighbor.order, target.order
+
+    db.commit()
+    return RedirectResponse(f"/hlasovani/{voting_id}", status_code=302)
+
+
+@router.post("/{voting_id}/listek/{ballot_id}/opravit")
+async def reset_ballot(
+    voting_id: int,
+    ballot_id: int,
+    db: Session = Depends(get_db),
+):
+    """Reset a processed ballot back to GENERATED so it can be re-processed."""
+    ballot = db.query(Ballot).options(
+        joinedload(Ballot.votes), joinedload(Ballot.voting),
+    ).filter_by(id=ballot_id, voting_id=voting_id).first()
+    if not ballot:
+        return RedirectResponse(f"/hlasovani/{voting_id}/listky", status_code=302)
+
+    # Only allow reset if voting is active and ballot is processed
+    if ballot.voting.status != VotingStatus.ACTIVE or ballot.status != BallotStatus.PROCESSED:
+        return RedirectResponse(f"/hlasovani/{voting_id}/listek/{ballot_id}", status_code=302)
+
+    ballot.status = BallotStatus.GENERATED
+    ballot.processed_at = None
+    for bv in ballot.votes:
+        bv.vote = None
+        bv.manually_verified = False
+    db.commit()
+    return RedirectResponse(f"/hlasovani/{voting_id}/listek/{ballot_id}", status_code=302)
 
 
 @router.get("/{voting_id}/neodevzdane")

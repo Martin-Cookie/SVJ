@@ -12,3 +12,9 @@
         Zpracováno {{ ballot.processed_at.strftime('%d.%m.%Y %H:%M') if ballot.processed_at else '' }}
     </div>
 </div>
+<script>
+if (typeof selectedBallots !== 'undefined') {
+    selectedBallots.delete({{ ballot.id }});
+    if (typeof updateBulkBar === 'function') updateBulkBar();
+}
+</script>

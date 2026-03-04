@@ -1,31 +1,93 @@
 {% for r in results %}
-<tr>
+<tr id="item-{{ r.item.id }}">
     <td class="px-6 py-4 text-sm">
         <span class="font-medium text-gray-900">{{ r.item.order }}.</span>
-        {{ r.item.title }}
+        <span class="item-title-{{ r.item.id }}">{{ r.item.title }}</span>
+        {% if r.item.description %}<span class="text-xs text-gray-400 ml-1" title="{{ r.item.description }}">ℹ</span>{% endif %}
     </td>
     <td class="px-6 py-4 text-sm font-medium text-green-600 whitespace-nowrap">{{ "{:,}".format(r.votes_for).replace(",", " ") }}</td>
     <td class="px-6 py-4 text-sm text-green-600 whitespace-nowrap">{{ "%.2f"|format(r.pct_for) }}%</td>
     <td class="px-6 py-4 text-sm font-medium text-red-600 whitespace-nowrap">{{ "{:,}".format(r.votes_against).replace(",", " ") }}</td>
     <td class="px-6 py-4 text-sm text-red-600 whitespace-nowrap">{{ "%.2f"|format(r.pct_against) }}%</td>
     <td class="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">
+        {{ "{:,}".format(r.votes_abstain).replace(",", " ") }}
+        ({{ "%.2f"|format(r.pct_abstain) }}%)
+    </td>
+    <td class="px-6 py-4 text-sm text-orange-500 whitespace-nowrap">
         {{ "{:,}".format(r.votes_missing).replace(",", " ") }}
         ({{ "%.2f"|format(r.pct_missing) }}%)
     </td>
     {% if voting.status.value == 'draft' %}
-    <td class="px-6 py-4 text-right">
-        <form action="/hlasovani/{{ voting.id }}/smazat-bod/{{ r.item.id }}" method="post" style="display:inline" hx-boost="false"
-              onsubmit="return confirm('Smazat bod {{ r.item.order }}. {{ r.item.title }}?')">
-            <button type="submit" title="Smazat" class="p-1 text-gray-500 hover:text-red-600 rounded hover:bg-red-50">
+    <td class="px-6 py-4 text-right whitespace-nowrap">
+        <div class="inline-flex items-center gap-0.5">
+            {# Move up #}
+            {% if not loop.first %}
+            <form action="/hlasovani/{{ voting.id }}/bod/{{ r.item.id }}/posunout" method="post" style="display:inline" hx-boost="false">
+                <input type="hidden" name="direction" value="up">
+                <button type="submit" title="Posunout nahoru" class="p-1 text-gray-400 hover:text-blue-600 rounded hover:bg-blue-50">
+                    <svg aria-hidden="true" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/>
+                    </svg>
+                </button>
+            </form>
+            {% else %}
+            <span class="p-1 w-6"></span>
+            {% endif %}
+            {# Move down #}
+            {% if not loop.last %}
+            <form action="/hlasovani/{{ voting.id }}/bod/{{ r.item.id }}/posunout" method="post" style="display:inline" hx-boost="false">
+                <input type="hidden" name="direction" value="down">
+                <button type="submit" title="Posunout dolů" class="p-1 text-gray-400 hover:text-blue-600 rounded hover:bg-blue-50">
+                    <svg aria-hidden="true" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </button>
+            </form>
+            {% else %}
+            <span class="p-1 w-6"></span>
+            {% endif %}
+            {# Edit #}
+            <button type="button" title="Upravit" onclick="toggleItemEdit({{ r.item.id }})"
+                    class="p-1 text-gray-400 hover:text-blue-600 rounded hover:bg-blue-50">
                 <svg aria-hidden="true" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
                 </svg>
             </button>
-        </form>
+            {# Delete #}
+            <form action="/hlasovani/{{ voting.id }}/smazat-bod/{{ r.item.id }}" method="post" style="display:inline" hx-boost="false"
+                  data-confirm="Smazat bod {{ r.item.order }}. {{ r.item.title }}?">
+                <button type="submit" title="Smazat" class="p-1 text-gray-400 hover:text-red-600 rounded hover:bg-red-50">
+                    <svg aria-hidden="true" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                    </svg>
+                </button>
+            </form>
+        </div>
     </td>
     {% endif %}
 </tr>
+{# Inline edit row (hidden by default) #}
+{% if voting.status.value == 'draft' %}
+<tr id="edit-row-{{ r.item.id }}" class="hidden bg-blue-50">
+    <td colspan="8" class="px-6 py-3">
+        <form action="/hlasovani/{{ voting.id }}/bod/{{ r.item.id }}/upravit" method="post" class="flex items-end gap-3" hx-boost="false">
+            <div class="flex-1">
+                <label class="block text-xs text-gray-500 mb-1">Název bodu</label>
+                <input type="text" name="title" value="{{ r.item.title }}" required
+                       class="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+            </div>
+            <div class="flex-1">
+                <label class="block text-xs text-gray-500 mb-1">Popis (nepovinný)</label>
+                <input type="text" name="description" value="{{ r.item.description or '' }}"
+                       class="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+            </div>
+            <button type="submit" class="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">Uložit</button>
+            <button type="button" onclick="toggleItemEdit({{ r.item.id }})" class="px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm">Zrušit</button>
+        </form>
+    </td>
+</tr>
+{% endif %}
 {% endfor %}
 {% if not results and q %}
-<tr><td colspan="7" class="px-6 py-4 text-center text-gray-500 text-sm">Žádné body neodpovídají hledání „{{ q }}".</td></tr>
+<tr><td colspan="8" class="px-6 py-4 text-center text-gray-500 text-sm">Žádné body neodpovídají hledání „{{ q }}".</td></tr>
 {% endif %}

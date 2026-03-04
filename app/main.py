@@ -161,6 +161,21 @@ def _migrate_owners_phone_secondary():
         conn.commit()
 
 
+def _migrate_ballots_shared_owners():
+    """Add shared_owners_text column to ballots table."""
+    with engine.connect() as conn:
+        columns = [
+            row[1] for row in
+            conn.execute(text("PRAGMA table_info(ballots)")).fetchall()
+        ]
+        if "shared_owners_text" not in columns:
+            conn.execute(text(
+                "ALTER TABLE ballots ADD COLUMN shared_owners_text VARCHAR(500)"
+            ))
+            logger.info("Added shared_owners_text column to ballots")
+        conn.commit()
+
+
 def _migrate_svj_info_voting_mapping():
     """Add voting_import_mapping column to svj_info table."""
     with engine.connect() as conn:
@@ -315,6 +330,10 @@ def run_post_restore_migrations():
     except Exception:
         logger.warning("post-restore: owners phone_secondary migration skipped")
     try:
+        _migrate_ballots_shared_owners()
+    except Exception:
+        logger.warning("post-restore: ballots shared_owners migration skipped")
+    try:
         _migrate_svj_info_voting_mapping()
     except Exception:
         logger.warning("post-restore: svj_info voting_import_mapping migration skipped")
@@ -367,6 +386,12 @@ async def lifespan(app: FastAPI):
         _migrate_owners_phone_secondary()
     except Exception:
         logger.warning("owners phone_secondary migration skipped")
+
+    # Add shared_owners_text to ballots
+    try:
+        _migrate_ballots_shared_owners()
+    except Exception:
+        logger.warning("ballots shared_owners migration skipped")
 
     # Add voting_import_mapping to svj_info
     try:

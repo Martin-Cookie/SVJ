@@ -24,7 +24,7 @@
 </div><!-- /shrink-0 -->
 
 <div class="flex-1 overflow-y-auto min-h-0">
-    <form action="/hlasovani/{{ voting.id }}/import/nahled" method="post" id="mapping-form">
+    <form action="/hlasovani/{{ voting.id }}/import/nahled" method="post" id="mapping-form" hx-boost="false">
         <input type="hidden" name="file_path" value="{{ file_path }}">
 
         <div class="bg-white rounded-lg shadow p-4 mb-4">

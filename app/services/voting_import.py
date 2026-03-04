@@ -157,13 +157,24 @@ def preview_voting_import(file_path: str, mapping: dict, voting: Voting, db: Ses
     no_match = []
     errors = []
 
-    # Build lookup: unit_number → list of (owner_id, ballot_id)
+    # Build lookup: unit_number → list of ballots
     ballot_lookup = {}
     for ballot in voting.ballots:
-        owner = ballot.owner
-        for ou in owner.current_units:
+        seen_unit_ids = set()
+        # Primary: owner's current units
+        for ou in ballot.owner.current_units:
             unit_num = ou.unit.unit_number
             ballot_lookup.setdefault(unit_num, []).append(ballot)
+            seen_unit_ids.add(unit_num)
+        # Fallback: units_text (shared SJM ballots contain units from all members)
+        if ballot.units_text:
+            for part in ballot.units_text.split(","):
+                part = part.strip()
+                if part.isdigit():
+                    unit_num = int(part)
+                    if unit_num not in seen_unit_ids:
+                        ballot_lookup.setdefault(unit_num, []).append(ballot)
+                        seen_unit_ids.add(unit_num)
 
     # Track which ballots we've already seen (for dedup across rows)
     seen_ballots = {}

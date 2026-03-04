@@ -160,6 +160,31 @@
         </div>
     </div>
 
-    <script src="/static/js/app.js?v=6"></script>
+    <!-- Confirm modal (replaces browser confirm()) -->
+    <div id="confirm-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center">
+        <div class="absolute inset-0 bg-black/50" onclick="confirmCancel()"></div>
+        <div class="relative bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+            <div class="p-5">
+                <div class="flex items-start gap-3">
+                    <div class="flex-shrink-0 w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center">
+                        <svg class="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+                        </svg>
+                    </div>
+                    <p id="confirm-message" class="text-sm text-gray-700 whitespace-pre-line pt-2"></p>
+                </div>
+            </div>
+            <div class="flex justify-end gap-2 px-5 py-3 bg-gray-50 rounded-b-lg">
+                <button onclick="confirmCancel()" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
+                    Zrušit
+                </button>
+                <button id="confirm-ok-btn" onclick="confirmOk()" class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700">
+                    Potvrdit
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/app.js?v=7"></script>
 </body>
 </html>

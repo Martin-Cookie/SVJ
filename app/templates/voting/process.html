@@ -67,7 +67,7 @@
             </div>
             {% endfor %}
             <button type="submit" class="ml-auto px-4 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-xs font-medium transition-colors"
-                    onclick="return confirm('Zpracovat ' + selectedBallots.size + ' vybraných lístků se stejnými hlasy?')">
+                    onclick="event.preventDefault(); svjConfirm('Zpracovat ' + selectedBallots.size + ' vybraných lístků se stejnými hlasy?', function() { var f = document.getElementById('bulk-form'); f.requestSubmit ? f.requestSubmit() : f.submit(); })">
                 Zpracovat vybrané
             </button>
         </div>

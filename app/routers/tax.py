@@ -71,10 +71,11 @@ _TAX_WIZARD_STEPS = [
 def _tax_wizard(session, current_step: int, has_documents: bool = False) -> dict:
     """Build wizard stepper context for tax workflow."""
     status = session.send_status.value
+    is_sending = status in ("sending", "paused")
     # Determine max completed step based on session status
     if status == "completed":
         max_done = 4
-    elif status in ("sending", "paused"):
+    elif is_sending:
         max_done = 2
     elif status == "ready":
         max_done = 2
@@ -89,7 +90,11 @@ def _tax_wizard(session, current_step: int, has_documents: bool = False) -> dict
         if i < current_step and i <= max_done:
             step_status = "done"
         elif i == current_step:
-            step_status = "done" if i <= max_done else "active"
+            # Mark as "sending" for pulsing animation during active send
+            if is_sending and i == 3:
+                step_status = "sending"
+            else:
+                step_status = "done" if i <= max_done else "active"
         elif i <= max_done:
             step_status = "done"
         else:
@@ -960,6 +965,7 @@ async def tax_detail(
     q: str = Query("", alias="q"),
     sort: str = Query("unit_number", alias="sort"),
     order: str = Query("asc", alias="order"),
+    stranka: int = Query(1, alias="stranka"),
     db: Session = Depends(get_db),
 ):
     session = db.query(TaxSession).get(session_id)
@@ -1044,8 +1050,23 @@ async def tax_detail(
     sort_fn = SORT_KEYS.get(sort, SORT_KEYS["unit_number"])
     documents.sort(key=sort_fn, reverse=(order == "desc"))
 
+    # Pagination
+    per_page = 100
+    total_filtered = len(documents)
+    total_pages = max(1, (total_filtered + per_page - 1) // per_page)
+    stranka = max(1, min(stranka, total_pages))
+    start = (stranka - 1) * per_page
+    documents = documents[start:start + per_page]
+
     is_completed = session.send_status and session.send_status.value == "ready"
     list_url = build_list_url(request)
+
+    pagination = {
+        "current_page": stranka,
+        "total_pages": total_pages,
+        "total_filtered": total_filtered,
+        "per_page": per_page,
+    }
 
     # HTMX partial response — skip stats, missing units, owners (not in tbody)
     if is_partial:
@@ -1055,6 +1076,7 @@ async def tax_detail(
             "is_completed": is_completed,
             "list_url": list_url,
             "unit_by_number": _unit_by_number(db),
+            **pagination,
         })
 
     # --- Full page: stats + missing units + owners ---
@@ -1109,6 +1131,7 @@ async def tax_detail(
         "unit_by_number": _unit_by_number(db),
         "missing_list": missing_list,
         **stats,
+        **pagination,
         **_tax_wizard(session, 2, has_documents=len(documents) > 0),
     })
 
@@ -1473,6 +1496,7 @@ async def tax_send_preview(
         "sort": sort,
         "order": order,
         "test_email_value": session.test_email_address or "",
+        "all_documents": documents,
         **_tax_wizard(session, 3),
     }
 
@@ -1604,35 +1628,85 @@ async def update_recipient_email(
             )
         return RedirectResponse(redirect_url, status_code=302)
 
-    # Rebuild recipients for the updated row
-    documents = (
-        db.query(TaxDocument)
-        .filter_by(session_id=session_id)
-        .options(
-            joinedload(TaxDocument.distributions)
-            .joinedload(TaxDistribution.owner),
-        )
-        .order_by(cast(TaxDocument.unit_number, Integer), TaxDocument.unit_letter)
-        .all()
-    )
-    recipients = _build_recipients(documents)
-
-    # Find the updated recipient
+    # Rebuild only the relevant recipient row (optimized — no full rebuild)
     if dist.owner_id:
         key = f"owner_{dist.owner_id}"
+        # Load only documents for this owner
+        relevant_dists = (
+            db.query(TaxDistribution)
+            .filter(
+                TaxDistribution.document_id.in_(
+                    db.query(TaxDocument.id).filter_by(session_id=session_id)
+                ),
+                TaxDistribution.owner_id == dist.owner_id,
+            )
+            .options(joinedload(TaxDistribution.document))
+            .all()
+        )
+        owner = db.query(Owner).get(dist.owner_id)
+        if not owner:
+            return RedirectResponse(f"/dane/{session_id}/rozeslat", status_code=302)
+
+        # Build recipient dict manually
+        docs_list = []
+        dist_ids = []
+        used_email = None
+        email_status = "pending"
+        for rd in relevant_dists:
+            docs_list.append({
+                "id": rd.document_id,
+                "filename": rd.document.original_filename or rd.document.filename or "",
+                "file_path": rd.document.file_path,
+            })
+            dist_ids.append(rd.id)
+            if rd.email_address_used:
+                used_email = rd.email_address_used
+            if rd.email_status:
+                email_status = rd.email_status.value if hasattr(rd.email_status, 'value') else rd.email_status
+
+        primary_email = owner.email or ""
+        secondary_email = owner.email_secondary or ""
+        final_email = used_email or primary_email or secondary_email or ""
+
+        recipient = {
+            "key": key,
+            "name": owner.display_name,
+            "email": final_email,
+            "primary_email": primary_email,
+            "secondary_email": secondary_email,
+            "selected_emails": [e.strip() for e in final_email.split(",") if e.strip()] if final_email else [],
+            "has_dual_email": bool(primary_email and secondary_email and primary_email != secondary_email),
+            "docs": docs_list,
+            "dist_ids": dist_ids,
+            "owner_id": owner.id,
+            "is_external": False,
+            "email_status": email_status,
+        }
     else:
         key = f"ext_{dist.id}"
-
-    recipient = next((r for r in recipients if r["key"] == key), None)
-    if not recipient:
-        return RedirectResponse(f"/dane/{session_id}/rozeslat", status_code=302)
+        doc = db.query(TaxDocument).get(dist.document_id) if dist.document_id else None
+        recipient = {
+            "key": key,
+            "name": dist.ad_hoc_name or "Externí příjemce",
+            "email": dist.ad_hoc_email or "",
+            "primary_email": dist.ad_hoc_email or "",
+            "secondary_email": "",
+            "selected_emails": [dist.ad_hoc_email] if dist.ad_hoc_email else [],
+            "has_dual_email": False,
+            "docs": [{"id": doc.id, "filename": doc.original_filename or doc.filename or "", "file_path": doc.file_path}] if doc else [],
+            "dist_ids": [dist.id],
+            "owner_id": None,
+            "is_external": True,
+            "email_status": dist.email_status.value if dist.email_status and hasattr(dist.email_status, 'value') else "pending",
+        }
 
     list_url = build_list_url(request)
+    session_obj = db.query(TaxSession).get(session_id)
 
     return templates.TemplateResponse("partials/tax_recipient_row.html", {
         "request": request,
         "r": recipient,
-        "session": db.query(TaxSession).get(session_id),
+        "session": session_obj,
         "list_url": list_url,
     })
 
@@ -1722,21 +1796,29 @@ async def send_test_email(
     session_id: int,
     request: Request,
     test_email: str = Form(...),
+    test_doc_id: int = Form(0),
     db: Session = Depends(get_db),
 ):
     session = db.query(TaxSession).get(session_id)
     if not session:
         return RedirectResponse("/dane", status_code=302)
 
-    # Find the first document with a file
-    first_doc = (
-        db.query(TaxDocument)
-        .filter_by(session_id=session_id)
-        .order_by(TaxDocument.id)
-        .first()
-    )
+    # Find specific or first document for test attachment
+    if test_doc_id:
+        test_doc = db.query(TaxDocument).filter_by(
+            id=test_doc_id, session_id=session_id
+        ).first()
+    else:
+        test_doc = None
+    if not test_doc:
+        test_doc = (
+            db.query(TaxDocument)
+            .filter_by(session_id=session_id)
+            .order_by(TaxDocument.id)
+            .first()
+        )
 
-    attachments = [first_doc.file_path] if first_doc else []
+    attachments = [test_doc.file_path] if test_doc else []
 
     import asyncio
     result = await asyncio.to_thread(
@@ -1797,6 +1879,7 @@ async def send_test_email(
         "flash_message": flash_message,
         "flash_type": flash_type,
         "test_email_value": test_email.strip(),
+        "all_documents": documents,
         **_tax_wizard(session, 3),
     })
 

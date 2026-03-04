@@ -5,7 +5,7 @@
 
 ## URL konvence
 
-- Všechny URL cesty používají **české slugy bez diakritiky**: `/vlastnici`, `/jednotky`, `/hlasovani`, `/dane`, `/synchronizace`, `/kontrola-podilu`, `/sprava`, `/nastaveni`
+- Všechny URL cesty používají **české slugy bez diakritiky**: `/vlastnici`, `/jednotky`, `/hlasovani`, `/dane`, `/synchronizace`, `/sprava`, `/nastaveni`
 - Sub-endpointy: `/nova` (create), `/smazat` (delete), `/upravit` (edit), `/pridat` (add), `/potvrdit` (confirm), `/odebrat` (remove), `/exportovat` (export), `/aktualizovat` (update)
 - Nikdy nepoužívat angličtinu v URL cestách
 
@@ -57,7 +57,7 @@
 > **Při JAKÉKOLIV úpravě stránky s tabulkou (nová stránka, redesign, přidání sloupce) VŽDY zkontrolovat a doplnit VŠECHNY body:**
 
 1. **Řaditelné sloupce** — KAŽDÝ datový sloupec musí být řaditelný kliknutím na hlavičku (šipka nahoru/dolů). Implementace přes `_cols` loop nebo `sort_th` macro, `SORT_COLUMNS` dict v routeru
-2. **Hledání** — HTMX search bar s `hx-trigger="keyup changed delay:300ms"`, prohledává všechna relevantní textová pole, diacritics-insensitive přes `strip_diacritics()`
+2. **Hledání** — HTMX search bar s `hx-trigger="keyup changed delay:300ms"`, prohledává všechna relevantní textová pole, diacritics-insensitive přes `_strip_diacritics()`
 3. **Klikací entity** — každý odkaz na entitu (vlastník, jednotka, lístek) musí být `<a href>`, nikdy plain text pokud existuje detail stránka. Vyžaduje lookup v routeru (např. `owner_by_email` dict)
 4. **Eager loading** — klikací entity vyžadují `joinedload()` v routeru, jinak lazy loading selže nebo způsobí N+1
 5. **HTMX partial** — search aktualizuje jen `<tbody>` přes partial šablonu, zbytek stránky zůstane
@@ -107,12 +107,15 @@
 - Hidden inputy (`sort`, `order`, `stav`, `back`) jsou VEDLE search inputu, NE uvnitř tbody partial
 - **Diakritika v SQLite**: SQLite `lower()` a `LIKE`/`ilike` nefungují s českou diakritikou (č≠Č, ř≠Ř atd.). Proto se jména **vždy hledají přes sloupec `name_normalized`** (bez diakritiky, lowercase) s normalizovaným hledaným výrazem:
   ```python
-  from app.utils import strip_diacritics  # kanonická sdílená verze
+  from unicodedata import category, normalize
 
-  search_ascii = f"%{strip_diacritics(q)}%"
+  def _strip_diacritics(text: str) -> str:
+      nfkd = normalize("NFD", text)
+      return "".join(c for c in nfkd if category(c) != "Mn").lower()
+
+  search_ascii = f"%{_strip_diacritics(q)}%"
   Owner.name_normalized.like(search_ascii)  # NE ilike — name_normalized je už lowercase
   ```
-- **Poznámka:** Některé services (`excel_import.py`, `contact_import.py`) mají lokální `_strip_diacritics` kopie — routery vždy importují z `app.utils`
 - **Nikdy nepoužívat `name_with_titles.ilike(search)` jako hlavní vyhledávání jmen** — selže pro české znaky. Vždy `name_normalized.like(search_ascii)`.
 
 ## Jména vlastníků
@@ -161,21 +164,9 @@
 ## Router vzory
 
 ### Boilerplate
-- Každý router: `router = APIRouter()` + `templates = Jinja2Templates(directory="app/templates")` + `setup_jinja_filters(templates)`
-- `setup_jinja_filters()` z `app.utils` registruje custom Jinja2 filtry (např. `fmt_num`) — volat **ihned po** vytvoření `Jinja2Templates`
+- Každý router: `router = APIRouter()` + `templates = Jinja2Templates(directory="app/templates")`
 - Žádné prefixy na `APIRouter()` — všechny prefixy v `main.py` přes `include_router(prefix=...)`
-- Každý `TemplateResponse` musí obsahovat `"active_nav": "module_key"` pro zvýraznění sidebaru:
-  | Modul | `active_nav` | Prefix |
-  |-------|-------------|--------|
-  | Dashboard | `dashboard` | `/` |
-  | Vlastníci | `owners` | `/vlastnici` |
-  | Import | `import` | `/vlastnici/import` |
-  | Jednotky | `units` | `/jednotky` |
-  | Hlasování | `voting` | `/hlasovani` |
-  | Rozesílání | `tax` | `/dane` |
-  | Kontroly (sync+share) | `kontroly` | `/synchronizace`, `/kontrola-podilu` |
-  | Administrace | `administration` | `/sprava` |
-  | Nastavení | `settings` | `/nastaveni` |
+- Každý `TemplateResponse` musí obsahovat `"active_nav": "module_key"` pro zvýraznění sidebaru
 
 ### POST-Redirect-GET (PRG)
 - Všechny POST endpointy po mutaci: `RedirectResponse(url, status_code=302)` pro non-HTMX requesty
@@ -194,8 +185,8 @@
 ### HTMX partial odpovědi
 - Router rozlišuje HX-Request vs HX-Boosted — boosted navigace dostává plnou stránku:
   ```python
-  from app.utils import is_htmx_partial
-  if is_htmx_partial(request):
+  is_htmx = request.headers.get("HX-Request") and not request.headers.get("HX-Boosted")
+  if is_htmx:
       return templates.TemplateResponse("partial.html", ctx)
   return templates.TemplateResponse("full_page.html", ctx)
   ```
@@ -228,7 +219,7 @@
 - Export modelů v `app/models/__init__.py`
 - Odkaz v sidebar (`base.html`) s `active_nav` kontrolou
 - Přidání do README.md (popis modulu + API endpointy)
-- Odkaz v sidebaru (`base.html`): hlavní položky nahoře (Přehled, Vlastníci, Jednotky, Import) bez group labelu, pak sekce Moduly (doménové funkce), Systém (admin/config). Ikona `w-4 h-4 mr-2` SVG + text label
+- Odkaz v sidebaru (`base.html`): sekce Data (nahoře), Moduly (doménové funkce), Systém (admin/config). Ikona `w-4 h-4 mr-2` SVG + text label
 
 ## Export dat (Excel)
 
@@ -248,49 +239,14 @@
 ## Upload souborů
 
 - Ukládání: `{YYYYMMDD_HHMMSS}_{original_filename}` do podadresáře `settings.upload_dir`
-- Podadresáře: `excel/`, `word_templates/`, `scanned_ballots/`, `tax_pdfs/`, `csv/`, `share_check/`
+- Podadresáře: `excel/`, `word_templates/`, `scanned_ballots/`, `tax_pdfs/`, `csv/`
 - Zápis přes `shutil.copyfileobj(file.file, f)` + `dest.parent.mkdir(parents=True, exist_ok=True)`
 - Multi-step import workflow: Upload → Preview → Confirm. Cesta k souboru se předává jako hidden field, ne přes session
-- **`webkitdirectory` upload** posílá VŠECHNY soubory v adresáři (včetně `.DS_Store`). Router MUSÍ filtrovat na cílovou příponu (např. `[f for f in files if f.filename and f.filename.lower().endswith(".pdf")]`) PŘED voláním `validate_uploads()`
-- **Starlette multipart limit**: výchozí `max_files=1000` nestačí pro velké adresáře. V `main.py` se patchuje na 5000 přes `Request._get_form.__kwdefaults__` a `Request.form.__kwdefaults__`
 
 ## Mazání entit se soubory
 
 - Při smazání entity s `*_path` sloupci: `try: Path(path).unlink() except Exception: pass`
 - Selhání file cleanup nikdy neblokuje DB delete
-
-## Sdílené utility — `app/utils.py`
-
-- `strip_diacritics(text)` — odstraní diakritiku + lowercase (kanonická sdílená verze)
-- `build_list_url(request)` — sestaví `list_url` z `request.url` (path + query)
-- `is_htmx_partial(request)` — `True` pokud HX-Request a ne HX-Boosted
-- `fmt_num(value)` — formátování čísel s mezerou jako oddělovačem tisíců
-- `is_safe_path(path, allowed_dirs)` — ochrana proti path traversal
-- `validate_upload(file, max_size_mb, allowed_extensions)` — validace přípony a velikosti souboru, vrací českou chybovou hlášku. Preferuje `file.size` (Starlette metadata) místo čtení celého souboru do paměti
-- `validate_uploads(files, ...)` — batch verze pro více souborů
-- `setup_jinja_filters(templates)` — registrace custom Jinja2 filtrů (`fmt_num`)
-
-## Logování aktivit — `ActivityLog`
-
-- Model `ActivityLog` + enum `ActivityAction` v `app/models/common.py`
-- Helper `log_activity(db, action, entity_type, module, entity_id=None, entity_name=None, description=None)` — zápis do DB
-- Používá se v routerech: `owners.py`, `tax.py`, `administration.py`, `voting.py`
-- Dashboard zobrazuje posledních N záznamů jako „Poslední aktivita"
-
-## Background processing (threading)
-
-- Dlouhotrvající operace (zpracování PDF, import kontaktů, odesílání emailů) běží v `threading.Thread`
-- Progress tracking přes module-level dict: `_processing_progress[session_id]` (PDF zpracování), `_sending_progress[session_id]` (odesílání emailů)
-- HTMX polling endpointy vracejí partial s aktuálním stavem
-- `tax.py` používá `threading.Lock()` pro thread-safe přístup k progress dict
-- Frontend polluje přes `hx-trigger="every 2s"` na progress endpoint
-
-## Adresáře — `config.py`
-
-- `upload_dir` — nahrané soubory (Excel, PDF, Word šablony, CSV)
-- `generated_dir` — generované exporty (Excel, PDF lístky)
-- `temp_dir` — dočasné soubory
-- Všechny se vytvářejí automaticky při startu (lifespan)
 
 ## Service layer
 
@@ -301,7 +257,7 @@
 ## JavaScript
 
 - Stránkový JS jde do `<script>` na konci `{% block content %}` — ne do separátních `.js` souborů
-- Vanilla JS only (žádný jQuery, žádné external knihovny kromě HTMX a pdf.js)
+- Vanilla JS only (žádný jQuery, žádné external knihovny kromě HTMX)
 - `/static/js/app.js` pro HTMX globální handlery + dark mode toggle
 - Jinja2 macro je OK pro opakující se UI struktury v rámci jedné šablony, pokud všechna data přijdou jako parametry macro
 - **`<script>` tagy v HTML vloženém přes `innerHTML` se NESPUSTÍ** — prohlížeč je ignoruje. HTMX (`hx-swap`) naopak skripty vyhodnotí. Pokud je nutné fetch + innerHTML, definovat funkce v nadřazené šabloně.
@@ -310,15 +266,13 @@
 
 - Tailwind CSS z CDN (`cdn.tailwindcss.com`) — žádný build pipeline
 - HTMX z CDN (`unpkg.com`)
-- pdf.js z CDN (`cdnjs.cloudflare.com`) — PDF náhled v modalu (`openPdfModal()` / `closePdfModal()` v `base.html` + `app.js`)
-- Custom CSS: `custom.css` (HTMX animace + button disable), `dark-mode.css` (dark mode override)
+- Custom CSS: `custom.css` (HTMX animace), `dark-mode.css` (dark mode override)
 - Vše stylováno přes Tailwind utility classes
 - Dark mode — přepínač v sidebaru, detaily viz [UI_GUIDE.md § 19](docs/UI_GUIDE.md)
 
 ## Startup (lifespan)
 
-- `main.py` lifespan: (1) import modelů, (2) `create_all`, (3) migrace, (4) `_ensure_indexes()`, (5) `_seed_code_lists()`, (6) `_seed_email_templates()`, (7) vytvoření upload/generated/temp adresářů
-- Po obnově zálohy se volá `run_post_restore_migrations()` — zopakuje kroky 3–6
+- `main.py` lifespan: (1) import modelů, (2) `create_all`, (3) migrace, (4) `_ensure_indexes()`, (5) vytvoření upload/generated adresářů
 - Nové funkce vyžadující adresáře: přidat do lifespan. Nové indexy: přidat do `_ensure_indexes()`
 
 ## Nasazení na USB (jiný počítač)
@@ -359,9 +313,9 @@
   - Ověřit že se propisují VŠECHNA relevantní pole všem dotčeným záznamům (ownership_type, space_type, podíl, jméno)
   - Výstup analýzy scénářů nabízet uživateli při každé změně v datové logice
 
-## Uživatelské role — ZATÍM NEIMPLEMENTOVÁNO (plán na konec)
+## Uživatelské role — plán implementace (na konec)
 
-> **Tento systém rolí zatím neexistuje v kódu.** Implementovat až budou hotové všechny moduly. Role je ortogonální vrstva — přidá se mechanicky bez předělávání existujícího kódu.
+> Implementovat až budou hotové všechny moduly. Role je ortogonální vrstva — přidá se mechanicky bez předělávání existujícího kódu.
 
 ### Role
 
@@ -432,12 +386,25 @@
 
 1. **Přečti CLAUDE.md** a pochop strukturu projektu
 2. **Analyzuj** současný stav relevantních souborů
-3. **Pokud ti něco není jasné — ZEPTEJ SE**, nedomýšlej si
+3. **Pokud ti něco není jasné — ZEPTEJ SE**, nedomýšlej si. Používej **AskUserQuestion** s roletovými menu a checkboxy místo volných otázek v textu — uživatel vybere z nabídky místo psaní.
 4. **Ukaž strukturovaný plán** přes update_plan tool (co budeš měnit, které soubory, jak)
-5. **POČKEJ NA SCHVÁLENÍ** — neimplementuj dokud uživatel neschválí plán
+5. **UI změny — ukaž mockup** před implementací (ASCII wireframe současného a navrhovaného stavu):
+   ```
+   Současný stav:
+   ┌──────────────────────────┐
+   │ [jak to vypadá teď]      │
+   └──────────────────────────┘
+
+   Navrhovaný stav:
+   ┌──────────────────────────┐
+   │ [jak to bude vypadat]    │
+   └──────────────────────────┘
+   ```
+6. **POČKEJ NA SCHVÁLENÍ** — neimplementuj dokud uživatel neschválí plán
 6. **Implementuj** po schválení
 7. **Ověř** že existující funkce stále fungují (spusť server, otestuj dotčené stránky)
-8. **Commitni** každý úkol zvlášť s výstižnou českou commit message
+8. **Vyžádej si potvrzení pro commit** — ukaž co se změnilo a zeptej se "Mám commitnout?"
+9. **Commitni** každý úkol zvlášť s výstižnou českou commit message
 9. Pokud měníš strukturu projektu → **aktualizuj CLAUDE.md**
 
 ### Na konci každého úkolu vypiš:

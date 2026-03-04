@@ -64,14 +64,14 @@
                     Zavřít
                 </a>
                 <form method="post" action="/dane/{{ session.id }}/dokoncit" hx-boost="false"
-                      onsubmit="return confirm('Uzamknout přiřazení?\n\nData nebude možné měnit bez odemčení.{% if stat_unmatched > 0 %}\n\nPozor: {{ stat_unmatched }} dokumentů zůstane nepřiřazeno.{% endif %}')">
+                      data-confirm="Uzamknout přiřazení?\n\nData nebude možné měnit bez odemčení.{% if stat_unmatched > 0 %}\n\nPozor: {{ stat_unmatched }} dokumentů zůstane nepřiřazeno.{% endif %}">
                     <button type="submit" class="px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium transition-colors">
                         Uzamknout
                     </button>
                 </form>
                 {% endif %}
                 <form method="post" action="/dane/{{ session.id }}/smazat" hx-boost="false" class="inline"
-                      onsubmit="return confirm('Opravdu smazat celou relaci včetně všech PDF?')">
+                      data-confirm="Opravdu smazat celou relaci včetně všech PDF?">
                     <button type="submit" title="Smazat" class="p-1 text-gray-500 hover:text-red-600 rounded hover:bg-red-50">
                         <svg aria-hidden="true" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
@@ -135,7 +135,7 @@
                     </button>
                 </form>
                 <form method="post" action="/dane/{{ session.id }}/potvrdit-vse" hx-boost="false"
-                      onsubmit="return confirm('Potvrdit {{ stat_to_confirm }} automaticky přiřazených dokumentů?\n\nPo potvrzení zůstane {{ stat_unmatched }} nepřiřazených.')" class="inline">
+                      data-confirm="Potvrdit {{ stat_to_confirm }} automaticky přiřazených dokumentů?\n\nPo potvrzení zůstane {{ stat_unmatched }} nepřiřazených." class="inline">
                     <button type="submit" class="px-3 py-1 bg-green-600 text-white rounded-lg text-xs hover:bg-green-700 transition-colors">
                         Potvrdit vše ({{ stat_to_confirm }})
                     </button>
@@ -244,6 +244,29 @@
                 {% include "partials/tax_table_body.html" %}
             </tbody>
         </table>
+        {% endif %}
+        {% if total_pages is defined and total_pages > 1 %}
+        <div class="px-4 py-3 border-t border-gray-200 flex items-center justify-between text-sm">
+            <span class="text-gray-500">{{ total_filtered }} dokumentů, stránka {{ current_page }}/{{ total_pages }}</span>
+            <div class="flex items-center gap-1">
+                {% set _pbase = "/dane/" ~ session.id ~ "?filtr=" ~ filtr ~ "&q=" ~ (q|urlencode) ~ "&sort=" ~ sort ~ "&order=" ~ order ~ "&back=" ~ (back_url|default('')|urlencode) %}
+                {% if current_page > 1 %}
+                <a href="{{ _pbase }}&stranka={{ current_page - 1 }}" class="px-2.5 py-1 border border-gray-300 rounded text-gray-600 hover:bg-gray-50">&laquo;</a>
+                {% endif %}
+                {% for p in range(1, total_pages + 1) %}
+                    {% if p == current_page %}
+                    <span class="px-2.5 py-1 bg-blue-600 text-white rounded text-xs font-medium">{{ p }}</span>
+                    {% elif p <= 3 or p >= total_pages - 1 or (p >= current_page - 1 and p <= current_page + 1) %}
+                    <a href="{{ _pbase }}&stranka={{ p }}" class="px-2.5 py-1 border border-gray-300 rounded text-gray-600 hover:bg-gray-50 text-xs">{{ p }}</a>
+                    {% elif p == 4 or p == total_pages - 2 %}
+                    <span class="px-1 text-gray-400">...</span>
+                    {% endif %}
+                {% endfor %}
+                {% if current_page < total_pages %}
+                <a href="{{ _pbase }}&stranka={{ current_page + 1 }}" class="px-2.5 py-1 border border-gray-300 rounded text-gray-600 hover:bg-gray-50">&raquo;</a>
+                {% endif %}
+            </div>
+        </div>
         {% endif %}
     </div>
 </div>

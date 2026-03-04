@@ -75,10 +75,11 @@ document.body.addEventListener('htmx:sendError', function(event) {
 // Close modal on escape key
 document.addEventListener('keydown', function(event) {
     if (event.key === 'Escape') {
+        confirmCancel();
         closePdfModal();
         closeSendConfirmModal();
-        const modal = document.getElementById('modal-container');
-        if (modal) modal.innerHTML = '';
+        var modalContainer = document.getElementById('modal-container');
+        if (modalContainer) modalContainer.replaceChildren();
     }
 });
 
@@ -132,13 +133,77 @@ function closePdfModal() {
     document.body.style.overflow = '';
 }
 
-// Confirm before destructive actions
+// =========================================================================
+// Custom confirm modal (replaces browser confirm())
+// =========================================================================
+var _confirmCallback = null;
+
+function svjConfirm(message, onConfirm) {
+    _confirmCallback = onConfirm;
+    document.getElementById('confirm-message').textContent = message;
+    document.getElementById('confirm-modal').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+    document.getElementById('confirm-ok-btn').focus();
+}
+
+function confirmOk() {
+    var modal = document.getElementById('confirm-modal');
+    if (!modal || modal.classList.contains('hidden')) return;
+    modal.classList.add('hidden');
+    document.body.style.overflow = '';
+    if (_confirmCallback) {
+        var cb = _confirmCallback;
+        _confirmCallback = null;
+        cb();
+    }
+}
+
+function confirmCancel() {
+    var modal = document.getElementById('confirm-modal');
+    if (!modal || modal.classList.contains('hidden')) return;
+    modal.classList.add('hidden');
+    document.body.style.overflow = '';
+    _confirmCallback = null;
+}
+
+// Global handler: intercept form submit with data-confirm
+document.addEventListener('submit', function(e) {
+    var form = e.target;
+    var msg = form.getAttribute('data-confirm');
+    if (!msg) return;
+    if (form._svjConfirmed) {
+        form._svjConfirmed = false;
+        return;
+    }
+    e.preventDefault();
+    svjConfirm(msg.replace(/\\n/g, '\n'), function() {
+        form.submit();
+    });
+}, true);
+
+// Global handler: intercept button/link click with data-confirm
+document.addEventListener('click', function(e) {
+    var el = e.target.closest('[data-confirm]');
+    if (!el || el.tagName === 'FORM') return;
+    if (el._svjConfirmed) {
+        el._svjConfirmed = false;
+        return;
+    }
+    e.preventDefault();
+    e.stopPropagation();
+    svjConfirm(el.getAttribute('data-confirm').replace(/\\n/g, '\n'), function() {
+        el._svjConfirmed = true;
+        el.click();
+    });
+}, true);
+
+// Confirm before destructive HTMX actions (hx-confirm attribute)
 document.body.addEventListener('htmx:confirm', function(event) {
     if (event.detail.elt.hasAttribute('hx-confirm')) {
         event.preventDefault();
-        if (confirm(event.detail.elt.getAttribute('hx-confirm'))) {
+        svjConfirm(event.detail.elt.getAttribute('hx-confirm').replace(/\\n/g, '\n'), function() {
             event.detail.issueRequest();
-        }
+        });
     }
 });
 
@@ -379,6 +444,8 @@ function sendTest(btn) {
     if (!email) return;
     try { sessionStorage.setItem(_TE_KEY, email); } catch(e) {}
     document.getElementById('test-email-hidden').value = email;
+    var docSelect = document.getElementById('test-doc-select');
+    if (docSelect) document.getElementById('test-doc-hidden').value = docSelect.value;
     document.getElementById('test-email-form').submit();
 }
 
