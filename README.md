@@ -144,7 +144,7 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
 - Hromadné zpracování: checkboxy, select all, batch zadání hlasů pro více lístků najednou
 - Import výsledků hlasování z Excelu:
   - 4-krokový flow: upload → mapování sloupců → náhled → potvrzení
-  - Mapování sloupců na role (vlastník, jednotka, bod hlasování) s předvyplněním z uloženého mapování
+  - Mapování sloupců na role (vlastník, jednotka, bod hlasování) s předvyplněním z uloženého mapování (globálně sdílené napříč hlasováními)
   - Konfigurovatelné hodnoty PRO/PROTI (výchozí 1,ANO / 0,NE)
   - Nastavitelný počáteční řádek dat
   - Režim importu: doplnit (ponechat existující) nebo vyčistit a přepsat
