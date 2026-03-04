@@ -161,6 +161,21 @@ def _migrate_owners_phone_secondary():
         conn.commit()
 
 
+def _migrate_svj_info_voting_mapping():
+    """Add voting_import_mapping column to svj_info table."""
+    with engine.connect() as conn:
+        columns = [
+            row[1] for row in
+            conn.execute(text("PRAGMA table_info(svj_info)")).fetchall()
+        ]
+        if "voting_import_mapping" not in columns:
+            conn.execute(text(
+                "ALTER TABLE svj_info ADD COLUMN voting_import_mapping TEXT"
+            ))
+            logger.info("Added voting_import_mapping column to svj_info")
+        conn.commit()
+
+
 def _ensure_indexes():
     """Create indexes defined in models that may be missing on existing tables."""
     _INDEXES = [
@@ -300,6 +315,10 @@ def run_post_restore_migrations():
     except Exception:
         logger.warning("post-restore: owners phone_secondary migration skipped")
     try:
+        _migrate_svj_info_voting_mapping()
+    except Exception:
+        logger.warning("post-restore: svj_info voting_import_mapping migration skipped")
+    try:
         _ensure_indexes()
     except Exception:
         logger.warning("post-restore: index creation skipped")
@@ -348,6 +367,12 @@ async def lifespan(app: FastAPI):
         _migrate_owners_phone_secondary()
     except Exception:
         logger.warning("owners phone_secondary migration skipped")
+
+    # Add voting_import_mapping to svj_info
+    try:
+        _migrate_svj_info_voting_mapping()
+    except Exception:
+        logger.warning("svj_info voting_import_mapping migration skipped")
 
     # Ensure indexes on existing tables
     try:
