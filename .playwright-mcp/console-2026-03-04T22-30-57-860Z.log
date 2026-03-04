@@ -1,0 +1,4 @@
+[      36ms] ReferenceError: tailwind is not defined
+    at http://localhost:8000/hlasovani/nova:12:13
+[      66ms] [WARNING] cdn.tailwindcss.com should not be used in production. To use Tailwind CSS in production, install it as a PostCSS plugin or use the Tailwind CLI: https://tailwindcss.com/docs/installation @ https://cdn.tailwindcss.com/:63
+[     155ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:8000/favicon.ico:0
