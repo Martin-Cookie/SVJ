@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
+from unicodedata import category, normalize as uni_normalize
 
 from openpyxl import load_workbook
 from sqlalchemy.orm import Session
@@ -27,6 +28,11 @@ from app.models.owner import Owner, OwnerUnit, Unit
 from app.models.voting import (
     Ballot, BallotStatus, BallotVote, Voting, VoteValue,
 )
+
+
+def _strip_diacritics(text: str) -> str:
+    nfkd = uni_normalize("NFD", text)
+    return "".join(c for c in nfkd if category(c) != "Mn").lower()
 
 
 def _cell(row: tuple, idx: int) -> str | None:
@@ -260,12 +266,24 @@ def preview_voting_import(file_path: str, mapping: dict, voting: Voting, db: Ses
                 if ballot.id not in seen_ballots:
                     no_match.append({
                         "row": row_idx,
-                        "owner_name": ballot.owner.display_name or owner_name,
+                        "owner_name": owner_name or ballot.owner.display_name,
                         "unit_number": unit_number,
                         "ballot_id": ballot.id,
                         "raw_values": raw_values,
                     })
             continue
+
+        # Disambiguate when multiple ballots share the same unit
+        if len(ballots_for_unit) > 1 and owner_name:
+            owner_norm = _strip_diacritics(owner_name)
+            narrowed = []
+            for b in ballots_for_unit:
+                # Check if ballot owner's name appears IN the Excel name
+                name = b.owner.name_normalized or ""
+                if name and name in owner_norm:
+                    narrowed.append(b)
+            if narrowed:
+                ballots_for_unit = narrowed
 
         # Primary ballot = direct unit match; co-owners only if there are votes
         targets = ballots_for_unit if vote_choices else [ballots_for_unit[0]]
@@ -275,23 +293,24 @@ def preview_voting_import(file_path: str, mapping: dict, voting: Voting, db: Ses
                 for item_id, vote in vote_choices.items()
             }
 
-            # Merge with previously seen rows for same ballot
+            # Merge votes with previously seen rows for same ballot
             if ballot.id in seen_ballots:
-                existing = seen_ballots[ballot.id]
+                canonical = seen_ballots[ballot.id]
                 for item_id, vote_data in votes.items():
-                    existing["votes"][item_id] = vote_data
-                continue
+                    canonical["votes"][item_id] = vote_data
+                votes = canonical["votes"]
 
             entry = {
                 "row": row_idx,
-                "owner_name": ballot.owner.display_name or owner_name,
+                "owner_name": owner_name or ballot.owner.display_name,
                 "unit_number": unit_number,
                 "ballot_id": ballot.id,
                 "votes": votes,
             }
             if unrecognized:
                 entry["unrecognized"] = unrecognized
-            seen_ballots[ballot.id] = entry
+            if ballot.id not in seen_ballots:
+                seen_ballots[ballot.id] = entry
             matched.append(entry)
 
     wb.close()
@@ -332,13 +351,19 @@ def execute_voting_import(file_path: str, mapping: dict, voting: Voting, db: Ses
     # Use already-loaded ballot objects (avoids potential ORM identity issues)
     ballot_by_id = {b.id: b for b in voting.ballots}
 
+    processed_ballot_ids = set()
     for entry in preview["matched"]:
-        ballot = ballot_by_id.get(entry["ballot_id"])
+        ballot_id = entry["ballot_id"]
+        if ballot_id in processed_ballot_ids:
+            continue  # Already processed this ballot from a previous row
+        processed_ballot_ids.add(ballot_id)
+
+        ballot = ballot_by_id.get(ballot_id)
         if not ballot:
             skipped_count += 1
             continue
 
-        has_votes = False
+        has_real_votes = False
         for bv in ballot.votes:
             item_id = bv.voting_item_id
             if item_id in entry["votes"]:
@@ -348,13 +373,12 @@ def execute_voting_import(file_path: str, mapping: dict, voting: Voting, db: Ses
                     continue
                 bv.vote = VoteValue.FOR if vote_data["vote"] == "for" else VoteValue.AGAINST
                 bv.votes_count = vote_data["count"]
-                has_votes = True
+                has_real_votes = True
             elif clear_existing:
                 # Clear mode: reset votes not in import
                 bv.vote = None
-                has_votes = True
 
-        if has_votes:
+        if has_real_votes:
             ballot.status = BallotStatus.PROCESSED
             ballot.processed_at = datetime.utcnow()
             processed_count += 1

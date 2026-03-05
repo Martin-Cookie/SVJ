@@ -603,6 +603,9 @@ async def generate_ballots(
         if owner.id in processed_owner_ids:
             continue
 
+        if not owner.current_units:
+            continue  # Skip owners without any units
+
         existing = db.query(Ballot).filter_by(
             voting_id=voting.id, owner_id=owner.id
         ).first()
