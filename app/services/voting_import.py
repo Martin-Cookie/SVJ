@@ -18,8 +18,8 @@ The mapping dict describes which columns map to which roles:
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime
-from unicodedata import category, normalize as uni_normalize
 
 from openpyxl import load_workbook
 from sqlalchemy.orm import Session
@@ -28,11 +28,7 @@ from app.models.owner import Owner, OwnerUnit, Unit
 from app.models.voting import (
     Ballot, BallotStatus, BallotVote, Voting, VoteValue,
 )
-
-
-def _strip_diacritics(text: str) -> str:
-    nfkd = uni_normalize("NFD", text)
-    return "".join(c for c in nfkd if category(c) != "Mn").lower()
+from app.utils import strip_diacritics as _strip_diacritics
 
 
 def _cell(row: tuple, idx: int) -> str | None:
@@ -74,7 +70,6 @@ def _parse_value_list(raw: str) -> tuple[set[str], list[tuple[str, float]]]:
         return set(), []
     exact = set()
     comparisons = []
-    import re
     cmp_re = re.compile(r"^([<>]=?)\s*(-?\d+(?:\.\d+)?)$")
     for v in raw.split(","):
         v = v.strip()
@@ -130,6 +125,44 @@ def _match_vote(
             return "for"
         if _check_comparisons(num, against_cmp):
             return "against"
+    return None
+
+
+def validate_mapping(mapping: dict) -> str | None:
+    """Validate import mapping dict. Returns error message or None if valid."""
+    if not isinstance(mapping, dict):
+        return "Mapping musí být objekt"
+
+    # Required integer columns
+    for key in ("owner_col", "unit_col"):
+        val = mapping.get(key)
+        if not isinstance(val, int) or val < 0:
+            return f"Chybí nebo neplatný '{key}' (musí být nezáporné celé číslo)"
+
+    # Optional start_row
+    start_row = mapping.get("start_row", 2)
+    if not isinstance(start_row, int) or start_row < 1:
+        return "Neplatný 'start_row' (musí být ≥ 1)"
+
+    # Item mappings
+    items = mapping.get("item_mappings") or mapping.get("items", [])
+    if not isinstance(items, list) or not items:
+        return "Chybí 'item_mappings' (musí být neprázdný seznam)"
+
+    for i, item in enumerate(items):
+        if not isinstance(item, dict):
+            return f"item_mappings[{i}] musí být objekt"
+        if not isinstance(item.get("item_id"), int):
+            return f"item_mappings[{i}].item_id musí být celé číslo"
+        for_col = item.get("for_col")
+        against_col = item.get("against_col")
+        if for_col is None and against_col is None:
+            return f"item_mappings[{i}] musí mít alespoň 'for_col' nebo 'against_col'"
+        if for_col is not None and (not isinstance(for_col, int) or for_col < 0):
+            return f"item_mappings[{i}].for_col musí být nezáporné celé číslo"
+        if against_col is not None and (not isinstance(against_col, int) or against_col < 0):
+            return f"item_mappings[{i}].against_col musí být nezáporné celé číslo"
+
     return None
 
 

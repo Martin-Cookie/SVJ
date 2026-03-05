@@ -1,7 +1,10 @@
+import logging
 import shutil
 import threading
 import time as _time
 from datetime import date, datetime
+
+logger = logging.getLogger(__name__)
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
@@ -328,6 +331,7 @@ def _run_contact_preview(file_key: str, file_path: str):
         result = preview_contact_import(file_path, db, progress=progress)
         progress["result"] = result
     except Exception as e:
+        logger.exception("Contact import failed for %s", file_key)
         _contact_import_progress[file_key]["error"] = str(e)
     finally:
         _contact_import_progress[file_key]["done"] = True

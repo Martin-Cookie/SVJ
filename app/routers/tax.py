@@ -675,7 +675,11 @@ def _process_tax_files(session_id: int, file_paths: list, tax_year):
                 _processing_progress[session_id]["current_file"] = basename
 
             unit_number, unit_letter = parse_unit_from_filename(basename)
-            extracted = extract_owner_from_tax_pdf(file_path)
+            try:
+                extracted = extract_owner_from_tax_pdf(file_path)
+            except Exception as e:
+                logger.exception("PDF extraction failed: %s", basename)
+                extracted = {"full_text": "", "owner_name": None, "owner_names": []}
 
             # Prefer individual names from details section over combined "Vlastník:" line
             individual_names = [n for n in (extracted.get("owner_names") or []) if n]
@@ -844,6 +848,7 @@ def _process_tax_files(session_id: int, file_paths: list, tax_year):
 
         db.commit()
     except Exception as e:
+        logger.exception("PDF processing failed for session %s", session_id)
         with _processing_lock:
             _processing_progress[session_id]["error"] = str(e)
         db.rollback()

@@ -20,7 +20,7 @@ from app.models import (
 )
 from app.services.word_parser import extract_voting_items, extract_voting_metadata
 from app.services.voting_import import (
-    read_excel_headers, preview_voting_import, execute_voting_import,
+    read_excel_headers, preview_voting_import, execute_voting_import, validate_mapping,
 )
 from app.utils import build_list_url, is_htmx_partial, is_safe_path, setup_jinja_filters, strip_diacritics, validate_upload
 
@@ -41,13 +41,18 @@ _VOTING_WIZARD_STEPS = [
 ]
 
 
+def _has_processed_ballots(voting) -> bool:
+    """Check if voting has any processed ballots."""
+    return any(b.status == BallotStatus.PROCESSED for b in voting.ballots)
+
+
 def _voting_wizard(voting, current_step: int = None) -> dict:
     """Build wizard stepper context for voting workflow.
     current_step: 1-based step number for the current page.
                   If None, auto-computed from voting state (for list view).
     """
     status = voting.status.value
-    has_processed = any(b.status.value == "processed" for b in voting.ballots)
+    has_processed = _has_processed_ballots(voting)
 
     # Auto-compute current_step if not provided (list view)
     if current_step is None:
@@ -248,7 +253,7 @@ async def voting_preview_metadata(
     if err:
         return JSONResponse({"error": err}, status_code=400)
 
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
     dest = settings.upload_dir / "word_templates" / f"{timestamp}_{file.filename}"
     dest.parent.mkdir(parents=True, exist_ok=True)
     try:
@@ -301,7 +306,7 @@ async def voting_create(
         if err:
             return RedirectResponse("/hlasovani/nova?chyba=upload", status_code=302)
 
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
         dest = settings.upload_dir / "word_templates" / f"{timestamp}_{file.filename}"
         dest.parent.mkdir(parents=True, exist_ok=True)
         with open(dest, "wb") as f:
@@ -443,7 +448,7 @@ async def voting_detail(
     back_url = back or "/hlasovani"
     back_label = "Zpět na přehled" if back == "/" else "Zpět na hlasování"
 
-    has_processed = any(b.status.value == "processed" for b in voting.ballots)
+    has_processed = _has_processed_ballots(voting)
     if voting.status.value == "active":
         detail_step = 5 if has_processed else 3
     elif voting.status.value == "closed":
@@ -724,7 +729,7 @@ async def ballot_list(
 
     list_url = build_list_url(request)
 
-    has_processed = any(b.status.value == "processed" for b in voting.ballots)
+    has_processed = _has_processed_ballots(voting)
     ctx = {
         "request": request,
         "active_nav": "voting",
@@ -771,7 +776,7 @@ async def ballot_detail(
 
     back_url = back or f"/hlasovani/{voting_id}/listky"
     back_label = "Zpět na hlasovací lístky"
-    has_processed = any(b.status.value == "processed" for b in voting.ballots)
+    has_processed = _has_processed_ballots(voting)
 
     ctx = {
         "request": request,
@@ -858,7 +863,7 @@ async def process_page(
     key_fn = sort_keys.get(sort, sort_keys["owner"])
     unprocessed.sort(key=key_fn, reverse=(order == "desc"))
 
-    has_processed = any(b.status.value == "processed" for b in voting.ballots)
+    has_processed = _has_processed_ballots(voting)
     ctx = {
         "request": request,
         "active_nav": "voting",
@@ -1084,7 +1089,7 @@ async def voting_export(voting_id: int, db: Session = Depends(get_db)):
 
     buf = BytesIO()
     wb.save(buf)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
     filename = f"hlasovani_{voting.id}_{timestamp}.xlsx"
 
     return Response(
@@ -1294,7 +1299,7 @@ async def not_submitted(
 
     list_url = build_list_url(request)
 
-    has_processed = any(b.status.value == "processed" for b in voting.ballots)
+    has_processed = _has_processed_ballots(voting)
     ctx = {
         "request": request,
         "active_nav": "voting",
@@ -1378,7 +1383,7 @@ async def import_upload_page(
 
     saved_mapping = _load_saved_mapping(voting, db)
 
-    has_processed = any(b.status.value == "processed" for b in voting.ballots)
+    has_processed = _has_processed_ballots(voting)
     return templates.TemplateResponse("voting/import_upload.html", {
         "request": request,
         "active_nav": "voting",
@@ -1405,7 +1410,7 @@ async def import_upload(
     if not voting:
         return RedirectResponse("/hlasovani", status_code=302)
 
-    has_processed = any(b.status.value == "processed" for b in voting.ballots)
+    has_processed = _has_processed_ballots(voting)
     err = await validate_upload(file, max_size_mb=50, allowed_extensions=[".xlsx", ".xls"]) if file.filename else "Nahrajte soubor ve formátu .xlsx"
     if err:
         return templates.TemplateResponse("voting/import_upload.html", {
@@ -1421,7 +1426,7 @@ async def import_upload(
             **_voting_wizard(voting, 3),
         })
 
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
     dest = settings.upload_dir / "excel" / f"{timestamp}_{file.filename}"
     dest.parent.mkdir(parents=True, exist_ok=True)
     with open(dest, "wb") as f:
@@ -1472,6 +1477,11 @@ async def import_preview(
     except (json.JSONDecodeError, TypeError):
         return RedirectResponse(f"/hlasovani/{voting_id}/import", status_code=302)
 
+    mapping_error = validate_mapping(mapping)
+    if mapping_error:
+        logger.warning("Invalid import mapping: %s", mapping_error)
+        return RedirectResponse(f"/hlasovani/{voting_id}/import", status_code=302)
+
     # Save mapping for next time (only if user checked the box)
     if save_mapping:
         voting.import_column_mapping = mapping_json
@@ -1482,7 +1492,7 @@ async def import_preview(
     # Build item lookup for template
     item_lookup = {item.id: item for item in voting.items}
 
-    has_processed = any(b.status.value == "processed" for b in voting.ballots)
+    has_processed = _has_processed_ballots(voting)
     return templates.TemplateResponse("voting/import_preview.html", {
         "request": request,
         "active_nav": "voting",
@@ -1526,6 +1536,11 @@ async def import_confirm(
     except (json.JSONDecodeError, TypeError):
         return RedirectResponse(f"/hlasovani/{voting_id}/import", status_code=302)
 
+    mapping_error = validate_mapping(mapping)
+    if mapping_error:
+        logger.warning("Invalid import mapping: %s", mapping_error)
+        return RedirectResponse(f"/hlasovani/{voting_id}/import", status_code=302)
+
     result = execute_voting_import(file_path, mapping, voting, db)
 
     # Save mapping globally for reuse in future votings
@@ -1542,7 +1557,7 @@ async def import_confirm(
                  description=f"Import výsledků: {result.get('processed', 0)} lístků")
     db.commit()
 
-    has_processed = any(b.status.value == "processed" for b in voting.ballots)
+    has_processed = _has_processed_ballots(voting)
     return templates.TemplateResponse("voting/import_result.html", {
         "request": request,
         "active_nav": "voting",
