@@ -18,7 +18,7 @@
             <span>Zpracováno lístků:</span>
             <span class="font-medium">{{ result.processed_count|default(0) }}</span>
             {% if result.skipped_count|default(0) > 0 %}
-            <span>Přeskočeno (již zpracované):</span>
+            <span>{% if result.clear_existing %}Nehlasovali (prázdné v Excelu):{% else %}Přeskočeno (již zpracované):{% endif %}</span>
             <span class="font-medium">{{ result.skipped_count }}</span>
             {% endif %}
             {% if result.unmatched_count|default(0) > 0 %}
