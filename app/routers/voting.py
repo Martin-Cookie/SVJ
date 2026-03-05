@@ -51,7 +51,7 @@ def _voting_wizard(voting, current_step: int = None) -> dict:
     current_step: 1-based step number for the current page.
                   If None, auto-computed from voting state (for list view).
     """
-    status = voting.status.value
+    status = voting.status
     has_processed = _has_processed_ballots(voting)
 
     # Auto-compute current_step if not provided (list view)
@@ -61,21 +61,21 @@ def _voting_wizard(voting, current_step: int = None) -> dict:
         all_processed = has_ballots and all(
             b.status == BallotStatus.PROCESSED for b in voting.ballots
         )
-        if status == "closed":
+        if status == VotingStatus.CLOSED:
             current_step = 5
-        elif status == "active" and all_processed:
+        elif status == VotingStatus.ACTIVE and all_processed:
             current_step = 5
-        elif status == "active":
+        elif status == VotingStatus.ACTIVE:
             current_step = 3
-        elif status == "draft" and has_items:
+        elif status == VotingStatus.DRAFT and has_items:
             current_step = 2
         else:
             current_step = 1
 
     # Determine max completed step based on voting status
-    if status == "closed":
+    if status == VotingStatus.CLOSED:
         max_done = 5
-    elif status == "active":
+    elif status == VotingStatus.ACTIVE:
         max_done = 4 if has_processed else 2
     else:  # draft
         max_done = 1 if voting.items else 0
@@ -449,9 +449,9 @@ async def voting_detail(
     back_label = "Zpět na přehled" if back == "/" else "Zpět na hlasování"
 
     has_processed = _has_processed_ballots(voting)
-    if voting.status.value == "active":
+    if voting.status == VotingStatus.ACTIVE:
         detail_step = 5 if has_processed else 3
-    elif voting.status.value == "closed":
+    elif voting.status == VotingStatus.CLOSED:
         detail_step = 5
     else:  # draft
         detail_step = 2 if voting.items else 1
@@ -695,7 +695,11 @@ async def ballot_list(
     # Filter by status
     ballots = list(voting.ballots)
     if stav:
-        ballots = [b for b in ballots if b.status.value == stav]
+        try:
+            stav_enum = BallotStatus(stav)
+            ballots = [b for b in ballots if b.status == stav_enum]
+        except ValueError:
+            pass  # neplatný stav — ignorovat filtr
 
     # Search filter (diacritics-aware)
     if q:
@@ -713,7 +717,7 @@ async def ballot_list(
         "owner": lambda b: (b.owner.name_normalized or "").lower(),
         "units": lambda b: b.units_text or "",
         "votes": lambda b: b.total_votes,
-        "status": lambda b: b.status.value,
+        "status": lambda b: b.status.value if b.status else "",
         "proxy": lambda b: (b.proxy_holder_name or ""),
     }
     # Dynamic sort by voting item vote (e.g. sort=bod_3 for item id=3)
@@ -987,15 +991,19 @@ async def update_voting_status(
 ):
     voting = db.query(Voting).get(voting_id)
     if voting:
-        old = voting.status.value
+        old = voting.status
         # Allowed transitions: active→closed, closed→active
         allowed = {
-            ("active", "closed"),
-            ("closed", "active"),
+            (VotingStatus.ACTIVE, VotingStatus.CLOSED),
+            (VotingStatus.CLOSED, VotingStatus.ACTIVE),
         }
-        if (old, status) not in allowed:
+        try:
+            new_status = VotingStatus(status)
+        except ValueError:
             return RedirectResponse(f"/hlasovani/{voting_id}", status_code=302)
-        voting.status = VotingStatus(status)
+        if (old, new_status) not in allowed:
+            return RedirectResponse(f"/hlasovani/{voting_id}", status_code=302)
+        voting.status = new_status
         voting.updated_at = datetime.utcnow()
         log_activity(db, ActivityAction.STATUS_CHANGED, "voting", "hlasovani",
                      entity_id=voting.id, entity_name=voting.title,
