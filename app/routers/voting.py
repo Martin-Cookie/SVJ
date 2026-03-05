@@ -529,13 +529,31 @@ async def generate_ballots(
                 group_id += 1
 
         # Handle SJM owners who only appear on multi-owner units
-        # (never on a unit with exactly 2 SJM owners → no pair identified)
+        # Group by identical SJM unit sets (likely married couples)
+        unpaired_sjm = {}  # owner_id → owner
         for unit_id, group_owners in unit_sjm_owners.items():
-            if len(group_owners) <= 2:
-                continue
             for owner in group_owners:
                 if owner.id not in owner_to_group:
-                    owner_to_group[owner.id] = group_id
+                    unpaired_sjm[owner.id] = owner
+
+        # Build SJM unit set for each unpaired owner
+        set_to_owners = {}  # frozenset(unit_ids) → [owner_id, ...]
+        for oid, owner in unpaired_sjm.items():
+            sjm_units = frozenset(
+                ou.unit_id for ou in owner.current_units
+                if ou.ownership_type and "SJM" in ou.ownership_type.upper()
+            )
+            set_to_owners.setdefault(sjm_units, []).append(oid)
+
+        # Pair owners with identical SJM unit sets (exactly 2 = couple)
+        for sjm_set, oids in set_to_owners.items():
+            if len(oids) == 2:
+                for oid in oids:
+                    owner_to_group[oid] = group_id
+                group_id += 1
+            else:
+                for oid in oids:
+                    owner_to_group[oid] = group_id
                     group_id += 1
 
         # Invert: group_id → [owners]
