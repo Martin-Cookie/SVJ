@@ -283,9 +283,24 @@ def preview_voting_import(file_path: str, mapping: dict, voting: Voting, db: Ses
                 if name and name in owner_norm:
                     narrowed.append(b)
             if narrowed:
+                # Re-add SJM partners excluded by name disambiguation
+                # Only on units with exactly 2 SJM owners (clear pair)
+                if len(narrowed) < len(ballots_for_unit):
+                    sjm_on_unit = [
+                        b for b in ballots_for_unit
+                        if any(
+                            ou.unit.unit_number == unit_number
+                            and ou.ownership_type and "SJM" in ou.ownership_type.upper()
+                            for ou in b.owner.current_units
+                        )
+                    ]
+                    if len(sjm_on_unit) == 2:
+                        for b in sjm_on_unit:
+                            if b not in narrowed:
+                                narrowed.append(b)
                 ballots_for_unit = narrowed
 
-        # Primary ballot = direct unit match; co-owners only if there are votes
+        # Propagate votes to all ballots for this unit (each owner has their own share)
         targets = ballots_for_unit if vote_choices else [ballots_for_unit[0]]
         for ballot in targets:
             votes = {

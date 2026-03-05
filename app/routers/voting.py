@@ -117,10 +117,12 @@ def _ballot_stats(voting, db: Session):
         if declared_shares
         else False
     )
+    total_generated_votes = sum(b.total_votes for b in voting.ballots)
     return {
         "total_ballots": total_ballots,
         "status_counts": status_counts,
         "total_processed_votes": total_processed_votes,
+        "total_generated_votes": total_generated_votes,
         "declared_shares": declared_shares,
         "quorum_reached": quorum_reached,
     }
@@ -581,15 +583,16 @@ async def generate_ballots(
                 processed_owner_ids.update(member_ids)
                 continue
 
-            # Collect unique units across group (each unit counted once)
-            seen_units = set()
+            # Sum ALL members' votes (each owner has their own share)
+            # Dedup only unit numbers for display
+            seen_unit_ids = set()
             total_votes = 0
             unit_numbers = []
             for member in members:
                 for ou in member.current_units:
-                    if ou.unit_id not in seen_units:
-                        seen_units.add(ou.unit_id)
-                        total_votes += ou.votes
+                    total_votes += ou.votes
+                    if ou.unit_id not in seen_unit_ids:
+                        seen_unit_ids.add(ou.unit_id)
                         unit_numbers.append(str(ou.unit.unit_number))
 
             shared_names = ", ".join(m.display_name for m in members)

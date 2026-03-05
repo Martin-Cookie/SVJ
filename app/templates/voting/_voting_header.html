@@ -118,6 +118,26 @@
                 {% if needed > 0 %}<span class="text-red-500">Chybí {{ "{:,}".format(needed).replace(",", " ") }}</span>{% endif %}
                 {% endif %}
             </p>
+            <table class="text-xs text-gray-500 mt-1 mx-auto">
+                <tr>
+                    <td class="text-left pr-1">Deklarované podíly:</td>
+                    <td class="text-right font-mono">{{ "{:,}".format(declared_shares).replace(",", " ") }}</td>
+                </tr>
+                <tr>
+                    <td class="text-left pr-1">Kvórum ({{ (voting.quorum_threshold * 100)|round(0)|int }}%):</td>
+                    <td class="text-right font-mono">{{ "{:,}".format((voting.quorum_threshold * declared_shares)|round(0)|int).replace(",", " ") }}</td>
+                </tr>
+                <tr>
+                    <td class="text-left pr-1">Vygenerované hlasy:</td>
+                    <td class="text-right font-mono">{{ "{:,}".format(total_generated_votes).replace(",", " ") }}</td>
+                </tr>
+                {% if total_processed_votes > 0 %}
+                <tr>
+                    <td class="text-left pr-1">Hlasy z Excelu:</td>
+                    <td class="text-right font-mono">{{ "{:,}".format(total_processed_votes).replace(",", " ") }}</td>
+                </tr>
+                {% endif %}
+            </table>
         </div>
     </div>
 {% endif %}
