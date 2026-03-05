@@ -57,7 +57,7 @@
 > **Při JAKÉKOLIV úpravě stránky s tabulkou (nová stránka, redesign, přidání sloupce) VŽDY zkontrolovat a doplnit VŠECHNY body:**
 
 1. **Řaditelné sloupce** — KAŽDÝ datový sloupec musí být řaditelný kliknutím na hlavičku (šipka nahoru/dolů). Implementace přes `_cols` loop nebo `sort_th` macro, `SORT_COLUMNS` dict v routeru
-2. **Hledání** — HTMX search bar s `hx-trigger="keyup changed delay:300ms"`, prohledává všechna relevantní textová pole, diacritics-insensitive přes `_strip_diacritics()`
+2. **Hledání** — HTMX search bar s `hx-trigger="keyup changed delay:300ms"`, prohledává všechna relevantní textová pole, diacritics-insensitive přes `strip_diacritics()` z `app.utils`
 3. **Klikací entity** — každý odkaz na entitu (vlastník, jednotka, lístek) musí být `<a href>`, nikdy plain text pokud existuje detail stránka. Vyžaduje lookup v routeru (např. `owner_by_email` dict)
 4. **Eager loading** — klikací entity vyžadují `joinedload()` v routeru, jinak lazy loading selže nebo způsobí N+1
 5. **HTMX partial** — search aktualizuje jen `<tbody>` přes partial šablonu, zbytek stránky zůstane
@@ -107,13 +107,9 @@
 - Hidden inputy (`sort`, `order`, `stav`, `back`) jsou VEDLE search inputu, NE uvnitř tbody partial
 - **Diakritika v SQLite**: SQLite `lower()` a `LIKE`/`ilike` nefungují s českou diakritikou (č≠Č, ř≠Ř atd.). Proto se jména **vždy hledají přes sloupec `name_normalized`** (bez diakritiky, lowercase) s normalizovaným hledaným výrazem:
   ```python
-  from unicodedata import category, normalize
+  from app.utils import strip_diacritics
 
-  def _strip_diacritics(text: str) -> str:
-      nfkd = normalize("NFD", text)
-      return "".join(c for c in nfkd if category(c) != "Mn").lower()
-
-  search_ascii = f"%{_strip_diacritics(q)}%"
+  search_ascii = f"%{strip_diacritics(q)}%"
   Owner.name_normalized.like(search_ascii)  # NE ilike — name_normalized je už lowercase
   ```
 - **Nikdy nepoužívat `name_with_titles.ilike(search)` jako hlavní vyhledávání jmen** — selže pro české znaky. Vždy `name_normalized.like(search_ascii)`.
@@ -185,8 +181,9 @@
 ### HTMX partial odpovědi
 - Router rozlišuje HX-Request vs HX-Boosted — boosted navigace dostává plnou stránku:
   ```python
-  is_htmx = request.headers.get("HX-Request") and not request.headers.get("HX-Boosted")
-  if is_htmx:
+  from app.utils import is_htmx_partial
+
+  if is_htmx_partial(request):
       return templates.TemplateResponse("partial.html", ctx)
   return templates.TemplateResponse("full_page.html", ctx)
   ```
@@ -200,6 +197,8 @@
 ### Helper funkce v routerech
 - Interní helper funkce mají prefix `_` (např. `_ballot_stats`, `_purge_counts`)
 - Vrací dict, který se rozbalí do template kontextu: `**_ballot_stats(voting)`
+- Typické helpery: `_has_processed_ballots(voting)` (bool), `_voting_wizard(voting, step)` / `_tax_wizard(...)` (wizard stepper kontext)
+- Validační funkce v service vrstvě: `validate_mapping(mapping)` → `str | None` (chybová zpráva nebo None)
 
 ### Dynamické formuláře
 - `Form(...)` pro fixní pole. `await request.form()` + `.get()`/`.getlist()` pro dynamické názvy polí (např. `vote_5`, `update__12__field`)
@@ -215,6 +214,11 @@
   - Aktivní bublina zvýrazněna `ring-2 ring-{color}-400`
   - Router: sdílená helper funkce pro výpočet dat bublin (volat ve všech endpointech)
   - Šablona předává `active_bubble` do partialu pro zvýraznění
+- **Wizard stepper** — vícekrokový workflow (hlasování, rozesílání):
+  - Router helper `_voting_wizard(voting, current_step)` / `_tax_wizard(...)` vrací dict s `wizard_steps`, `wizard_current`, `wizard_label`
+  - Plná varianta: `partials/wizard_stepper.html` — samostatný stepper nad obsahem
+  - Kompaktní varianta: `partials/wizard_stepper_compact.html` — inline v kartě na seznamu
+  - Stavy kroků: `done` (zelená), `active` (modrá), `pending` (šedá), `sending` (oranžová pulzace)
 - Registrace v `app/main.py` (`include_router`)
 - Export modelů v `app/models/__init__.py`
 - Odkaz v sidebar (`base.html`) s `active_nav` kontrolou
@@ -253,6 +257,15 @@
 - Služby jsou **plain funkce** (ne třídy), přijímají `db: Session` jako parametr od routeru
 - Vrací plain dict/list (žádné custom result třídy)
 - Nikdy nevytvářejí DB session — vždy přijímají z volajícího
+
+## Utility funkce (`app/utils.py`)
+
+- `strip_diacritics(text)` — odstraní diakritiku a převede na lowercase (pro vyhledávání)
+- `fmt_num(value)` — formátuje čísla s oddělovači tisíců (registrován jako Jinja2 filtr `fmt_num`)
+- `build_list_url(request)` — sestaví URL aktuální stránky s query parametry pro `list_url`
+- `is_htmx_partial(request)` — `True` pokud request je HTMX ale NE boosted (pro partial odpovědi)
+- `is_safe_path(path, allowed_dirs)` — validace cesty proti path traversal
+- `validate_upload(file, extensions, max_size)` — validace nahraného souboru (přípona, velikost)
 
 ## JavaScript
 

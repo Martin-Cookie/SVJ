@@ -543,6 +543,7 @@ wheels/                        # Offline Python balíčky (gitignored)
 | GET | `/vlastnici/import-kontaktu/zpracovani-stav` | HTMX polling: stav zpracování (nebo HX-Redirect po dokončení) |
 | GET | `/vlastnici/import-kontaktu/nahled` | Náhled párování a změn z cache, klikací stat karty a field filtry |
 | POST | `/vlastnici/import-kontaktu/potvrdit` | Potvrzení importu kontaktů + uložení do DB + ImportLog |
+| GET | `/vlastnici/import-kontaktu/znovu` | Restart zpracování importu kontaktů |
 | GET | `/vlastnici/{id}` | Detail vlastníka |
 | GET | `/vlastnici/{id}/upravit-formular` | HTMX: formulář kontaktů |
 | GET | `/vlastnici/{id}/info` | HTMX: zobrazení kontaktů |
@@ -571,7 +572,6 @@ wheels/                        # Offline Python balíčky (gitignored)
 | GET | `/jednotky/{id}/vlastnici-sekce` | HTMX: sekce vlastníků na detailu |
 | GET | `/jednotky/{id}/vlastnik/{ou_id}/upravit-formular` | HTMX: editační formulář vlastníka |
 | POST | `/jednotky/{id}/vlastnik/{ou_id}/upravit` | Uložení úpravy vlastníka |
-| POST | `/jednotky/{id}/smazat` | Smazání jednotky (cascade smaže přiřazení) |
 
 ### Hlasování (`/hlasovani`)
 
@@ -628,6 +628,7 @@ wheels/                        # Offline Python balíčky (gitignored)
 | GET | `/dane/{id}/rozeslat/prubeh-stav` | HTMX: polling stavu odesílání |
 | POST | `/dane/{id}/rozeslat/pozastavit` | Pozastavení odesílání |
 | POST | `/dane/{id}/rozeslat/pokracovat` | Pokračování v odesílání |
+| POST | `/dane/{id}/rozeslat/zrusit` | Zrušení odesílání |
 | POST | `/dane/{id}/rozeslat/retry` | Opakování neúspěšných |
 | POST | `/dane/{id}/rozeslat/test` | Odeslání testovacího emailu |
 | POST | `/dane/{id}/rozeslat/nastaveni` | Uložení nastavení odesílání |
@@ -742,7 +743,7 @@ LIBREOFFICE_PATH=/Applications/LibreOffice.app/Contents/MacOS/soffice
 - **TaxSession** → TaxDocument → TaxDistribution
 - **SyncSession** → SyncRecord (cascade delete)
 - **ShareCheckSession** → ShareCheckRecord (cascade delete); ShareCheckColumnMapping (zapamatované mapování sloupců)
-- **SvjInfo** → SvjAddress — informace o SVJ a adresy
+- **SvjInfo** → SvjAddress — informace o SVJ a adresy; `voting_import_mapping` pro globální uložení mapování sloupců importu hlasování
 - **BoardMember** — členové výboru a kontrolního orgánu (group: board/control)
 - **CodeListItem** — položky číselníků (category: space_type/section/room_count/ownership_type, value, order); unique index na (category, value)
 - **EmailTemplate** — šablony emailů pro hromadné rozesílání (name, subject_template, body_template, order); placeholder `{rok}` nahrazen při výběru
@@ -792,6 +793,16 @@ Projekt prošel bezpečnostním auditem (52 nálezů). Opraveny všechny CRITICA
 - WCAG AA kontrast: `text-gray-400` → `text-gray-500` napříč ~60 šablonami
 
 Zbývající nálezy z druhého auditu: autentizace (plánováno), CSRF ochrana, testy, mobilní sidebar.
+
+**Třetí audit (2026-03-05) — 30 nálezů, opraveno 11:**
+- Odstraněn duplikát `_strip_diacritics` (import z utils)
+- Extrahován `_has_processed_ballots()` helper (10 duplikátů)
+- Sjednocen timestamp na `datetime.utcnow()` (4 výskyty)
+- Try/except kolem PDF extrakce + logování v background threadech
+- Přidán `hx-swap="innerHTML"` na HTMX search inputy
+- Validace import mappingu (`validate_mapping()`)
+- Enum porovnání místo string `.value ==` (13 výskytů)
+- Binární soubory (.png, .xlsx) odstraněny z gitu
 
 ## UX vylepšení
 

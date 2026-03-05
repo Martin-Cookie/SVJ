@@ -575,6 +575,11 @@ if has_documents and max_done < 1:
     max_done = 1
 ```
 
+### Dvě varianty stepperu
+- **Plný stepper** (`partials/wizard_stepper.html`) — samostatný blok nad obsahem stránky, používá se na detail/workflow stránkách
+- **Kompaktní stepper** (`partials/wizard_stepper_compact.html`) — inline v kartě na seznamu, kompaktnější layout pro přehled stavu entity
+- Obě varianty sdílí stejný kontext z router helperu (`wizard_steps`, `wizard_current`, `wizard_label`)
+
 ---
 
 ## 12. Formátování
