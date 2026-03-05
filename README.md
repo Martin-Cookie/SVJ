@@ -267,19 +267,26 @@ Sloučená stránka se dvěma sekcemi — Kontrola vlastníků (nahoře) a Kontr
 - Autocomplete rolí přes `<datalist>` (Předseda/Místopředseda/Člen)
 - Řazení členů: předsedové → místopředsedové → ostatní, v rámci role abecedně
 - Zálohování a obnova dat:
-  - Vytvoření zálohy (ZIP: databáze + uploads + generované soubory) s vlastním názvem
+  - Vytvoření zálohy (ZIP: databáze + uploads + generované soubory + .env + manifest.json) s vlastním názvem
   - Ochrana proti prázdným zálohám (varování pokud nejsou žádná data)
+  - ZIP validace: CRC integrity check (`testzip()`) před obnovou — odmítne poškozené archivy
+  - Disk space check: kontrola volného místa (2× heuristika) před vytvořením zálohy
+  - Auto-cleanup: automatická rotace záloh (max 10), nejstarší se mažou po vytvoření nové
+  - Celková velikost záloh zobrazena v UI
   - Seznam existujících záloh s datem, velikostí, stažením a smazáním
   - Obnova ze zálohy — tři způsoby:
     - Upload ZIP souboru
     - Upload složky rozbalené zálohy z Finderu (webkitdirectory) — obnoví DB + uploads + generated
     - Upload souboru svj.db
   - Před každou obnovou se automaticky vytvoří pojistná záloha
+  - Rollback: při selhání obnovy automatický návrat do původního stavu ze safety backup
+  - File lock: souběžné restore operace blokované přes `.restore_lock` (stale lock timeout 10 min)
   - Po obnově automatická migrace (engine.dispose + přidání chybějících sloupců/indexů) — server nepadá
-  - Flash zpráva po úspěšné obnově i vytvoření zálohy
-  - Sekce zůstává otevřená po všech akcích (query param `sekce=zalohy`)
+  - Migrace vrací warnings — UI zobrazí varování pokud některé neproběhly
+  - Flash zpráva po úspěšné obnově i vytvoření zálohy, chybové hlášky při selhání
   - Side-by-side layout: vytvořit zálohu vlevo, obnovit vpravo
   - `application/octet-stream` pro stahování — Safari nerozbaluje automaticky
+  - WAL mode: SQLite journal_mode=WAL pro lepší concurrent read/write
 - Smazání dat:
   - Výběr kategorií ke smazání (vlastníci, hlasování, daně, synchronizace, kontrola podílu, logy, administrace, zálohy, historie obnovení)
   - Checkbox „Vybrat/Zrušit vše" pro hromadné označení
@@ -803,6 +810,20 @@ Zbývající nálezy z druhého auditu: autentizace (plánováno), CSRF ochrana,
 - Validace import mappingu (`validate_mapping()`)
 - Enum porovnání místo string `.value ==` (13 výskytů)
 - Binární soubory (.png, .xlsx) odstraněny z gitu
+
+**Audit zálohovacího systému (2026-03-05) — 14 nálezů, opraveno 12:**
+- ZIP validace: CRC integrity check (`testzip()`) před restore
+- Rollback: automatická obnova ze safety backup při selhání restore
+- Disk space check: `shutil.disk_usage()` s 2× heuristikou
+- File lock: `.restore_lock` proti souběžným restore operacím (stale timeout 10 min)
+- Auto-cleanup: rotace záloh (max 10), nejstarší se automaticky mažou
+- .env backup: zahrnut v ZIP + obnoven při restore
+- manifest.json: metadata (timestamp, verze) v každé záloze
+- Chunked copy: `shutil.copyfileobj()` místo `read()`/`write()` celého souboru
+- WAL mode: `PRAGMA journal_mode=WAL` pro lepší concurrent read/write
+- Exception handling: try/except ve všech restore endpointech s error flash messages
+- Post-restore migrace vrací warnings list pro UI feedback
+- Odstraněn nebezpečný endpoint `obnovit-adresar` (přijímal libovolnou cestu z formuláře)
 
 ## UX vylepšení
 
