@@ -827,6 +827,11 @@ Projekt prošel UX analýzou klíčových modulů (6 expertních perspektiv: UX 
 - Zobrazení chybějících hlasů pro dosažení kvóra
 - Export do Excelu dostupný přímo z header tlačítek uzavřeného hlasování
 
+## Dokumentace business logiky
+
+- **[docs/BUSINESS-LOGIC.md](docs/BUSINESS-LOGIC.md)** — technický popis business logiky, stavových automatů, výpočetních pravidel a integracích s odkazy na zdrojový kód
+- **[docs/BUSINESS-SUMMARY.md](docs/BUSINESS-SUMMARY.md)** — netechnický souhrn pro členy výboru SVJ
+
 ## UI vzory
 
 Kompletní UI/frontend konvence (layout, tabulky, formuláře, tlačítka, bubliny, badge, inline editace, HTMX vzory, back URL navigace, checkboxy, stepper, formátování, dark mode) jsou v **[docs/UI_GUIDE.md](docs/UI_GUIDE.md)**.
