@@ -14,6 +14,10 @@
     <div class="mb-4 px-4 py-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-800">
         Data byla úspěšně obnovena ze zálohy. Před obnovou byla vytvořena pojistná záloha.
     </div>
+    {% elif zprava == 'obnoveno_varovani' %}
+    <div class="mb-4 px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+        Data byla obnovena ze zálohy, ale některé migrace neproběhly. Zkontrolujte prosím funkčnost aplikace.
+    </div>
     {% elif zprava == 'vytvoreno' %}
     <div class="mb-4 px-4 py-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-800">
         Záloha byla úspěšně vytvořena.
@@ -30,6 +34,22 @@
     {% elif chyba == 'duplicita' %}
     <div class="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800">
         Záloha s tímto názvem již existuje.
+    </div>
+    {% elif chyba == 'neplatny' %}
+    <div class="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800">
+        Nahraný soubor není platný záloha — archiv je poškozený nebo neobsahuje požadovaná data.
+    </div>
+    {% elif chyba == 'selhani' %}
+    <div class="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800">
+        Obnova ze zálohy selhala. Data byla obnovena z pojistné zálohy do původního stavu.
+    </div>
+    {% elif chyba == 'probihajici' %}
+    <div class="mb-4 px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+        Právě probíhá jiná obnova. Zkuste to prosím za chvíli.
+    </div>
+    {% elif chyba == 'upload' %}
+    <div class="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800">
+        Chyba při nahrávání souboru. Zkontrolujte formát a velikost.
     </div>
     {% endif %}
 
@@ -99,7 +119,15 @@
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         <!-- Existing backups -->
         <div>
-            <h3 class="text-sm font-medium text-gray-600 mb-2">Existující zálohy</h3>
+            <div class="flex items-baseline justify-between mb-2">
+                <h3 class="text-sm font-medium text-gray-600">Existující zálohy</h3>
+                {% if backups_total_size > 0 %}
+                <span class="text-xs text-gray-400">
+                    celkem {{ "%.1f"|format(backups_total_size / 1048576) }} MB
+                    · max 10 záloh
+                </span>
+                {% endif %}
+            </div>
             {% if backups %}
             <table class="w-full text-sm" style="table-layout:fixed">
                 <colgroup>

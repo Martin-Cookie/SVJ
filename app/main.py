@@ -301,59 +301,49 @@ def _seed_email_templates():
         logger.info("Default email template seeded")
 
 
-def run_post_restore_migrations():
+def run_post_restore_migrations() -> list[str]:
     """Re-connect to the (possibly replaced) database and run all migrations.
 
     Called after every backup restore so the server keeps running even when
     the restored DB is missing new columns or tables.
+
+    Returns list of warning messages (empty if all migrations succeeded).
     """
+    warnings = []
     engine.dispose()  # drop stale connections to the old file
 
     # Create any missing tables (e.g. share_check_* from newer code)
     import app.models  # noqa: F401
     Base.metadata.create_all(bind=engine)
 
-    try:
-        _migrate_units_table()
-    except Exception:
-        logger.warning("post-restore: units table migration skipped")
-    try:
-        _migrate_owner_units_history()
-    except Exception:
-        logger.warning("post-restore: owner_units history migration skipped")
-    try:
-        _migrate_tax_tables()
-    except Exception:
-        logger.warning("post-restore: tax tables migration skipped")
-    try:
-        _migrate_owners_phone_secondary()
-    except Exception:
-        logger.warning("post-restore: owners phone_secondary migration skipped")
-    try:
-        _migrate_ballots_shared_owners()
-    except Exception:
-        logger.warning("post-restore: ballots shared_owners migration skipped")
-    try:
-        _migrate_svj_info_voting_mapping()
-    except Exception:
-        logger.warning("post-restore: svj_info voting_import_mapping migration skipped")
-    try:
-        _ensure_indexes()
-    except Exception:
-        logger.warning("post-restore: index creation skipped")
-    try:
-        _seed_code_lists()
-    except Exception:
-        logger.warning("post-restore: code list seeding skipped")
-    try:
-        _seed_email_templates()
-    except Exception:
-        logger.warning("post-restore: email template seeding skipped")
+    _MIGRATIONS = [
+        ("units table", _migrate_units_table),
+        ("owner_units history", _migrate_owner_units_history),
+        ("tax tables", _migrate_tax_tables),
+        ("owners phone_secondary", _migrate_owners_phone_secondary),
+        ("ballots shared_owners", _migrate_ballots_shared_owners),
+        ("svj_info voting_import_mapping", _migrate_svj_info_voting_mapping),
+        ("index creation", _ensure_indexes),
+        ("code list seeding", _seed_code_lists),
+        ("email template seeding", _seed_email_templates),
+    ]
+    for name, func in _MIGRATIONS:
+        try:
+            func()
+        except Exception:
+            msg = f"post-restore: {name} migration skipped"
+            logger.warning(msg)
+            warnings.append(msg)
+
     try:
         from app.routers.tax import recover_stuck_sending_sessions
         recover_stuck_sending_sessions()
     except Exception:
-        logger.warning("post-restore: sending session recovery skipped")
+        msg = "post-restore: sending session recovery skipped"
+        logger.warning(msg)
+        warnings.append(msg)
+
+    return warnings
 
 
 @asynccontextmanager

@@ -1,9 +1,53 @@
 import json
+import logging
 import os
 import shutil
+import time
 import zipfile
 from datetime import datetime
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
+
+# ---- File-based restore lock ----
+
+_LOCK_FILENAME = ".restore_lock"
+_LOCK_STALE_SECONDS = 600  # 10 minutes
+
+
+def acquire_restore_lock(backup_dir: str) -> bool:
+    """Try to acquire file-based restore lock. Returns True if acquired."""
+    lock_path = Path(backup_dir) / _LOCK_FILENAME
+    os.makedirs(backup_dir, exist_ok=True)
+
+    if lock_path.is_file():
+        # Check for stale lock
+        try:
+            data = json.loads(lock_path.read_text())
+            lock_time = data.get("timestamp", 0)
+            if time.time() - lock_time < _LOCK_STALE_SECONDS:
+                return False  # lock is active
+            logger.warning("Stale restore lock found (age %.0fs), removing", time.time() - lock_time)
+        except (json.JSONDecodeError, OSError):
+            logger.warning("Corrupted restore lock, removing")
+
+    lock_path.write_text(json.dumps({
+        "pid": os.getpid(),
+        "timestamp": time.time(),
+    }))
+    return True
+
+
+def release_restore_lock(backup_dir: str) -> None:
+    """Release file-based restore lock."""
+    lock_path = Path(backup_dir) / _LOCK_FILENAME
+    try:
+        lock_path.unlink(missing_ok=True)
+    except OSError:
+        pass
+
+
+# ---- Backup creation ----
 
 
 def create_backup(
@@ -13,8 +57,11 @@ def create_backup(
     backup_dir: str,
     custom_name: str = None,
 ) -> Path:
-    """Create a ZIP backup of database + uploads + generated files."""
+    """Create a ZIP backup of database + uploads + generated files + .env."""
     os.makedirs(backup_dir, exist_ok=True)
+
+    # Disk space check
+    _check_disk_space(db_path, uploads_dir, generated_dir, backup_dir)
 
     if custom_name:
         # Sanitize: keep only safe chars, ensure .zip
@@ -39,7 +86,75 @@ def create_backup(
         # Generated directory
         _add_directory_to_zip(zf, generated_dir, "generated")
 
+        # .env file (if exists)
+        env_path = Path(db_path).parent.parent / ".env"
+        if env_path.is_file():
+            zf.write(str(env_path), ".env")
+
+        # manifest.json with metadata
+        manifest = {
+            "created_at": datetime.now().isoformat(),
+            "app_version": "1.0",
+            "db_file": "svj.db",
+        }
+        zf.writestr("manifest.json", json.dumps(manifest, ensure_ascii=False, indent=2))
+
+    # Auto-cleanup old backups
+    cleanup_old_backups(backup_dir)
+
     return zip_path
+
+
+def _check_disk_space(db_path: str, uploads_dir: str, generated_dir: str, backup_dir: str) -> None:
+    """Check if there is enough disk space for backup creation."""
+    estimated_size = 0
+    if os.path.isfile(db_path):
+        estimated_size += os.path.getsize(db_path)
+    for d in (uploads_dir, generated_dir):
+        if os.path.isdir(d):
+            for root, _dirs, files in os.walk(d):
+                for f in files:
+                    try:
+                        estimated_size += os.path.getsize(os.path.join(root, f))
+                    except OSError:
+                        pass
+
+    usage = shutil.disk_usage(backup_dir)
+    # Need at least 2x estimated size free
+    if usage.free < estimated_size * 2:
+        raise OSError(
+            f"Nedostatek místa na disku. Potřeba: {estimated_size * 2 // 1048576} MB, "
+            f"volno: {usage.free // 1048576} MB"
+        )
+
+
+def cleanup_old_backups(backup_dir: str, keep_count: int = 10) -> int:
+    """Delete oldest backups beyond keep_count. Returns number of deleted backups."""
+    backup_path = Path(backup_dir)
+    if not backup_path.is_dir():
+        return 0
+
+    zips = sorted(backup_path.glob("*.zip"), key=lambda p: p.stat().st_mtime, reverse=True)
+    deleted = 0
+    for old_zip in zips[keep_count:]:
+        try:
+            old_zip.unlink()
+            deleted += 1
+            logger.info("Auto-cleanup: smazána stará záloha %s", old_zip.name)
+        except OSError as e:
+            logger.warning("Auto-cleanup: nelze smazat %s: %s", old_zip.name, e)
+    return deleted
+
+
+def get_backups_total_size(backup_dir: str) -> int:
+    """Return total size of all backup ZIP files in bytes."""
+    backup_path = Path(backup_dir)
+    if not backup_path.is_dir():
+        return 0
+    return sum(f.stat().st_size for f in backup_path.glob("*.zip"))
+
+
+# ---- Restore from ZIP ----
 
 
 def restore_backup(
@@ -61,20 +176,39 @@ def restore_backup(
         if "svj.db" not in names:
             raise ValueError("ZIP archiv neobsahuje soubor svj.db.")
 
+        # CRC integrity check (before creating safety backup)
+        bad_file = zf.testzip()
+        if bad_file is not None:
+            raise ValueError(f"ZIP archiv je poškozený — chyba v souboru: {bad_file}")
+
     # Safety backup before restore
-    create_backup(db_path, uploads_dir, generated_dir, backup_dir)
+    safety_path = create_backup(db_path, uploads_dir, generated_dir, backup_dir)
 
-    # Restore
-    with zipfile.ZipFile(zip_path, "r") as zf:
-        # Restore database
-        with zf.open("svj.db") as src, open(db_path, "wb") as dst:
-            dst.write(src.read())
+    # Restore with rollback on failure
+    try:
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            # Restore database
+            with zf.open("svj.db") as src, open(db_path, "wb") as dst:
+                shutil.copyfileobj(src, dst)
 
-        # Restore uploads
-        _restore_directory_from_zip(zf, "uploads", uploads_dir)
+            # Restore uploads
+            _restore_directory_from_zip(zf, "uploads", uploads_dir)
 
-        # Restore generated
-        _restore_directory_from_zip(zf, "generated", generated_dir)
+            # Restore generated
+            _restore_directory_from_zip(zf, "generated", generated_dir)
+
+            # Restore .env if present in ZIP
+            if ".env" in zf.namelist():
+                env_path = Path(db_path).parent.parent / ".env"
+                with zf.open(".env") as src, open(str(env_path), "wb") as dst:
+                    shutil.copyfileobj(src, dst)
+    except Exception:
+        logger.exception("Restore ze ZIP selhalo, provádím rollback ze safety backup")
+        _rollback_from_safety(str(safety_path), db_path, uploads_dir, generated_dir)
+        raise
+
+
+# ---- Restore from directory ----
 
 
 def restore_from_directory(
@@ -100,28 +234,53 @@ def restore_from_directory(
         raise ValueError("Adresář neobsahuje soubor svj.db.")
 
     # Safety backup before restore
-    create_backup(db_path, uploads_dir, generated_dir, backup_dir)
+    safety_path = create_backup(db_path, uploads_dir, generated_dir, backup_dir)
 
-    # Restore database
-    shutil.copy2(str(db_file), db_path)
+    try:
+        # Restore database
+        shutil.copy2(str(db_file), db_path)
 
-    # Restore uploads
-    src_uploads = src / "uploads"
-    if src_uploads.is_dir():
-        if os.path.isdir(uploads_dir):
-            shutil.rmtree(uploads_dir)
-        shutil.copytree(str(src_uploads), uploads_dir)
-    else:
-        os.makedirs(uploads_dir, exist_ok=True)
+        # Restore uploads
+        src_uploads = src / "uploads"
+        if src_uploads.is_dir():
+            if os.path.isdir(uploads_dir):
+                shutil.rmtree(uploads_dir)
+            shutil.copytree(str(src_uploads), uploads_dir)
+        else:
+            os.makedirs(uploads_dir, exist_ok=True)
 
-    # Restore generated
-    src_generated = src / "generated"
-    if src_generated.is_dir():
-        if os.path.isdir(generated_dir):
-            shutil.rmtree(generated_dir)
-        shutil.copytree(str(src_generated), generated_dir)
-    else:
-        os.makedirs(generated_dir, exist_ok=True)
+        # Restore generated
+        src_generated = src / "generated"
+        if src_generated.is_dir():
+            if os.path.isdir(generated_dir):
+                shutil.rmtree(generated_dir)
+            shutil.copytree(str(src_generated), generated_dir)
+        else:
+            os.makedirs(generated_dir, exist_ok=True)
+    except Exception:
+        logger.exception("Restore z adresáře selhalo, provádím rollback ze safety backup")
+        _rollback_from_safety(str(safety_path), db_path, uploads_dir, generated_dir)
+        raise
+
+
+# ---- Rollback helper ----
+
+
+def _rollback_from_safety(safety_zip: str, db_path: str, uploads_dir: str, generated_dir: str) -> None:
+    """Restore from safety backup after a failed restore attempt."""
+    try:
+        with zipfile.ZipFile(safety_zip, "r") as zf:
+            if "svj.db" in zf.namelist():
+                with zf.open("svj.db") as src, open(db_path, "wb") as dst:
+                    shutil.copyfileobj(src, dst)
+            _restore_directory_from_zip(zf, "uploads", uploads_dir)
+            _restore_directory_from_zip(zf, "generated", generated_dir)
+        logger.info("Rollback ze safety backup úspěšný: %s", safety_zip)
+    except Exception:
+        logger.exception("KRITICKÁ CHYBA: rollback ze safety backup selhal: %s", safety_zip)
+
+
+# ---- Internal helpers ----
 
 
 def _add_directory_to_zip(
@@ -158,7 +317,7 @@ def _restore_directory_from_zip(
                 continue
             os.makedirs(os.path.dirname(target_path), exist_ok=True)
             with zf.open(name) as src, open(target_path, "wb") as dst:
-                dst.write(src.read())
+                shutil.copyfileobj(src, dst)
 
 
 # ---- Restore log (JSON file, survives DB restores) ----

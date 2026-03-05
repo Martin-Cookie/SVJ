@@ -1,3 +1,4 @@
+import logging
 import os
 import re
 import shutil
@@ -5,6 +6,8 @@ import tempfile
 from datetime import datetime
 from pathlib import Path
 from typing import List
+
+logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, Depends, Form, Query, Request, UploadFile, File
 from fastapi.responses import FileResponse, RedirectResponse, Response
@@ -24,8 +27,10 @@ from app.models import (
     ActivityLog, ActivityAction, log_activity,
 )
 from app.services.backup_service import (
-    create_backup, restore_backup, restore_from_directory,
+    create_backup, restore_backup,
     log_restore, read_restore_log,
+    acquire_restore_lock, release_restore_lock,
+    get_backups_total_size,
 )
 from app.services.code_list_service import (
     CODE_LIST_CATEGORIES, CODE_LIST_ORDER, get_all_code_lists,
@@ -215,6 +220,7 @@ async def backups_page(request: Request, chyba: str = Query(""), zprava: str = Q
 
     default_backup_name = f"svj_backup_{datetime.now().strftime('%Y-%m-%d_%H%M%S')}"
     restore_log = read_restore_log(str(BACKUP_DIR))
+    backups_total_size = get_backups_total_size(str(BACKUP_DIR))
 
     return templates.TemplateResponse("administration/backups.html", {
         "request": request,
@@ -222,6 +228,7 @@ async def backups_page(request: Request, chyba: str = Query(""), zprava: str = Q
         "backups": backups,
         "restore_log": restore_log,
         "default_backup_name": default_backup_name,
+        "backups_total_size": backups_total_size,
         "chyba": chyba,
         "zprava": zprava,
     })
@@ -603,28 +610,41 @@ async def backup_restore_existing(filename: str):
     if not file_path.is_file() or not filename.endswith(".zip") or not is_safe_path(file_path, BACKUP_DIR):
         return RedirectResponse("/sprava/zalohy", status_code=302)
 
-    # Track existing backups to find safety backup name
-    existing = set(p.name for p in BACKUP_DIR.glob("*.zip")) if BACKUP_DIR.is_dir() else set()
+    if not acquire_restore_lock(str(BACKUP_DIR)):
+        return RedirectResponse("/sprava/zalohy?chyba=probihajici", status_code=302)
 
-    restore_backup(
-        str(file_path), str(DB_PATH), str(UPLOADS_DIR),
-        str(GENERATED_DIR), str(BACKUP_DIR),
-    )
-    new_backups = set(p.name for p in BACKUP_DIR.glob("*.zip")) - existing
-    safety = next(iter(new_backups), "")
-    log_restore(str(BACKUP_DIR), filename, "Existující záloha", safety_backup=safety)
-    run_post_restore_migrations()
-
-    from app.database import SessionLocal
-    _db = SessionLocal()
     try:
-        log_activity(_db, ActivityAction.RESTORED, "backup", "sprava",
-                     entity_name=filename, description="Obnova z existující zálohy")
-        _db.commit()
-    finally:
-        _db.close()
+        # Track existing backups to find safety backup name
+        existing = set(p.name for p in BACKUP_DIR.glob("*.zip")) if BACKUP_DIR.is_dir() else set()
 
-    return RedirectResponse("/sprava/zalohy?zprava=obnoveno", status_code=302)
+        restore_backup(
+            str(file_path), str(DB_PATH), str(UPLOADS_DIR),
+            str(GENERATED_DIR), str(BACKUP_DIR),
+        )
+        new_backups = set(p.name for p in BACKUP_DIR.glob("*.zip")) - existing
+        safety = next(iter(new_backups), "")
+        log_restore(str(BACKUP_DIR), filename, "Existující záloha", safety_backup=safety)
+        warnings = run_post_restore_migrations()
+
+        from app.database import SessionLocal
+        _db = SessionLocal()
+        try:
+            log_activity(_db, ActivityAction.RESTORED, "backup", "sprava",
+                         entity_name=filename, description="Obnova z existující zálohy")
+            _db.commit()
+        finally:
+            _db.close()
+
+        zprava = "obnoveno_varovani" if warnings else "obnoveno"
+        return RedirectResponse(f"/sprava/zalohy?zprava={zprava}", status_code=302)
+    except ValueError:
+        logger.exception("Validační chyba při obnově ze zálohy %s", filename)
+        return RedirectResponse("/sprava/zalohy?chyba=neplatny", status_code=302)
+    except Exception:
+        logger.exception("Selhání obnovy ze zálohy %s", filename)
+        return RedirectResponse("/sprava/zalohy?chyba=selhani", status_code=302)
+    finally:
+        release_restore_lock(str(BACKUP_DIR))
 
 
 @router.post("/zaloha/obnovit")
@@ -633,16 +653,19 @@ async def backup_restore(file: UploadFile = File(...)):
     if err:
         return RedirectResponse("/sprava/zalohy?chyba=upload", status_code=302)
 
+    if not acquire_restore_lock(str(BACKUP_DIR)):
+        return RedirectResponse("/sprava/zalohy?chyba=probihajici", status_code=302)
+
     # Save uploaded file to temp location
     temp_path = BACKUP_DIR / "upload_temp.zip"
     os.makedirs(BACKUP_DIR, exist_ok=True)
     with open(temp_path, "wb") as f:
         f.write(await file.read())
 
-    # Track which backups exist before restore (to find the safety backup name)
-    existing = set(p.name for p in BACKUP_DIR.glob("*.zip")) if BACKUP_DIR.is_dir() else set()
-
     try:
+        # Track which backups exist before restore (to find the safety backup name)
+        existing = set(p.name for p in BACKUP_DIR.glob("*.zip")) if BACKUP_DIR.is_dir() else set()
+
         restore_backup(
             str(temp_path), str(DB_PATH), str(UPLOADS_DIR),
             str(GENERATED_DIR), str(BACKUP_DIR),
@@ -651,51 +674,30 @@ async def backup_restore(file: UploadFile = File(...)):
         new_backups = set(p.name for p in BACKUP_DIR.glob("*.zip")) - existing
         safety = next(iter(new_backups), "")
         log_restore(str(BACKUP_DIR), file.filename or "upload.zip", "ZIP soubor", safety_backup=safety)
+
+        warnings = run_post_restore_migrations()
+
+        from app.database import SessionLocal
+        _db = SessionLocal()
+        try:
+            log_activity(_db, ActivityAction.RESTORED, "backup", "sprava",
+                         entity_name=file.filename or "upload.zip", description="Obnova z nahraného ZIP souboru")
+            _db.commit()
+        finally:
+            _db.close()
+
+        zprava = "obnoveno_varovani" if warnings else "obnoveno"
+        return RedirectResponse(f"/sprava/zalohy?zprava={zprava}", status_code=302)
+    except ValueError:
+        logger.exception("Validační chyba při obnově z nahraného ZIP")
+        return RedirectResponse("/sprava/zalohy?chyba=neplatny", status_code=302)
+    except Exception:
+        logger.exception("Selhání obnovy z nahraného ZIP")
+        return RedirectResponse("/sprava/zalohy?chyba=selhani", status_code=302)
     finally:
         if temp_path.is_file():
             temp_path.unlink()
-
-    run_post_restore_migrations()
-
-    from app.database import SessionLocal
-    _db = SessionLocal()
-    try:
-        log_activity(_db, ActivityAction.RESTORED, "backup", "sprava",
-                     entity_name=file.filename or "upload.zip", description="Obnova z nahraného ZIP souboru")
-        _db.commit()
-    finally:
-        _db.close()
-
-    return RedirectResponse("/sprava/zalohy?zprava=obnoveno", status_code=302)
-
-
-@router.post("/zaloha/obnovit-adresar")
-async def backup_restore_directory(dir_path: str = Form(...)):
-    """Restore from an unzipped backup directory on local disk."""
-    dir_path = dir_path.strip()
-    if not dir_path or not Path(dir_path).is_dir():
-        return RedirectResponse("/sprava/zalohy", status_code=302)
-
-    existing = set(p.name for p in BACKUP_DIR.glob("*.zip")) if BACKUP_DIR.is_dir() else set()
-    restore_from_directory(
-        dir_path, str(DB_PATH), str(UPLOADS_DIR),
-        str(GENERATED_DIR), str(BACKUP_DIR),
-    )
-    new_backups = set(p.name for p in BACKUP_DIR.glob("*.zip")) - existing
-    safety = next(iter(new_backups), "")
-    log_restore(str(BACKUP_DIR), dir_path, "Adresář", safety_backup=safety)
-    run_post_restore_migrations()
-
-    from app.database import SessionLocal
-    _db = SessionLocal()
-    try:
-        log_activity(_db, ActivityAction.RESTORED, "backup", "sprava",
-                     entity_name=dir_path, description="Obnova z adresáře")
-        _db.commit()
-    finally:
-        _db.close()
-
-    return RedirectResponse("/sprava/zalohy?zprava=obnoveno", status_code=302)
+        release_restore_lock(str(BACKUP_DIR))
 
 
 @router.post("/zaloha/obnovit-soubor")
@@ -705,25 +707,35 @@ async def backup_restore_db_file(file: UploadFile = File(...)):
     if err:
         return RedirectResponse("/sprava/zalohy?chyba=upload", status_code=302)
 
-    safety = _safety_backup()
+    if not acquire_restore_lock(str(BACKUP_DIR)):
+        return RedirectResponse("/sprava/zalohy?chyba=probihajici", status_code=302)
 
-    # Overwrite database
-    with open(str(DB_PATH), "wb") as f:
-        f.write(await file.read())
-
-    log_restore(str(BACKUP_DIR), file.filename or "svj.db", "DB soubor", safety_backup=safety)
-    run_post_restore_migrations()
-
-    from app.database import SessionLocal
-    _db = SessionLocal()
     try:
-        log_activity(_db, ActivityAction.RESTORED, "backup", "sprava",
-                     entity_name=file.filename or "svj.db", description="Obnova z DB souboru")
-        _db.commit()
-    finally:
-        _db.close()
+        safety = _safety_backup()
 
-    return RedirectResponse("/sprava/zalohy?zprava=obnoveno", status_code=302)
+        # Overwrite database
+        with open(str(DB_PATH), "wb") as f:
+            f.write(await file.read())
+
+        log_restore(str(BACKUP_DIR), file.filename or "svj.db", "DB soubor", safety_backup=safety)
+        warnings = run_post_restore_migrations()
+
+        from app.database import SessionLocal
+        _db = SessionLocal()
+        try:
+            log_activity(_db, ActivityAction.RESTORED, "backup", "sprava",
+                         entity_name=file.filename or "svj.db", description="Obnova z DB souboru")
+            _db.commit()
+        finally:
+            _db.close()
+
+        zprava = "obnoveno_varovani" if warnings else "obnoveno"
+        return RedirectResponse(f"/sprava/zalohy?zprava={zprava}", status_code=302)
+    except Exception:
+        logger.exception("Selhání obnovy z DB souboru")
+        return RedirectResponse("/sprava/zalohy?chyba=selhani", status_code=302)
+    finally:
+        release_restore_lock(str(BACKUP_DIR))
 
 
 @router.post("/zaloha/obnovit-slozku")
@@ -741,6 +753,9 @@ async def backup_restore_folder(files: List[UploadFile] = File(...)):
         await f.seek(0)
     if total_size > 500 * 1024 * 1024:
         return RedirectResponse("/sprava/zalohy?chyba=upload", status_code=302)
+
+    if not acquire_restore_lock(str(BACKUP_DIR)):
+        return RedirectResponse("/sprava/zalohy?chyba=probihajici", status_code=302)
 
     # Create a temp directory to receive the folder contents
     tmp = tempfile.mkdtemp(prefix="svj_restore_")
@@ -791,21 +806,26 @@ async def backup_restore_folder(files: List[UploadFile] = File(...)):
             shutil.copytree(str(src_generated), str(GENERATED_DIR))
 
         log_restore(str(BACKUP_DIR), folder_name or "složka", "Složka (Finder)", safety_backup=safety)
+
+        warnings = run_post_restore_migrations()
+
+        from app.database import SessionLocal
+        _db = SessionLocal()
+        try:
+            log_activity(_db, ActivityAction.RESTORED, "backup", "sprava",
+                         entity_name=folder_name or "složka", description="Obnova ze složky (Finder)")
+            _db.commit()
+        finally:
+            _db.close()
+
+        zprava = "obnoveno_varovani" if warnings else "obnoveno"
+        return RedirectResponse(f"/sprava/zalohy?zprava={zprava}", status_code=302)
+    except Exception:
+        logger.exception("Selhání obnovy ze složky")
+        return RedirectResponse("/sprava/zalohy?chyba=selhani", status_code=302)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
-
-    run_post_restore_migrations()
-
-    from app.database import SessionLocal
-    _db = SessionLocal()
-    try:
-        log_activity(_db, ActivityAction.RESTORED, "backup", "sprava",
-                     entity_name=folder_name or "složka", description="Obnova ze složky (Finder)")
-        _db.commit()
-    finally:
-        _db.close()
-
-    return RedirectResponse("/sprava/zalohy?zprava=obnoveno", status_code=302)
+        release_restore_lock(str(BACKUP_DIR))
 
 
 # ---- Export data ----
