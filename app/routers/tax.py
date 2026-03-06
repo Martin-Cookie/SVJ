@@ -231,7 +231,7 @@ def _build_recipients(documents):
 
     for doc in documents:
         for dist in doc.distributions:
-            if dist.match_status == MatchStatus.UNMATCHED:
+            if dist.match_status in (MatchStatus.UNMATCHED, MatchStatus.AUTO_MATCHED):
                 continue
 
             # Build unique key
@@ -1433,6 +1433,13 @@ async def tax_send_preview(
         .all()
     )
 
+    # Count skipped AUTO_MATCHED distributions
+    skipped_auto_count = sum(
+        1 for doc in documents
+        for dist in doc.distributions
+        if dist.match_status == MatchStatus.AUTO_MATCHED
+    )
+
     all_recipients = _build_recipients(documents)
     total_recipients = len(all_recipients)
     with_email = sum(1 for r in all_recipients if r["email"])
@@ -1502,6 +1509,7 @@ async def tax_send_preview(
         "order": order,
         "test_email_value": session.test_email_address or "",
         "all_documents": documents,
+        "skipped_auto_count": skipped_auto_count,
         **_tax_wizard(session, 3),
     }
 
@@ -1830,7 +1838,7 @@ async def send_test_email(
         send_email,
         to_email=test_email.strip(),
         to_name="Test",
-        subject=session.email_subject or "Test email",
+        subject=f"[TEST] {session.email_subject or 'Test email'}",
         body_html=session.email_body or "",
         attachments=attachments,
         module="tax",
@@ -1858,6 +1866,13 @@ async def send_test_email(
         )
         .all()
     )
+
+    skipped_auto_count = sum(
+        1 for doc in documents
+        for dist in doc.distributions
+        if dist.match_status == MatchStatus.AUTO_MATCHED
+    )
+
     recipients = _build_recipients(documents)
     total_recipients = len(recipients)
     with_email = sum(1 for r in recipients if r["email"])
@@ -1885,6 +1900,7 @@ async def send_test_email(
         "flash_type": flash_type,
         "test_email_value": test_email.strip(),
         "all_documents": documents,
+        "skipped_auto_count": skipped_auto_count,
         **_tax_wizard(session, 3),
     })
 
