@@ -57,7 +57,7 @@
                 {% if not session.test_email_passed %}
                 <span class="text-xs text-orange-500" title="Pro aktivaci tlačítka Rozeslat odešlete testovací email">Test neproveden</span>
                 {% else %}
-                <span class="text-xs text-green-600">Test OK</span>
+                <span class="text-xs text-green-600" title="Testovací email odeslán na {{ session.test_email_address }}">Test OK → {{ session.test_email_address }}</span>
                 {% endif %}
             </div>
         </div>
