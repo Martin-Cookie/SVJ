@@ -440,7 +440,7 @@ function updateSendButtonCount() {
 var _TE_KEY = 'svj_test_email';
 
 function sendTest(btn) {
-    var email = btn.closest('.flex').querySelector('input[name="test_email_inline"]').value;
+    var email = document.getElementById('test-email-input').value;
     if (!email) return;
     try { sessionStorage.setItem(_TE_KEY, email); } catch(e) {}
     document.getElementById('test-email-hidden').value = email;

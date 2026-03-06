@@ -98,25 +98,27 @@
                                        class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
                                 Potvrdit každou dávku
                             </label>
-                            <div class="flex items-center gap-2 mt-1">
-                                <input type="email" name="test_email_inline" id="test-email-input" placeholder="test@example.com"
-                                       value="{{ test_email_value|default('') }}"
-                                       class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                                <select id="test-doc-select" class="border border-gray-300 rounded-lg px-2 py-2 text-xs text-gray-600 focus:ring-2 focus:ring-blue-500" title="Vybrat přílohu pro test">
-                                    <option value="0">1. dokument</option>
-                                    {% if all_documents is defined %}{% for doc in all_documents %}
-                                    <option value="{{ doc.id }}">{{ doc.original_filename|truncate(30) }}</option>
-                                    {% endfor %}{% endif %}
-                                </select>
-                                <button type="button" onclick="sendTest(this)"
-                                        class="px-2.5 py-1 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 text-xs font-medium whitespace-nowrap transition-colors">
-                                    Test
-                                </button>
-                            </div>
                             <button type="submit" class="w-full px-3 py-1.5 text-sm font-medium text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors mt-1">
                                 Uložit nastavení
                             </button>
                         </div>
+                    </div>
+                    <!-- Test email row — full width under both columns -->
+                    <div class="flex items-center gap-3 mt-3 pt-3 border-t border-gray-100">
+                        <label class="text-xs font-medium text-gray-600 whitespace-nowrap">Testovací email</label>
+                        <input type="email" name="test_email_inline" id="test-email-input" placeholder="test@example.com"
+                               value="{{ test_email_value|default('') }}"
+                               class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <select id="test-doc-select" class="border border-gray-300 rounded-lg px-2 py-2 text-xs text-gray-600 focus:ring-2 focus:ring-blue-500" title="Vybrat přílohu pro test">
+                            <option value="0">1. dokument</option>
+                            {% if all_documents is defined %}{% for doc in all_documents %}
+                            <option value="{{ doc.id }}">{{ doc.original_filename|truncate(30) }}</option>
+                            {% endfor %}{% endif %}
+                        </select>
+                        <button type="button" onclick="sendTest(this)"
+                                class="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 text-sm font-medium whitespace-nowrap transition-colors">
+                            Odeslat test
+                        </button>
                     </div>
                 </form>
                 <!-- Hidden test form -->
