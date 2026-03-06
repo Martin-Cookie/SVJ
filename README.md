@@ -206,6 +206,8 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
   - Vyhledávání příjemců (jméno, email, název souboru) s diacritics-insensitive porovnáním
   - Server-side řazení (příjemce, email, počet dokumentů, stav) s HTMX partial
   - Bookmarkovatelné URL parametry (q, filtr, sort, order)
+  - Pouze potvrzená přiřazení (CONFIRMED + MANUAL) — nepotvrzené auto-shody se přeskočí s varovným bannerem a odkazem zpět na přiřazení
+  - Testovací email s prefixem `[TEST]` v předmětu pro odlišení od ostrých emailů
 - Wizard stepper: kompaktní kroky (Nahrání PDF → Přiřazení → Rozesílka → Dokončeno) na kartách i detail stránkách; po dokončení workflow všechny kroky zelené
 - Index stránka:
   - Filtrační bubliny podle stavu (vše, rozpracováno, připraveno, odesílání, dokončeno)
