@@ -1,6 +1,0 @@
-[     131ms] ReferenceError: tailwind is not defined
-    at http://localhost:8000/dane/4/rozeslat:12:13
-[     129ms] [WARNING] cdn.tailwindcss.com should not be used in production. To use Tailwind CSS in production, install it as a PostCSS plugin or use the Tailwind CLI: https://tailwindcss.com/docs/installation @ https://cdn.tailwindcss.com/:63
-[   11033ms] ReferenceError: tailwind is not defined
-    at http://localhost:8000/dane/4:12:13
-[   11031ms] [WARNING] cdn.tailwindcss.com should not be used in production. To use Tailwind CSS in production, install it as a PostCSS plugin or use the Tailwind CLI: https://tailwindcss.com/docs/installation @ https://cdn.tailwindcss.com/:63

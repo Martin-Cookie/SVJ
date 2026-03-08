@@ -134,7 +134,11 @@ def _find_coowners(owner_id: int, unit_number: str, tax_year: int | None, db: Se
     if not unit_number:
         return [owner_id]
 
-    unit = db.query(Unit).filter_by(unit_number=int(unit_number)).first()
+    try:
+        unit_num = int(unit_number)
+    except (ValueError, TypeError):
+        return [owner_id]
+    unit = db.query(Unit).filter_by(unit_number=unit_num).first()
     if not unit:
         return [owner_id]
 
@@ -195,7 +199,7 @@ def _reload_doc_row(doc_id: int, session_id: int, request: Request, db: Session)
     # Unit lookup for clickable unit links
     unit_by_number = _unit_by_number(db)
 
-    is_completed = doc.session.send_status == SendStatus.READY if doc.session.send_status else False
+    is_locked = doc.session.send_status in (SendStatus.READY, SendStatus.SENDING, SendStatus.PAUSED, SendStatus.COMPLETED) if doc.session.send_status else False
 
     return templates.TemplateResponse("partials/tax_match_row.html", {
         "request": request,
@@ -203,7 +207,7 @@ def _reload_doc_row(doc_id: int, session_id: int, request: Request, db: Session)
         "session": doc.session,
         "list_url": list_url,
         "unit_by_number": unit_by_number,
-        "is_completed": is_completed,
+        "is_locked": is_locked,
     })
 
 

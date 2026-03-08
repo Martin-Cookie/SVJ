@@ -314,7 +314,7 @@ async def update_recipient_email(
         for rd in relevant_dists:
             docs_list.append({
                 "id": rd.document_id,
-                "filename": rd.document.original_filename or rd.document.filename or "",
+                "filename": rd.document.filename or "",
                 "file_path": rd.document.file_path,
             })
             dist_ids.append(rd.id)
@@ -352,7 +352,7 @@ async def update_recipient_email(
             "secondary_email": "",
             "selected_emails": [dist.ad_hoc_email] if dist.ad_hoc_email else [],
             "has_dual_email": False,
-            "docs": [{"id": doc.id, "filename": doc.original_filename or doc.filename or "", "file_path": doc.file_path}] if doc else [],
+            "docs": [{"id": doc.id, "filename": doc.filename or "", "file_path": doc.file_path}] if doc else [],
             "dist_ids": [dist.id],
             "owner_id": None,
             "is_external": True,

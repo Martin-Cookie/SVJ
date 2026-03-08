@@ -458,7 +458,7 @@ async def tax_detail(
     start = (stranka - 1) * per_page
     documents = documents[start:start + per_page]
 
-    is_completed = session.send_status and session.send_status.value == "ready"
+    is_locked = session.send_status in (SendStatus.READY, SendStatus.SENDING, SendStatus.PAUSED, SendStatus.COMPLETED) if session.send_status else False
     list_url = build_list_url(request)
 
     pagination = {
@@ -473,7 +473,7 @@ async def tax_detail(
         return templates.TemplateResponse("partials/tax_table_body.html", {
             "request": request,
             "documents": documents,
-            "is_completed": is_completed,
+            "is_locked": is_locked,
             "list_url": list_url,
             "unit_by_number": _unit_by_number(db),
             **pagination,
@@ -527,7 +527,7 @@ async def tax_detail(
         "q": q,
         "sort": sort,
         "order": order,
-        "is_completed": is_completed,
+        "is_locked": is_locked,
         "unit_by_number": _unit_by_number(db),
         "missing_list": missing_list,
         **stats,

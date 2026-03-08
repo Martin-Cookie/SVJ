@@ -10,7 +10,7 @@
     class="{% if all_confirmed %}bg-green-50{% elif has_unmatched %}bg-red-50{% elif has_auto %}bg-yellow-50{% endif %}">
     {# Checkbox column #}
     <td class="px-2 py-3 text-center">
-        {% if not is_completed %}
+        {% if not is_locked %}
         {% for dist in doc.distributions %}
         {% if dist.match_status.value == 'auto_matched' %}
         <input type="checkbox" class="tax-cb rounded" value="{{ dist.id }}" onchange="updateSelectAll()">
@@ -55,7 +55,7 @@
                 {% elif dist.ad_hoc_name %}
                 {{ dist.ad_hoc_name }} <span class="text-gray-500">(externí)</span>
                 {% endif %}
-                {% if not is_completed and dist.match_status.value not in ('confirmed', 'manual') and (not dist.match_confidence or dist.match_confidence < 1.0) %}
+                {% if not is_locked and dist.match_status.value not in ('confirmed', 'manual') and (not dist.match_confidence or dist.match_confidence < 1.0) %}
                 <button hx-post="/dane/{{ doc.session_id }}/odebrat/{{ dist.id }}"
                         hx-target="#tax-row-{{ doc.id }}" hx-swap="outerHTML"
                         hx-confirm="Odebrat tohoto vlastníka z dokumentu?"
@@ -92,13 +92,13 @@
         {# Status labels (always visible) #}
         {% if all_confirmed %}
         <span class="text-green-600 text-xs font-medium">Potvrzeno</span>
-        {% elif is_completed and has_unmatched %}
+        {% elif is_locked and has_unmatched %}
         <span class="text-red-500 text-xs font-medium">Nepřiřazeno</span>
-        {% elif is_completed and has_auto %}
+        {% elif is_locked and has_auto %}
         <span class="text-yellow-600 text-xs font-medium">Nepotvrzeno</span>
         {% endif %}
 
-        {% if not is_completed %}
+        {% if not is_locked %}
         {# Manual assign dropdown #}
         {% if has_unmatched or has_auto %}
         <form hx-post="/dane/{{ doc.session_id }}/prirazeni/{{ doc.id }}"

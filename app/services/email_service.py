@@ -4,8 +4,11 @@ from __future__ import annotations
 Email sending service using smtplib with attachment support.
 """
 import html as html_module
+import logging
 import smtplib
 import socket
+
+logger = logging.getLogger(__name__)
 from datetime import datetime
 from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
@@ -53,13 +56,14 @@ def _build_message(
     attachment_full_paths = []
     for file_path in (attachments or []):
         path = Path(file_path)
-        if not path.exists():
-            continue
-        with open(path, "rb") as f:
-            part = MIMEApplication(f.read(), _subtype=path.suffix.lstrip("."))
-            part.add_header("Content-Disposition", "attachment", filename=path.name)
-            msg.attach(part)
-            attachment_full_paths.append(str(path))
+        try:
+            with open(path, "rb") as f:
+                part = MIMEApplication(f.read(), _subtype=path.suffix.lstrip("."))
+                part.add_header("Content-Disposition", "attachment", filename=path.name)
+                msg.attach(part)
+                attachment_full_paths.append(str(path))
+        except (IOError, OSError) as e:
+            logger.warning("Příloha %s nelze přečíst: %s", path, e)
 
     return msg, attachment_full_paths
 
