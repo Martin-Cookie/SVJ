@@ -119,10 +119,11 @@
                                    class="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                             <div class="flex items-center gap-2">
                                 <select id="test-doc-select" class="flex-1 border border-gray-300 rounded-lg px-2 py-1.5 text-xs text-gray-600 focus:ring-2 focus:ring-blue-500" title="Vybrat přílohu pro test">
-                                    <option value="0">1. dokument</option>
                                     {% if all_documents is defined %}{% for doc in all_documents %}
-                                    <option value="{{ doc.id }}">{{ doc.original_filename|truncate(30) }}</option>
-                                    {% endfor %}{% endif %}
+                                    <option value="{{ doc.id }}">{{ doc.filename|truncate(30) }}</option>
+                                    {% endfor %}{% else %}
+                                    <option value="0">1. dokument</option>
+                                    {% endif %}
                                 </select>
                                 <button type="button" onclick="sendTest(this)"
                                         class="px-3 py-1.5 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 text-sm font-medium whitespace-nowrap transition-colors">
