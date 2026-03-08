@@ -898,6 +898,20 @@ Projekt prošel UX analýzou klíčových modulů (6 expertních perspektiv: UX 
 - K6: Flash chybové zprávy v kontrolách (share_check, sync) — 5 typů chybových zpráv
 - K7: Zachování pozice v tabulce po potvrzení přiřazení (referer-based redirect)
 
+**Audit zálohovacího systému + business logiky (2026-03-08) — 8 nálezů, opraveno 8:**
+
+*HIGH (3):*
+- H1: ABSTAIN v importu hlasování — `_match_vote()` rozšířen o zdržel se/abstain/Z/2
+- H2: Trojitý `db.commit()` při importu → jeden atomický commit v routeru
+- H3: `recalculate_unit_votes()` po změně podílů v kontrole podílů (oprava kvóra)
+
+*MEDIUM (5):*
+- M1: Cascade delete na Owner.ballots, tax_distributions, proxies (prevence osiřelých záznamů)
+- M2: WAL checkpoint (`PRAGMA wal_checkpoint(TRUNCATE)`) před SQLite zálohou
+- M3: Kontrola `voting.status == ACTIVE` před zpracováním/importem lístků
+- M4: Path traversal ochrana + `restore_from_directory()` s rollback ve folder restore
+- M5: `owner_exchange` nastaví `is_active=False` vlastníkům bez aktivních jednotek
+
 ## Dokumentace business logiky
 
 - **[docs/BUSINESS-LOGIC.md](docs/BUSINESS-LOGIC.md)** — technický popis business logiky, stavových automatů, výpočetních pravidel a integracích s odkazy na zdrojový kód
