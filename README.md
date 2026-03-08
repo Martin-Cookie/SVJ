@@ -200,7 +200,11 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
   - Stat karty jako filtry (celkem, s emailem, čekající, odesláno, chyba, bez emailu) — HTMX partial swap, scroll pozice při návratu z detailu
   - Bublina „Bez emailu" (oranžová) — filtruje příjemce bez nastavené emailové adresy
   - Duální email: vlastníci se dvěma emaily (primární + sekundární) mají checkboxy pro výběr kam poslat; HTMX toggle s propagací na sibling distribuce
-  - Multi-adresní odesílání: email se odešle na všechny zaškrtnuté adresy (multiple To: headers)
+  - Multi-adresní odesílání: email se odešle na všechny zaškrtnuté adresy (samostatný email na každou adresu)
+  - Rozlišení odeslaných/neodeslaných dokumentů: zelený badge (odesláno) vs modrý (k odeslání), dva řádky s labelem při mixu
+  - Přidání nového PDF k již odeslané sadě: pošle jen nové přílohy, existující neopakuje
+  - Konfigurace emailu: po uložení zůstane rozbalená, po odeslání testu se zavře
+  - Odeslat test automaticky uloží předmět a text (neztratí se neuložené změny)
   - Tlačítko „Zavřít" — návrat na seznam relací (výběr emailů se ukládá automaticky přes HTMX)
   - Samostatný search bar pod kartami s HTMX partial swapem
   - Vyhledávání příjemců (jméno, email, název souboru) s diacritics-insensitive porovnáním
