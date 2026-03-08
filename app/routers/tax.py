@@ -596,7 +596,7 @@ async def tax_upload_additional(
             try:
                 Path(fp).unlink()
             except Exception:
-                pass
+                logger.debug("Failed to clean up old file: %s", fp)
 
     if not saved_files:
         return RedirectResponse(f"/dane/{session_id}", status_code=302)
@@ -859,7 +859,7 @@ def _process_tax_files(session_id: int, file_paths: list, tax_year):
             try:
                 Path(fp).unlink(missing_ok=True)
             except Exception:
-                pass
+                logger.debug("Failed to clean up temp file: %s", fp)
     finally:
         with _processing_lock:
             _processing_progress[session_id]["done"] = True
@@ -2032,7 +2032,7 @@ async def delete_session(
         if upload_dir.exists():
             shutil.rmtree(upload_dir)
     except Exception:
-        pass
+        logger.debug("Failed to clean up upload dir: %s", upload_dir)
 
     log_activity(db, ActivityAction.DELETED, "tax_session", "dane",
                  entity_id=session.id, entity_name=session.title)

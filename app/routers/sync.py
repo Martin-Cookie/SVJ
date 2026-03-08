@@ -1,3 +1,4 @@
+import logging
 import re
 import shutil
 from datetime import date, datetime
@@ -12,6 +13,8 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.config import settings
 from app.database import get_db
+
+logger = logging.getLogger(__name__)
 from app.models import (
     ImportLog, Owner, OwnerUnit, ShareCheckSession, SyncRecord, SyncResolution,
     SyncSession, SyncStatus, Unit,
@@ -134,7 +137,7 @@ async def sync_delete(session_id: int, db: Session = Depends(get_db)):
             if p.exists():
                 p.unlink()
         except Exception:
-            pass
+            logger.debug("Failed to clean up CSV: %s", session.csv_path)
         # Cascade deletes SyncRecord entries
         db.delete(session)
         db.commit()

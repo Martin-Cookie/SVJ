@@ -51,10 +51,10 @@ git log --oneline -10
 git status
 
 # Poslední audit report (pokud existuje)
-cat AUDIT-REPORT.md 2>/dev/null | head -20
+cat docs/agents/AUDIT-REPORT.md 2>/dev/null | head -20
 
 # Poslední UX report (pokud existuje)
-cat UX-REPORT.md 2>/dev/null | head -20
+cat docs/reports/UX-REPORT*.md 2>/dev/null | head -20
 
 # Kdy byla naposledy synchronizovaná dokumentace
 git log --oneline -1 -- CLAUDE.md README.md docs/
@@ -162,13 +162,13 @@ Po dokončení všech agentů vypiš souhrnnou tabulku:
 
 | Agent | Soubor | Co dělá |
 |-------|--------|---------|
-| **Code Guardian** | CODE-GUARDIAN.md | Audit kódu — kvalita, bezpečnost, UI, výkon |
-| **Doc Sync** | DOC-SYNC.md | Synchronizace dokumentace s realitou |
-| **UX Optimizer** | UX-OPTIMIZER.md | Analýza a návrhy zlepšení UX (6 pohledů) |
-| **Backup Agent** | BACKUP-AGENT.md | Kontrola integrity záloh |
-| **Release Agent** | RELEASE-AGENT.md | Příprava verze (pre-release + balíček) |
-| **Business Logic** | BUSINESS-LOGIC-AGENT.md | Extrakce business logiky z kódu |
-| **Cloud Deploy** | CLOUD-DEPLOY.md | Analýza připravenosti pro cloud |
+| **Code Guardian** | docs/agents/CODE-GUARDIAN.md | Audit kódu — kvalita, bezpečnost, UI, výkon |
+| **Doc Sync** | docs/agents/DOC-SYNC.md | Synchronizace dokumentace s realitou |
+| **UX Optimizer** | docs/agents/UX-OPTIMIZER.md | Analýza a návrhy zlepšení UX (6 pohledů) |
+| **Backup Agent** | docs/agents/BACKUP-AGENT.md | Kontrola integrity záloh |
+| **Release Agent** | docs/agents/RELEASE-AGENT.md | Příprava verze (pre-release + balíček) |
+| **Business Logic** | docs/agents/BUSINESS-LOGIC-AGENT.md | Extrakce business logiky z kódu |
+| **Cloud Deploy** | docs/agents/CLOUD-DEPLOY.md | Analýza připravenosti pro cloud |
 
 > **Task Agent** není v seznamu — ten běží automaticky při zadání úkolů.
 

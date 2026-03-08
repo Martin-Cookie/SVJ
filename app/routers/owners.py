@@ -746,7 +746,7 @@ async def import_delete(
         if p.exists():
             p.unlink()
     except Exception:
-        pass
+        logger.debug("Failed to clean up file: %s", log.file_path)
 
     # Remove log entry only
     db.delete(log)
@@ -772,7 +772,7 @@ async def contact_import_delete(
         if p.exists():
             p.unlink()
     except Exception:
-        pass
+        logger.debug("Failed to clean up file: %s", log.file_path)
 
     db.delete(log)
     db.commit()

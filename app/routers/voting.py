@@ -273,7 +273,7 @@ async def voting_preview_metadata(
         try:
             dest.unlink()
         except Exception:
-            pass
+            logger.debug("Failed to clean up file: %s", dest)
 
 
 @router.post("/nova")
@@ -1115,7 +1115,7 @@ async def voting_delete(voting_id: int, db: Session = Depends(get_db)):
                 if p.exists():
                     p.unlink()
             except Exception:
-                pass
+                logger.debug("Failed to clean up template: %s", voting.template_path)
         # Remove ballot PDF/scan files
         for ballot in voting.ballots:
             for attr in ("pdf_path", "scan_path"):
@@ -1126,7 +1126,7 @@ async def voting_delete(voting_id: int, db: Session = Depends(get_db)):
                         if p.exists():
                             p.unlink()
                     except Exception:
-                        pass
+                        logger.debug("Failed to clean up ballot file: %s", fpath)
         # Cascade deletes VotingItem, Ballot, BallotVote
         log_activity(db, ActivityAction.DELETED, "voting", "hlasovani",
                      entity_id=voting.id, entity_name=voting.title)
@@ -1554,7 +1554,7 @@ async def import_confirm(
     try:
         Path(file_path).unlink(missing_ok=True)
     except Exception:
-        pass
+        logger.debug("Failed to clean up import file: %s", file_path)
 
     log_activity(db, ActivityAction.IMPORTED, "voting", "hlasovani",
                  entity_id=voting.id, entity_name=voting.title,

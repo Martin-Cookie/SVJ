@@ -1,3 +1,4 @@
+import logging
 import shutil
 from datetime import datetime
 from pathlib import Path
@@ -10,6 +11,8 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.database import get_db
+
+logger = logging.getLogger(__name__)
 from app.models import (
     ImportLog, Owner, OwnerUnit, ShareCheckColumnMapping, ShareCheckRecord,
     ShareCheckResolution, ShareCheckSession, ShareCheckStatus, Unit,
@@ -464,7 +467,7 @@ async def share_check_delete(session_id: int, db: Session = Depends(get_db)):
             if p.exists():
                 p.unlink()
         except Exception:
-            pass
+            logger.debug("Failed to clean up file: %s", session.file_path)
         db.delete(session)
         db.commit()
     return RedirectResponse("/synchronizace#kontrola-podilu", status_code=302)
