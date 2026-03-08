@@ -813,6 +813,14 @@ Zbývající nálezy z druhého auditu: autentizace (plánováno), CSRF ochrana,
 - Enum porovnání místo string `.value ==` (13 výskytů)
 - Binární soubory (.png, .xlsx) odstraněny z gitu
 
+**Čtvrtý audit (2026-03-08) — 33 nálezů, opraveno 6:**
+- Path traversal fix v `contact_import_rerun` — přidána `is_safe_path()` validace
+- Sjednocen `strip_diacritics` import z `app.utils` (odstraněny kopie v `excel_import.py`, `contact_import.py`)
+- Extrahován `excel_auto_width()` helper do `utils.py` (nahrazeno 8 duplikátů v 8 souborech)
+- Vyčištěny unused imports (7 souborů: sync, voting, administration, dashboard, main, excel_export, share_check_comparator)
+- Přesunut logger v `tax.py` na začátek za importy
+- Zbývá: rozdělení tax.py/voting.py, SQL filtrování lístků, testy, autentizace
+
 **Audit zálohovacího systému (2026-03-05) — 14 nálezů, opraveno 12:**
 - ZIP validace: CRC integrity check (`testzip()`) před restore
 - Rollback: automatická obnova ze safety backup při selhání restore
