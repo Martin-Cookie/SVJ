@@ -2,9 +2,14 @@
     {# Checkbox #}
     <td class="px-2 py-3 text-center">
         {% set can_send = r.selected_emails|default([])|length > 0 and r.email_status != 'sent' %}
+        {% if r.email_status == 'sent' %}
+        <input type="checkbox" checked disabled
+               class="rounded border-green-300 text-green-500 cursor-not-allowed opacity-70">
+        {% else %}
         <input type="checkbox" name="selected_keys" value="{{ r.key }}"
                class="rcpt-cb rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                {% if not can_send %}disabled{% endif %}>
+        {% endif %}
     </td>
 
     {# Recipient name #}
