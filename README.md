@@ -813,7 +813,7 @@ Zbývající nálezy z druhého auditu: autentizace (plánováno), CSRF ochrana,
 - Enum porovnání místo string `.value ==` (13 výskytů)
 - Binární soubory (.png, .xlsx) odstraněny z gitu
 
-**Čtvrtý audit (2026-03-08) — 33 nálezů, opraveno 14:**
+**Čtvrtý audit (2026-03-08) — 33 nálezů, opraveno 20:**
 - Path traversal fix v `contact_import_rerun` — přidána `is_safe_path()` validace
 - Sjednocen `strip_diacritics` import z `app.utils` (odstraněny kopie v `excel_import.py`, `contact_import.py`)
 - Extrahován `excel_auto_width()` helper do `utils.py` (nahrazeno 8 duplikátů v 8 souborech)
@@ -825,7 +825,12 @@ Zbývající nálezy z druhého auditu: autentizace (plánováno), CSRF ochrana,
 - Sjednocen flash message vzor (role=alert, warning podpora) ve 3 šablonách
 - Přidán `logger.debug` ke všem tichým `except: pass` u file cleanup (11 míst, 5 routerů)
 - Přesunuty agent/report MD soubory z rootu do `docs/agents/` a `docs/reports/`
-- Zbývá: rozdělení tax.py/voting.py, SQL filtrování lístků, testy, autentizace
+- `is_valid_email()` validace při ukládání emailu do DB (owners, administration)
+- Globální exception handler pro `IntegrityError`/`OperationalError` — přátelská chybová stránka místo 500
+- SQL filtrování a řazení lístků (ballots) místo Python-side, SQL agregace ve `_ballot_stats`
+- Rozdělen `tax.py` (2515 řádků) na package `tax/` — 6 modulů (session, processing, matching, sending, helpers)
+- Rozdělen `voting.py` (1613 řádků) na package `voting/` — 5 modulů (session, ballots, import, helpers)
+- Zbývá: testy, autentizace + CSRF
 
 **Audit zálohovacího systému (2026-03-05) — 14 nálezů, opraveno 12:**
 - ZIP validace: CRC integrity check (`testzip()`) před restore
