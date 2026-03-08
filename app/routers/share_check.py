@@ -17,6 +17,7 @@ from app.models import (
     ImportLog, Owner, OwnerUnit, ShareCheckColumnMapping, ShareCheckRecord,
     ShareCheckResolution, ShareCheckSession, ShareCheckStatus, Unit,
 )
+from app.services.owner_exchange import recalculate_unit_votes
 from app.services.share_check_comparator import (
     compare_shares, get_file_headers, get_file_preview, parse_file, suggest_mapping,
 )
@@ -520,6 +521,7 @@ async def share_check_apply_updates(
 
         old_val = unit.podil_scd
         unit.podil_scd = record.file_share
+        recalculate_unit_votes(unit, db)
         record.db_share = record.file_share
         record.status = ShareCheckStatus.MATCH
         record.resolution = ShareCheckResolution.UPDATED

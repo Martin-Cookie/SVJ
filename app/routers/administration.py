@@ -27,7 +27,7 @@ from app.models import (
     ActivityLog, ActivityAction, log_activity,
 )
 from app.services.backup_service import (
-    create_backup, restore_backup,
+    create_backup, restore_backup, restore_from_directory,
     log_restore, read_restore_log,
     acquire_restore_lock, release_restore_lock,
     get_backups_total_size,
@@ -776,6 +776,11 @@ async def backup_restore_folder(files: List[UploadFile] = File(...)):
                 rel = parts[0]
 
             target = Path(tmp) / rel
+            # Path traversal protection: ensure target stays within tmp dir
+            resolved = os.path.realpath(str(target))
+            if not resolved.startswith(os.path.realpath(tmp) + os.sep) and resolved != os.path.realpath(tmp):
+                logger.warning("Path traversal attempt blocked: %s", rel)
+                continue
             target.parent.mkdir(parents=True, exist_ok=True)
             with open(str(target), "wb") as dst:
                 dst.write(await f.read())
@@ -786,26 +791,12 @@ async def backup_restore_folder(files: List[UploadFile] = File(...)):
         if not db_found:
             return RedirectResponse("/sprava/zalohy", status_code=302)
 
-        safety = _safety_backup()
+        # Use service function with safety backup + rollback on failure
+        restore_from_directory(
+            tmp, str(DB_PATH), str(UPLOADS_DIR), str(GENERATED_DIR), str(BACKUP_DIR),
+        )
 
-        # Restore database
-        shutil.copy2(str(Path(tmp) / "svj.db"), str(DB_PATH))
-
-        # Restore uploads if present
-        src_uploads = Path(tmp) / "uploads"
-        if src_uploads.is_dir():
-            if UPLOADS_DIR.is_dir():
-                shutil.rmtree(str(UPLOADS_DIR))
-            shutil.copytree(str(src_uploads), str(UPLOADS_DIR))
-
-        # Restore generated if present
-        src_generated = Path(tmp) / "generated"
-        if src_generated.is_dir():
-            if GENERATED_DIR.is_dir():
-                shutil.rmtree(str(GENERATED_DIR))
-            shutil.copytree(str(src_generated), str(GENERATED_DIR))
-
-        log_restore(str(BACKUP_DIR), folder_name or "složka", "Složka (Finder)", safety_backup=safety)
+        log_restore(str(BACKUP_DIR), folder_name or "složka", "Složka (Finder)")
 
         warnings = run_post_restore_migrations()
 

@@ -89,13 +89,13 @@ class Owner(Base):
             key=lambda ou: ou.unit.unit_number if ou.unit else 0,
         )
 
-    ballots = relationship("Ballot", back_populates="owner")
-    tax_distributions = relationship("TaxDistribution", back_populates="owner")
+    ballots = relationship("Ballot", back_populates="owner", cascade="all, delete-orphan")
+    tax_distributions = relationship("TaxDistribution", back_populates="owner", cascade="all, delete-orphan")
     given_proxies = relationship(
-        "Proxy", foreign_keys="Proxy.grantor_id", back_populates="grantor"
+        "Proxy", foreign_keys="Proxy.grantor_id", back_populates="grantor", cascade="all, delete-orphan"
     )
     received_proxies = relationship(
-        "Proxy", foreign_keys="Proxy.proxy_holder_id", back_populates="proxy_holder"
+        "Proxy", foreign_keys="Proxy.proxy_holder_id", back_populates="proxy_holder", cascade="all, delete-orphan"
     )
 
 

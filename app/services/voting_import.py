@@ -102,10 +102,12 @@ def _match_vote(
     num: float | None,
     for_values: tuple[set[str], list],
     against_values: tuple[set[str], list],
+    abstain_values: tuple[set[str], list] = (set(), []),
 ) -> str | None:
-    """Match a cell value against for/against value sets. Returns 'for', 'against', or None."""
+    """Match a cell value against for/against/abstain value sets. Returns 'for', 'against', 'abstain', or None."""
     for_exact, for_cmp = for_values
     against_exact, against_cmp = against_values
+    abstain_exact, abstain_cmp = abstain_values
 
     if raw is not None:
         upper = raw.upper()
@@ -113,6 +115,8 @@ def _match_vote(
             return "for"
         if upper in against_exact:
             return "against"
+        if upper in abstain_exact:
+            return "abstain"
     if num is not None:
         # Check numeric as string (e.g. "1" in for_values, "0" in against_values)
         num_str = str(int(num)) if num == int(num) else str(num)
@@ -120,11 +124,15 @@ def _match_vote(
             return "for"
         if num_str in against_exact:
             return "against"
+        if num_str in abstain_exact:
+            return "abstain"
         # Check comparison rules (e.g. >0, <0)
         if _check_comparisons(num, for_cmp):
             return "for"
         if _check_comparisons(num, against_cmp):
             return "against"
+        if _check_comparisons(num, abstain_cmp):
+            return "abstain"
     return None
 
 
@@ -187,9 +195,10 @@ def preview_voting_import(file_path: str, mapping: dict, voting: Voting, db: Ses
     start_row = mapping.get("start_row", 2)
     item_mappings = mapping.get("item_mappings") or mapping.get("items", [])
 
-    # Parse user-defined values for PRO/PROTI
+    # Parse user-defined values for PRO/PROTI/ZDRŽEL SE
     for_values = _parse_value_list(mapping.get("for_values", "1, ANO, YES, X, PRO"))
     against_values = _parse_value_list(mapping.get("against_values", "0, NE, NO, PROTI"))
+    abstain_values = _parse_value_list(mapping.get("abstain_values", "ZDRŽEL, ZDRŽEL SE, ABSTAIN, Z, 2"))
 
     matched = []
     unmatched = []
@@ -263,13 +272,13 @@ def preview_voting_import(file_path: str, mapping: dict, voting: Voting, db: Ses
             for_col = im.get("for_col")
             against_col = im.get("against_col")
 
-            # Primary column — match value against for/against sets
+            # Primary column — match value against for/against/abstain sets
             if for_col is not None:
                 raw = _cell(row, for_col)
                 num = _cell_numeric(row, for_col)
                 if raw is not None:
                     raw_values[item_id] = raw
-                result = _match_vote(raw, num, for_values, against_values)
+                result = _match_vote(raw, num, for_values, against_values, abstain_values)
                 if result:
                     vote_choices[item_id] = result
 
@@ -280,11 +289,13 @@ def preview_voting_import(file_path: str, mapping: dict, voting: Voting, db: Ses
                 if raw is not None and item_id not in raw_values:
                     raw_values[item_id] = raw
                 # In against column, for_values → PROTI, against_values → PRO (inverted)
-                result = _match_vote(raw, num, for_values, against_values)
+                result = _match_vote(raw, num, for_values, against_values, abstain_values)
                 if result == "for":
                     vote_choices[item_id] = "against"
                 elif result == "against":
                     vote_choices[item_id] = "for"
+                elif result == "abstain":
+                    vote_choices[item_id] = "abstain"
 
         # Detect unrecognized: items with raw values but no match
         unrecognized = {
@@ -439,7 +450,8 @@ def execute_voting_import(file_path: str, mapping: dict, voting: Voting, db: Ses
                 # In append mode: skip if vote already set
                 if not clear_existing and bv.vote is not None:
                     continue
-                bv.vote = VoteValue.FOR if vote_data["vote"] == "for" else VoteValue.AGAINST
+                vote_map = {"for": VoteValue.FOR, "against": VoteValue.AGAINST, "abstain": VoteValue.ABSTAIN}
+                bv.vote = vote_map.get(vote_data["vote"], VoteValue.FOR)
                 bv.votes_count = vote_data["count"]
                 has_real_votes = True
             elif clear_existing:
@@ -453,9 +465,8 @@ def execute_voting_import(file_path: str, mapping: dict, voting: Voting, db: Ses
         else:
             skipped_count += 1
 
-    # Save mapping for next time
+    # Save mapping for next time (commit handled by caller)
     voting.import_column_mapping = json.dumps(mapping, ensure_ascii=False)
-    db.commit()
 
     return {
         "processed_count": processed_count,

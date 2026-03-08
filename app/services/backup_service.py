@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import shutil
+import sqlite3
 import time
 import zipfile
 from datetime import datetime
@@ -74,6 +75,15 @@ def create_backup(
         timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
         zip_name = f"svj_backup_{timestamp}.zip"
     zip_path = Path(backup_dir) / zip_name
+
+    # WAL checkpoint — flush pending writes into main DB file before backup
+    if os.path.isfile(db_path):
+        try:
+            conn = sqlite3.connect(db_path)
+            conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+            conn.close()
+        except Exception:
+            logger.warning("WAL checkpoint selhal, záloha může být neúplná")
 
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
         # Database

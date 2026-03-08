@@ -68,11 +68,10 @@ def _load_saved_mapping(voting: Voting, db: Session) -> Optional[dict]:
 
 
 def _save_mapping_global(mapping_json: str, db: Session):
-    """Save mapping globally to SvjInfo for reuse across votings."""
+    """Save mapping globally to SvjInfo for reuse across votings (commit handled by caller)."""
     svj = db.query(SvjInfo).first()
     if svj:
         svj.voting_import_mapping = mapping_json
-        db.commit()
 
 
 @router.get("/{voting_id}/import")
@@ -236,6 +235,11 @@ async def import_confirm(
     if not voting:
         return RedirectResponse("/hlasovani", status_code=302)
 
+    # Check voting is active before importing
+    from app.models import VotingStatus
+    if voting.status != VotingStatus.ACTIVE:
+        return RedirectResponse(f"/hlasovani/{voting_id}", status_code=302)
+
     if not is_safe_path(Path(file_path), settings.upload_dir):
         return RedirectResponse(f"/hlasovani/{voting_id}/import", status_code=302)
 
@@ -257,16 +261,18 @@ async def import_confirm(
     # Save mapping globally for reuse in future votings
     _save_mapping_global(mapping_json, db)
 
-    # Clean up uploaded Excel file after successful import
+    log_activity(db, ActivityAction.IMPORTED, "voting", "hlasovani",
+                 entity_id=voting.id, entity_name=voting.title,
+                 description=f"Import výsledků: {result.get('processed_count', 0)} lístků")
+
+    # Single atomic commit for all changes
+    db.commit()
+
+    # Clean up uploaded Excel file after successful commit
     try:
         Path(file_path).unlink(missing_ok=True)
     except Exception:
         logger.debug("Failed to clean up import file: %s", file_path)
-
-    log_activity(db, ActivityAction.IMPORTED, "voting", "hlasovani",
-                 entity_id=voting.id, entity_name=voting.title,
-                 description=f"Import výsledků: {result.get('processed', 0)} lístků")
-    db.commit()
 
     has_processed = _has_processed_ballots(voting)
     return templates.TemplateResponse("voting/import_result.html", {

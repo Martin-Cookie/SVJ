@@ -268,6 +268,11 @@ async def process_ballot(
     if not ballot or ballot.voting_id != voting_id:
         return RedirectResponse(f"/hlasovani/{voting_id}/zpracovani", status_code=302)
 
+    # Check voting is active
+    voting = db.query(Voting).get(voting_id)
+    if not voting or voting.status != VotingStatus.ACTIVE:
+        return RedirectResponse(f"/hlasovani/{voting_id}", status_code=302)
+
     # Collect votes and validate at least one is set
     has_any_vote = False
     for bv in ballot.votes:

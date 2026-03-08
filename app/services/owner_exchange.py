@@ -382,10 +382,13 @@ def execute_exchange(
             cou.votes = votes_split[i] if i < len(votes_split) else 0
             cou.share = 1.0 / len(current_ous) if len(current_ous) > 1 else 1.0
 
-        # Count removed owners that have no remaining active units
+        # Deactivate removed owners that have no remaining active units
         for oid in removed_owner_ids:
             remaining = db.query(OwnerUnit).filter_by(owner_id=oid).filter(OwnerUnit.valid_to.is_(None)).count()
             if remaining == 0:
+                owner_to_deactivate = db.query(Owner).get(oid)
+                if owner_to_deactivate:
+                    owner_to_deactivate.is_active = False
                 deactivated_count += 1
 
         # Update unit space_type and ownership_type if CSV differs
