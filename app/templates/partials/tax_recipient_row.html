@@ -7,6 +7,7 @@
                class="rounded border-green-300 text-green-500 cursor-not-allowed opacity-70">
         {% else %}
         <input type="checkbox" name="selected_keys" value="{{ r.key }}"
+               data-email-count="{{ r.selected_emails|default([])|length }}"
                class="rcpt-cb rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                {% if not can_send %}disabled{% endif %}>
         {% endif %}

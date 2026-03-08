@@ -428,12 +428,28 @@ function toggleAllRecipients(master) {
     updateSendButtonCount();
 }
 
+function _czPlural(n, one, few, many) {
+    if (n === 1) return n + ' ' + one;
+    if (n >= 2 && n <= 4) return n + ' ' + few;
+    return n + ' ' + many;
+}
+
+function _countEmailsAndRecipients() {
+    var cbs = document.querySelectorAll('.rcpt-cb:checked');
+    var recipients = cbs.length;
+    var emails = 0;
+    cbs.forEach(function(cb) {
+        emails += parseInt(cb.getAttribute('data-email-count') || '1', 10);
+    });
+    return {emails: emails, recipients: recipients};
+}
+
 function updateSendButtonCount() {
-    var checked = document.querySelectorAll('.rcpt-cb:checked').length;
+    var counts = _countEmailsAndRecipients();
     var span = document.getElementById('send-count');
-    if (span) span.textContent = checked;
+    if (span) span.textContent = counts.emails;
     var bubble = document.getElementById('selected-count-bubble');
-    if (bubble) bubble.textContent = checked;
+    if (bubble) bubble.textContent = counts.emails;
 }
 
 // --- Test email: persist via sessionStorage ---
@@ -513,9 +529,14 @@ function toggleEmailEdit(key) {
 
 // --- Send confirmation modal ---
 function showSendConfirmModal() {
-    var checked = document.querySelectorAll('.rcpt-cb:checked');
-    if (checked.length === 0) return;
-    document.getElementById('modal-count').textContent = checked.length;
+    var counts = _countEmailsAndRecipients();
+    if (counts.recipients === 0) return;
+    var emailText = _czPlural(counts.emails, 'email', 'emaily', 'emailů');
+    var rcptText = _czPlural(counts.recipients, 'příjemci', 'příjemcům', 'příjemcům');
+    var verb = counts.emails === 1 ? 'Bude odeslán ' : (counts.emails >= 2 && counts.emails <= 4 ? 'Budou odeslány ' : 'Bude odesláno ');
+    document.getElementById('modal-count-emails').textContent = emailText;
+    document.getElementById('modal-count-recipients').textContent = rcptText;
+    document.getElementById('modal-count-verb').textContent = verb;
     var subj = document.querySelector('input[name="email_subject"]');
     document.getElementById('modal-subject').textContent = subj ? subj.value : '';
     document.getElementById('send-confirm-modal').classList.remove('hidden');
