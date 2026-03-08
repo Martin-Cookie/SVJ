@@ -1055,7 +1055,10 @@ async def exchange_confirm_single(
     db: Session = Depends(get_db),
 ):
     """Execute owner exchange for a single unit."""
-    ed = date.fromisoformat(exchange_date) if exchange_date else date.today()
+    try:
+        ed = date.fromisoformat(exchange_date) if exchange_date else date.today()
+    except ValueError:
+        ed = date.today()
     execute_exchange(db, [record_id], session_id, exchange_date=ed)
     url = f"/synchronizace/{session_id}"
     if filtr:
@@ -1127,7 +1130,10 @@ async def exchange_confirm_batch(
     record_ids = [int(x) for x in raw_ids.split(",") if x.strip().isdigit()]
     exchange_date_str = form.get("exchange_date", "")
     filtr = form.get("filtr", "")
-    ed = date.fromisoformat(exchange_date_str) if exchange_date_str else date.today()
+    try:
+        ed = date.fromisoformat(exchange_date_str) if exchange_date_str else date.today()
+    except ValueError:
+        ed = date.today()
     if record_ids:
         execute_exchange(db, record_ids, session_id, exchange_date=ed)
     url = f"/synchronizace/{session_id}"

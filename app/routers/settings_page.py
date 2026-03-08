@@ -7,6 +7,8 @@ from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
+from sqlalchemy import or_
+
 from app.config import settings
 from app.database import get_db
 from app.models import EmailLog, Owner
@@ -58,38 +60,39 @@ async def settings_view(
     # Build query
     query = db.query(EmailLog)
 
-    # Search
+    # Search — SQL filter for email/subject/module, Python fallback for diacritics in names
     if q:
-        q_lower = q.lower()
+        q_pattern = f"%{q}%"
         q_ascii = strip_diacritics(q)
-        # Fetch all then filter in Python (SQLite diacritics issue)
-        all_logs = query.all()
-        email_logs = [
-            e for e in all_logs
-            if q_lower in (e.recipient_email or "").lower()
-            or q_ascii in strip_diacritics(e.recipient_name or "")
-            or q_lower in (e.subject or "").lower()
-            or q_lower in (e.module or "").lower()
-        ]
-        # Sort in Python
-        sort_key = {
-            "date": lambda e: e.created_at or "",
-            "module": lambda e: (e.module or "").lower(),
-            "recipient": lambda e: strip_diacritics(e.recipient_name or ""),
-            "subject": lambda e: (e.subject or "").lower(),
-            "status": lambda e: (e.status.value if e.status else ""),
-        }
-        key_fn = sort_key.get(sort, sort_key["date"])
-        email_logs.sort(key=key_fn, reverse=(order == "desc"))
-        email_logs = email_logs[:100]
+        query = query.filter(
+            or_(
+                EmailLog.recipient_email.ilike(q_pattern),
+                EmailLog.recipient_name.ilike(q_pattern),
+                EmailLog.subject.ilike(q_pattern),
+                EmailLog.module.ilike(q_pattern),
+            )
+        )
+
+    # SQL sort + limit
+    col = SORT_COLUMNS.get(sort, EmailLog.created_at)
+    if order == "asc":
+        query = query.order_by(col.asc().nulls_last())
     else:
-        # SQL sort
-        col = SORT_COLUMNS.get(sort, EmailLog.created_at)
-        if order == "asc":
-            query = query.order_by(col.asc().nulls_last())
-        else:
-            query = query.order_by(col.desc().nulls_last())
-        email_logs = query.limit(100).all()
+        query = query.order_by(col.desc().nulls_last())
+    email_logs = query.limit(100).all()
+
+    # If searching, also try diacritics-insensitive name match (for č→c, ř→r etc.)
+    if q and q_ascii:
+        seen_ids = {e.id for e in email_logs}
+        name_query = db.query(EmailLog).order_by(
+            col.desc().nulls_last() if order == "desc" else col.asc().nulls_last()
+        ).limit(500)
+        for e in name_query:
+            if e.id not in seen_ids and q_ascii in strip_diacritics(e.recipient_name or ""):
+                email_logs.append(e)
+                seen_ids.add(e.id)
+                if len(email_logs) >= 100:
+                    break
 
     # Build email → owner_id lookup for clickable recipients
     emails_in_log = {e.recipient_email for e in email_logs if e.recipient_email}

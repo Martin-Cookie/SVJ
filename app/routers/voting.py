@@ -295,10 +295,13 @@ async def voting_create(
         quorum_threshold=quorum_threshold / 100,
         partial_owner_mode=partial_owner_mode,
     )
-    if start_date:
-        voting.start_date = date.fromisoformat(start_date)
-    if end_date:
-        voting.end_date = date.fromisoformat(end_date)
+    try:
+        if start_date:
+            voting.start_date = date.fromisoformat(start_date)
+        if end_date:
+            voting.end_date = date.fromisoformat(end_date)
+    except ValueError:
+        pass  # invalid date from form — ignore, keep None
 
     # Handle Word template upload
     if file and file.filename:
