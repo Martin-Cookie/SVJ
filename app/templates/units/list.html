@@ -41,10 +41,19 @@
         </div>
         {% endif %}
     </div>
-    <button hx-get="/jednotky/nova-formular" hx-target="#unit-create-section" hx-swap="innerHTML"
-            class="px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium transition-colors">
-        + Nová jednotka
-    </button>
+    <div class="flex items-center gap-2">
+        {% set _export_qs = "q=" ~ q ~ "&typ=" ~ typ ~ "&sekce=" ~ sekce ~ "&sort=" ~ sort ~ "&order=" ~ order %}
+        <a href="/jednotky/exportovat/xlsx?{{ _export_qs }}" hx-boost="false"
+           class="px-2.5 py-1.5 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 text-xs font-medium transition-colors border border-gray-200"
+           title="Export do Excelu">↓ Excel</a>
+        <a href="/jednotky/exportovat/csv?{{ _export_qs }}" hx-boost="false"
+           class="px-2.5 py-1.5 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 text-xs font-medium transition-colors border border-gray-200"
+           title="Export do CSV">↓ CSV</a>
+        <button hx-get="/jednotky/nova-formular" hx-target="#unit-create-section" hx-swap="innerHTML"
+                class="px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium transition-colors">
+            + Nová jednotka
+        </button>
+    </div>
 </div>
 
 <div id="unit-create-section"></div>

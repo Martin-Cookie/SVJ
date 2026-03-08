@@ -344,17 +344,8 @@ async def unit_update(
     return RedirectResponse(f"/jednotky/{unit_id}", status_code=302)
 
 
-@router.get("/")
-async def unit_list(
-    request: Request,
-    q: str = Query("", alias="q"),
-    typ: str = Query("", alias="typ"),
-    sekce: str = Query("", alias="sekce"),
-    sort: str = Query("unit_number", alias="sort"),
-    order: str = Query("asc", alias="order"),
-    back: str = Query("", alias="back"),
-    db: Session = Depends(get_db),
-):
+def _filter_units(db: Session, q="", typ="", sekce="", sort="unit_number", order="asc"):
+    """Filter and sort units. Returns list[Unit] with eager-loaded owners."""
     query = db.query(Unit).options(
         joinedload(Unit.owners).joinedload(OwnerUnit.owner)
     )
@@ -389,6 +380,22 @@ async def unit_list(
         else:
             query = query.order_by(sort_col.asc().nulls_last())
         units = query.all()
+
+    return units
+
+
+@router.get("/")
+async def unit_list(
+    request: Request,
+    q: str = Query("", alias="q"),
+    typ: str = Query("", alias="typ"),
+    sekce: str = Query("", alias="sekce"),
+    sort: str = Query("unit_number", alias="sort"),
+    order: str = Query("asc", alias="order"),
+    back: str = Query("", alias="back"),
+    db: Session = Depends(get_db),
+):
+    units = _filter_units(db, q, typ, sekce, sort, order)
 
     # Current list URL for back navigation
     list_url = build_list_url(request)
@@ -439,6 +446,92 @@ async def unit_list(
             "sections": sections,
         },
     })
+
+
+@router.get("/exportovat/{fmt}")
+async def unit_export(
+    fmt: str,
+    q: str = Query("", alias="q"),
+    typ: str = Query("", alias="typ"),
+    sekce: str = Query("", alias="sekce"),
+    sort: str = Query("unit_number", alias="sort"),
+    order: str = Query("asc", alias="order"),
+    db: Session = Depends(get_db),
+):
+    """Export filtered units to Excel or CSV."""
+    if fmt not in ("xlsx", "csv"):
+        return RedirectResponse("/jednotky", status_code=302)
+
+    units = _filter_units(db, q, typ, sekce, sort, order)
+
+    headers = ["Č. jednotky", "Budova", "Typ prostoru", "Sekce", "Adresa", "LV", "Místnosti", "Plocha", "Podíl SČD", "Vlastníci"]
+
+    def _row(u):
+        owners = ", ".join(ou.owner.display_name for ou in u.current_owners)
+        return [
+            u.unit_number,
+            u.building_number or "",
+            u.space_type or "",
+            u.section or "",
+            u.address or "",
+            u.lv_number or "",
+            u.room_count or "",
+            u.floor_area or "",
+            u.podil_scd or "",
+            owners,
+        ]
+
+    from datetime import datetime
+    timestamp = datetime.now().strftime("%Y%m%d")
+    from fastapi.responses import Response
+
+    if fmt == "xlsx":
+        from io import BytesIO
+        from openpyxl import Workbook
+        from openpyxl.styles import Font
+        from openpyxl.utils import get_column_letter
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Jednotky"
+        bold = Font(bold=True)
+
+        for col, h in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col, value=h)
+            cell.font = bold
+
+        for row_idx, u in enumerate(units, 2):
+            for col_idx, val in enumerate(_row(u), 1):
+                ws.cell(row=row_idx, column=col_idx, value=val)
+
+        for col_idx in range(1, len(headers) + 1):
+            col_letter = get_column_letter(col_idx)
+            max_len = max(
+                (len(str(ws.cell(row=r, column=col_idx).value or "")) for r in range(1, len(units) + 2)),
+                default=10,
+            )
+            ws.column_dimensions[col_letter].width = min(max_len + 2, 45)
+
+        buf = BytesIO()
+        wb.save(buf)
+        return Response(
+            content=buf.getvalue(),
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f'attachment; filename="jednotky_{timestamp}.xlsx"'},
+        )
+    else:
+        import csv
+        import io
+        buf = io.StringIO()
+        writer = csv.writer(buf)
+        writer.writerow(headers)
+        for u in units:
+            writer.writerow(_row(u))
+        return Response(
+            content=buf.getvalue().encode("utf-8-sig"),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="jednotky_{timestamp}.csv"'},
+        )
 
 
 @router.get("/{unit_id}")

@@ -94,28 +94,14 @@ async def owner_create(
     return RedirectResponse(f"/vlastnici/{owner.id}", status_code=302)
 
 
-@router.get("/")
-async def owner_list(
-    request: Request,
-    q: str = Query("", alias="q"),
-    owner_type: str = Query("", alias="typ"),
-    vlastnictvi: str = Query("", alias="vlastnictvi"),
-    kontakt: str = Query("", alias="kontakt"),
-    stav: str = Query("", alias="stav"),
-    sekce: str = Query("", alias="sekce"),
-    sort: str = Query("name", alias="sort"),
-    order: str = Query("asc", alias="order"),
-    back: str = Query("", alias="back"),
-    db: Session = Depends(get_db),
-):
+def _filter_owners(db: Session, q="", owner_type="", vlastnictvi="", kontakt="", stav="", sekce="", sort="name", order="asc"):
+    """Filter and sort owners. Returns list[Owner] with eager-loaded units."""
     query = db.query(Owner).filter_by(is_active=True).options(
         joinedload(Owner.units).joinedload(OwnerUnit.unit)
     )
     if q:
         search = f"%{q}%"
         search_ascii = f"%{strip_diacritics(q)}%"
-        # Search across name, email, phone, birth number, company ID, unit number
-        # name_normalized is stored without diacritics → compare with stripped search
         query = query.filter(
             Owner.name_normalized.like(search_ascii)
             | Owner.name_with_titles.ilike(search)
@@ -182,6 +168,25 @@ async def owner_list(
         owners = query.all()
     else:
         owners = query.order_by(Owner.name_normalized).all()
+
+    return owners
+
+
+@router.get("/")
+async def owner_list(
+    request: Request,
+    q: str = Query("", alias="q"),
+    owner_type: str = Query("", alias="typ"),
+    vlastnictvi: str = Query("", alias="vlastnictvi"),
+    kontakt: str = Query("", alias="kontakt"),
+    stav: str = Query("", alias="stav"),
+    sekce: str = Query("", alias="sekce"),
+    sort: str = Query("name", alias="sort"),
+    order: str = Query("asc", alias="order"),
+    back: str = Query("", alias="back"),
+    db: Session = Depends(get_db),
+):
+    owners = _filter_owners(db, q, owner_type, vlastnictvi, kontakt, stav, sekce, sort, order)
 
     # Current list URL for back navigation
     list_url = build_list_url(request)
@@ -268,6 +273,122 @@ async def owner_list(
             "ownership_counts": ownership_counts,
         },
     })
+
+
+def _format_address(owner, prefix):
+    """Format address fields into a single string."""
+    parts = []
+    street = getattr(owner, f"{prefix}_street")
+    district = getattr(owner, f"{prefix}_district")
+    city = getattr(owner, f"{prefix}_city")
+    zip_code = getattr(owner, f"{prefix}_zip")
+    country = getattr(owner, f"{prefix}_country")
+    if street:
+        parts.append(street)
+    if district:
+        parts.append(district)
+    if city and zip_code:
+        parts.append(f"{zip_code} {city}")
+    elif city:
+        parts.append(city)
+    elif zip_code:
+        parts.append(zip_code)
+    if country:
+        parts.append(country)
+    return ", ".join(parts)
+
+
+@router.get("/exportovat/{fmt}")
+async def owner_export(
+    fmt: str,
+    q: str = Query("", alias="q"),
+    owner_type: str = Query("", alias="typ"),
+    vlastnictvi: str = Query("", alias="vlastnictvi"),
+    kontakt: str = Query("", alias="kontakt"),
+    stav: str = Query("", alias="stav"),
+    sekce: str = Query("", alias="sekce"),
+    sort: str = Query("name", alias="sort"),
+    order: str = Query("asc", alias="order"),
+    db: Session = Depends(get_db),
+):
+    """Export filtered owners to Excel or CSV."""
+    if fmt not in ("xlsx", "csv"):
+        return RedirectResponse("/vlastnici", status_code=302)
+
+    owners = _filter_owners(db, q, owner_type, vlastnictvi, kontakt, stav, sekce, sort, order)
+
+    headers = ["Vlastník", "Typ", "Jednotky", "Sekce", "Email", "Email 2", "Telefon", "Podíl SČD", "RČ/IČ", "Trvalá adresa", "Korespondenční adresa"]
+
+    def _row(o):
+        units = ", ".join(str(ou.unit.unit_number) for ou in o.current_units)
+        sections = ", ".join(sorted(set(ou.unit.section for ou in o.current_units if ou.unit.section)))
+        typ = "Právnická os." if o.owner_type == OwnerType.LEGAL_ENTITY else "Fyzická os."
+        podil = sum(ou.votes for ou in o.current_units)
+        rc_ic = o.company_id or o.birth_number or ""
+        return [
+            o.display_name,
+            typ,
+            units,
+            sections,
+            o.email or "",
+            o.email_secondary or "",
+            o.phone or "",
+            podil,
+            rc_ic,
+            _format_address(o, "perm"),
+            _format_address(o, "corr"),
+        ]
+
+    timestamp = datetime.now().strftime("%Y%m%d")
+    from fastapi.responses import Response
+
+    if fmt == "xlsx":
+        from io import BytesIO
+        from openpyxl import Workbook
+        from openpyxl.styles import Font
+        from openpyxl.utils import get_column_letter
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Vlastníci"
+        bold = Font(bold=True)
+
+        for col, h in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col, value=h)
+            cell.font = bold
+
+        for row_idx, o in enumerate(owners, 2):
+            for col_idx, val in enumerate(_row(o), 1):
+                ws.cell(row=row_idx, column=col_idx, value=val)
+
+        for col_idx in range(1, len(headers) + 1):
+            col_letter = get_column_letter(col_idx)
+            max_len = max(
+                (len(str(ws.cell(row=r, column=col_idx).value or "")) for r in range(1, len(owners) + 2)),
+                default=10,
+            )
+            ws.column_dimensions[col_letter].width = min(max_len + 2, 45)
+
+        buf = BytesIO()
+        wb.save(buf)
+        return Response(
+            content=buf.getvalue(),
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f'attachment; filename="vlastnici_{timestamp}.xlsx"'},
+        )
+    else:
+        import csv
+        import io
+        buf = io.StringIO()
+        writer = csv.writer(buf)
+        writer.writerow(headers)
+        for o in owners:
+            writer.writerow(_row(o))
+        return Response(
+            content=buf.getvalue().encode("utf-8-sig"),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="vlastnici_{timestamp}.csv"'},
+        )
 
 
 @router.get("/import-kontaktu")
