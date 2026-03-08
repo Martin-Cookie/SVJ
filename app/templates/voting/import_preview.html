@@ -7,6 +7,7 @@
 {% include "voting/_voting_header.html" %}
 </div><!-- /bubble+search kontejner -->
 
+{% include "partials/import_stepper.html" %}
 <div class="flex items-center justify-between mb-3">
     <div>
         <h2 class="text-lg font-bold text-gray-800">Náhled importu výsledků</h2>
@@ -54,6 +55,14 @@
         <p class="text-lg font-bold {% if preview.no_match %}text-orange-600{% else %}text-gray-500{% endif %}">{{ preview.no_match|length }}</p>
         <p class="text-xs text-orange-600">Nerozpoznáno</p>
     </a>
+    {% set overwrite_count = preview.matched|selectattr('existing_votes', 'defined')|selectattr('existing_votes')|list|length %}
+    {% if overwrite_count > 0 %}
+    <a href="#" onclick="filterImport('overwrite');return false"
+       class="filter-bubble flex-1 block bg-yellow-50 rounded-lg shadow p-2 text-center border border-yellow-200 hover:ring-2 hover:ring-yellow-300" data-filter="overwrite">
+        <p class="text-lg font-bold text-yellow-600">{{ overwrite_count }}</p>
+        <p class="text-xs text-yellow-600">Přepíše</p>
+    </a>
+    {% endif %}
     <a href="#" onclick="filterImport('error');return false"
        class="filter-bubble flex-1 block bg-yellow-50 rounded-lg shadow p-2 text-center border border-yellow-200 hover:ring-2 hover:ring-yellow-300" data-filter="error">
         <p class="text-lg font-bold {% if preview.errors %}text-yellow-600{% else %}text-gray-500{% endif %}">{{ preview.errors|length }}</p>
@@ -67,6 +76,21 @@
            class="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
 </div>
 </div>
+
+<!-- SJM duplicates warning -->
+{% if preview.duplicates %}
+<div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-3">
+    <div class="flex items-center gap-2">
+        <svg class="w-5 h-5 text-yellow-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+        </svg>
+        <p class="text-sm text-yellow-800">
+            <strong>SJM/spoluvlastnictví:</strong> {{ preview.duplicates|length }} lístek/ů je přiřazen z více řádků Excelu.
+            Hlasy budou sloučeny (poslední řádek přepíše předchozí).
+        </p>
+    </div>
+</div>
+{% endif %}
 
 <!-- Errors -->
 {% if preview.errors %}
@@ -97,16 +121,25 @@
         </thead>
         <tbody class="divide-y divide-gray-200">
             {% for entry in preview.matched %}
-            <tr class="hover:bg-gray-50 import-row" data-match="matched">
+            <tr class="hover:bg-gray-50 import-row {% if entry.get('existing_votes') %}bg-yellow-50/50{% endif %}" data-match="matched">
                 <td class="px-3 py-1.5 text-gray-500">{{ entry.row }}</td>
                 <td class="px-3 py-1.5 font-medium text-gray-900">{{ entry.owner_name }}</td>
                 <td class="px-3 py-1.5 text-gray-500">{{ entry.unit_number }}</td>
                 {% for item in voting.items %}
                 <td class="px-3 py-1.5 text-center">
+                    {% set existing = entry.get('existing_votes', {}) %}
                     {% if item.id in entry.votes %}
-                        {% if entry.votes[item.id].vote == 'for' %}
+                        {% set new_vote = entry.votes[item.id].vote %}
+                        {% set old_vote = existing.get(item.id) %}
+                        {% if old_vote and old_vote != new_vote %}
+                        <span class="text-xs" title="Stará hodnota bude přepsána">
+                            <span class="line-through text-gray-400">{% if old_vote == 'for' %}PRO{% else %}PROTI{% endif %}</span>
+                            <span class="mx-0.5">→</span>
+                            {% if new_vote == 'for' %}<span class="text-green-700 font-medium">PRO</span>{% else %}<span class="text-red-700 font-medium">PROTI</span>{% endif %}
+                        </span>
+                        {% elif new_vote == 'for' %}
                         <span class="px-2 py-0.5 text-xs font-medium bg-green-100 text-green-800 rounded-full">PRO {{ entry.votes[item.id].count }}</span>
-                        {% elif entry.votes[item.id].vote == 'against' %}
+                        {% elif new_vote == 'against' %}
                         <span class="px-2 py-0.5 text-xs font-medium bg-red-100 text-red-800 rounded-full">PROTI {{ entry.votes[item.id].count }}</span>
                         {% endif %}
                     {% elif entry.get('unrecognized') and item.id in entry.unrecognized %}
@@ -117,7 +150,9 @@
                 </td>
                 {% endfor %}
                 <td class="px-3 py-1.5 text-center">
-                    {% if entry.get('unrecognized') %}
+                    {% if entry.get('existing_votes') %}
+                    <span class="text-yellow-600" title="Přepíše existující hlasy">&#9888;</span>
+                    {% elif entry.get('unrecognized') %}
                     <span class="text-green-600" title="Přiřazeno (některé hodnoty nerozpoznány)">&#10003;</span><span class="text-orange-500 ml-0.5" title="Nerozpoznané hodnoty">?</span>
                     {% else %}
                     <span class="text-green-600" title="Přiřazeno">&#10003;</span>
@@ -180,7 +215,14 @@ function applyFilters() {
     var visible = 0;
     var q = searchQuery.toLowerCase();
     document.querySelectorAll('.import-row').forEach(function(r) {
-        var matchFilter = activeFilter === 'all' || r.dataset.match === activeFilter;
+        var matchFilter;
+        if (activeFilter === 'all') {
+            matchFilter = true;
+        } else if (activeFilter === 'overwrite') {
+            matchFilter = r.classList.contains('bg-yellow-50/50');
+        } else {
+            matchFilter = r.dataset.match === activeFilter;
+        }
         var matchSearch = !q || r.textContent.toLowerCase().indexOf(q) !== -1;
         var show = matchFilter && matchSearch;
         r.style.display = show ? '' : 'none';
@@ -200,6 +242,7 @@ function filterImport(type) {
             else if (type === 'matched') b.classList.add('ring-green-400');
             else if (type === 'unmatched') b.classList.add('ring-red-400');
             else if (type === 'no_match') b.classList.add('ring-orange-400');
+            else if (type === 'overwrite') b.classList.add('ring-yellow-400');
             else if (type === 'error') b.classList.add('ring-yellow-400');
         }
     });

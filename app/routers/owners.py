@@ -74,6 +74,13 @@ async def owner_create(
         parts_norm.append(first_name)
     name_normalized = strip_diacritics(" ".join(parts_norm))
 
+    # Validate email — flash warning if invalid format
+    email_clean = email.strip() if email else ""
+    email_warning = ""
+    if email_clean and not is_valid_email(email_clean):
+        email_warning = "neplatny-email"
+        email_clean = ""
+
     owner = Owner(
         first_name=first_name.strip(),
         last_name=last_name.strip() or None,
@@ -81,7 +88,7 @@ async def owner_create(
         owner_type=OwnerType(owner_type),
         name_with_titles=name_with_titles,
         name_normalized=name_normalized,
-        email=(email.strip() if email.strip() and is_valid_email(email.strip()) else None),
+        email=email_clean or None,
         phone=phone.strip() or None,
         birth_number=birth_number.strip() or None,
         data_source="manual",
@@ -91,7 +98,8 @@ async def owner_create(
     db.add(owner)
     db.commit()
 
-    return RedirectResponse(f"/vlastnici/{owner.id}", status_code=302)
+    redirect_url = f"/vlastnici/{owner.id}?info={email_warning or 'vytvoren'}"
+    return RedirectResponse(redirect_url, status_code=302)
 
 
 def _filter_owners(db: Session, q="", owner_type="", vlastnictvi="", kontakt="", stav="", sekce="", sort="name", order="asc"):
@@ -149,23 +157,43 @@ def _filter_owners(db: Session, q="", owner_type="", vlastnictvi="", kontakt="",
     # Sorting
     sort_col = SORT_COLUMNS.get(sort)
     if sort == "podil":
-        owners = query.all()
-        owners.sort(
-            key=lambda o: sum(ou.votes for ou in o.current_units),
-            reverse=(order == "desc"),
+        # SQL subquery: sum of votes across current owner-unit assignments
+        podil_sub = (
+            db.query(OwnerUnit.owner_id, func.coalesce(func.sum(OwnerUnit.votes), 0).label("total_votes"))
+            .filter(OwnerUnit.valid_to.is_(None))
+            .group_by(OwnerUnit.owner_id)
+            .subquery()
         )
+        query = query.outerjoin(podil_sub, Owner.id == podil_sub.c.owner_id)
+        col = podil_sub.c.total_votes
+        query = query.order_by(col.desc().nulls_last() if order == "desc" else col.asc().nulls_last())
+        owners = query.all()
     elif sort == "jednotky":
-        owners = query.all()
-        owners.sort(
-            key=lambda o: (o.current_units[0].unit.unit_number if o.current_units else 0),
-            reverse=(order == "desc"),
+        # SQL subquery: min unit_number per owner
+        unit_sub = (
+            db.query(OwnerUnit.owner_id, func.min(Unit.unit_number).label("min_unit"))
+            .join(Unit, OwnerUnit.unit_id == Unit.id)
+            .filter(OwnerUnit.valid_to.is_(None))
+            .group_by(OwnerUnit.owner_id)
+            .subquery()
         )
+        query = query.outerjoin(unit_sub, Owner.id == unit_sub.c.owner_id)
+        col = unit_sub.c.min_unit
+        query = query.order_by(col.desc().nulls_last() if order == "desc" else col.asc().nulls_last())
+        owners = query.all()
     elif sort == "sekce":
-        owners = query.all()
-        owners.sort(
-            key=lambda o: (o.current_units[0].unit.section or "") if o.current_units else "",
-            reverse=(order == "desc"),
+        # SQL subquery: min section per owner
+        sec_sub = (
+            db.query(OwnerUnit.owner_id, func.min(Unit.section).label("min_section"))
+            .join(Unit, OwnerUnit.unit_id == Unit.id)
+            .filter(OwnerUnit.valid_to.is_(None))
+            .group_by(OwnerUnit.owner_id)
+            .subquery()
         )
+        query = query.outerjoin(sec_sub, Owner.id == sec_sub.c.owner_id)
+        col = sec_sub.c.min_section
+        query = query.order_by(col.desc().nulls_last() if order == "desc" else col.asc().nulls_last())
+        owners = query.all()
     elif sort_col is not None:
         if order == "desc":
             query = query.order_by(sort_col.desc().nulls_last())
@@ -791,6 +819,7 @@ async def owner_detail(
     owner_id: int,
     request: Request,
     back: str = Query("", alias="back"),
+    info: str = Query(""),
     db: Session = Depends(get_db),
 ):
     from app.services.code_list_service import get_all_code_lists
@@ -813,7 +842,7 @@ async def owner_detail(
     svj_info = db.query(SvjInfo).first()
     declared_shares = svj_info.total_shares if svj_info and svj_info.total_shares else 0
 
-    return templates.TemplateResponse("owners/detail.html", {
+    ctx = {
         "request": request,
         "active_nav": "owners",
         "owner": owner,
@@ -830,7 +859,13 @@ async def owner_detail(
             else "Zpět na seznam vlastníků"
         ),
         "code_lists": get_all_code_lists(db),
-    })
+    }
+    if info == "vytvoren":
+        ctx["flash_message"] = f"Vlastník {owner.display_name} byl vytvořen."
+    elif info == "neplatny-email":
+        ctx["flash_message"] = "Vlastník vytvořen, ale zadaný email měl neplatný formát a nebyl uložen."
+        ctx["flash_type"] = "warning"
+    return templates.TemplateResponse("owners/detail.html", ctx)
 
 
 @router.get("/{owner_id}/identita-formular")

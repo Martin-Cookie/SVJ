@@ -89,6 +89,15 @@ async def confirm_all(
         ).update({"match_status": MatchStatus.CONFIRMED}, synchronize_session="fetch")
         db.commit()
 
+    # Preserve scroll position via referer or hash
+    referer = request.headers.get("referer", "")
+    if referer and f"/dane/{session_id}" in referer:
+        from urllib.parse import urlparse
+        parsed = urlparse(referer)
+        redirect_url = parsed.path
+        if parsed.query:
+            redirect_url += "?" + parsed.query
+        return RedirectResponse(redirect_url, status_code=302)
     return RedirectResponse(f"/dane/{session_id}", status_code=302)
 
 
@@ -110,6 +119,15 @@ async def confirm_selected(
         ).update({"match_status": MatchStatus.CONFIRMED}, synchronize_session="fetch")
         db.commit()
 
+    # Preserve scroll position via referer
+    referer = request.headers.get("referer", "")
+    if referer and f"/dane/{session_id}" in referer:
+        from urllib.parse import urlparse
+        parsed = urlparse(referer)
+        redirect_url = parsed.path
+        if parsed.query:
+            redirect_url += "?" + parsed.query
+        return RedirectResponse(redirect_url, status_code=302)
     return RedirectResponse(f"/dane/{session_id}", status_code=302)
 
 

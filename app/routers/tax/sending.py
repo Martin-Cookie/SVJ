@@ -195,7 +195,12 @@ async def update_recipient_email(
 
     if dist.owner_id:
         session = db.query(TaxSession).get(session_id)
-        all_docs = db.query(TaxDocument).filter_by(session_id=session_id).all()
+        all_docs = (
+            db.query(TaxDocument)
+            .filter_by(session_id=session_id)
+            .options(joinedload(TaxDocument.distributions))
+            .all()
+        )
         doc_ids = [d.id for d in all_docs]
 
         # Propagate to all distributions of this owner in this session
@@ -393,7 +398,12 @@ async def toggle_recipient_email(
     # Propagate to all sibling distributions of same owner in this session
     # Skip distributions that are already SENT to preserve historical record (#6)
     if dist.owner_id:
-        all_docs = db.query(TaxDocument).filter_by(session_id=session_id).all()
+        all_docs = (
+            db.query(TaxDocument)
+            .filter_by(session_id=session_id)
+            .options(joinedload(TaxDocument.distributions))
+            .all()
+        )
         doc_ids = [d.id for d in all_docs]
         sibling_dists = (
             db.query(TaxDistribution)

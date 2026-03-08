@@ -348,6 +348,12 @@ def preview_voting_import(file_path: str, mapping: dict, voting: Voting, db: Ses
                     canonical["votes"][item_id] = vote_data
                 votes = canonical["votes"]
 
+            # Collect existing votes for conflict detection (K2)
+            existing_votes = {}
+            for bv in ballot.votes:
+                if bv.vote is not None:
+                    existing_votes[bv.voting_item_id] = bv.vote.value
+
             entry = {
                 "row": row_idx,
                 "owner_name": owner_name or ballot.owner.display_name,
@@ -355,6 +361,8 @@ def preview_voting_import(file_path: str, mapping: dict, voting: Voting, db: Ses
                 "ballot_id": ballot.id,
                 "votes": votes,
             }
+            if existing_votes:
+                entry["existing_votes"] = existing_votes
             if unrecognized:
                 entry["unrecognized"] = unrecognized
             if ballot.id not in seen_ballots:
@@ -363,12 +371,24 @@ def preview_voting_import(file_path: str, mapping: dict, voting: Voting, db: Ses
 
     wb.close()
 
+    # K3: Detect duplicate ballot assignments (SJM risk)
+    ballot_row_count: dict[int, int] = {}
+    for entry in matched:
+        bid = entry["ballot_id"]
+        ballot_row_count[bid] = ballot_row_count.get(bid, 0) + 1
+    duplicates = [
+        {"ballot_id": bid, "count": cnt}
+        for bid, cnt in ballot_row_count.items()
+        if cnt > 1
+    ]
+
     return {
         "total_rows": len(matched) + len(unmatched) + len(no_match),
         "matched": matched,
         "unmatched": unmatched,
         "no_match": no_match,
         "errors": errors,
+        "duplicates": duplicates,
     }
 
 

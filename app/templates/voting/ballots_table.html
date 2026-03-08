@@ -7,6 +7,13 @@
 {% set _anchor = '#ballot-' ~ ballot.id %}
 {% set _back = _back_base ~ _anchor %}
 <tr id="ballot-{{ ballot.id }}" class="hover:bg-gray-50">
+    {% if voting.status.value == 'active' %}
+    <td class="px-2 py-2 text-center">
+        {% if ballot.status.value == 'processed' %}
+        <input type="checkbox" class="ballot-cb rounded border-gray-300 text-blue-600 focus:ring-blue-500" value="{{ ballot.id }}" onchange="updateBulkResetBar()">
+        {% endif %}
+    </td>
+    {% endif %}
     <td class="px-4 py-2">
         <a href="/hlasovani/{{ voting.id }}/listek/{{ ballot.id }}?back={{ _back|urlencode }}" class="font-medium text-blue-600 hover:text-blue-800 hover:underline">
             {{ ballot.shared_owners_text or ballot.owner.display_name }}

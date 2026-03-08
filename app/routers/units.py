@@ -368,11 +368,18 @@ def _filter_units(db: Session, q="", typ="", sekce="", sort="unit_number", order
 
     # Sorting
     if sort == "owners":
-        units = query.all()
-        units.sort(
-            key=lambda u: (u.current_owners[0].owner.name_normalized if u.current_owners else ""),
-            reverse=(order == "desc"),
+        # SQL subquery: min owner name_normalized per unit
+        owner_sub = (
+            db.query(OwnerUnit.unit_id, func.min(Owner.name_normalized).label("min_owner"))
+            .join(Owner, OwnerUnit.owner_id == Owner.id)
+            .filter(OwnerUnit.valid_to.is_(None))
+            .group_by(OwnerUnit.unit_id)
+            .subquery()
         )
+        query = query.outerjoin(owner_sub, Unit.id == owner_sub.c.unit_id)
+        col = owner_sub.c.min_owner
+        query = query.order_by(col.desc().nulls_last() if order == "desc" else col.asc().nulls_last())
+        units = query.all()
     else:
         sort_col = SORT_COLUMNS.get(sort, Unit.unit_number)
         if order == "desc":

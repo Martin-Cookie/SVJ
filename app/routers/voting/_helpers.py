@@ -120,6 +120,29 @@ def _ballot_stats(voting, db: Session):
         ),
     ).scalar()
 
+    # Count partially voted ballots (processed, have some votes but not all items)
+    total_items = len(voting.items)
+    partial_ballots_count = 0
+    if total_items > 0:
+        # Ballots where vote count < total items
+        vote_counts_per_ballot = (
+            db.query(
+                BallotVote.ballot_id,
+                func.count(BallotVote.id).label("voted"),
+            )
+            .join(Ballot, BallotVote.ballot_id == Ballot.id)
+            .filter(
+                Ballot.voting_id == voting.id,
+                Ballot.status == BallotStatus.PROCESSED,
+                BallotVote.vote.isnot(None),
+            )
+            .group_by(BallotVote.ballot_id)
+            .all()
+        )
+        partial_ballots_count = sum(
+            1 for _, voted in vote_counts_per_ballot if voted < total_items
+        )
+
     declared_shares = _get_declared_shares(db)
     quorum_reached = (
         processed_with_votes / declared_shares >= voting.quorum_threshold
@@ -133,4 +156,5 @@ def _ballot_stats(voting, db: Session):
         "total_generated_votes": total_generated_votes,
         "declared_shares": declared_shares,
         "quorum_reached": quorum_reached,
+        "partial_ballots_count": partial_ballots_count,
     }

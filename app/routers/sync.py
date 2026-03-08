@@ -44,6 +44,7 @@ async def sync_list(
     sort: str = Query(""),
     order: str = Query(""),
     back: str = Query("", alias="back"),
+    chyba: str = Query("", alias="chyba"),
     db: Session = Depends(get_db),
 ):
     # Legacy fallback: if old q/sort/order params are used (HTMX partial)
@@ -105,6 +106,17 @@ async def sync_list(
     sc_sort_fn = SC_SORT_KEYS.get(sc_sort, SC_SORT_KEYS["date"])
     sc_sessions.sort(key=sc_sort_fn, reverse=(sc_order == "desc"))
 
+    # Flash messages from query params
+    _CHYBA_MSG = {
+        "upload": "Nepodporovaný formát nebo příliš velký soubor.",
+        "soubor": "Nebyl vybrán žádný soubor.",
+        "cesta": "Neplatná cesta k souboru.",
+        "hlavicky": "Nelze přečíst hlavičky souboru.",
+        "prazdny": "Soubor neobsahuje žádná data k porovnání.",
+    }
+    flash_message = _CHYBA_MSG.get(chyba, "")
+    flash_type = "error" if flash_message else ""
+
     ctx = {
         "request": request,
         "active_nav": "kontroly",
@@ -121,6 +133,8 @@ async def sync_list(
         # Legacy: partials use "sessions" and "q"
         "sessions": sync_sessions,
         "q": _sync_q,
+        "flash_message": flash_message,
+        "flash_type": flash_type,
     }
 
     return templates.TemplateResponse("sync/index.html", ctx)

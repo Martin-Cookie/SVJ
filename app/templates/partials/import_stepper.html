@@ -1,0 +1,12 @@
+{# Import sub-stepper: shows current step in the import flow.
+   Required context: import_step (int, 1-4)
+#}
+{% set _steps = [("Nahrání", 1), ("Mapování", 2), ("Náhled", 3), ("Výsledek", 4)] %}
+<div class="flex items-center gap-1 text-xs mb-2">
+    {% for label, num in _steps %}
+    <span class="{% if import_step == num %}font-bold text-blue-600{% elif import_step > num %}text-green-600{% else %}text-gray-400{% endif %}">
+        {% if import_step > num %}&#10003;{% else %}{{ num }}.{% endif %} {{ label }}
+    </span>
+    {% if not loop.last %}<span class="text-gray-300 mx-0.5">→</span>{% endif %}
+    {% endfor %}
+</div>

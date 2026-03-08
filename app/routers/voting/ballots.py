@@ -377,6 +377,42 @@ async def reset_ballot(
     return RedirectResponse(f"/hlasovani/{voting_id}/listek/{ballot_id}", status_code=302)
 
 
+@router.post("/{voting_id}/listky/hromadny-reset")
+async def bulk_reset_ballots(
+    voting_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Bulk reset selected processed ballots back to GENERATED."""
+    from fastapi import Form as FastForm
+    form_data = await request.form()
+    ballot_ids_raw = form_data.get("ballot_ids", "")
+    ballot_ids = [int(x) for x in ballot_ids_raw.split(",") if x.strip()]
+
+    if not ballot_ids:
+        return RedirectResponse(f"/hlasovani/{voting_id}/listky", status_code=302)
+
+    voting = db.query(Voting).get(voting_id)
+    if not voting or voting.status != VotingStatus.ACTIVE:
+        return RedirectResponse(f"/hlasovani/{voting_id}/listky", status_code=302)
+
+    ballots = (
+        db.query(Ballot).options(joinedload(Ballot.votes))
+        .filter(Ballot.id.in_(ballot_ids), Ballot.voting_id == voting_id, Ballot.status == BallotStatus.PROCESSED)
+        .all()
+    )
+
+    for ballot in ballots:
+        ballot.status = BallotStatus.GENERATED
+        ballot.processed_at = None
+        for bv in ballot.votes:
+            bv.vote = None
+            bv.manually_verified = False
+
+    db.commit()
+    return RedirectResponse(f"/hlasovani/{voting_id}/listky", status_code=302)
+
+
 @router.get("/{voting_id}/listek/{ballot_id}/pdf")
 async def ballot_pdf_download(
     voting_id: int,

@@ -144,6 +144,12 @@
                     <td class="text-right font-mono">{{ "{:,}".format(total_processed_votes).replace(",", " ") }}</td>
                 </tr>
                 {% endif %}
+                {% if partial_ballots_count is defined and partial_ballots_count > 0 %}
+                <tr>
+                    <td class="text-left pr-1 text-orange-600">Neúplné lístky:</td>
+                    <td class="text-right font-mono text-orange-600" title="Lístky, u kterých nejsou vyplněny všechny body">{{ partial_ballots_count }}</td>
+                </tr>
+                {% endif %}
             </table>
         </div>
     </div>

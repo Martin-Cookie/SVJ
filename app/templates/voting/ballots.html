@@ -31,10 +31,28 @@
 {% set _svg_up = '<svg aria-hidden="true" class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L10 6.414l-3.293 3.293a1 1 0 01-1.414 0z"/></svg>' %}
 {% set _svg_down = '<svg aria-hidden="true" class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path d="M14.707 10.293a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L10 13.586l3.293-3.293a1 1 0 011.414 0z"/></svg>' %}
 {% set sortable_cols = [("Vlastník", "owner", "left"), ("Jednotky", "units", "left"), ("Hlasy", "votes", "right")] %}
+{% if voting.status.value == 'active' %}
+<div class="flex items-center gap-2 mb-2" id="bulk-reset-bar" style="display:none">
+    <span class="text-xs text-gray-500">Vybráno: <strong id="bulk-reset-count">0</strong> lístků</span>
+    <form action="/hlasovani/{{ voting.id }}/listky/hromadny-reset" method="post"
+          data-confirm="Resetovat vybrané zpracované lístky?\n\nStávající hlasy budou smazány a lístky se vrátí do stavu Vygenerován." hx-boost="false">
+        <input type="hidden" name="ballot_ids" id="bulk-reset-ids" value="">
+        <button type="submit" class="px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 text-xs font-medium transition-colors">
+            Resetovat vybrané
+        </button>
+    </form>
+</div>
+{% endif %}
 <div class="flex-1 bg-white rounded-lg shadow overflow-auto min-h-0">
     <table class="min-w-full divide-y divide-gray-200 text-sm">
         <thead class="bg-gray-50 border-b-2 border-gray-300 sticky top-0 z-10">
             <tr>
+                {% if voting.status.value == 'active' %}
+                <th class="px-2 py-3 text-center w-8">
+                    <input type="checkbox" id="ballot-select-all" onchange="toggleBallotCheckboxes(this)"
+                           class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                </th>
+                {% endif %}
                 {% for label, col, align in sortable_cols %}
                 {% set next_order = "desc" if sort == col and order == "asc" else "asc" %}
                 <th class="px-4 py-3 text-{{ align }} text-xs font-medium uppercase {% if sort == col %}text-blue-600{% else %}text-gray-500{% endif %}">
@@ -86,6 +104,21 @@
 if (location.hash) {
     var el = document.querySelector(location.hash);
     if (el) el.scrollIntoView({block: 'center'});
+}
+function toggleBallotCheckboxes(master) {
+    document.querySelectorAll('.ballot-cb').forEach(function(cb) {
+        cb.checked = master.checked;
+    });
+    updateBulkResetBar();
+}
+function updateBulkResetBar() {
+    var checked = document.querySelectorAll('.ballot-cb:checked');
+    var bar = document.getElementById('bulk-reset-bar');
+    if (!bar) return;
+    var ids = Array.from(checked).map(function(cb) { return cb.value; });
+    bar.style.display = ids.length > 0 ? '' : 'none';
+    document.getElementById('bulk-reset-count').textContent = ids.length;
+    document.getElementById('bulk-reset-ids').value = ids.join(',');
 }
 </script>
 {% endblock %}

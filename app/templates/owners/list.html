@@ -79,26 +79,25 @@
         <p class="text-lg font-bold text-blue-600">{{ stats.type_counts.get('legal', 0) }}</p>
         <p class="text-xs text-blue-600">Právnická os.</p>
     </a>
-    <div class="flex-1 rounded p-2 text-center flex">
-        <a href="/vlastnici?kontakt=s_emailem&{{ _base }}" class="flex-1 hover:bg-teal-50 rounded-l px-1 {% if kontakt == 's_emailem' %}ring-2 ring-teal-400{% endif %}">
+    <div class="flex-1 rounded p-2 text-center flex border border-gray-200">
+        <a href="/vlastnici?kontakt=s_emailem&{{ _base }}" class="flex-1 hover:bg-teal-50 rounded-l px-1 {% if kontakt == 's_emailem' %}ring-2 ring-teal-400{% endif %}" title="S emailem">
             <p class="text-lg font-bold text-teal-600">{{ stats.emails_count }}</p>
-            <p class="text-xs text-teal-600">S&nbsp;emailem</p>
+            <p class="text-xs text-teal-600">&#9993;&nbsp;&#10003;</p>
         </a>
         <div class="w-px bg-gray-200"></div>
-        <a href="/vlastnici?kontakt=bez_emailu&{{ _base }}" class="flex-1 hover:bg-red-50 rounded-r px-1 {% if kontakt == 'bez_emailu' %}ring-2 ring-red-400{% endif %}">
+        <a href="/vlastnici?kontakt=bez_emailu&{{ _base }}" class="flex-1 hover:bg-red-50 px-1 {% if kontakt == 'bez_emailu' %}ring-2 ring-red-400{% endif %}" title="Bez emailu">
             <p class="text-lg font-bold text-red-400">{{ stats.total_owners - stats.emails_count }}</p>
-            <p class="text-xs text-red-400">Bez&nbsp;emailu</p>
-        </a>
-    </div>
-    <div class="flex-1 rounded p-2 text-center flex">
-        <a href="/vlastnici?kontakt=s_telefonem&{{ _base }}" class="flex-1 hover:bg-teal-50 rounded-l px-1 {% if kontakt == 's_telefonem' %}ring-2 ring-teal-400{% endif %}">
-            <p class="text-lg font-bold text-teal-600">{{ stats.phones_count }}</p>
-            <p class="text-xs text-teal-600">S&nbsp;tel.</p>
+            <p class="text-xs text-red-400">&#9993;&nbsp;&#10007;</p>
         </a>
         <div class="w-px bg-gray-200"></div>
-        <a href="/vlastnici?kontakt=bez_telefonu&{{ _base }}" class="flex-1 hover:bg-red-50 rounded-r px-1 {% if kontakt == 'bez_telefonu' %}ring-2 ring-red-400{% endif %}">
+        <a href="/vlastnici?kontakt=s_telefonem&{{ _base }}" class="flex-1 hover:bg-teal-50 px-1 {% if kontakt == 's_telefonem' %}ring-2 ring-teal-400{% endif %}" title="S telefonem">
+            <p class="text-lg font-bold text-teal-600">{{ stats.phones_count }}</p>
+            <p class="text-xs text-teal-600">&#9742;&nbsp;&#10003;</p>
+        </a>
+        <div class="w-px bg-gray-200"></div>
+        <a href="/vlastnici?kontakt=bez_telefonu&{{ _base }}" class="flex-1 hover:bg-red-50 rounded-r px-1 {% if kontakt == 'bez_telefonu' %}ring-2 ring-red-400{% endif %}" title="Bez telefonu">
             <p class="text-lg font-bold text-red-400">{{ stats.total_owners - stats.phones_count }}</p>
-            <p class="text-xs text-red-400">Bez&nbsp;tel.</p>
+            <p class="text-xs text-red-400">&#9742;&nbsp;&#10007;</p>
         </a>
     </div>
     {% if stats.no_units_count %}

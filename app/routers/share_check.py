@@ -87,7 +87,7 @@ async def share_check_upload(
     db: Session = Depends(get_db),
 ):
     if not file.filename:
-        return RedirectResponse("/synchronizace#kontrola-podilu", status_code=302)
+        return RedirectResponse("/synchronizace?chyba=soubor#kontrola-podilu", status_code=302)
 
     err = await validate_upload(file, max_size_mb=50, allowed_extensions=[".csv", ".xlsx", ".xls"])
     if err:
@@ -114,17 +114,17 @@ async def share_check_mapping(
     db: Session = Depends(get_db),
 ):
     if not is_safe_path(Path(file_path), settings.upload_dir):
-        return RedirectResponse("/synchronizace#kontrola-podilu", status_code=302)
+        return RedirectResponse("/synchronizace?chyba=cesta#kontrola-podilu", status_code=302)
     if not Path(file_path).is_file():
-        return RedirectResponse("/synchronizace#kontrola-podilu", status_code=302)
+        return RedirectResponse("/synchronizace?chyba=soubor#kontrola-podilu", status_code=302)
 
     try:
         headers = get_file_headers(file_path)
     except Exception:
-        return RedirectResponse("/synchronizace#kontrola-podilu", status_code=302)
+        return RedirectResponse("/synchronizace?chyba=hlavicky#kontrola-podilu", status_code=302)
 
     if not headers:
-        return RedirectResponse("/synchronizace#kontrola-podilu", status_code=302)
+        return RedirectResponse("/synchronizace?chyba=hlavicky#kontrola-podilu", status_code=302)
 
     col_unit, col_share, from_history = suggest_mapping(headers, db)
 
@@ -157,14 +157,14 @@ async def share_check_confirm_mapping(
 ):
     # Validate file path and existence
     if not is_safe_path(Path(file_path), settings.upload_dir):
-        return RedirectResponse("/synchronizace#kontrola-podilu", status_code=302)
+        return RedirectResponse("/synchronizace?chyba=cesta#kontrola-podilu", status_code=302)
     if not Path(file_path).is_file():
-        return RedirectResponse("/synchronizace#kontrola-podilu", status_code=302)
+        return RedirectResponse("/synchronizace?chyba=soubor#kontrola-podilu", status_code=302)
 
     # Parse file
     file_records = parse_file(file_path, col_unit, col_share)
     if not file_records:
-        return RedirectResponse("/synchronizace#kontrola-podilu", status_code=302)
+        return RedirectResponse("/synchronizace?chyba=prazdny#kontrola-podilu", status_code=302)
 
     # Compare with DB
     comparison = compare_shares(file_records, db)
