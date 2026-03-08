@@ -15,13 +15,15 @@
         {% set is_done = step.status == 'done' %}
         {% set is_active = step.status == 'active' %}
         {% set is_sending = step.status == 'sending' %}
+        {% set is_current = loop.index == wizard_current %}
         {# Step circle #}
         <div class="flex items-center" title="{{ loop.index }}. {{ step.label }}">
             <div class="flex items-center justify-center w-7 h-7 rounded-full text-xs font-medium
-                {% if is_done %}bg-green-100 text-green-700 border-2 border-green-400
+                {% if is_done and is_current %}bg-green-500 text-white border-2 border-green-600 ring-2 ring-green-300
+                {% elif is_done %}bg-green-100 text-green-700 border-2 border-green-400
                 {% elif is_sending %}bg-orange-500 text-white border-2 border-orange-500 animate-pulse
                 {% elif is_active %}bg-green-600 text-white border-2 border-green-600
-                {% else %}bg-gray-100 text-gray-500 border-2 border-gray-200
+                {% else %}bg-transparent text-gray-400 border-2 border-gray-300
                 {% endif %}">
                 {% if is_done %}
                 <svg aria-hidden="true" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
