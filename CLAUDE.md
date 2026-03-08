@@ -266,6 +266,10 @@
 - `is_htmx_partial(request)` — `True` pokud request je HTMX ale NE boosted (pro partial odpovědi)
 - `is_safe_path(path, allowed_dirs)` — validace cesty proti path traversal
 - `validate_upload(file, extensions, max_size)` — validace nahraného souboru (přípona, velikost)
+- `validate_uploads(files, extensions, max_size)` — validace seznamu souborů (vrací první chybu)
+- `is_valid_email(email)` — základní regex validace emailového formátu
+- `excel_auto_width(ws, max_width=45)` — auto-šířka sloupců v openpyxl worksheet (pro Excel exporty)
+- `setup_jinja_filters(templates)` — registrace custom Jinja2 filtrů (aktuálně `fmt_num`) na Jinja2Templates instanci
 
 ## JavaScript
 
@@ -282,6 +286,24 @@
 - Custom CSS: `custom.css` (HTMX animace), `dark-mode.css` (dark mode override)
 - Vše stylováno přes Tailwind utility classes
 - Dark mode — přepínač v sidebaru, detaily viz [UI_GUIDE.md § 19](docs/UI_GUIDE.md)
+
+## Global exception handlers
+
+- **IntegrityError** → HTTP 409 „Konflikt dat" (logged warning)
+- **OperationalError** → HTTP 500 „Chyba databáze" (logged error)
+- **404 Not Found** → custom `error.html` šablona
+- **500 Server Error** → custom `error.html` šablona
+- Handlery v `main.py`, šablona `app/templates/error.html`
+
+## Router packages
+
+- Komplexní routery (1500+ řádků) se dělí na package: `app/routers/modul/`
+- Struktura: `__init__.py` (kombinuje sub-routery), `_helpers.py` (sdílené funkce), logické sub-moduly
+- `__init__.py`: vlastní `APIRouter()` + `include_router(sub_router)` pro každý sub-modul
+- `main.py` import zůstává beze změny (`from app.routers import modul`)
+- Příklady:
+  - `voting/` — `session.py`, `ballots.py`, `import_votes.py`, `_helpers.py`
+  - `tax/` — `session.py`, `processing.py`, `matching.py`, `sending.py`, `_helpers.py`
 
 ## Startup (lifespan)
 

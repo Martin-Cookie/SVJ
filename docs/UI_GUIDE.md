@@ -714,13 +714,18 @@ if has_documents and max_done < 1:
 
 ## 17. Potvrzení destruktivních akcí
 
-### Standardní potvrzení
+### Standardní potvrzení — `data-confirm` atribut (primární vzor)
 ```html
-<form onsubmit="return confirm('Opravdu smazat?')" hx-boost="false">
+<form action="/endpoint" method="post"
+      data-confirm="Opravdu smazat?\n\nTato akce je nevratná."
+      hx-boost="false">
     <button type="submit">Smazat</button>
 </form>
 ```
-- `hx-boost="false"` je **povinné** na formulářích s `onsubmit="return confirm()"` — jinak HTMX zachytí submit dřív než confirm dialog
+- `data-confirm` funguje na `<form>`, `<button>`, `<a>` — globální handler v `app.js`
+- Podporuje víceřádkové zprávy přes `\n`
+- `hx-boost="false"` je **povinné** na formulářích s potvrzením — jinak HTMX zachytí submit dřív než confirm dialog
+- Alternativa: `onsubmit="return confirm('...')"` — starší vzor, preferovat `data-confirm`
 
 ### Kritické operace (purge, nevratné akce)
 ```html
@@ -743,7 +748,9 @@ Pro mazání uzavřených/odeslaných entit se používá custom modal s DELETE 
 ## 18. Export dat (UI pravidla)
 
 - Formulář exportu musí mít `hx-boost="false"` — binární soubor (Excel/CSV/ZIP) nelze swapnout jako HTML
-- Tlačítko exportu: plné modré (`bg-blue-600 text-white`) nebo plné zelené (`bg-green-600 text-white`)
+- Tlačítko exportu — dvě varianty:
+  - **Kompaktní na seznamu** (vedle „Nový …"): `px-2.5 py-1.5 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 text-xs font-medium border border-gray-200` s textem `↓ Excel` / `↓ CSV`
+  - **Plné na detailu/admin**: `bg-blue-600 text-white` (modré) nebo `bg-green-600 text-white` (zelené)
 - Pokud je export filtrovaný: hidden inputy přenáší aktuální filtr do POST endpointu
 - Více kategorií s checkboxy: vzor "Vybrat/Zrušit vše" (viz § 15)
 

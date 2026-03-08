@@ -4,6 +4,8 @@ __pycache__/
 .venv/
 venv/
 data/svj.db
+data/svj.db-shm
+data/svj.db-wal
 data/uploads/
 data/generated/
 data/temp/
@@ -16,3 +18,4 @@ data/backups/
 wheels/
 *.png
 data/*.xlsx
+.playwright-mcp/

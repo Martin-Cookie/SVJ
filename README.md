@@ -385,8 +385,19 @@ app/
 │   ├── dashboard.py           #   GET /
 │   ├── owners.py              #   /vlastnici (+ /vlastnici/import)
 │   ├── units.py               #   /jednotky
-│   ├── voting.py              #   /hlasovani
-│   ├── tax.py                 #   /dane
+│   ├── voting/                #   /hlasovani (session, ballots, import_votes, _helpers)
+│   │   ├── __init__.py
+│   │   ├── session.py         #   CRUD, detail, generování lístků, export
+│   │   ├── ballots.py         #   Seznam lístků, zpracování, neodevzdané
+│   │   ├── import_votes.py    #   Import výsledků z Excelu
+│   │   └── _helpers.py        #   _voting_wizard, _ballot_stats, _has_processed_ballots
+│   ├── tax/                   #   /dane (session, processing, matching, sending, _helpers)
+│   │   ├── __init__.py
+│   │   ├── session.py         #   CRUD, detail, export
+│   │   ├── processing.py      #   PDF zpracování, progress
+│   │   ├── matching.py        #   Přiřazení, potvrzení
+│   │   ├── sending.py         #   Email rozesílání, progress
+│   │   └── _helpers.py        #   _tax_wizard, _session_stats, _find_coowners
 │   ├── sync.py                #   /synchronizace (sloučená stránka Kontroly)
 │   ├── share_check.py         #   /kontrola-podilu (detail + redirect na /synchronizace)
 │   ├── administration.py      #   /sprava
@@ -595,6 +606,8 @@ wheels/                        # Offline Python balíčky (gitignored)
 | POST | `/hlasovani/{id}/stav` | Změna stavu hlasování |
 | POST | `/hlasovani/{id}/pridat-bod` | Přidání bodu hlasování |
 | POST | `/hlasovani/{id}/smazat-bod/{item_id}` | Smazání bodu hlasování |
+| POST | `/hlasovani/{id}/bod/{item_id}/upravit` | Editace bodu hlasování |
+| POST | `/hlasovani/{id}/bod/{item_id}/posunout` | Posun bodu (reorder) |
 | POST | `/hlasovani/{id}/generovat` | Generování PDF lístků |
 | GET | `/hlasovani/{id}/listky` | Seznam lístků (filtr stavu, search, sort, HTMX partial) |
 | GET | `/hlasovani/{id}/listek/{ballot_id}` | Detail hlasovacího lístku |

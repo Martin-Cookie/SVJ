@@ -1,12 +1,12 @@
-# SVJ Audit Report – 2026-03-08
+# SVJ Audit Report – 2026-03-08 (post-refaktor)
 
 ## Souhrn
-- **CRITICAL: 3**
-- **HIGH: 8**
-- **MEDIUM: 14**
-- **LOW: 8**
+- **CRITICAL: 4** (3 známé + 1 nový)
+- **HIGH: 4**
+- **MEDIUM: 8**
+- **LOW: 10**
 
-**Celkem: 33 nálezů** (vs 30 v předchozím auditu 2026-03-05 — nové nálezy z exportů a rozesílky)
+**Celkem: 26 nálezů** (po opravě 20/33 z předchozího auditu)
 
 ---
 
@@ -14,110 +14,106 @@
 
 | # | Oblast | Soubor | Severity | Problém | Stav |
 |---|--------|--------|----------|---------|------|
-| 1 | Bezpečnost | celý projekt | CRITICAL | Žádná autentizace — 95+ POST endpointů veřejných | Známý, plán v CLAUDE.md |
-| 2 | Bezpečnost | celý projekt | CRITICAL | Žádná CSRF ochrana na POST formulářích | Známý, řešit s auth |
-| 3 | Testy | celý projekt | CRITICAL | Žádné testy — nulové pokrytí | Známý |
-| 4 | Kód | owners.py, units.py, voting_import.py | HIGH | Duplikát `_strip_diacritics()` — existuje v utils.py (3 soubory) | Rozšířen |
-| 5 | Kód | app/routers/voting.py (10×) | HIGH | Duplikát `has_processed = any(b.status.value == ...)` — 10 výskytů | Známý |
-| 6 | Bezpečnost | .env, settings_page.py | HIGH | SMTP heslo uloženo plaintext v .env | Známý |
-| 7 | Error handling | app/routers/tax.py:694 | HIGH | PDF extrakce bez try/except — pád vlákna | Známý |
-| 8 | Error handling | tax.py, owners.py | HIGH | Background thread chyby nelogované, uživatel dostane kryptickou hlášku | Známý |
-| 9 | Error handling | všechny routery (28+×) | HIGH | `db.commit()` bez error handling — constraint violation = pád | Známý |
-| 10 | Výkon | voting.py:696-850 | HIGH | Python-side filtrování lístků bez paginace | Známý |
-| 11 | Kód | tax.py (2522 řádků) | HIGH | Největší soubor — obtížná údržba, kandidát na rozdělení | NOVÝ |
-| 12 | Bezpečnost | owners.py:557 | HIGH | Path traversal v contact_import_rerun — chybí `is_safe_path()` | NOVÝ |
-| 13 | Kód | 7 souborů | MEDIUM | Duplicitní Excel auto-width pattern — 7 kopií stejného kódu | NOVÝ |
-| 14 | Kód | voting.py (4×) | MEDIUM | Nekonzistentní timestamp: `datetime.now()` vs `datetime.utcnow()` | Známý |
-| 15 | Kód | voting.py (13×) | MEDIUM | `.status.value == "active"` místo enum porovnání | Známý |
-| 16 | Kód | voting.py:1555 řádků | MEDIUM | Druhý největší soubor — kandidát na rozdělení | Známý |
-| 17 | Kód | voting_import.py:77 | MEDIUM | `import re` uvnitř funkce místo na úrovni modulu | Známý |
-| 18 | Bezpečnost | voting_import.py | MEDIUM | Import mapping JSON bez schema validace | Známý |
-| 19 | Bezpečnost | celý projekt | MEDIUM | Žádný rate limiting na endpointech | Známý |
-| 20 | Bezpečnost | administration.py | MEDIUM | Zálohy bez šifrování (plaintext ZIP) | Známý |
-| 21 | Error handling | 11 míst v routerech | MEDIUM | Tiché selhání file cleanup — `except: pass` bez logování | Známý |
-| 22 | Error handling | owners.py, tax.py | MEDIUM | Žádná validace emailu před uložením do DB | Známý |
-| 23 | Error handling | tax.py:2100 | MEDIUM | SMTP connection bez retry logiky | Známý |
-| 24 | Error handling | několik routerů | MEDIUM | `date.fromisoformat()` bez try/except — nevalidní datum = 500 | Známý |
-| 25 | UI | ~30 tabulek | MEDIUM | Nekonzistentní thead styly (border, sticky) | NOVÝ |
-| 26 | UI | různé šablony | MEDIUM | 4 různé styly flash zpráv | NOVÝ |
-| 27 | Výkon | tax.py email log | MEDIUM | Email log search načítá všechny záznamy, filtruje v Pythonu | NOVÝ |
-| 28 | UI | ballots.html, detail.html | MEDIUM | Chybí explicitní `hx-swap="innerHTML"` na search inputech | Známý |
-| 29 | Kód | main.py:7 | LOW | Nepoužitý import `inspect` ze sqlalchemy | Známý |
-| 30 | Kód | 12 souborů | LOW | Nepoužívané importy (HTTPException, Optional, List) | NOVÝ |
-| 31 | Kód | tax.py | LOW | Logger definován uprostřed souboru místo za importy | NOVÝ |
-| 32 | UI | různé šablony | LOW | Nekonzistentní date formatting, border-radius, padding | Známý |
-| 33 | Git | root projektu | LOW | 13 agent MD souborů v rootu — přesunout do docs/ | Známý |
+| 1 | Bezpečnost | celý projekt | CRITICAL | Žádná autentizace | Známý, plán v CLAUDE.md |
+| 2 | Bezpečnost | celý projekt | CRITICAL | Žádná CSRF ochrana | Známý, řešit s auth |
+| 3 | Testy | celý projekt | CRITICAL | Žádné testy | Známý |
+| 4 | Bezpečnost | administration.py:770 | CRITICAL | Path traversal v backup restore | **NOVÝ** |
+| 5 | Výkon | tax/sending.py:232 | HIGH | N+1 query v loop (TaxDistribution) | **NOVÝ** |
+| 6 | Konfigurace | 12 souborů | HIGH | Hardcoded upload size limits (50/100/200 MB) | **NOVÝ** |
+| 7 | Dokumentace | README.md:385 | HIGH | Adresářový strom neodráží voting/ a tax/ packages | **NOVÝ** |
+| 8 | Bezpečnost | email_service.py:66 | HIGH | File attachment read bez error handling | **NOVÝ** |
+| 9 | Duplikáty | excel_import:163, contact_import:72 | MEDIUM | Duplicitní `_build_name_*()` funkce | **NOVÝ** |
+| 10 | Konfigurace | main.py:494 | MEDIUM | Hardcoded multipart limits (5000) | **NOVÝ** |
+| 11 | Dokumentace | CLAUDE.md | MEDIUM | Chybí dokumentace router package vzoru | **NOVÝ** |
+| 12 | Git | .gitignore | MEDIUM | Chybí `.playwright-mcp/` a `data/svj.db*` | **NOVÝ** |
+| 13 | Robustnost | tax/_helpers.py:137 | MEDIUM | int() cast bez try/except | **NOVÝ** |
+| 14 | Robustnost | sync.py:174 | MEDIUM | File read jen UnicodeDecodeError, ne IOError | **NOVÝ** |
+| 15 | Struktura | tax/sending.py:629 | MEDIUM | Funkce `_send_emails_batch()` 132 řádků | **NOVÝ** |
+| 16 | Bezpečnost | config.py:7 | MEDIUM | Debug mode bez produkční ochrany | Existující |
+| 17 | Pojmenování | voting/_helpers.py:28 | LOW | `_has_processed_ballots` — spíš model metoda | Info |
+| 18 | Duplikáty | voting/_helpers, tax/_helpers | LOW | Paralelní wizard patterns | Info |
+| 19 | Styl | owners.py:374 | LOW | Inline import (csv, io) | Info |
+| 20 | Závislosti | owner_matcher.py:10 | LOW | Nepoužitý import unidecode | **NOVÝ** |
+| 21 | Konfigurace | settings_page.py:82 | LOW | Hardcoded pagination limit | Info |
+| 22 | Konfigurace | tax/_helpers.py:53 | LOW | Hardcoded wizard labels | Info |
+| 23 | Git | .gitignore | LOW | SQLite WAL soubory (db-shm, db-wal) | **NOVÝ** |
+| 24 | Git | root | LOW | PNG screenshoty v rootu (ignorované) | Info |
+| 25 | Dokumentace | CLAUDE.md | LOW | Chybí TOC | Info |
+| 26 | Testy | celý projekt | LOW | Chybí pytest.ini, CI/CD workflow | Info |
+
+---
+
+## Detailní nálezy
+
+### CRITICAL
+
+#### #4: Path traversal v backup restore
+**Soubor:** `app/routers/administration.py:770-781`
+**Popis:** Při obnově zálohy ze složky (webkitdirectory upload) se názvy souborů z uploadu používají bez validace cesty. Útočník může nahrát soubor s názvem `../../../data/uploads/shell.py` a zapsat mimo temp adresář.
+**Doporučení:** Přidat validaci `is_safe_path(target, Path(tmp))` před zápisem, nebo `if ".." in rel: continue`.
+
+### HIGH
+
+#### #5: N+1 query v tax/sending.py
+**Soubor:** `app/routers/tax/sending.py:232`
+**Popis:** V loop přes `all_docs` se pro každý dokument dělá `db.query(TaxDistribution).filter_by(document_id=doc.id).all()` — klasický N+1 problém.
+**Doporučení:** `all_docs = db.query(TaxDocument).filter_by(...).options(joinedload(TaxDocument.distributions)).all()`
+
+#### #6: Hardcoded upload size limits
+**Soubor:** 12 míst v routerech
+**Popis:** `max_size_mb=50/100/200` rozptýleno po routerech. Změna politiky vyžaduje editaci 12 souborů.
+**Doporučení:** Přesunout do `app/config.py` jako `UPLOAD_LIMITS` dict.
+
+#### #7: README directory tree zastaralý
+**Soubor:** `README.md:385-394`
+**Popis:** Zobrazuje `voting.py` a `tax.py` jako single files, ale oba jsou nyní packages.
+**Doporučení:** Aktualizovat adresářový strom.
+
+#### #8: File attachment bez error handling
+**Soubor:** `app/services/email_service.py:66`
+**Popis:** `open(path, "rb")` v loop bez try/except. Pokud soubor zmizí mezi existence check a čtením, padne celá operace.
+**Doporučení:** Wrapit v `try/except (IOError, OSError)` s `logger.warning` a `continue`.
+
+### MEDIUM
+
+#### #9-#16: Viz souhrnná tabulka
+
+### LOW
+
+#### #17-#26: Viz souhrnná tabulka
 
 ---
 
 ## Pozitivní nálezy
 
-| Oblast | Stav | Detail |
-|--------|------|--------|
-| SQL injection | SAFE | Všechny dotazy parametrizované přes SQLAlchemy ORM |
-| XSS | SAFE | Jinja2 autoescape, `markupsafe.escape()` v Python HTML |
-| Path traversal | SAFE | `is_safe_path()` na download endpointech (kromě #12) |
-| Security headers | GOOD | X-Frame-Options, X-Content-Type-Options, Referrer-Policy |
-| File upload | GOOD | Extension whitelist, size limit, safe filename construction |
-| Custom error pages | GOOD | 404 + 500 s českými hláškami |
-| .env v .gitignore | GOOD | Citlivá data nejsou v repu |
-| Export filtrování | GOOD | Nové export endpointy správně přenáší filtry (owners, units) |
-| Refaktored filter logic | GOOD | `_filter_owners()` a `_filter_units()` extrahované — DRY pattern |
-
----
-
-## Srovnání s předchozím auditem (2026-03-05)
-
-| Metrika | 2026-03-05 | 2026-03-08 | Změna |
-|---------|------------|------------|-------|
-| CRITICAL | 3 | 3 | = (stejné) |
-| HIGH | 7 | 8 | +1 (tax.py velikost, path traversal) |
-| MEDIUM | 12 | 14 | +2 (Excel duplikát, UI konzistence) |
-| LOW | 8 | 8 | = |
-| **Celkem** | **30** | **33** | **+3** |
-
-**Nově nalezeno (2026-03-08):**
-- #11: tax.py narostl na 2522 řádků (nový HIGH)
-- #12: Path traversal v contact_import_rerun (nový HIGH)
-- #13: Excel auto-width pattern duplicated 7× (nový MEDIUM)
-- #25: Nekonzistentní thead styly ~30 tabulek (nový MEDIUM)
-- #26: 4 různé flash message styly (nový MEDIUM)
-- #27: Email log search — full table scan (nový MEDIUM)
-- #30: 12 unused imports (nový LOW)
-- #31: Logger misplaced v tax.py (nový LOW)
-- #4: Duplikát `_strip_diacritics` rozšířen o owners.py a units.py (nové soubory)
-
-**Z předchozího auditu opraveno:**
-- Binární soubory v gitu (odstraněno)
-- Radio buttony bez for/id (opraveno)
-- Responsive tabulky (zlepšeno)
+- ✅ Žádné SQL injection (ORM konzistentně)
+- ✅ Žádné bare `except:` bez logování (opraveno v předchozím auditu)
+- ✅ Kompletní databázové indexy (38 indexů v `_ensure_indexes()`)
+- ✅ Správné joinedload v hlavních list endpointech
+- ✅ Custom error stránky (404, 500, 409)
+- ✅ Konzistentní snake_case, české URL
+- ✅ Autoescaping v Jinja2 šablonách
+- ✅ HTTP security headers (X-Frame-Options, X-Content-Type-Options, Referrer-Policy)
+- ✅ Verze závislostí pinnuté v pyproject.toml
+- ✅ Žádné TODO/FIXME/HACK komentáře
 
 ---
 
 ## Doporučený postup oprav
 
-### Okamžitě (bezpečnost)
-1. **#12** Path traversal v contact_import_rerun — přidat `is_safe_path()` validaci — 5 min
+### Fáze 1 — Kritické (hned)
+1. **#4** Path traversal v backup restore — bezpečnostní díra
+2. **#12** Přidat .playwright-mcp/ a data/svj.db* do .gitignore
+3. **#7** README aktualizovat directory tree
 
-### Krátkodobě (kvalita kódu)
-2. **#4** Import `strip_diacritics` z utils (3 soubory) — 5 min
-3. **#13** Extrahovat Excel auto-width helper do utils.py — 15 min
-4. **#30** Vyčistit unused imports — 10 min
-5. **#31** Přesunout logger v tax.py — 2 min
-6. **#5** Extrahovat `_has_processed_ballots()` — 15 min
-7. **#14** Sjednotit na `datetime.utcnow()` — 10 min
+### Fáze 2 — Důležité
+4. **#5** N+1 fix v tax/sending.py
+5. **#8** Error handling v email_service.py
+6. **#13** try/except na int() cast
+7. **#14** Broader exception v sync.py file read
 
-### Střednědobě (robustnost)
-8. **#7** Try/except na PDF extrakci — 15 min
-9. **#8** Logování chyb v background threadech — 30 min
-10. **#24** Ošetřit `date.fromisoformat()` — 15 min
-11. **#27** SQL filtrování email logů — 30 min
-12. **#25** Sjednotit thead styly — 1 hod
-13. **#26** Sjednotit flash message partial — 30 min
-
-### Dlouhodobě (architektura)
-14. **#11** Rozdělit tax.py na menší moduly — 2+ hod
-15. **#16** Rozdělit voting.py — 2+ hod
-16. **#10** SQL filtrování + paginace lístků — 2-4 hod
-17. **#3** Základní test suite — 1-2 dny
-18. **#1 + #2** Autentizace + CSRF — 2-3 dny (plán v CLAUDE.md)
+### Fáze 3 — Údržba
+8. **#6** Upload limits do config.py
+9. **#9** Konsolidace `_build_name_*` funkcí
+10. **#11** Dokumentovat router package vzor v CLAUDE.md
+11. **#20** Odstranit nepoužitý unidecode import
