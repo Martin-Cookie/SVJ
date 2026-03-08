@@ -93,7 +93,7 @@ _ROLE_SORT = case(
     else_=2,
 )
 
-from app.utils import is_safe_path, setup_jinja_filters, validate_upload
+from app.utils import is_safe_path, is_valid_email, setup_jinja_filters, validate_upload
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -336,7 +336,7 @@ async def add_member(
     member = BoardMember(
         name=name.strip(),
         role=role.strip() or None,
-        email=email.strip() or None,
+        email=(email.strip() if email.strip() and is_valid_email(email.strip()) else None),
         phone=phone.strip() or None,
         group=group,
         order=max_order,
@@ -359,7 +359,7 @@ async def edit_member(
     if member:
         member.name = name.strip()
         member.role = role.strip() or None
-        member.email = email.strip() or None
+        member.email = (email.strip() if email.strip() and is_valid_email(email.strip()) else None)
         member.phone = phone.strip() or None
         db.commit()
     return RedirectResponse("/sprava/svj-info", status_code=302)

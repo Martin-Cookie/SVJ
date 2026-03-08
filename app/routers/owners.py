@@ -17,7 +17,7 @@ from app.config import settings
 from app.database import SessionLocal, get_db
 from app.models import ImportLog, Owner, OwnerType, OwnerUnit, SvjInfo, Unit, ActivityAction, log_activity
 from app.services.excel_import import import_owners_from_excel, preview_owners_from_excel
-from app.utils import build_list_url, excel_auto_width, is_htmx_partial, is_safe_path, setup_jinja_filters, strip_diacritics, validate_upload
+from app.utils import build_list_url, excel_auto_width, is_htmx_partial, is_safe_path, is_valid_email, setup_jinja_filters, strip_diacritics, validate_upload
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -81,7 +81,7 @@ async def owner_create(
         owner_type=OwnerType(owner_type),
         name_with_titles=name_with_titles,
         name_normalized=name_normalized,
-        email=email.strip() or None,
+        email=(email.strip() if email.strip() and is_valid_email(email.strip()) else None),
         phone=phone.strip() or None,
         birth_number=birth_number.strip() or None,
         data_source="manual",
@@ -1170,8 +1170,8 @@ async def owner_update(
 ):
     owner = db.query(Owner).get(owner_id)
     if owner:
-        owner.email = email.strip() or None
-        owner.email_secondary = email_secondary.strip() or None
+        owner.email = (email.strip() if email.strip() and is_valid_email(email.strip()) else None)
+        owner.email_secondary = (email_secondary.strip() if email_secondary.strip() and is_valid_email(email_secondary.strip()) else None)
         owner.phone = phone.strip() or None
         owner.phone_secondary = phone_secondary.strip() or None
         owner.phone_landline = phone_landline.strip() or None

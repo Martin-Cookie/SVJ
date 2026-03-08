@@ -1,4 +1,5 @@
 """Shared utility functions used across routers and services."""
+import re
 from pathlib import Path
 from typing import List, Optional
 from unicodedata import category, normalize
@@ -115,6 +116,14 @@ def excel_auto_width(ws, max_width: int = 45):
             if cell.value is not None:
                 max_len = max(max_len, len(str(cell.value)))
         ws.column_dimensions[col_letter].width = min(max_len + 2, max_width)
+
+
+_EMAIL_RE = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
+
+
+def is_valid_email(email: str) -> bool:
+    """Basic email format validation."""
+    return bool(_EMAIL_RE.match(email))
 
 
 def setup_jinja_filters(templates):

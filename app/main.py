@@ -434,6 +434,31 @@ from fastapi.templating import Jinja2Templates
 _error_templates = Jinja2Templates(directory="app/templates")
 
 
+from sqlalchemy.exc import IntegrityError, OperationalError  # noqa: E402
+
+
+@app.exception_handler(IntegrityError)
+async def integrity_error_handler(request, exc):
+    logger.warning("DB IntegrityError: %s", exc.orig)
+    return _error_templates.TemplateResponse("error.html", {
+        "request": request,
+        "status_code": 409,
+        "title": "Konflikt dat",
+        "message": "Operace nemohla být dokončena — data kolidují s existujícím záznamem.",
+    }, status_code=409)
+
+
+@app.exception_handler(OperationalError)
+async def operational_error_handler(request, exc):
+    logger.error("DB OperationalError: %s", exc.orig)
+    return _error_templates.TemplateResponse("error.html", {
+        "request": request,
+        "status_code": 500,
+        "title": "Chyba databáze",
+        "message": "Nastala chyba při práci s databází. Zkuste to prosím znovu.",
+    }, status_code=500)
+
+
 @app.exception_handler(404)
 async def not_found_handler(request, exc):
     return _error_templates.TemplateResponse("error.html", {

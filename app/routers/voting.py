@@ -8,7 +8,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.config import settings
@@ -107,26 +107,45 @@ def _get_declared_shares(db: Session) -> int:
 
 
 def _ballot_stats(voting, db: Session):
-    """Compute ballot statistics for status bubbles."""
-    total_ballots = len(voting.ballots)
+    """Compute ballot statistics for status bubbles using SQL aggregation."""
+    # SQL aggregation for counts and votes — avoids loading all ballots
+    rows = db.query(
+        Ballot.status,
+        func.count(Ballot.id),
+        func.coalesce(func.sum(Ballot.total_votes), 0),
+    ).filter(
+        Ballot.voting_id == voting.id
+    ).group_by(Ballot.status).all()
+
     status_counts = {s.value: 0 for s in BallotStatus}
-    for b in voting.ballots:
-        status_counts[b.status.value] += 1
-    total_processed_votes = sum(
-        b.total_votes for b in voting.ballots
-        if b.status == BallotStatus.PROCESSED and any(bv.vote is not None for bv in b.votes)
-    )
+    total_ballots = 0
+    total_generated_votes = 0
+    for status, cnt, votes_sum in rows:
+        status_counts[status.value] = cnt
+        total_ballots += cnt
+        total_generated_votes += votes_sum
+
+    # Processed votes: ballots with status=processed that have actual votes
+    processed_with_votes = db.query(
+        func.coalesce(func.sum(Ballot.total_votes), 0)
+    ).filter(
+        Ballot.voting_id == voting.id,
+        Ballot.status == BallotStatus.PROCESSED,
+        Ballot.id.in_(
+            db.query(BallotVote.ballot_id).filter(BallotVote.vote.isnot(None))
+        ),
+    ).scalar()
+
     declared_shares = _get_declared_shares(db)
     quorum_reached = (
-        total_processed_votes / declared_shares >= voting.quorum_threshold
+        processed_with_votes / declared_shares >= voting.quorum_threshold
         if declared_shares
         else False
     )
-    total_generated_votes = sum(b.total_votes for b in voting.ballots)
     return {
         "total_ballots": total_ballots,
         "status_counts": status_counts,
-        "total_processed_votes": total_processed_votes,
+        "total_processed_votes": processed_with_votes,
         "total_generated_votes": total_generated_votes,
         "declared_shares": declared_shares,
         "quorum_reached": quorum_reached,
@@ -689,50 +708,69 @@ async def ballot_list(
 ):
     voting = db.query(Voting).options(
         joinedload(Voting.items),
-        joinedload(Voting.ballots).joinedload(Ballot.owner).joinedload(Owner.units).joinedload(OwnerUnit.unit),
-        joinedload(Voting.ballots).joinedload(Ballot.votes),
     ).get(voting_id)
     if not voting:
         return RedirectResponse("/hlasovani", status_code=302)
 
-    # Filter by status
-    ballots = list(voting.ballots)
+    # SQL-based ballot query with filters
+    needs_owner_join = False
+    ballot_query = db.query(Ballot).options(
+        joinedload(Ballot.owner).joinedload(Owner.units).joinedload(OwnerUnit.unit),
+        joinedload(Ballot.votes),
+    ).filter(Ballot.voting_id == voting_id)
+
+    # Filter by status (SQL)
     if stav:
         try:
             stav_enum = BallotStatus(stav)
-            ballots = [b for b in ballots if b.status == stav_enum]
+            ballot_query = ballot_query.filter(Ballot.status == stav_enum)
         except ValueError:
-            pass  # neplatný stav — ignorovat filtr
+            pass
 
-    # Search filter (diacritics-aware)
+    # Search filter (SQL via name_normalized)
     if q:
-        q_lower = q.lower()
         q_ascii = strip_diacritics(q)
-        ballots = [
-            b for b in ballots
-            if q_lower in (b.owner.display_name or "").lower()
-            or q_ascii in strip_diacritics(b.owner.display_name or "")
-            or q_lower in (b.units_text or "").lower()
-        ]
-
-    # Sort
-    sort_keys = {
-        "owner": lambda b: (b.owner.name_normalized or "").lower(),
-        "units": lambda b: b.units_text or "",
-        "votes": lambda b: b.total_votes,
-        "status": lambda b: b.status.value if b.status else "",
-        "proxy": lambda b: (b.proxy_holder_name or ""),
-    }
-    # Dynamic sort by voting item vote (e.g. sort=bod_3 for item id=3)
-    if sort.startswith("bod_"):
-        item_id = int(sort[4:])
-        vote_order = {"for": 0, "against": 1, "abstain": 2}
-        sort_keys[sort] = lambda b, _iid=item_id: next(
-            (vote_order.get(bv.vote.value, 3) for bv in b.votes if bv.voting_item_id == _iid and bv.vote),
-            4,
+        q_pattern = f"%{q_ascii}%"
+        ballot_query = ballot_query.join(Ballot.owner).filter(
+            Owner.name_normalized.like(q_pattern)
         )
-    key_fn = sort_keys.get(sort, sort_keys["owner"])
-    ballots = sorted(ballots, key=key_fn, reverse=(order == "desc"))
+        needs_owner_join = True
+
+    # SQL sort for simple columns
+    BALLOT_SORT_SQL = {"owner", "votes", "status"}
+    if sort in BALLOT_SORT_SQL:
+        if sort == "owner":
+            if not needs_owner_join:
+                ballot_query = ballot_query.join(Ballot.owner)
+            col = Owner.name_normalized
+        elif sort == "votes":
+            col = Ballot.total_votes
+        else:
+            col = Ballot.status
+        ballot_query = ballot_query.order_by(
+            col.desc().nulls_last() if order == "desc" else col.asc().nulls_last()
+        )
+
+    ballots = ballot_query.all()
+
+    # Python-side sort for complex keys (units, proxy, vote columns)
+    if sort not in BALLOT_SORT_SQL:
+        sort_keys = {
+            "units": lambda b: b.units_text or "",
+            "proxy": lambda b: (b.proxy_holder_name or ""),
+        }
+        if sort.startswith("bod_"):
+            try:
+                item_id = int(sort[4:])
+                vote_order = {"for": 0, "against": 1, "abstain": 2}
+                sort_keys[sort] = lambda b, _iid=item_id: next(
+                    (vote_order.get(bv.vote.value, 3) for bv in b.votes if bv.voting_item_id == _iid and bv.vote),
+                    4,
+                )
+            except ValueError:
+                pass
+        key_fn = sort_keys.get(sort, lambda b: (b.owner.name_normalized or ""))
+        ballots = sorted(ballots, key=key_fn, reverse=(order == "desc"))
 
     list_url = build_list_url(request)
 
