@@ -17,7 +17,7 @@ from app.models import (
 from app.services.share_check_comparator import (
     compare_shares, get_file_headers, get_file_preview, parse_file, suggest_mapping,
 )
-from app.utils import build_list_url, is_htmx_partial, is_safe_path, setup_jinja_filters, strip_diacritics, validate_upload
+from app.utils import build_list_url, excel_auto_width, is_htmx_partial, is_safe_path, setup_jinja_filters, strip_diacritics, validate_upload
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -435,12 +435,7 @@ async def share_check_export(
             ws.cell(row=row_num, column=4).fill = diff_fill
             ws.cell(row=row_num, column=5).fill = diff_fill
 
-    for col in ws.columns:
-        max_len = 0
-        for cell in col:
-            if cell.value is not None:
-                max_len = max(max_len, len(str(cell.value)))
-        ws.column_dimensions[col[0].column_letter].width = min(max_len + 2, 45)
+    excel_auto_width(ws)
 
     _FILTR_LABELS = {
         "": "vse", "match": "shoda", "rozdil": "rozdily",

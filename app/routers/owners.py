@@ -17,7 +17,7 @@ from app.config import settings
 from app.database import SessionLocal, get_db
 from app.models import ImportLog, Owner, OwnerType, OwnerUnit, SvjInfo, Unit, ActivityAction, log_activity
 from app.services.excel_import import import_owners_from_excel, preview_owners_from_excel
-from app.utils import build_list_url, is_htmx_partial, is_safe_path, setup_jinja_filters, strip_diacritics, validate_upload
+from app.utils import build_list_url, excel_auto_width, is_htmx_partial, is_safe_path, setup_jinja_filters, strip_diacritics, validate_upload
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -346,7 +346,7 @@ async def owner_export(
         from io import BytesIO
         from openpyxl import Workbook
         from openpyxl.styles import Font
-        from openpyxl.utils import get_column_letter
+
 
         wb = Workbook()
         ws = wb.active
@@ -361,13 +361,7 @@ async def owner_export(
             for col_idx, val in enumerate(_row(o), 1):
                 ws.cell(row=row_idx, column=col_idx, value=val)
 
-        for col_idx in range(1, len(headers) + 1):
-            col_letter = get_column_letter(col_idx)
-            max_len = max(
-                (len(str(ws.cell(row=r, column=col_idx).value or "")) for r in range(1, len(owners) + 2)),
-                default=10,
-            )
-            ws.column_dimensions[col_letter].width = min(max_len + 2, 45)
+        excel_auto_width(ws)
 
         buf = BytesIO()
         wb.save(buf)
@@ -561,7 +555,7 @@ async def contact_import_rerun(
 ):
     """Re-run preview for an already uploaded file."""
     from pathlib import Path
-    if not soubor or not Path(soubor).is_file():
+    if not soubor or not is_safe_path(Path(soubor), settings.upload_dir) or not Path(soubor).is_file():
         return RedirectResponse("/vlastnici/import#kontakty", status_code=302)
 
     file_key = Path(soubor).name

@@ -11,17 +11,11 @@ Excel formát (KontaktyVlastnici):
   25-29: Korespondenční adresa (ulice, část obce, obec, PSČ, země)
   30: GSM, 31: Pevný telefon, 32: Email
 """
-from unicodedata import category, normalize
-
 from openpyxl import load_workbook
 from sqlalchemy.orm import Session
 
 from app.models import Owner, OwnerType
-
-
-def _strip_diacritics(text: str) -> str:
-    nfkd = normalize("NFD", text)
-    return "".join(c for c in nfkd if category(c) != "Mn").lower()
+from app.utils import strip_diacritics
 
 
 # Mapování Excel sloupců (1-indexed, openpyxl) → Owner polí
@@ -82,7 +76,7 @@ def _build_normalized_name(first_name: str | None, last_name: str | None) -> str
         parts.append(last_name.strip())
     if first_name:
         parts.append(first_name.strip())
-    return _strip_diacritics(" ".join(parts))
+    return strip_diacritics(" ".join(parts))
 
 
 def preview_contact_import(file_path: str, db: Session, progress: dict | None = None) -> dict:

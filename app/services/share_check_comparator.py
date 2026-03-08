@@ -4,7 +4,6 @@ Parse CSV/XLSX files and compare unit share (podíl SČD) values against the dat
 from __future__ import annotations
 
 import csv
-import re
 from io import StringIO
 
 from sqlalchemy.orm import Session

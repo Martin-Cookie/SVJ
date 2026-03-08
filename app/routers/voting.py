@@ -22,7 +22,7 @@ from app.services.word_parser import extract_voting_items, extract_voting_metada
 from app.services.voting_import import (
     read_excel_headers, preview_voting_import, execute_voting_import, validate_mapping,
 )
-from app.utils import build_list_url, is_htmx_partial, is_safe_path, setup_jinja_filters, strip_diacritics, validate_upload
+from app.utils import build_list_url, excel_auto_width, is_htmx_partial, is_safe_path, setup_jinja_filters, strip_diacritics, validate_upload
 
 
 logger = logging.getLogger(__name__)
@@ -1018,7 +1018,7 @@ async def voting_export(voting_id: int, db: Session = Depends(get_db)):
     from io import BytesIO
     from fastapi.responses import Response
     from openpyxl import Workbook
-    from openpyxl.styles import Font, PatternFill, Alignment
+    from openpyxl.styles import Font, PatternFill
 
     voting = db.query(Voting).options(
         joinedload(Voting.items),
@@ -1086,14 +1086,7 @@ async def voting_export(voting_id: int, db: Session = Depends(get_db)):
                        value=f"PRO: {votes_for} ({pct_for}%) | PROTI: {votes_against} ({pct_against}%)")
         cell.font = bold
 
-    # Auto-width
-    for col in ws.columns:
-        max_len = 0
-        col_letter = col[0].column_letter
-        for cell in col:
-            if cell.value:
-                max_len = max(max_len, len(str(cell.value)))
-        ws.column_dimensions[col_letter].width = min(max_len + 2, 45)
+    excel_auto_width(ws)
 
     buf = BytesIO()
     wb.save(buf)

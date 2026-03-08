@@ -8,6 +8,7 @@ from datetime import datetime
 from openpyxl import Workbook
 from sqlalchemy.orm import Session, joinedload
 
+from app.utils import excel_auto_width
 from app.models import (
     Owner, Unit, OwnerUnit, Proxy,
     Voting, VotingItem, Ballot, BallotVote,
@@ -306,13 +307,7 @@ def export_category_xlsx(db: Session, category: str) -> bytes:
     for row in gen(db):
         ws.append([_fmt(v) if isinstance(v, datetime) else v for v in row])
 
-    # Auto-width
-    for col in ws.columns:
-        max_len = 0
-        for cell in col:
-            if cell.value is not None:
-                max_len = max(max_len, len(str(cell.value)))
-        ws.column_dimensions[col[0].column_letter].width = min(max_len + 2, 50)
+    excel_auto_width(ws, max_width=50)
 
     buf = io.BytesIO()
     wb.save(buf)

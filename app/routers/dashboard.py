@@ -6,7 +6,7 @@ from sqlalchemy import case, func
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
-from app.models import ActivityLog, EmailLog, Owner, OwnerUnit, SvjInfo, Unit, Voting, VotingStatus
+from app.models import ActivityLog, EmailLog, Owner, OwnerUnit, SvjInfo, Unit, Voting
 from app.models.voting import Ballot, BallotStatus
 from app.models.tax import TaxDocument, TaxSession, TaxDistribution, EmailDeliveryStatus
 from app.utils import setup_jinja_filters, strip_diacritics

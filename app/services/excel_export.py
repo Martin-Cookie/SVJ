@@ -7,7 +7,8 @@ Columns A-AE matching SVJ_Evidence_Vlastniku_CLEAN.xlsx structure.
 from openpyxl import Workbook
 from sqlalchemy.orm import Session
 
-from app.models import Owner, OwnerUnit
+from app.models import Owner
+from app.utils import excel_auto_width
 
 
 def export_owners_to_excel(db: Session, output_path: str) -> str:
@@ -85,13 +86,7 @@ def export_owners_to_excel(db: Session, output_path: str) -> str:
             ]
             ws.append(row)
 
-    # Auto-adjust column widths
-    for col in ws.columns:
-        max_len = 0
-        for cell in col:
-            if cell.value:
-                max_len = max(max_len, len(str(cell.value)))
-        ws.column_dimensions[col[0].column_letter].width = min(max_len + 2, 40)
+    excel_auto_width(ws, max_width=40)
 
     wb.save(output_path)
     return output_path

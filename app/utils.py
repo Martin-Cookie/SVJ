@@ -106,6 +106,17 @@ async def validate_uploads(
     return None
 
 
+def excel_auto_width(ws, max_width: int = 45):
+    """Auto-adjust column widths in an openpyxl worksheet."""
+    for col in ws.columns:
+        max_len = 0
+        col_letter = col[0].column_letter
+        for cell in col:
+            if cell.value is not None:
+                max_len = max(max_len, len(str(cell.value)))
+        ws.column_dimensions[col_letter].width = min(max_len + 2, max_width)
+
+
 def setup_jinja_filters(templates):
     """Register custom Jinja2 filters on a Jinja2Templates instance."""
     templates.env.filters["fmt_num"] = fmt_num

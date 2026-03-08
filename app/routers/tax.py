@@ -23,11 +23,13 @@ from app.models import (
     ActivityAction, log_activity,
 )
 from app.services.email_service import create_smtp_connection, send_email
-from app.utils import build_list_url, is_htmx_partial, is_safe_path, setup_jinja_filters, strip_diacritics, validate_uploads
+from app.utils import build_list_url, excel_auto_width, is_htmx_partial, is_safe_path, setup_jinja_filters, strip_diacritics, validate_uploads
 from app.services.owner_matcher import match_name
 from app.services.pdf_extractor import (
     extract_owner_from_tax_pdf, parse_unit_from_filename,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -1999,18 +2001,11 @@ async def tax_export(session_id: int, db: Session = Depends(get_db)):
             ws.cell(row=row_idx, column=6, value=dist.email_sent_at.strftime("%d.%m.%Y %H:%M") if dist.email_sent_at else "")
             row_idx += 1
 
-    # Auto-width
-    for col in ws.columns:
-        max_len = 0
-        col_letter = col[0].column_letter
-        for cell in col:
-            if cell.value:
-                max_len = max(max_len, len(str(cell.value)))
-        ws.column_dimensions[col_letter].width = min(max_len + 2, 45)
+    excel_auto_width(ws)
 
     buf = BytesIO()
     wb.save(buf)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
     filename = f"rozeslani_{session_id}_{timestamp}.xlsx"
 
     return Response(
@@ -2050,8 +2045,6 @@ async def delete_session(
 # ---------------------------------------------------------------------------
 # Batch email sending
 # ---------------------------------------------------------------------------
-
-logger = logging.getLogger(__name__)
 
 
 def _sending_eta(progress: dict) -> dict:

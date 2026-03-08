@@ -19,7 +19,7 @@ from app.models import (
 from app.services.csv_comparator import compare_owners, parse_sousede_csv
 from app.services.owner_exchange import execute_exchange, prepare_exchange_preview
 from app.services.owner_matcher import normalize_for_matching
-from app.utils import build_list_url, is_htmx_partial, setup_jinja_filters, strip_diacritics, validate_upload
+from app.utils import build_list_url, excel_auto_width, is_htmx_partial, setup_jinja_filters, strip_diacritics, validate_upload
 
 
 router = APIRouter()
@@ -518,7 +518,7 @@ async def export_excel(
     records = query.order_by(cast(SyncRecord.unit_number, Integer).asc()).all()
 
     from openpyxl import Workbook
-    from openpyxl.styles import Font, PatternFill, Alignment
+    from openpyxl.styles import Font, PatternFill
 
     wb = Workbook()
     ws = wb.active
@@ -586,13 +586,7 @@ async def export_excel(
             ws.cell(row=row_num, column=8).fill = diff_fill
             ws.cell(row=row_num, column=9).fill = diff_fill
 
-    # Auto-adjust column widths
-    for col in ws.columns:
-        max_len = 0
-        for cell in col:
-            if cell.value:
-                max_len = max(max_len, len(str(cell.value)))
-        ws.column_dimensions[col[0].column_letter].width = min(max_len + 2, 45)
+    excel_auto_width(ws)
 
     _FILTR_LABELS = {
         "": "vse", "match": "shoda", "partial": "castecna",

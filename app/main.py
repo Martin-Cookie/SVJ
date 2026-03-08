@@ -429,7 +429,6 @@ app = FastAPI(title=settings.app_name, lifespan=lifespan)
 
 
 # Custom error pages
-from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
 _error_templates = Jinja2Templates(directory="app/templates")

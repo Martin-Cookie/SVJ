@@ -38,12 +38,11 @@ Columns (0-indexed):
   AD (29) = Vlastník od
   AE (30) = Poznámka
 """
-from unicodedata import normalize, category
-
 from openpyxl import load_workbook
 from sqlalchemy.orm import Session
 
 from app.models.owner import Owner, OwnerType, OwnerUnit, Unit
+from app.utils import strip_diacritics
 
 # Column indices (0-based)
 COL_UNIT_KN = 0
@@ -111,15 +110,9 @@ def _cell_float(row: tuple, idx: int) -> float | None:
         return None
 
 
-def _strip_diacritics(text: str) -> str:
-    """Remove diacritics from text."""
-    nfkd = normalize("NFD", text)
-    return "".join(c for c in nfkd if category(c) != "Mn")
-
-
 def _normalize_name(text: str) -> str:
     """Normalize name for matching: lowercase, no diacritics, single spaces."""
-    result = _strip_diacritics(text.lower())
+    result = strip_diacritics(text)
     return " ".join(result.split())
 
 

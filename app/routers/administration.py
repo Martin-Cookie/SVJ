@@ -93,7 +93,7 @@ _ROLE_SORT = case(
     else_=2,
 )
 
-from app.utils import is_safe_path, setup_jinja_filters, validate_upload, validate_uploads
+from app.utils import is_safe_path, setup_jinja_filters, validate_upload
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
