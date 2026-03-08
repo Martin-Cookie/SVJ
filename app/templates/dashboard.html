@@ -22,24 +22,9 @@
         </div>
         {% if declared_shares %}
         {% set diff = owners_scd - declared_shares %}
-        {% set diff_pct = ((diff / declared_shares) * 100) | round(2) if declared_shares else 0 %}
-        <table class="text-xs text-gray-500 mt-1 w-full" style="border-spacing:0">
-            <tr>
-                <td class="pr-1">Prohlášení:</td>
-                <td class="text-right font-mono text-gray-700 whitespace-nowrap">{{ "{:,}".format(declared_shares).replace(",", " ") }}</td>
-                <td></td>
-            </tr>
-            <tr>
-                <td class="pr-1">Evidence:</td>
-                <td class="text-right font-mono text-gray-700 whitespace-nowrap">{{ "{:,}".format(owners_scd).replace(",", " ") }}</td>
-                <td></td>
-            </tr>
-            <tr class="{% if diff != 0 %}cursor-pointer hover:bg-blue-50 rounded{% endif %}" {% if diff != 0 %}onclick="event.preventDefault(); event.stopPropagation(); window.location.href='/prehled/rozdil-podilu';" title="Zobrazit rozpis rozdílu podílů"{% endif %}>
-                <td class="pr-1">Rozdíl:</td>
-                <td class="text-right font-mono {% if diff < 0 %}text-red-600{% elif diff > 0 %}text-blue-600{% else %}text-green-600{% endif %} font-medium whitespace-nowrap">{{ "{:,}".format(diff).replace(",", " ") }}</td>
-                <td class="pl-1 font-mono {% if diff < 0 %}text-red-600{% elif diff > 0 %}text-blue-600{% else %}text-green-600{% endif %} whitespace-nowrap">{% if diff != 0 %}({{ "{:+.2f}".format(diff_pct) }}%){% endif %}</td>
-            </tr>
-        </table>
+        <p class="text-xs mt-1 {% if diff == 0 %}text-green-600{% else %}text-red-600{% endif %}">
+            Podíly: {% if diff == 0 %}&#10003; shoda{% else %}<a href="/prehled/rozdil-podilu" class="hover:underline" onclick="event.stopPropagation();">&Delta; {{ "{:,}".format(diff).replace(",", " ") }}</a>{% endif %}
+        </p>
         {% endif %}
     </a>
     <a href="/jednotky?back=/" class="block bg-white rounded-lg shadow p-3 hover:shadow-md transition-shadow">
@@ -56,24 +41,9 @@
         </div>
         {% if declared_shares %}
         {% set diff = units_scd - declared_shares %}
-        {% set diff_pct = ((diff / declared_shares) * 100) | round(2) if declared_shares else 0 %}
-        <table class="text-xs text-gray-500 mt-1 w-full" style="border-spacing:0">
-            <tr>
-                <td class="pr-1">Prohlášení:</td>
-                <td class="text-right font-mono text-gray-700 whitespace-nowrap">{{ "{:,}".format(declared_shares).replace(",", " ") }}</td>
-                <td></td>
-            </tr>
-            <tr>
-                <td class="pr-1">Evidence:</td>
-                <td class="text-right font-mono text-gray-700 whitespace-nowrap">{{ "{:,}".format(units_scd).replace(",", " ") }}</td>
-                <td></td>
-            </tr>
-            <tr class="{% if diff != 0 %}cursor-pointer hover:bg-green-50 rounded{% endif %}" {% if diff != 0 %}onclick="event.preventDefault(); event.stopPropagation(); window.location.href='/prehled/rozdil-podilu';" title="Zobrazit rozpis rozdílu podílů"{% endif %}>
-                <td class="pr-1">Rozdíl:</td>
-                <td class="text-right font-mono {% if diff < 0 %}text-red-600{% elif diff > 0 %}text-blue-600{% else %}text-green-600{% endif %} font-medium whitespace-nowrap">{{ "{:,}".format(diff).replace(",", " ") }}</td>
-                <td class="pl-1 font-mono {% if diff < 0 %}text-red-600{% elif diff > 0 %}text-blue-600{% else %}text-green-600{% endif %} whitespace-nowrap">{% if diff != 0 %}({{ "{:+.2f}".format(diff_pct) }}%){% endif %}</td>
-            </tr>
-        </table>
+        <p class="text-xs mt-1 {% if diff == 0 %}text-green-600{% else %}text-red-600{% endif %}">
+            Podíly: {% if diff == 0 %}&#10003; shoda{% else %}<a href="/prehled/rozdil-podilu" class="hover:underline" onclick="event.stopPropagation();">&Delta; {{ "{:,}".format(diff).replace(",", " ") }}</a>{% endif %}
+        </p>
         {% endif %}
     </a>
     <div class="min-w-0 block bg-white rounded-lg shadow p-3 hover:shadow-md transition-shadow">

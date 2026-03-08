@@ -1,7 +1,8 @@
 from datetime import datetime
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, Query, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
@@ -374,6 +375,26 @@ async def reset_ballot(
         bv.manually_verified = False
     db.commit()
     return RedirectResponse(f"/hlasovani/{voting_id}/listek/{ballot_id}", status_code=302)
+
+
+@router.get("/{voting_id}/listek/{ballot_id}/pdf")
+async def ballot_pdf_download(
+    voting_id: int,
+    ballot_id: int,
+    db: Session = Depends(get_db),
+):
+    """Download the generated PDF for a ballot."""
+    ballot = db.query(Ballot).filter_by(id=ballot_id, voting_id=voting_id).first()
+    if not ballot or not ballot.pdf_path:
+        return RedirectResponse(f"/hlasovani/{voting_id}/listek/{ballot_id}", status_code=302)
+    pdf = Path(ballot.pdf_path)
+    if not pdf.exists():
+        return RedirectResponse(f"/hlasovani/{voting_id}/listek/{ballot_id}", status_code=302)
+    return FileResponse(
+        str(pdf),
+        media_type="application/pdf",
+        filename=pdf.name,
+    )
 
 
 @router.get("/{voting_id}/neodevzdane")

@@ -30,12 +30,12 @@
         {{ sections|join(", ") or '—' }}
     </td>
     <td class="px-2 py-1.5 text-gray-700 overflow-hidden" style="text-overflow:ellipsis;white-space:nowrap" title="{{ owner.email or '' }}{% if owner.email_secondary and owner.email_secondary != owner.email %} / {{ owner.email_secondary }}{% endif %}">
-        {% if owner.email %}{{ owner.email }}{% else %}<span class="text-gray-300">—</span>{% endif %}
+        {% if owner.email %}{{ owner.email }}{% if owner.email_secondary and owner.email_secondary != owner.email %} <span class="text-gray-400 text-xs">+1</span>{% endif %}{% elif owner.email_secondary %}<span class="text-gray-400">{{ owner.email_secondary }}</span>{% else %}<span class="text-gray-300">—</span>{% endif %}
     </td>
     <td class="px-2 py-1.5 text-gray-700" title="{{ owner.phone or '' }}{% if owner.phone_secondary and owner.phone_secondary != owner.phone %} / {{ owner.phone_secondary }}{% endif %}">
         {% if owner.phone %}{{ owner.phone }}{% else %}<span class="text-gray-300">—</span>{% endif %}
     </td>
-    <td class="px-2 py-1.5 text-gray-700 text-right font-mono">
+    <td class="px-2 py-1.5 text-gray-700 text-right font-mono" title="Součet podílů ze všech jednotek vlastníka">
         {% set total_votes = owner.current_units | map(attribute='votes') | sum %}
         {{ "{:,}".format(total_votes).replace(",", " ") }}
     </td>

@@ -2,7 +2,7 @@
 {% block title %}Nové hlasování - SVJ Správa{% endblock %}
 
 {% block content %}
-<a href="/hlasovani" class="text-sm text-gray-500 hover:text-gray-700">&larr; Zpět na hlasování</a>
+<a href="/hlasovani" class="text-sm text-blue-600 hover:text-blue-800">&larr; Zpět na hlasování</a>
 
 <div class="mt-2">
 {% include "partials/wizard_stepper.html" %}
@@ -75,8 +75,9 @@
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Práh kvóra (%)</label>
                 <input type="number" name="quorum_threshold" value="50" min="0" max="100" step="1"
+                       id="quorum-input"
                        class="w-32 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
-                <p class="text-xs text-gray-500 mt-1">Zadejte jako procenta (50 = 50%)</p>
+                <p class="text-xs text-gray-500 mt-1" id="quorum-hint">Zadejte jako procenta (50 = 50%){% if declared_shares %} · Potřeba: {{ "{:,}".format((50 * declared_shares / 100)|round(0)|int).replace(",", " ") }} z {{ "{:,}".format(declared_shares).replace(",", " ") }} hlasů{% endif %}</p>
             </div>
 
             <div>
@@ -93,6 +94,17 @@
 </div>
 
 <script>
+{% if declared_shares %}
+document.getElementById('quorum-input').addEventListener('input', function() {
+    var pct = parseFloat(this.value) || 0;
+    var total = {{ declared_shares }};
+    var needed = Math.round(pct * total / 100);
+    document.getElementById('quorum-hint').textContent =
+        'Zadejte jako procenta (' + pct + ' = ' + pct + '%) · Potřeba: ' +
+        needed.toLocaleString('cs-CZ') + ' z ' + total.toLocaleString('cs-CZ') + ' hlasů';
+});
+{% endif %}
+
 document.getElementById('file-input').addEventListener('change', async function() {
     const file = this.files[0];
     if (!file) return;

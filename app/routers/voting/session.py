@@ -117,6 +117,7 @@ async def voting_list(
 async def voting_create_page(
     request: Request,
     chyba: str = Query(""),
+    db: Session = Depends(get_db),
 ):
     wizard = {
         "wizard_steps": [
@@ -129,6 +130,7 @@ async def voting_create_page(
     ctx = {
         "request": request,
         "active_nav": "voting",
+        "declared_shares": _get_declared_shares(db),
         **wizard,
     }
     if chyba == "upload":
@@ -382,6 +384,9 @@ async def voting_detail(
     elif info == "sablona-prazdna":
         ctx["flash_message"] = "V šabloně nebyly nalezeny žádné body hlasování. Přidejte je ručně."
         ctx["flash_type"] = "warning"
+    elif info == "zadne-body":
+        ctx["flash_message"] = "Nejdříve přidejte alespoň jeden bod hlasování."
+        ctx["flash_type"] = "error"
 
     # HTMX partial: return only the results table
     if is_htmx_partial(request):
@@ -399,6 +404,11 @@ async def generate_ballots(
     voting = db.query(Voting).options(joinedload(Voting.items)).get(voting_id)
     if not voting:
         return RedirectResponse("/hlasovani", status_code=302)
+
+    if not voting.items:
+        return RedirectResponse(
+            f"/hlasovani/{voting_id}?info=zadne-body", status_code=302
+        )
 
     owners = db.query(Owner).filter_by(is_active=True).options(
         joinedload(Owner.units).joinedload(OwnerUnit.unit)
@@ -633,18 +643,29 @@ async def voting_export(voting_id: int, db: Session = Depends(get_db)):
     green_fill = PatternFill(start_color="E2EFDA", end_color="E2EFDA", fill_type="solid")
     red_fill = PatternFill(start_color="FCE4EC", end_color="FCE4EC", fill_type="solid")
 
+    # Disclaimer for active votings
+    start_row = 1
+    if voting.status != VotingStatus.CLOSED:
+        from openpyxl.styles import Alignment
+        warn_cell = ws.cell(row=1, column=1,
+                            value=f"Průběžné výsledky ke dni {datetime.utcnow().strftime('%d.%m.%Y')} — hlasování stále probíhá")
+        warn_cell.font = Font(bold=True, color="FF6600")
+        warn_cell.alignment = Alignment(wrap_text=False)
+        ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=6)
+        start_row = 3
+
     # Header row
     headers = ["Vlastník", "Jednotky", "Hlasy"]
     for item in items:
         headers.append(f"Bod {item.order}: {item.title}")
     for col, h in enumerate(headers, 1):
-        cell = ws.cell(row=1, column=col, value=h)
+        cell = ws.cell(row=start_row, column=col, value=h)
         cell.font = bold
         cell.fill = header_fill
 
     # Data rows
     vote_labels = {"for": "PRO", "against": "PROTI", "abstain": "Zdržel se", "invalid": "Neplatný"}
-    for row_idx, ballot in enumerate(processed, 2):
+    for row_idx, ballot in enumerate(processed, start_row + 1):
         ws.cell(row=row_idx, column=1, value=ballot.owner.display_name)
         ws.cell(row=row_idx, column=2, value=ballot.units_text or "")
         ws.cell(row=row_idx, column=3, value=ballot.total_votes)
@@ -660,7 +681,7 @@ async def voting_export(voting_id: int, db: Session = Depends(get_db)):
                 ws.cell(row=row_idx, column=4 + item_idx, value="—")
 
     # Summary row
-    summary_row = len(processed) + 3
+    summary_row = start_row + len(processed) + 2
     ws.cell(row=summary_row, column=1, value="CELKEM").font = bold
     for item_idx, item in enumerate(items):
         votes_for = sum(

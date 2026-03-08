@@ -5,7 +5,7 @@
 <div class="flex flex-col" style="height:calc(100vh - 3rem)">
     <!-- Fixed header -->
     <div class="shrink-0">
-        <a href="{{ back_url|default('/dane/' ~ session.id) }}" class="text-sm text-gray-500 hover:text-gray-700">&larr; Zpět na přiřazení</a>
+        <a href="{{ back_url|default('/dane/' ~ session.id) }}" class="text-sm text-blue-600 hover:text-blue-800">&larr; Zpět na přiřazení</a>
 
         {% if wizard_steps is defined and wizard_steps %}
         <div class="mt-2">
@@ -117,6 +117,7 @@
                             <label class="text-xs font-medium text-gray-600">Testovací email</label>
                             <input type="email" name="test_email_inline" id="test-email-input" placeholder="test@example.com"
                                    value="{{ test_email_value|default('') }}"
+                                   oninput="var b=document.getElementById('test-send-btn');b.disabled=!this.validity.valid||!this.value;b.classList.toggle('opacity-50',b.disabled)"
                                    class="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                             <div class="flex items-center gap-2">
                                 <select id="test-doc-select" class="flex-1 border border-gray-300 rounded-lg px-2 py-1.5 text-xs text-gray-600 focus:ring-2 focus:ring-blue-500" title="Vybrat přílohu pro test">
@@ -126,8 +127,9 @@
                                     <option value="0">1. dokument</option>
                                     {% endif %}
                                 </select>
-                                <button type="button" onclick="sendTest(this)"
-                                        class="px-3 py-1.5 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 text-sm font-medium whitespace-nowrap transition-colors">
+                                <button type="button" id="test-send-btn" onclick="sendTest(this)"
+                                        {% if not test_email_value %}disabled{% endif %}
+                                        class="px-3 py-1.5 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 text-sm font-medium whitespace-nowrap transition-colors{% if not test_email_value %} opacity-50{% endif %}">
                                     Odeslat test
                                 </button>
                             </div>

@@ -6,7 +6,7 @@
 <div class="shrink-0">
 {% if back_url %}
 <div class="mb-3">
-    <a href="{{ back_url }}" class="text-sm text-gray-500 hover:text-gray-700">&larr; Zpět na přehled</a>
+    <a href="{{ back_url }}" class="text-sm text-blue-600 hover:text-blue-800">&larr; Zpět na přehled</a>
 </div>
 {% endif %}
 <div class="flex items-center justify-between mb-3">
@@ -44,9 +44,11 @@
     <div class="flex items-center gap-2">
         {% set _export_qs = "q=" ~ q ~ "&typ=" ~ typ ~ "&sekce=" ~ sekce ~ "&sort=" ~ sort ~ "&order=" ~ order %}
         <a href="/jednotky/exportovat/xlsx?{{ _export_qs }}" hx-boost="false"
+           onclick="this.textContent='Generuji…';this.classList.add('opacity-50')"
            class="px-2.5 py-1.5 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 text-xs font-medium transition-colors border border-gray-200"
            title="Export do Excelu">↓ Excel</a>
         <a href="/jednotky/exportovat/csv?{{ _export_qs }}" hx-boost="false"
+           onclick="this.textContent='Generuji…';this.classList.add('opacity-50')"
            class="px-2.5 py-1.5 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 text-xs font-medium transition-colors border border-gray-200"
            title="Export do CSV">↓ CSV</a>
         <button hx-get="/jednotky/nova-formular" hx-target="#unit-create-section" hx-swap="innerHTML"

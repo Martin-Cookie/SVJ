@@ -10,7 +10,7 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import cast, func, String
+from sqlalchemy import cast, func, or_, String
 from sqlalchemy.orm import Session, joinedload
 
 from app.config import settings
@@ -126,9 +126,15 @@ def _filter_owners(db: Session, q="", owner_type="", vlastnictvi="", kontakt="",
             Owner.units.any((OwnerUnit.valid_to.is_(None)) & (OwnerUnit.ownership_type == vlastnictvi))
         )
     if kontakt == "s_emailem":
-        query = query.filter(Owner.email.isnot(None), Owner.email != "")
+        query = query.filter(or_(
+            (Owner.email.isnot(None)) & (Owner.email != ""),
+            (Owner.email_secondary.isnot(None)) & (Owner.email_secondary != ""),
+        ))
     elif kontakt == "bez_emailu":
-        query = query.filter((Owner.email.is_(None)) | (Owner.email == ""))
+        query = query.filter(
+            (Owner.email.is_(None)) | (Owner.email == ""),
+            (Owner.email_secondary.is_(None)) | (Owner.email_secondary == ""),
+        )
     elif kontakt == "s_telefonem":
         query = query.filter(Owner.phone.isnot(None), Owner.phone != "")
     elif kontakt == "bez_telefonu":
