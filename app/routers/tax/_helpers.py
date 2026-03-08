@@ -272,15 +272,21 @@ def _build_recipients(documents):
                     "email_status": dist.email_status.value if dist.email_status else "pending",
                 }
 
+            dist_status = dist.email_status.value if dist.email_status else "pending"
             recipients[key]["docs"].append({
                 "id": doc.id,
                 "filename": doc.filename,
                 "file_path": doc.file_path,
+                "dist_id": dist.id,
+                "sent": dist_status == "sent",
             })
             recipients[key]["dist_ids"].append(dist.id)
-            # Update email_status to worst status across distributions
-            if dist.email_status and dist.email_status.value == "failed":
+            # Update email_status: failed > pending > queued > sent
+            current = recipients[key]["email_status"]
+            if dist_status == "failed":
                 recipients[key]["email_status"] = "failed"
+            elif dist_status in ("pending", "queued") and current == "sent":
+                recipients[key]["email_status"] = "pending"
 
     # Sort docs by filename (numeric part first) within each recipient
     for r in recipients.values():

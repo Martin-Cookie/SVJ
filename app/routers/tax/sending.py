@@ -456,11 +456,21 @@ async def send_test_email(
     request: Request,
     test_email: str = Form(...),
     test_doc_id: int = Form(0),
+    email_subject: str = Form(""),
+    email_body: str = Form(""),
     db: Session = Depends(get_db),
 ):
     session = db.query(TaxSession).get(session_id)
     if not session:
         return RedirectResponse("/dane", status_code=302)
+
+    # Save subject and body from the form (user may not have clicked Uložit)
+    if email_subject:
+        session.email_subject = email_subject
+    if email_body:
+        session.email_body = email_body
+    if email_subject or email_body:
+        db.commit()
 
     # Find specific or first document for test attachment
     if test_doc_id:
@@ -584,7 +594,7 @@ async def save_send_settings(
         session.send_status = SendStatus.READY
     db.commit()
 
-    return RedirectResponse(f"/dane/{session_id}/rozeslat", status_code=302)
+    return RedirectResponse(f"/dane/{session_id}/rozeslat?config=open", status_code=302)
 
 
 # ---------------------------------------------------------------------------
@@ -681,8 +691,10 @@ def _send_emails_batch(session_id: int, recipient_data: list, email_subject: str
                 with _sending_lock:
                     _sending_progress[session_id]["current_recipient"] = rcpt["name"]
 
-                # Gather attachment file paths
-                attachments = [d["file_path"] for d in rcpt["docs"]]
+                # Gather only unsent attachment file paths
+                unsent_docs = [d for d in rcpt["docs"] if not d.get("sent")]
+                attachments = [d["file_path"] for d in unsent_docs] if unsent_docs else [d["file_path"] for d in rcpt["docs"]]
+                unsent_dist_ids = [d["dist_id"] for d in unsent_docs] if unsent_docs else rcpt["dist_ids"]
 
                 # Send email (reuse shared SMTP connection)
                 result = send_email(
@@ -697,8 +709,8 @@ def _send_emails_batch(session_id: int, recipient_data: list, email_subject: str
                     smtp_server=smtp_conn,
                 )
 
-                # Update distribution statuses in DB
-                for dist_id in rcpt["dist_ids"]:
+                # Update only unsent distribution statuses in DB
+                for dist_id in unsent_dist_ids:
                     dist = db.query(TaxDistribution).get(dist_id)
                     if dist:
                         if result["success"]:
@@ -813,11 +825,13 @@ async def start_batch_send(
     if not recipients_to_send:
         return RedirectResponse(f"/dane/{session_id}/rozeslat", status_code=302)
 
-    # Mark distributions as QUEUED
+    # Mark only unsent distributions as QUEUED
     for rcpt in recipients_to_send:
-        for dist_id in rcpt["dist_ids"]:
+        unsent_dist_ids = [d["dist_id"] for d in rcpt["docs"] if not d.get("sent")]
+        target_ids = unsent_dist_ids if unsent_dist_ids else rcpt["dist_ids"]
+        for dist_id in target_ids:
             dist = db.query(TaxDistribution).get(dist_id)
-            if dist:
+            if dist and dist.email_status != EmailDeliveryStatus.SENT:
                 dist.email_status = EmailDeliveryStatus.QUEUED
 
     session.send_status = SendStatus.SENDING

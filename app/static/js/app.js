@@ -446,6 +446,11 @@ function sendTest(btn) {
     document.getElementById('test-email-hidden').value = email;
     var docSelect = document.getElementById('test-doc-select');
     if (docSelect) document.getElementById('test-doc-hidden').value = docSelect.value;
+    // Copy subject and body so they get saved with the test
+    var subj = document.querySelector('input[name="email_subject"]');
+    var body = document.querySelector('textarea[name="email_body"]');
+    if (subj) document.getElementById('test-subject-hidden').value = subj.value;
+    if (body) document.getElementById('test-body-hidden').value = body.value;
     document.getElementById('test-email-form').submit();
 }
 

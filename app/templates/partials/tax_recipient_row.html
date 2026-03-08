@@ -93,13 +93,36 @@
 
     {# Documents #}
     <td class="px-4 py-3 text-sm text-gray-500">
+        {% set sent_docs = r.docs|selectattr('sent')|list %}
+        {% set unsent_docs = r.docs|rejectattr('sent')|list %}
+        {% if sent_docs and unsent_docs %}
+        <div class="space-y-1">
+            <div class="flex flex-wrap items-center gap-1">
+                <span class="text-xs text-gray-400 mr-0.5">Odesláno:</span>
+                {% for doc in sent_docs %}
+                <a href="/dane/{{ session.id }}/dokument/{{ doc.id }}" target="_blank"
+                   onclick="if(!event.ctrlKey && !event.metaKey){event.preventDefault(); openPdfModal(this.href, '{{ doc.filename }}')}"
+                   class="inline-block bg-green-50 text-green-600 hover:bg-green-100 rounded px-1.5 py-0.5 text-xs truncate max-w-[180px] cursor-pointer" title="{{ doc.filename }}">{{ doc.filename }}</a>
+                {% endfor %}
+            </div>
+            <div class="flex flex-wrap items-center gap-1">
+                <span class="text-xs text-orange-500 mr-0.5">K odeslání:</span>
+                {% for doc in unsent_docs %}
+                <a href="/dane/{{ session.id }}/dokument/{{ doc.id }}" target="_blank"
+                   onclick="if(!event.ctrlKey && !event.metaKey){event.preventDefault(); openPdfModal(this.href, '{{ doc.filename }}')}"
+                   class="inline-block bg-blue-50 text-blue-600 hover:bg-blue-100 rounded px-1.5 py-0.5 text-xs truncate max-w-[180px] cursor-pointer" title="{{ doc.filename }}">{{ doc.filename }}</a>
+                {% endfor %}
+            </div>
+        </div>
+        {% else %}
         <div class="flex flex-wrap gap-1">
             {% for doc in r.docs %}
             <a href="/dane/{{ session.id }}/dokument/{{ doc.id }}" target="_blank"
                onclick="if(!event.ctrlKey && !event.metaKey){event.preventDefault(); openPdfModal(this.href, '{{ doc.filename }}')}"
-               class="inline-block bg-blue-50 text-blue-600 hover:bg-blue-100 rounded px-1.5 py-0.5 text-xs truncate max-w-[180px] cursor-pointer" title="{{ doc.filename }}">{{ doc.filename }}</a>
+               class="inline-block {% if doc.sent %}bg-green-50 text-green-600 hover:bg-green-100{% else %}bg-blue-50 text-blue-600 hover:bg-blue-100{% endif %} rounded px-1.5 py-0.5 text-xs truncate max-w-[180px] cursor-pointer" title="{{ doc.filename }}">{{ doc.filename }}</a>
             {% endfor %}
         </div>
+        {% endif %}
     </td>
 
     {# Status #}
