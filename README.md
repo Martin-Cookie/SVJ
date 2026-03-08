@@ -619,6 +619,7 @@ wheels/                        # Offline Python balíčky (gitignored)
 | POST | `/hlasovani/{id}/import` | Nahrání Excel souboru → mapování sloupců |
 | POST | `/hlasovani/{id}/import/nahled` | Náhled importu (přiřazení + statistika) |
 | POST | `/hlasovani/{id}/import/potvrdit` | Potvrzení a provedení importu |
+| POST | `/hlasovani/{id}/listky/hromadny-reset` | Hromadný reset vybraných zpracovaných lístků |
 | GET | `/hlasovani/{id}/exportovat` | Export do Excelu |
 
 ### Hromadné rozesílání (`/dane`)
@@ -881,6 +882,21 @@ Projekt prošel UX analýzou klíčových modulů (6 expertních perspektiv: UX 
 - Statistiky na výsledkové stránce importu (zpracováno, přeskočeno, nepřiřazeno)
 - Zobrazení chybějících hlasů pro dosažení kvóra
 - Export do Excelu dostupný přímo z header tlačítek uzavřeného hlasování
+
+**Komplexní UX audit celé aplikace (2026-03-08) — 33 nálezů, opraveno 33:**
+
+*Drobné (13):* export jen u aktivních/uzavřených hlasování, kvórum v confirm dialogu, PDF lístek jako klikací link, empty states, tooltipy na truncated texty, modré zpětné šipky, kompaktní dashboard, validace test emailu, konzistentní badge a formátování čísel.
+
+*Důležité (10):* import wizard stepper (4 kroky), nápověda pod mapovacími selecty, badge „Hlasováno: X/Y bodů" na detailu lístku, hromadný reset lístků s checkboxy, badge „Odesílá se"/„Pozastaveno" v rozesílce, kompaktní filtr kontaktů (4 segmenty), flash varování při neplatném emailu, červené zvýraznění při chybě validace, flash po vytvoření vlastníka.
+
+*Kritické (7):*
+- K1: Zobrazení počtu neúplně hlasovaných lístků v kvórum sekci (varování o neúplných hlasech)
+- K2: Import preview ukazuje existující hlasy při přepisu („staré → nové") + bublina „Přepíše: N"
+- K3: SJM varování při duplicitním přiřazení lístku z více řádků Excelu
+- K4: SQL subquery sort místo Python-side sort (podíl, jednotky, sekce u vlastníků; vlastníci u jednotek)
+- K5: Fix N+1 query v tax sending (joinedload distributions)
+- K6: Flash chybové zprávy v kontrolách (share_check, sync) — 5 typů chybových zpráv
+- K7: Zachování pozice v tabulce po potvrzení přiřazení (referer-based redirect)
 
 ## Dokumentace business logiky
 
