@@ -558,8 +558,10 @@ Vždy `rounded-full`, nikdy `rounded`.
 
 ### Logika stavů
 - **done** (zelený) — `i <= max_done`
-- **active** (modrý) — `i == current_step AND i > max_done`
+- **active** (zelený pro full stepper, modrý pro compact stepper) — `i == current_step AND i > max_done`
+- **current+done** (tmavší zelená s ring efektem) — `i == current_step AND i <= max_done`
 - **pending** (šedý) — `i > max_done AND i > current_step`
+- **sending** (oranžová pulzace) — speciální stav pro probíhající odesílání
 
 ### Klíčové pravidlo: all green when complete
 Když je workflow plně dokončen (`max_done >= total_steps`), **všechny** kroky musí být zelené:

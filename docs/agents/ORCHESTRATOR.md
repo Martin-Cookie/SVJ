@@ -160,15 +160,15 @@ Po dokončení všech agentů vypiš souhrnnou tabulku:
 
 ## Dostupní agenti
 
-| Agent | Soubor | Co dělá |
-|-------|--------|---------|
-| **Code Guardian** | docs/agents/CODE-GUARDIAN.md | Audit kódu — kvalita, bezpečnost, UI, výkon |
-| **Doc Sync** | docs/agents/DOC-SYNC.md | Synchronizace dokumentace s realitou |
-| **UX Optimizer** | docs/agents/UX-OPTIMIZER.md | Analýza a návrhy zlepšení UX (6 pohledů) |
-| **Backup Agent** | docs/agents/BACKUP-AGENT.md | Kontrola integrity záloh |
-| **Release Agent** | docs/agents/RELEASE-AGENT.md | Příprava verze (pre-release + balíček) |
-| **Business Logic** | docs/agents/BUSINESS-LOGIC-AGENT.md | Extrakce business logiky z kódu |
-| **Cloud Deploy** | docs/agents/CLOUD-DEPLOY.md | Analýza připravenosti pro cloud |
+| Agent | Soubor | Co dělá | Doba |
+|-------|--------|---------|------|
+| **Code Guardian** | docs/agents/CODE-GUARDIAN.md | Audit kódu — kvalita, bezpečnost, UI, výkon | ~6 min |
+| **Doc Sync** | docs/agents/DOC-SYNC.md | Synchronizace dokumentace s realitou | ~5 min (analýza) + ~5 min (opravy) |
+| **UX Optimizer** | docs/agents/UX-OPTIMIZER.md | Analýza a návrhy zlepšení UX (6 pohledů) | ~8 min |
+| **Backup Agent** | docs/agents/BACKUP-AGENT.md | Kontrola integrity záloh | ~3 min |
+| **Release Agent** | docs/agents/RELEASE-AGENT.md | Příprava verze (pre-release + balíček) | ~5 min |
+| **Business Logic** | docs/agents/BUSINESS-LOGIC-AGENT.md | Extrakce business logiky z kódu | ~8 min |
+| **Cloud Deploy** | docs/agents/CLOUD-DEPLOY.md | Analýza připravenosti pro cloud | ~5 min |
 
 > **Task Agent** není v seznamu — ten běží automaticky při zadání úkolů.
 

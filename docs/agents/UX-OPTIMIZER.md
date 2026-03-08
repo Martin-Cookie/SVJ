@@ -176,10 +176,16 @@ Expert na kvalitu, konzistenci a integritu dat.
 #### Nález #1: [stručný název]
 - **Severity:** KRITICKÉ / DŮLEŽITÉ / DROBNÉ
 - **Pohled:** [která role to našla]
-- **Problém:** [co je špatně — konkrétní popis]
+- **Co a kde:** [co je špatně + kde v aplikaci: URL, stránka, akce]
 - **Dopad:** [jak to ovlivňuje uživatele]
-- **Návrh:** [co s tím udělat]
+- **Řešení:** [konkrétní postup opravy, ne vágní "vylepšit"]
+- **Varianty:** [pokud existuje víc přístupů — popsat s pro/proti, jinak "—"]
 - **Kde v kódu:** [soubor:řádek]
+- **Náročnost:** [nízká/střední/vysoká] ~[odhad času]
+- **Závislosti:** [závisí na jiném nálezu? "nejdřív #X", jinak "—"]
+- **Regrese riziko:** [nízké/střední/vysoké — může oprava rozbít něco?]
+- **Rozhodnutí:** 🔧 jen opravit / ❓ potřeba rozhodnutí uživatele
+- **Jak otestovat:** [krok za krokem: URL → klik → očekávaný výsledek]
 - **Mockup:**
   ```
   ┌─────────────────────────────────┐
@@ -200,13 +206,13 @@ Expert na kvalitu, konzistenci a integritu dat.
 
 ## Top 5 doporučení (podle dopadu)
 
-| # | Návrh | Dopad | Složitost | Priorita |
-|---|-------|-------|-----------|----------|
-| 1 | ... | Vysoký | Nízká | HNED |
-| 2 | ... | Vysoký | Střední | BRZY |
-| 3 | ... | Střední | Nízká | BRZY |
-| 4 | ... | Střední | Střední | POZDĚJI |
-| 5 | ... | Nízký | Nízká | POZDĚJI |
+| # | Návrh | Dopad | Složitost | Čas | Závisí na | Rozhodnutí | Priorita |
+|---|-------|-------|-----------|-----|-----------|------------|----------|
+| 1 | ... | Vysoký | Nízká | ~5 min | — | 🔧 | HNED |
+| 2 | ... | Vysoký | Střední | ~30 min | #1 | ❓ | BRZY |
+| 3 | ... | Střední | Nízká | ~10 min | — | 🔧 | BRZY |
+| 4 | ... | Střední | Střední | ~1 hod | — | ❓ | POZDĚJI |
+| 5 | ... | Nízký | Nízká | ~5 min | — | 🔧 | POZDĚJI |
 
 ---
 

@@ -189,6 +189,7 @@ Na konci vytvoř souhrnnou tabulku a seřaď podle severity.
 - Velké binární soubory v git historii (PDF, Excel, obrázky >1MB)?
 - Jsou v .gitignore: `__pycache__/`, `*.pyc`, `.env`, `data/*.db`, `venv/`?
 - Jsou v repozitáři soubory které tam nepatří (lokální konfigurace, IDE soubory)?
+- **Existují soubory v `.playwright-mcp/`?** (screenshoty, logy z testování) → smazat: `rm -rf .playwright-mcp/*.log .playwright-mcp/*.png .playwright-mcp/*.jpeg`
 - Citlivá data v git historii (hesla, klíče v předchozích commitech)?
 
 ### 7.2 Commit kvalita
@@ -228,13 +229,24 @@ Vytvoř soubor `AUDIT-REPORT.md` v rootu projektu s tímto formátem:
 
 ## Souhrnná tabulka
 
-| # | Oblast | Soubor | Severity | Problém | Doporučení |
-|---|--------|--------|----------|---------|------------|
-| 1 | Kód | app/routers/voting.py:45 | CRITICAL | SQL injection v ... | Použít parametrizovaný dotaz |
-| 2 | Bezpečnost | .env | HIGH | SMTP heslo v plaintextu | Přesunout do env variable |
-| ... | ... | ... | ... | ... | ... |
+| # | Oblast | Soubor | Severity | Problém | Čas | Rozhodnutí |
+|---|--------|--------|----------|---------|-----|------------|
+| 1 | Kód | app/routers/voting.py:45 | CRITICAL | SQL injection v ... | ~10 min | 🔧 |
+| 2 | Bezpečnost | .env | HIGH | SMTP heslo v plaintextu | ~30 min | ❓ varianty |
+| ... | ... | ... | ... | ... | ... | ... |
+
+Legenda: 🔧 = jen opravit, ❓ = potřeba rozhodnutí uživatele (více variant)
 
 ## Detailní nálezy
+
+Každý nález MUSÍ obsahovat (viz CLAUDE.md § Prezentace nálezů):
+1. **Co a kde**: popis + URL/stránka/akce kde se problém projevuje
+2. **Řešení**: konkrétní postup opravy (ne vágní "vylepšit")
+3. **Varianty**: pokud existuje víc přístupů — pro/proti
+4. **Náročnost + čas**: nízká/střední/vysoká + odhad (~5 min, ~1 hod)
+5. **Závislosti**: "nejdřív oprav #X" pokud na sobě závisí
+6. **Regrese riziko**: nízké/střední/vysoké — může oprava rozbít něco?
+7. **Jak otestovat**: krok za krokem (URL → klik → očekávaný výsledek)
 
 ### 1. Kódová kvalita
 [detaily...]

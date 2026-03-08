@@ -92,7 +92,7 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
   - Souhrnný řádek Celkem (podíl SČD, podíl %, plocha)
   - Proklik na detail jednotky
   - Kolapsovatelná sekce „Historie vlastnictví" — předchozí jednotky s daty od/do, prokliky s back URL chain
-- Export zpět do Excelu
+- Export do Excelu/CSV s aktuálními filtry
 
 ### B. Evidence jednotek (`/jednotky`)
 
@@ -109,6 +109,7 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
   - Kolapsovatelná sekce „Předchozí vlastníci" — historické záznamy s daty od/do, prokliky s back URL chain
   - Smazání jednotky (cascade smaže přiřazení)
 - Číslo jednotky uloženo jako INTEGER
+- Export do Excelu/CSV s aktuálními filtry
 
 ### C. Hlasování per rollam (`/hlasovani`)
 
@@ -521,6 +522,8 @@ app/
 │       ├── smtp_info.html
 │       ├── wizard_stepper.html
 │       ├── wizard_stepper_compact.html
+│       ├── import_stepper.html
+│       ├── ballot_vote_error.html
 │       ├── unit_owners.html
 │       └── unit_owner_edit_row.html
 └── static/                    # CSS, JS
@@ -581,6 +584,7 @@ wheels/                        # Offline Python balíčky (gitignored)
 | POST | `/vlastnici/{id}/sloucit` | Sloučení duplicitních vlastníků |
 | POST | `/vlastnici/{id}/jednotky/pridat` | Přidat jednotku vlastníkovi |
 | POST | `/vlastnici/{id}/jednotky/{ou_id}/odebrat` | Odebrat jednotku vlastníkovi |
+| GET | `/vlastnici/exportovat/{fmt}` | Export vlastníků (xlsx/csv) s aktuálními filtry |
 
 ### Jednotky (`/jednotky`)
 
@@ -593,6 +597,7 @@ wheels/                        # Offline Python balíčky (gitignored)
 | GET | `/jednotky/{id}/upravit-formular` | HTMX: formulář editace |
 | GET | `/jednotky/{id}/info` | HTMX: zobrazení údajů |
 | POST | `/jednotky/{id}/upravit` | Uložení údajů jednotky |
+| GET | `/jednotky/exportovat/{fmt}` | Export jednotek (xlsx/csv) s aktuálními filtry |
 | GET | `/jednotky/{id}/vlastnici-sekce` | HTMX: sekce vlastníků na detailu |
 | GET | `/jednotky/{id}/vlastnik/{ou_id}/upravit-formular` | HTMX: editační formulář vlastníka |
 | POST | `/jednotky/{id}/vlastnik/{ou_id}/upravit` | Uložení úpravy vlastníka |
@@ -718,7 +723,6 @@ wheels/                        # Offline Python balíčky (gitignored)
 | POST | `/sprava/zaloha/obnovit` | Obnova dat ze zálohy (upload ZIP) |
 | POST | `/sprava/zaloha/obnovit-slozku` | Obnova z rozbalené složky zálohy (webkitdirectory) |
 | POST | `/sprava/zaloha/obnovit-soubor` | Obnova z nahraného svj.db souboru |
-| POST | `/sprava/zaloha/obnovit-adresar` | Obnova z lokální cesty k adresáři |
 | POST | `/sprava/smazat-data` | Smazání vybraných kategorií dat (potvrzení DELETE) |
 | GET | `/sprava/export/{category}/{fmt}` | Export jedné kategorie (xlsx/csv) |
 | POST | `/sprava/export/hromadny` | Hromadný export vybraných kategorií (soubor nebo ZIP) |

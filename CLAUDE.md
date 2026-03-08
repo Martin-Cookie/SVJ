@@ -215,24 +215,25 @@
   - Router: sdílená helper funkce pro výpočet dat bublin (volat ve všech endpointech)
   - Šablona předává `active_bubble` do partialu pro zvýraznění
 - **Wizard stepper** — vícekrokový workflow (hlasování, rozesílání):
-  - Router helper `_voting_wizard(voting, current_step)` / `_tax_wizard(...)` vrací dict s `wizard_steps`, `wizard_current`, `wizard_label`
+  - Router helper `_voting_wizard(voting, current_step)` vrací dict s `wizard_steps`, `wizard_current`, `wizard_label`
+  - Router helper `_tax_wizard(...)` vrací dict s `wizard_steps`, `wizard_current`, `wizard_total` (bez `wizard_label`)
   - Plná varianta: `partials/wizard_stepper.html` — samostatný stepper nad obsahem
   - Kompaktní varianta: `partials/wizard_stepper_compact.html` — inline v kartě na seznamu
-  - Stavy kroků: `done` (zelená), `active` (modrá), `pending` (šedá), `sending` (oranžová pulzace)
+  - Stavy kroků: `done` (zelená), `active` (zelená), `current+done` (tmavší zelená s ring efektem), `pending` (šedá), `sending` (oranžová pulzace)
 - Registrace v `app/main.py` (`include_router`)
 - Export modelů v `app/models/__init__.py`
 - Odkaz v sidebar (`base.html`) s `active_nav` kontrolou
 - Přidání do README.md (popis modulu + API endpointy)
 - Odkaz v sidebaru (`base.html`): sekce Data (nahoře), Moduly (doménové funkce), Systém (admin/config). Ikona `w-4 h-4 mr-2` SVG + text label
 
-## Export dat (Excel)
+## Export dat (Excel + CSV)
 
 - Export musí vždy odrážet **aktuální filtrovaný pohled** — ne všechna data
 - Filtr se přenáší přes hidden input ve formuláři: `<input type="hidden" name="filtr" value="{{ filtr }}">`
 - Export endpoint aplikuje **stejnou logiku filtrování** jako zobrazovací endpoint
-- Generování přes `openpyxl` (ne pandas): bold hlavička (`Font(bold=True)`), auto-width sloupců (max 45 znaků), žlutá `PatternFill` pro zvýraznění rozdílů
+- **Excel**: generování přes `openpyxl` (ne pandas): bold hlavička (`Font(bold=True)`), auto-width sloupců (max 45 znaků), žlutá `PatternFill` pro zvýraznění rozdílů. Response: `media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"`
+- **CSV**: UTF-8 s BOM (`\ufeff` na začátku), středník jako oddělovač. Response: `media_type="text/csv; charset=utf-8"`, filename `{modul}_YYYYMMDD.csv`
 - Formulář exportu musí mít `hx-boost="false"` (viz [UI_GUIDE.md § 14](docs/UI_GUIDE.md))
-- Response: `media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"`
 
 ## Mazání dat (purge)
 
@@ -307,7 +308,7 @@
 
 ## Startup (lifespan)
 
-- `main.py` lifespan: (1) import modelů, (2) `create_all`, (3) migrace, (4) `_ensure_indexes()`, (5) vytvoření upload/generated adresářů
+- `main.py` lifespan: (1) import modelů, (2) `create_all`, (3) migrace, (4) `_ensure_indexes()`, (5) vytvoření upload/generated adresářů, (6) `recover_stuck_sending_sessions()` — resetuje zaseklé SENDING sessions na PAUSED při startu
 - Nové funkce vyžadující adresáře: přidat do lifespan. Nové indexy: přidat do `_ensure_indexes()`
 
 ## Nasazení na USB (jiný počítač)
@@ -324,9 +325,11 @@
 
 ## Workflow
 
+- **Odhad doby** — před začátkem úkolu sdělit uživateli odhadovaný čas (např. "Toto zabere ~5 minut"). U agentů viz tabulka v ORCHESTRATOR.md
 - Po dokončení změn: commit + push (pokud uživatel požádá)
 - **Po pushi VŽDY rovnou aktualizovat README.md** — neptyat se, rovnou zapsat změny do README a commitnout+pushnout
 - Commit message v češtině, stručný, popisuje "co a proč"
+- **Úklid po testování**: po použití Playwright (browser_navigate, browser_snapshot, browser_take_screenshot) smazat soubory v `.playwright-mcp/` — `rm -rf .playwright-mcp/*.log .playwright-mcp/*.png .playwright-mcp/*.jpeg`
 - **Dokumentace — jeden zdroj pravdy**: UI vzory → `docs/UI_GUIDE.md`, backend pravidla → `CLAUDE.md`, projektová dokumentace → `README.md`. Při změně/přidání vzoru zapsat na jedno místo, z ostatních jen odkázat. Při přejmenování modulu/funkce projít VŠECHNY tři soubory
 
 ## Komunikace s uživatelem
@@ -339,6 +342,15 @@
 - Komunikovat stručně — co jsem udělal, ne co bych mohl udělat
 - Na potvrzení se PTÁT — "Chceš commitnout?", "Chceš něco upravit?" atd. jsou v pořádku
 - **Po opravě chyby se VŽDY zeptat**, zda se nemá stejný problém zkontrolovat v celém projektu — stejná chyba se často opakuje na více místech
+- **Prezentace nálezů a doporučení** — každý nález/doporučení MUSÍ obsahovat:
+  1. **Co a kde**: stručný popis problému + kde v aplikaci (URL, stránka, akce)
+  2. **Řešení**: jak to opravit (konkrétní postup, ne vágní "vylepšit")
+  3. **Varianty**: pokud existuje víc přístupů, nabídnout je s pro/proti
+  4. **Náročnost + čas**: odhadovaná složitost (nízká/střední/vysoká) a čas (~5 min, ~30 min, ~2 hod)
+  5. **Závislosti**: závisí oprava na jiném nálezu? "Nejdřív oprav X, pak Y"
+  6. **Regrese riziko**: může oprava rozbít něco jiného? (nízké/střední/vysoké)
+  7. **Rozhodnutí potřeba**: 🔧 (jen opravit) vs ❓ (potřeba rozhodnutí uživatele)
+  8. **Jak otestovat**: polopatický postup krok za krokem (URL → klik → očekávaný výsledek)
 - **Při zápisu dat do evidence (update, exchange, import, checkbox aktualizace) VŽDY aktivně testovat všechny kombinace scénářů:**
   - 1 vlastník → 1 vlastník (přepis)
   - 1 vlastník → N vlastníků (přidání spoluvlastníků)
@@ -438,9 +450,10 @@
 6. **POČKEJ NA SCHVÁLENÍ** — neimplementuj dokud uživatel neschválí plán
 6. **Implementuj** po schválení
 7. **Ověř** že existující funkce stále fungují (spusť server, otestuj dotčené stránky)
-8. **Vyžádej si potvrzení pro commit** — ukaž co se změnilo a zeptej se "Mám commitnout?"
-9. **Commitni** každý úkol zvlášť s výstižnou českou commit message
-9. Pokud měníš strukturu projektu → **aktualizuj CLAUDE.md**
+8. **Nabídni otestování** — po implementaci se zeptej uživatele: "Chceš otestovat? (konkrétní URL a kroky)". Testovat přes Playwright (browser_navigate + browser_snapshot/screenshot). Po testování smazat soubory v `.playwright-mcp/` (screenshoty, logy)
+9. **Vyžádej si potvrzení pro commit** — ukaž co se změnilo a zeptej se "Mám commitnout?"
+10. **Commitni** každý úkol zvlášť s výstižnou českou commit message
+11. Pokud měníš strukturu projektu → **aktualizuj CLAUDE.md**
 
 ### Na konci každého úkolu vypiš:
 - Co jsi změnil (soubory + stručný popis)
