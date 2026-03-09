@@ -233,7 +233,14 @@
 - Export endpoint aplikuje **stejnou logiku filtrování** jako zobrazovací endpoint
 - **Excel**: generování přes `openpyxl` (ne pandas): bold hlavička (`Font(bold=True)`), auto-width sloupců (max 45 znaků), žlutá `PatternFill` pro zvýraznění rozdílů. Response: `media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"`
 - **CSV**: UTF-8 s BOM (`\ufeff` na začátku), středník jako oddělovač. Response: `media_type="text/csv; charset=utf-8"`, filename `{modul}_YYYYMMDD.csv`
-- **Název souboru musí odrážet aktivní filtr/bublinu**: formát `{modul}_{suffix}_{YYYYMMDD}.{fmt}`. Suffix = první neprázdný filtr (typ, kontakt, stav, sekce, hledání). Bez filtru = `_vsichni` / `_vsechny`. Příklady: `vlastnici_fyzicke_20260309.xlsx`, `jednotky_sekce_A_20260309.csv`, `hlasovani_1_nezpracovane_20260309.xlsx`. Nikdy nepoužívat název s diakritikou (HTTP Content-Disposition header)
+- **Název souboru musí odrážet aktivní filtr/bublinu**:
+  - Formát: `{modul}_{suffix}_{YYYYMMDD}.{fmt}` (s ID entity: `{modul}_{id}_{suffix}_{YYYYMMDD}`)
+  - Suffix = český popis aktivního filtru bez diakritiky. Bez filtru = `_vsichni` / `_vsechny` / `_vse`
+  - Suffixový dict se definuje přímo v export endpointu: `typ_labels = {"physical": "fyzicke", "legal": "pravnicke"}`
+  - Logika: vzít **první neprázdný filtr** (priorita: typ → kontakt → stav → vlastnictví → sekce → hledání), přidat odpovídající suffix
+  - Příklady: `vlastnici_fyzicke_20260309.xlsx`, `jednotky_sekce_A_20260309.csv`, `hlasovani_1_nezpracovane_20260309.xlsx`, `porovnani_rozdily_20260309.xlsx`
+  - **Nikdy nepoužívat diakritiku v názvu** — HTTP `Content-Disposition` header kóduje latin-1
+  - **Při přidání nového exportu s bublinami/filtry VŽDY přidat suffix logiku** — uživatel musí z názvu souboru poznat, co exportoval
 - **Upload limity**: centralizované v `UPLOAD_LIMITS` dict v `app/utils.py`. Volání: `validate_upload(file, **UPLOAD_LIMITS["excel"])`. Při přidání nového uploadu přidat klíč do `UPLOAD_LIMITS`
 - Formulář exportu musí mít `hx-boost="false"` (viz [UI_GUIDE.md § 14](docs/UI_GUIDE.md))
 
