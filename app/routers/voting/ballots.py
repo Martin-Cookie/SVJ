@@ -174,6 +174,7 @@ async def process_page(
     q: str = Query(""),
     sort: str = Query("owner"),
     order: str = Query("asc"),
+    info: str = Query(""),
     db: Session = Depends(get_db),
 ):
     voting = db.query(Voting).options(
@@ -251,6 +252,13 @@ async def process_page(
         **_ballot_stats(voting, db),
         **_voting_wizard(voting, 3),
     }
+
+    if info.startswith("zpracovano-"):
+        try:
+            n = int(info.split("-", 1)[1])
+            ctx["flash_message"] = f"Hromadně zpracováno {n} lístků."
+        except ValueError:
+            pass
 
     if is_htmx_partial(request):
         return templates.TemplateResponse("voting/process_cards.html", ctx)
@@ -355,7 +363,7 @@ async def process_ballots_bulk(
         count += 1
 
     db.commit()
-    return RedirectResponse(f"/hlasovani/{voting_id}/zpracovani", status_code=302)
+    return RedirectResponse(f"/hlasovani/{voting_id}/zpracovani?info=zpracovano-{count}", status_code=302)
 
 
 @router.post("/{voting_id}/listek/{ballot_id}/opravit")

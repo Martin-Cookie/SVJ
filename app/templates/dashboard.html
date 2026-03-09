@@ -22,7 +22,7 @@
         </div>
         {% if declared_shares %}
         {% set diff = owners_scd - declared_shares %}
-        <p class="text-xs mt-1 {% if diff == 0 %}text-green-600{% else %}text-red-600{% endif %}">
+        <p class="text-xs mt-1 {% if diff == 0 %}text-green-600{% else %}text-red-600{% endif %}" title="Porovnání součtu podílů SČD v evidenci s podíly dle prohlášení vlastníka">
             Podíly: {% if diff == 0 %}&#10003; shoda{% else %}<a href="/prehled/rozdil-podilu" class="hover:underline" onclick="event.stopPropagation();">&Delta; {{ "{:,}".format(diff).replace(",", " ") }}</a>{% endif %}
         </p>
         {% endif %}
@@ -41,7 +41,7 @@
         </div>
         {% if declared_shares %}
         {% set diff = units_scd - declared_shares %}
-        <p class="text-xs mt-1 {% if diff == 0 %}text-green-600{% else %}text-red-600{% endif %}">
+        <p class="text-xs mt-1 {% if diff == 0 %}text-green-600{% else %}text-red-600{% endif %}" title="Porovnání součtu podílů SČD v evidenci s podíly dle prohlášení vlastníka">
             Podíly: {% if diff == 0 %}&#10003; shoda{% else %}<a href="/prehled/rozdil-podilu" class="hover:underline" onclick="event.stopPropagation();">&Delta; {{ "{:,}".format(diff).replace(",", " ") }}</a>{% endif %}
         </p>
         {% endif %}

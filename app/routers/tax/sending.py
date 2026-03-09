@@ -139,6 +139,7 @@ async def tax_send_preview(
     sort: str = Query("name"),
     order: str = Query("asc"),
     back: str = Query("", alias="back"),
+    varovani: str = Query(""),
     db: Session = Depends(get_db),
 ):
     session = db.query(TaxSession).get(session_id)
@@ -252,6 +253,10 @@ async def tax_send_preview(
         "skipped_auto_count": skipped_auto_count,
         **_tax_wizard(session, 3),
     }
+
+    if varovani == "test-zneplatnen":
+        ctx["flash_message"] = "Obsah emailu byl změněn — je nutné odeslat nový testovací email."
+        ctx["flash_type"] = "warning"
 
     if request.headers.get("HX-Request") and not request.headers.get("HX-Boosted"):
         return templates.TemplateResponse("partials/tax_send_body.html", ctx)
@@ -570,8 +575,11 @@ async def save_send_settings(
         return RedirectResponse("/dane", status_code=302)
 
     # Invalidate test if email content changed (#8)
+    test_invalidated = False
     if (email_subject != (session.email_subject or "")
             or email_body != (session.email_body or "")):
+        if session.test_email_passed:
+            test_invalidated = True
         session.test_email_passed = False
 
     session.email_subject = email_subject
@@ -586,7 +594,10 @@ async def save_send_settings(
         session.send_status = SendStatus.READY
     db.commit()
 
-    return RedirectResponse(f"/dane/{session_id}/rozeslat?config=open", status_code=302)
+    redirect_url = f"/dane/{session_id}/rozeslat?config=open"
+    if test_invalidated:
+        redirect_url += "&varovani=test-zneplatnen"
+    return RedirectResponse(redirect_url, status_code=302)
 
 
 # ---------------------------------------------------------------------------

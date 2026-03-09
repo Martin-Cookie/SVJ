@@ -259,8 +259,10 @@ async def owner_list(
     ]
     emails_count = db.query(Owner).filter(
         Owner.is_active == True,
-        Owner.email.isnot(None),
-        Owner.email != "",
+        or_(
+            (Owner.email.isnot(None)) & (Owner.email != ""),
+            (Owner.email_secondary.isnot(None)) & (Owner.email_secondary != ""),
+        ),
     ).count()
     phones_count = db.query(Owner).filter(
         Owner.is_active == True,

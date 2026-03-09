@@ -191,6 +191,7 @@ async def voting_create(
     db: Session = Depends(get_db),
 ):
     quorum_threshold = max(0.0, min(100.0, quorum_threshold))
+    date_warning = None
     voting = Voting(
         title=title,
         description=description,
@@ -203,7 +204,7 @@ async def voting_create(
         if end_date:
             voting.end_date = date.fromisoformat(end_date)
     except ValueError:
-        pass  # invalid date from form — ignore, keep None
+        date_warning = "neplatne-datum"
 
     # Handle Word template upload
     if file and file.filename:
@@ -264,8 +265,13 @@ async def voting_create(
                  entity_id=voting.id, entity_name=voting.title)
     db.commit()
     redirect_url = f"/hlasovani/{voting.id}"
+    warnings = []
     if extraction_warning:
-        redirect_url += f"?info={extraction_warning}"
+        warnings.append(f"info={extraction_warning}")
+    if date_warning:
+        warnings.append(f"info={date_warning}")
+    if warnings:
+        redirect_url += "?" + "&".join(warnings)
     return RedirectResponse(redirect_url, status_code=302)
 
 
@@ -388,6 +394,9 @@ async def voting_detail(
         ctx["flash_type"] = "warning"
     elif info == "sablona-prazdna":
         ctx["flash_message"] = "V šabloně nebyly nalezeny žádné body hlasování. Přidejte je ručně."
+        ctx["flash_type"] = "warning"
+    elif info == "neplatne-datum":
+        ctx["flash_message"] = "Neplatný formát datumu — datum nebylo uloženo."
         ctx["flash_type"] = "warning"
     elif info == "zadne-body":
         ctx["flash_message"] = "Nejdříve přidejte alespoň jeden bod hlasování."
