@@ -535,7 +535,7 @@ async def export_not_submitted(voting_id: int, db: Session = Depends(get_db)):
 
     for row_idx, ballot in enumerate(missing, 2):
         owner = ballot.owner
-        ws.cell(row=row_idx, column=1, value=owner.display_name)
+        ws.cell(row=row_idx, column=1, value=ballot.shared_owners_text or owner.display_name)
         ws.cell(row=row_idx, column=2, value=ballot.units_text or "")
         ws.cell(row=row_idx, column=3, value=owner.email or "")
         ws.cell(row=row_idx, column=4, value=owner.phone or "")

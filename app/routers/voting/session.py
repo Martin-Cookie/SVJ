@@ -676,7 +676,7 @@ async def voting_export(voting_id: int, stav: str = "", db: Session = Depends(ge
     # Data rows
     vote_labels = {"for": "PRO", "against": "PROTI", "abstain": "Zdržel se", "invalid": "Neplatný"}
     for row_idx, ballot in enumerate(processed, start_row + 1):
-        ws.cell(row=row_idx, column=1, value=ballot.owner.display_name)
+        ws.cell(row=row_idx, column=1, value=ballot.shared_owners_text or ballot.owner.display_name)
         ws.cell(row=row_idx, column=2, value=ballot.units_text or "")
         ws.cell(row=row_idx, column=3, value=ballot.total_votes)
         for item_idx, item in enumerate(items):
