@@ -44,7 +44,7 @@
             Zpracovat ručně
         </a>
         <a href="/hlasovani/{{ voting.id }}/exportovat" hx-boost="false"
-           onclick="this.textContent='Generuji…';this.classList.add('opacity-50')"
+           onclick="var b=this,t=b.textContent;b.textContent='Generuji…';b.classList.add('opacity-50');setTimeout(function(){b.textContent=t;b.classList.remove('opacity-50')},3000)"
            class="px-3 py-1.5 text-sm font-medium text-green-600 border border-green-300 rounded-lg hover:bg-green-50 transition-colors"
            title="Exportovat průběžné výsledky">
             Exportovat do Excelu

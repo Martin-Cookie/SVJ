@@ -44,11 +44,11 @@
     <div class="flex items-center gap-2">
         {% set _export_qs = "q=" ~ q ~ "&typ=" ~ typ ~ "&sekce=" ~ sekce ~ "&sort=" ~ sort ~ "&order=" ~ order %}
         <a href="/jednotky/exportovat/xlsx?{{ _export_qs }}" hx-boost="false"
-           onclick="this.textContent='Generuji…';this.classList.add('opacity-50')"
+           onclick="var b=this,t=b.textContent;b.textContent='Generuji…';b.classList.add('opacity-50');setTimeout(function(){b.textContent=t;b.classList.remove('opacity-50')},3000)"
            class="px-2.5 py-1.5 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 text-xs font-medium transition-colors border border-gray-200"
            title="Export do Excelu">↓ Excel</a>
         <a href="/jednotky/exportovat/csv?{{ _export_qs }}" hx-boost="false"
-           onclick="this.textContent='Generuji…';this.classList.add('opacity-50')"
+           onclick="var b=this,t=b.textContent;b.textContent='Generuji…';b.classList.add('opacity-50');setTimeout(function(){b.textContent=t;b.classList.remove('opacity-50')},3000)"
            class="px-2.5 py-1.5 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 text-xs font-medium transition-colors border border-gray-200"
            title="Export do CSV">↓ CSV</a>
         <button hx-get="/jednotky/nova-formular" hx-target="#unit-create-section" hx-swap="innerHTML"
@@ -129,9 +129,9 @@
         </colgroup>
         <thead class="bg-gray-50 border-b-2 border-gray-300 sticky top-0 z-10">
             <tr>
-                {% macro sort_th(label, col, align="left") %}
+                {% macro sort_th(label, col, align="left", title="") %}
                 {% set next_order = "desc" if sort == col and order == "asc" else "asc" %}
-                <th class="px-2 py-1.5 text-{{ align }} font-medium {% if sort == col %}text-blue-600{% else %}text-gray-500{% endif %}">
+                <th class="px-2 py-1.5 text-{{ align }} font-medium {% if sort == col %}text-blue-600{% else %}text-gray-500{% endif %}"{% if title %} title="{{ title }}"{% endif %}>
                     <a href="/jednotky?sort={{ col }}&order={{ next_order }}&q={{ q }}&typ={{ typ }}&sekce={{ sekce }}{{ _back }}"
                        class="inline-flex items-center gap-0.5 cursor-pointer hover:text-blue-600 select-none">
                         {{ label }}
@@ -153,7 +153,7 @@
                 {{ sort_th("LV", "lv", "right") }}
                 {{ sort_th("Místn.", "room_count") }}
                 {{ sort_th("Plocha", "floor_area", "right") }}
-                {{ sort_th("Podíl SČD", "podil", "right") }}
+                {{ sort_th("Podíl SČD", "podil", "right", "Spoluvlastnický podíl na společných částech domu") }}
                 {{ sort_th("Vlastníci", "owners") }}
             </tr>
         </thead>

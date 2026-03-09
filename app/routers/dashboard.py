@@ -125,6 +125,7 @@ async def home(
     active_tax_sessions = (
         db.query(TaxSession)
         .order_by(TaxSession.created_at.desc())
+        .limit(50)
         .all()
     )
 

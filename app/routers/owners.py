@@ -667,6 +667,7 @@ async def import_page(
 ):
     imports = db.query(ImportLog).filter_by(import_type="owners_excel").order_by(ImportLog.created_at.desc()).all()
     contact_imports = db.query(ImportLog).filter_by(import_type="contacts_excel").order_by(ImportLog.created_at.desc()).all()
+    owner_count = db.query(Owner).count()
 
     contact_flash = None
     if chyba_kontakty == "format":
@@ -680,6 +681,7 @@ async def import_page(
         "imports": imports,
         "contact_imports": contact_imports,
         "contact_flash": contact_flash,
+        "owner_count": owner_count,
     })
 
 

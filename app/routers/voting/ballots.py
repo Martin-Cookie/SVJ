@@ -504,3 +504,55 @@ async def not_submitted(
         return templates.TemplateResponse("voting/not_submitted_table.html", ctx)
 
     return templates.TemplateResponse("voting/not_submitted.html", ctx)
+
+
+@router.get("/{voting_id}/neodevzdane/exportovat")
+async def export_not_submitted(voting_id: int, db: Session = Depends(get_db)):
+    """Export not-submitted ballots to Excel."""
+    from io import BytesIO
+    from fastapi.responses import Response
+    from openpyxl import Workbook
+    from openpyxl.styles import Font
+
+    voting = db.query(Voting).options(
+        joinedload(Voting.ballots).joinedload(Ballot.owner).joinedload(Owner.units).joinedload(OwnerUnit.unit),
+    ).get(voting_id)
+    if not voting:
+        return RedirectResponse("/hlasovani", status_code=302)
+
+    missing = [b for b in voting.ballots if b.status not in (BallotStatus.PROCESSED,)]
+    missing.sort(key=lambda b: strip_diacritics(b.owner.display_name or ""))
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Neodevzdané lístky"
+    bold = Font(bold=True)
+
+    headers = ["Vlastník", "Jednotky", "Email", "Telefon", "Hlasy", "Stav"]
+    for col, h in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=h)
+        cell.font = bold
+
+    for row_idx, ballot in enumerate(missing, 2):
+        owner = ballot.owner
+        ws.cell(row=row_idx, column=1, value=owner.display_name)
+        ws.cell(row=row_idx, column=2, value=ballot.units_text or "")
+        ws.cell(row=row_idx, column=3, value=owner.email or "")
+        ws.cell(row=row_idx, column=4, value=owner.phone or "")
+        ws.cell(row=row_idx, column=5, value=ballot.total_votes or 0)
+        ws.cell(row=row_idx, column=6, value=ballot.status.value)
+
+    for col in ws.columns:
+        max_len = max((len(str(c.value or "")) for c in col), default=10)
+        ws.column_dimensions[col[0].column_letter].width = min(max_len + 2, 45)
+
+    buf = BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+
+    filename = f"neodevzdane_{voting.title[:30]}_{datetime.utcnow().strftime('%Y%m%d')}.xlsx"
+    return Response(
+        content=buf.getvalue(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )

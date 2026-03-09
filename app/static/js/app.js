@@ -83,8 +83,10 @@ document.addEventListener('keydown', function(event) {
     }
 });
 
-// PDF preview modal (pdf.js)
-pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+// PDF preview modal (pdf.js) — only init when pdf.js is loaded
+if (typeof pdfjsLib !== 'undefined') {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
 
 function openPdfModal(url, title) {
     var modal = document.getElementById('pdf-modal');
