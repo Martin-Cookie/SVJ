@@ -376,11 +376,29 @@ async def owner_export(
     timestamp = datetime.now().strftime("%Y%m%d")
     from fastapi.responses import Response
 
+    # Suffix podle aktivního filtru
+    typ_labels = {"physical": "fyzicke", "legal": "pravnicke"}
+    kontakt_labels = {"s_emailem": "s_emailem", "bez_emailu": "bez_emailu", "s_telefonem": "s_telefonem", "bez_telefonu": "bez_telefonu"}
+    if owner_type and owner_type in typ_labels:
+        suffix = f"_{typ_labels[owner_type]}"
+    elif kontakt and kontakt in kontakt_labels:
+        suffix = f"_{kontakt_labels[kontakt]}"
+    elif stav:
+        suffix = f"_{stav}"
+    elif vlastnictvi:
+        suffix = f"_{vlastnictvi}"
+    elif sekce:
+        suffix = f"_sekce_{sekce}"
+    elif q:
+        suffix = "_hledani"
+    else:
+        suffix = "_vsichni"
+    filename = f"vlastnici{suffix}_{timestamp}"
+
     if fmt == "xlsx":
         from io import BytesIO
         from openpyxl import Workbook
         from openpyxl.styles import Font
-
 
         wb = Workbook()
         ws = wb.active
@@ -402,7 +420,7 @@ async def owner_export(
         return Response(
             content=buf.getvalue(),
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            headers={"Content-Disposition": f'attachment; filename="vlastnici_{timestamp}.xlsx"'},
+            headers={"Content-Disposition": f'attachment; filename="{filename}.xlsx"'},
         )
     else:
         import csv
@@ -415,7 +433,7 @@ async def owner_export(
         return Response(
             content=buf.getvalue().encode("utf-8-sig"),
             media_type="text/csv; charset=utf-8",
-            headers={"Content-Disposition": f'attachment; filename="vlastnici_{timestamp}.csv"'},
+            headers={"Content-Disposition": f'attachment; filename="{filename}.csv"'},
         )
 
 

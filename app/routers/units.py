@@ -508,11 +508,22 @@ async def unit_export(
     timestamp = datetime.now().strftime("%Y%m%d")
     from fastapi.responses import Response
 
+    # Suffix podle aktivního filtru
+    typ_labels = {"byt": "byt", "garáž": "garaz", "jiný nebytový prostor": "nebytovy"}
+    if typ and typ in typ_labels:
+        suffix = f"_{typ_labels[typ]}"
+    elif sekce:
+        suffix = f"_sekce_{sekce}"
+    elif q:
+        suffix = "_hledani"
+    else:
+        suffix = "_vsechny"
+    filename = f"jednotky{suffix}_{timestamp}"
+
     if fmt == "xlsx":
         from io import BytesIO
         from openpyxl import Workbook
         from openpyxl.styles import Font
-
 
         wb = Workbook()
         ws = wb.active
@@ -534,7 +545,7 @@ async def unit_export(
         return Response(
             content=buf.getvalue(),
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            headers={"Content-Disposition": f'attachment; filename="jednotky_{timestamp}.xlsx"'},
+            headers={"Content-Disposition": f'attachment; filename="{filename}.xlsx"'},
         )
     else:
         import csv
@@ -547,7 +558,7 @@ async def unit_export(
         return Response(
             content=buf.getvalue().encode("utf-8-sig"),
             media_type="text/csv; charset=utf-8",
-            headers={"Content-Disposition": f'attachment; filename="jednotky_{timestamp}.csv"'},
+            headers={"Content-Disposition": f'attachment; filename="{filename}.csv"'},
         )
 
 
