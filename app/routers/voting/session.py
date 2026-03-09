@@ -712,8 +712,9 @@ async def voting_export(voting_id: int, stav: str = "", db: Session = Depends(ge
 
     buf = BytesIO()
     wb.save(buf)
-    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-    stav_suffix = f"_{stav}" if stav and stav in status_filter else ""
+    timestamp = datetime.utcnow().strftime("%Y%m%d")
+    stav_labels = {"generated": "nezpracovane", "sent": "odeslane", "processed": "zpracovane"}
+    stav_suffix = f"_{stav_labels[stav]}" if stav and stav in stav_labels else "_vsechny"
     filename = f"hlasovani_{voting.id}{stav_suffix}_{timestamp}.xlsx"
 
     return Response(
