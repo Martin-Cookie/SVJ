@@ -489,28 +489,15 @@ def _run_contact_preview(file_key: str, file_path: str):
 
 def _contact_progress_ctx(progress: dict) -> dict:
     """Compute progress context for contact import templates."""
+    from app.utils import compute_eta
+
     total = progress.get("total", 0)
     current = progress.get("current", 0)
-    pct = int(current / total * 100) if total > 0 else 0
-    elapsed = _time.monotonic() - progress["started_at"]
-
-    eta_text = ""
-    if current > 0 and total > 0:
-        per_row = elapsed / current
-        remaining = (total - current) * per_row
-        if remaining >= 60:
-            eta_text = f"{int(remaining // 60)} min {int(remaining % 60)} s"
-        elif remaining >= 1:
-            eta_text = f"{int(remaining)} s"
-
-    elapsed_text = f"{int(elapsed // 60)} min {int(elapsed % 60)} s" if elapsed >= 60 else f"{int(elapsed)} s"
-
+    eta = compute_eta(current, total, progress["started_at"])
     return {
         "total": total,
         "current": current,
-        "pct": pct,
-        "elapsed": elapsed_text,
-        "eta": eta_text,
+        **eta,
         "phase": progress.get("phase", "Připravuji..."),
     }
 

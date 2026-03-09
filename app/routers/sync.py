@@ -190,7 +190,7 @@ async def sync_create(
             with open(dest, "r", encoding=encoding) as f:
                 csv_content = f.read()
             break
-        except UnicodeDecodeError:
+        except (UnicodeDecodeError, OSError):
             continue
 
     if not csv_content:

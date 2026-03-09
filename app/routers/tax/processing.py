@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import re
-import time as _time
 from datetime import date
 from pathlib import Path
 
@@ -271,35 +270,14 @@ def _process_tax_files(session_id: int, file_paths: list, tax_year):
 
 def _progress_eta(progress: dict) -> dict:
     """Compute ETA fields from progress dict."""
-    total = progress["total"]
-    current = progress["current"]
-    pct = int(current / total * 100) if total > 0 else 0
-    elapsed = _time.monotonic() - progress["started_at"]
+    from app.utils import compute_eta
 
-    eta_text = ""
-    if current > 0:
-        per_file = elapsed / current
-        remaining = (total - current) * per_file
-        if remaining >= 60:
-            mins = int(remaining // 60)
-            secs = int(remaining % 60)
-            eta_text = f"{mins} min {secs} s"
-        else:
-            eta_text = f"{int(remaining)} s"
-
-    elapsed_text = ""
-    if elapsed >= 60:
-        elapsed_text = f"{int(elapsed // 60)} min {int(elapsed % 60)} s"
-    else:
-        elapsed_text = f"{int(elapsed)} s"
-
+    eta = compute_eta(progress["current"], progress["total"], progress["started_at"])
     return {
-        "total": total,
-        "current": current,
+        "total": progress["total"],
+        "current": progress["current"],
         "current_file": progress["current_file"],
-        "pct": pct,
-        "elapsed": elapsed_text,
-        "eta": eta_text,
+        **eta,
     }
 
 

@@ -158,7 +158,7 @@ def _read_csv_file(file_path: str) -> str:
             with open(file_path, "r", encoding=encoding) as f:
                 content = f.read()
             return content.lstrip("\ufeff")
-        except UnicodeDecodeError:
+        except (UnicodeDecodeError, OSError):
             continue
     return ""
 

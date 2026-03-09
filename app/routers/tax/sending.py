@@ -607,38 +607,19 @@ async def save_send_settings(
 
 def _sending_eta(progress: dict) -> dict:
     """Compute ETA fields from sending progress dict."""
-    total = progress["total"]
+    from app.utils import compute_eta
+
     sent = progress["sent"]
     failed = progress["failed"]
     current = sent + failed
-    pct = int(current / total * 100) if total > 0 else 0
-    elapsed = time.monotonic() - progress["started_at"]
-
-    eta_text = ""
-    if current > 0:
-        per_item = elapsed / current
-        remaining = (total - current) * per_item
-        if remaining >= 60:
-            mins = int(remaining // 60)
-            secs = int(remaining % 60)
-            eta_text = f"{mins} min {secs} s"
-        else:
-            eta_text = f"{int(remaining)} s"
-
-    elapsed_text = ""
-    if elapsed >= 60:
-        elapsed_text = f"{int(elapsed // 60)} min {int(elapsed % 60)} s"
-    else:
-        elapsed_text = f"{int(elapsed)} s"
+    eta = compute_eta(current, progress["total"], progress["started_at"])
 
     return {
-        "total": total,
+        "total": progress["total"],
         "sent": sent,
         "failed": failed,
         "current": current,
-        "pct": pct,
-        "elapsed": elapsed_text,
-        "eta": eta_text,
+        **eta,
         "current_recipient": progress.get("current_recipient", ""),
         "done": progress.get("done", False),
         "error": progress.get("error"),

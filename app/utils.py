@@ -1,5 +1,6 @@
 """Shared utility functions used across routers and services."""
 import re
+import time as _time
 from pathlib import Path
 from typing import List, Optional
 from unicodedata import category, normalize
@@ -130,3 +131,27 @@ def setup_jinja_filters(templates):
     """Register custom Jinja2 filters on a Jinja2Templates instance."""
     templates.env.filters["fmt_num"] = fmt_num
     return templates
+
+
+def compute_eta(current: int, total: int, started_at: float) -> dict:
+    """Compute progress percentage, elapsed and ETA text.
+
+    Returns dict with keys: pct, elapsed, eta.
+    """
+    pct = int(current / total * 100) if total > 0 else 0
+    elapsed = _time.monotonic() - started_at
+
+    eta_text = ""
+    if current > 0 and total > 0:
+        remaining = (total - current) * (elapsed / current)
+        if remaining >= 60:
+            eta_text = f"{int(remaining // 60)} min {int(remaining % 60)} s"
+        elif remaining >= 1:
+            eta_text = f"{int(remaining)} s"
+
+    if elapsed >= 60:
+        elapsed_text = f"{int(elapsed // 60)} min {int(elapsed % 60)} s"
+    else:
+        elapsed_text = f"{int(elapsed)} s"
+
+    return {"pct": pct, "elapsed": elapsed_text, "eta": eta_text}
