@@ -124,7 +124,7 @@
 - **DB sloupec** `name_with_titles` zůstává pro index — nepoužívat v šablonách ani pro vyhledávání
 - **Hledání** v SQL: `Owner.name_normalized.like(search_ascii)` — viz sekce Vyhledávání výše
 - **Řazení**: `owner.name_normalized` (příjmení-first, bez diakritiky, lowercase)
-- **Budoucí importy**: `build_name_with_titles()` z `app/utils.py` generuje příjmení-first formát
+- **Import dat**: `build_name_with_titles()` z `app/utils.py` generuje příjmení-first formát
 
 ## Import hlasování — spoluvlastnictví (SJM)
 
@@ -228,7 +228,7 @@
 - Export modelů v `app/models/__init__.py`
 - Odkaz v sidebar (`base.html`) s `active_nav` kontrolou
 - Přidání do README.md (popis modulu + API endpointy)
-- Odkaz v sidebaru (`base.html`): sekce Data (nahoře), Moduly (doménové funkce), Systém (admin/config). Ikona `w-4 h-4 mr-2` SVG + text label
+- Odkaz v sidebaru (`base.html`): sekce Moduly (doménové funkce), Systém (admin/config). Ikona `w-4 h-4 mr-2` SVG + text label
 
 ## Export dat (Excel + CSV)
 
@@ -325,7 +325,7 @@
 
 ## Startup (lifespan)
 
-- `main.py` lifespan: (1) import modelů, (2) `create_all`, (3) migrace, (4) `_ensure_indexes()`, (5) vytvoření upload/generated adresářů, (6) `recover_stuck_sending_sessions()` — resetuje zaseklé SENDING sessions na PAUSED při startu
+- `main.py` lifespan: (1) import modelů, (2) `create_all`, (3) migrace (6 migračních funkcí), (4) `_ensure_indexes()`, (5) `_seed_code_lists()`, (6) `_seed_email_templates()`, (7) `recover_stuck_sending_sessions()`, (8) vytvoření upload/generated/temp adresářů
 - Nové funkce vyžadující adresáře: přidat do lifespan. Nové indexy: přidat do `_ensure_indexes()`
 
 ## Nasazení na USB (jiný počítač)

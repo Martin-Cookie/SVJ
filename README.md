@@ -378,7 +378,7 @@ app/
 ├── main.py                    # FastAPI aplikace
 ├── config.py                  # Nastavení (Pydantic)
 ├── database.py                # SQLAlchemy engine + session
-├── utils.py                   # Sdílené utility (strip_diacritics, build_list_url, is_htmx_partial, fmt_num, is_safe_path, validate_upload, validate_uploads, setup_jinja_filters, excel_auto_width, compute_eta, UPLOAD_LIMITS, is_valid_email)
+├── utils.py                   # Sdílené utility (strip_diacritics, build_list_url, is_htmx_partial, fmt_num, is_safe_path, validate_upload, validate_uploads, setup_jinja_filters, excel_auto_width, compute_eta, build_wizard_steps, build_name_with_titles, UPLOAD_LIMITS, is_valid_email)
 ├── models/                    # Databázové modely
 │   ├── owner.py               #   Owner, Unit, OwnerUnit, Proxy
 │   ├── voting.py              #   Voting, VotingItem, Ballot, BallotVote
@@ -396,7 +396,7 @@ app/
 │   │   ├── session.py         #   CRUD, detail, generování lístků, export
 │   │   ├── ballots.py         #   Seznam lístků, zpracování, neodevzdané
 │   │   ├── import_votes.py    #   Import výsledků z Excelu
-│   │   └── _helpers.py        #   _voting_wizard, _ballot_stats, _has_processed_ballots
+│   │   └── _helpers.py        #   _voting_wizard, _ballot_stats
 │   ├── tax/                   #   /dane (session, processing, matching, sending, _helpers)
 │   │   ├── __init__.py
 │   │   ├── session.py         #   CRUD, detail, export
@@ -831,7 +831,7 @@ Zbývající nálezy z druhého auditu: autentizace (plánováno), CSRF ochrana,
 
 **Třetí audit (2026-03-05) — 30 nálezů, opraveno 11:**
 - Odstraněn duplikát `_strip_diacritics` (import z utils)
-- Extrahován `_has_processed_ballots()` helper (10 duplikátů)
+- Extrahován `has_processed_ballots` jako `@property` na modelu Voting
 - Sjednocen timestamp na `datetime.utcnow()` (4 výskyty)
 - Try/except kolem PDF extrakce + logování v background threadech
 - Přidán `hx-swap="innerHTML"` na HTMX search inputy
@@ -857,6 +857,13 @@ Zbývající nálezy z druhého auditu: autentizace (plánováno), CSRF ochrana,
 - Rozdělen `tax.py` (2515 řádků) na package `tax/` — 6 modulů (session, processing, matching, sending, helpers)
 - Rozdělen `voting.py` (1613 řádků) na package `voting/` — 5 modulů (session, ballots, import, helpers)
 - Zbývá: testy, autentizace + CSRF
+
+**Pátý audit (2026-03-09) — LOW items cleanup:**
+- Nahrazena závislost `unidecode` vlastní `strip_diacritics()` z `app/utils.py`
+- `_has_processed_ballots()` → `@property` na modelu Voting
+- `build_wizard_steps()` extrahován do `utils.py` (sdílený voting + tax)
+- `build_name_with_titles()` přesunut z `excel_import.py` do `utils.py`
+- Inline importy přesunuty na top-level v 8 routerech
 
 **Audit zálohovacího systému (2026-03-05) — 14 nálezů, opraveno 12:**
 - ZIP validace: CRC integrity check (`testzip()`) před restore
