@@ -917,7 +917,7 @@ Projekt prošel UX analýzou klíčových modulů (6 expertních perspektiv: UX 
 - K6: Flash chybové zprávy v kontrolách (share_check, sync) — 5 typů chybových zpráv
 - K7: Zachování pozice v tabulce po potvrzení přiřazení (referer-based redirect)
 
-**Celoplošný UX audit (2026-03-09) — 19 nálezů, opraveno 19:**
+**Celoplošný UX audit (2026-03-09) — 25 nálezů, opraveno 25:**
 
 *Wave 1 (8):* responsive grid na detailu vlastníka, exchange varování (nevratná operace), čitelné kontaktní filtry (text místo ikon), popisky admin karet, smazání hlasování — DELETE modal pokud má lístky, HTMX loading pulzace na search inputech.
 
@@ -926,6 +926,8 @@ Projekt prošel UX analýzou klíčových modulů (6 expertních perspektiv: UX 
 *Wave 3 (4):* detekce duplicitních vlastníků při vytváření (jméno/RČ/email s možností vynucení), SMTP test připojení (smtplib), onboarding blok na dashboardu pro prázdnou DB, varování při opuštění neuloženého formuláře (`beforeunload`).
 
 *Wave 4 (4):* email validace vrací formulář s chybou místo tichého zahození, výraznější varování u neplatných číselných vstupů (plocha, podíl), varování o nepotvrzených auto-match přiřazeních v rozesílce, počet dotčených záznamů v confirm dialogu hromadných úprav.
+
+*Wave 5 (6):* validace rozsahu čísla budovy (1–99999), vizuální oddělení sekcí na stránce kontrol, ARIA atributy pro modály (`role="dialog"`, `aria-modal`, `aria-labelledby`), focus trap v modalech (Tab/Shift+Tab), focus restore po zavření modálu, `aria-label` na icon-only tlačítkách (14 šablon).
 
 **Audit zálohovacího systému + business logiky (2026-03-08) — 8 nálezů, opraveno 8:**
 
