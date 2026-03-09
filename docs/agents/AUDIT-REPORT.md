@@ -5,9 +5,9 @@
 - **CRITICAL: 4** (2 existujici, 2 nove) — 1 opraveno, 3 planovane
 - **HIGH: 5** — vsechny opraveny
 - **MEDIUM: 9** — vsechny opraveny
-- **LOW: 10** — 5 opraveno, 5 ponechano (nizka priorita)
+- **LOW: 10** — 9 opraveno, 1 by design (#24)
 
-**Celkem: 28 nalezu — 20 opraveno, 3 planovane (auth/CSRF/testy), 5 ponechano (LOW)**
+**Celkem: 28 nalezu — 24 opraveno, 3 planovane (auth/CSRF/testy), 1 by design**
 
 ### Stav predchoziho auditu (2026-03-08 post-refaktor, 26 nalezu)
 
@@ -21,7 +21,7 @@
 | 6 | Hardcoded upload size limits | **OPRAVENO** (UPLOAD_LIMITS centralizovano v utils.py) |
 | 7 | README directory tree zastaraly | **OPRAVENO** (README:388-408 aktualizovan) |
 | 8 | File attachment bez error handling | **OPRAVENO** (email_service.py try/except IOError, OSError) |
-| 9 | Duplicitni `_build_name_*()` funkce | Ponechano (LOW — jen 1 instance) |
+| 9 | Duplicitni `_build_name_*()` funkce | **OPRAVENO** (presunuto do utils.py) |
 | 10 | Hardcoded multipart limits (5000) | **OPRAVENO** (Starlette monkey-patching s try/except) |
 | 11 | Chybi dokumentace router package vzoru | **OPRAVENO** (CLAUDE.md § Router packages) |
 | 12 | .gitignore chybi .playwright-mcp/ a data/svj.db* | **OPRAVENO** |
@@ -55,10 +55,10 @@
 | 16 | Bezpecnost | config.py:7 | MEDIUM | `debug: bool = False` -- zadna ochrana proti zapnuti v produkci | **OPRAVENO** (warning log pri DEBUG=true) |
 | 17 | Bezpecnost | main.py:243 | MEDIUM | `_ensure_indexes()` pouziva f-string v SQL -- nesplnuje best practice | **OPRAVENO** (regex validace identifikatoru) |
 | 18 | JS | app.js:87 | MEDIUM | pdf.js worker hardcoded verze -- neni synchronizovano s knihovnou | **OPRAVENO** (pdfjsLib.version dynamicky) |
-| 19 | Pojmenovani | voting/_helpers.py:28 | LOW | `_has_processed_ballots` -- spis model metoda | Ponechano (info) |
-| 20 | Duplikaty | voting/_helpers, tax/_helpers | LOW | Paralelni wizard patterns (mohlo by byt spolecne) | Ponechano (vzory prilis odlisne) |
-| 21 | Styl | owners.py:374+ | LOW | Inline importy v exportnich funkcich | Ponechano (validni Python vzor) |
-| 22 | Zavislosti | owner_matcher.py:10 | LOW | `unidecode` vs `strip_diacritics()` -- dve implementace | Ponechano (unidecode potrebne pro stemming) |
+| 19 | Pojmenovani | voting/_helpers.py:28 | LOW | `_has_processed_ballots` -- spis model metoda | **OPRAVENO** (property na Voting modelu) |
+| 20 | Duplikaty | voting/_helpers, tax/_helpers | LOW | Paralelni wizard patterns (mohlo by byt spolecne) | **OPRAVENO** (build_wizard_steps v utils.py) |
+| 21 | Styl | owners.py:374+ | LOW | Inline importy v exportnich funkcich | **OPRAVENO** (presunuto na top-level ve vsech souborech) |
+| 22 | Zavislosti | owner_matcher.py:10 | LOW | `unidecode` vs `strip_diacritics()` -- dve implementace | **OPRAVENO** (nahrazeno strip_diacritics, unidecode odebrano) |
 | 23 | Konfigurace | settings_page.py | LOW | Hardcoded pagination limit | **OPRAVENO** (EMAIL_LOG_LIMIT konstanta) |
 | 24 | Konfigurace | tax/_helpers.py:53 | LOW | Hardcoded wizard labels | Ponechano (info) |
 | 25 | Dokumentace | CLAUDE.md | LOW | Chybi TOC (Table of Contents) | **OPRAVENO** (TOC s anchor odkazy) |
@@ -78,16 +78,11 @@
 | 2 | CSRF ochrana | CRITICAL | Implementovat spolecne s autentizaci |
 | 3 | Testy | CRITICAL | Zakladni test suite pro kriticke business logiku |
 
-### Ponechano (nizka priorita, info)
+### Ponechano (by design)
 
-| # | Nalez | Duvod ponechani |
-|---|-------|-----------------|
-| 9 (puvodni) | Duplicitni `_build_name_with_titles` | Jen 1 instance, neni duvod refaktorovat |
-| 19 | `_has_processed_ballots` pojmenovani | Kosmeticky, nerozbiji nic |
-| 20 | Paralelni wizard patterns | Vzory prilis odlisne pro unifikaci |
-| 21 | Inline importy v exportech | Validni Python vzor (lazy loading) |
-| 22 | `unidecode` vs `strip_diacritics` | `unidecode` potrebne pro presny stemming |
-| 24 | Hardcoded wizard labels | Stabilni, neni duvod centralizovat |
+| # | Nalez | Stav |
+|---|-------|------|
+| 24 | Hardcoded wizard labels | By design — ceska aplikace bez i18n |
 
 ---
 

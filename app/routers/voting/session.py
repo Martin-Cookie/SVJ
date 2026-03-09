@@ -5,6 +5,8 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
 from fastapi.responses import JSONResponse, RedirectResponse, Response
+from openpyxl import Workbook
+from openpyxl.styles import Alignment, Font, PatternFill
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
@@ -22,7 +24,6 @@ from ._helpers import (
     _VOTING_WIZARD_STEPS,
     _ballot_stats,
     _get_declared_shares,
-    _has_processed_ballots,
     _voting_wizard,
     logger,
     templates,
@@ -352,7 +353,7 @@ async def voting_detail(
     back_url = back or "/hlasovani"
     back_label = "Zpět na přehled" if back == "/" else "Zpět na hlasování"
 
-    has_processed = _has_processed_ballots(voting)
+    has_processed = voting.has_processed_ballots
     if voting.status == VotingStatus.ACTIVE:
         detail_step = 5 if has_processed else 3
     elif voting.status == VotingStatus.CLOSED:
@@ -622,9 +623,6 @@ async def update_voting_status(
 @router.get("/{voting_id}/exportovat")
 async def voting_export(voting_id: int, stav: str = "", db: Session = Depends(get_db)):
     """Export voting results to Excel. Optional stav filter: generated, sent, processed (default all processed)."""
-    from openpyxl import Workbook
-    from openpyxl.styles import Font, PatternFill
-
     voting = db.query(Voting).options(
         joinedload(Voting.items),
         joinedload(Voting.ballots).joinedload(Ballot.owner),
@@ -660,7 +658,6 @@ async def voting_export(voting_id: int, stav: str = "", db: Session = Depends(ge
     # Disclaimer for active votings
     start_row = 1
     if voting.status != VotingStatus.CLOSED:
-        from openpyxl.styles import Alignment
         warn_cell = ws.cell(row=1, column=1,
                             value=f"Průběžné výsledky ke dni {datetime.utcnow().strftime('%d.%m.%Y')} — hlasování stále probíhá")
         warn_cell.font = Font(bold=True, color="FF6600")

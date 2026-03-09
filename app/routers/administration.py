@@ -1,8 +1,10 @@
+import io
 import logging
 import os
 import re
 import shutil
 import tempfile
+import zipfile
 from datetime import datetime
 from pathlib import Path
 from typing import List
@@ -848,9 +850,6 @@ async def export_data(category: str, fmt: str, db: Session = Depends(get_db)):
 @router.post("/export/hromadny")
 async def export_bulk(request: Request, db: Session = Depends(get_db)):
     """Download a ZIP with exports for selected categories."""
-    import io
-    import zipfile
-
     form_data = await request.form()
     categories = form_data.getlist("categories")
     fmt = form_data.get("fmt", "xlsx")

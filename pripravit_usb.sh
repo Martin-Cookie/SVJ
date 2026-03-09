@@ -13,7 +13,7 @@ echo ""
 mkdir -p wheels
 
 # Stáhnout všechny závislosti jako wheel soubory
-pip download -d wheels fastapi uvicorn[standard] jinja2 python-multipart sqlalchemy pydantic-settings openpyxl python-docx docxtpl pdfplumber pytesseract Pillow unidecode 2>&1
+pip download -d wheels fastapi uvicorn[standard] jinja2 python-multipart sqlalchemy pydantic-settings openpyxl python-docx docxtpl pdfplumber pytesseract Pillow 2>&1
 
 if [ $? -eq 0 ]; then
     echo ""

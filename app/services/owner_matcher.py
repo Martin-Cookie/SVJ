@@ -7,7 +7,7 @@ Used by Module B (tax PDFs) and Module C (CSV comparison).
 import re
 from difflib import SequenceMatcher
 
-from unidecode import unidecode
+from app.utils import strip_diacritics
 
 TITLE_PATTERNS = [
     r"\bIng\.\s*", r"\bMgr\.\s*", r"\bBc\.\s*", r"\bMUDr\.\s*",
@@ -17,7 +17,7 @@ TITLE_PATTERNS = [
 ]
 
 _CZECH_SURNAME_SUFFIXES = [
-    # Sorted longest-first; must be ASCII (applied after unidecode)
+    # Sorted longest-first; must be ASCII (applied after strip_diacritics)
     "kovou", "kovi", "kove", "kova", "ovou", "ovi", "ove", "ova", "kem", "ek", "i",
 ]
 
@@ -40,8 +40,7 @@ def normalize_for_matching(name: str) -> str:
     # Remove parenthetical notes
     result = re.sub(r"\([^)]*\)", "", result)
     result = " ".join(result.split()).strip(" ,")
-    result = result.lower()
-    result = unidecode(result)
+    result = strip_diacritics(result)
     # Apply Czech surname stemming to each word
     result = " ".join(_stem_czech_surname(w) for w in result.split())
     return result
@@ -82,8 +81,7 @@ def _get_stemmed_parts(name: str) -> tuple[set, set]:
     result = re.sub(r"\s+SJM?\s*$", "", result, flags=re.IGNORECASE)
     result = re.sub(r"\([^)]*\)", "", result)
     result = " ".join(result.split()).strip(" ,")
-    result = result.lower()
-    result = unidecode(result)
+    result = strip_diacritics(result)
 
     connectors = {"a", "and", "und"}
     all_parts = set()

@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.models import (
     Ballot, BallotStatus, BallotVote, SvjInfo, VotingStatus,
 )
-from app.utils import setup_jinja_filters
+from app.utils import build_wizard_steps, setup_jinja_filters
 
 
 logger = logging.getLogger(__name__)
@@ -25,18 +25,13 @@ _VOTING_WIZARD_STEPS = [
 ]
 
 
-def _has_processed_ballots(voting) -> bool:
-    """Check if voting has any processed ballots."""
-    return any(b.status == BallotStatus.PROCESSED for b in voting.ballots)
-
-
 def _voting_wizard(voting, current_step: int = None) -> dict:
     """Build wizard stepper context for voting workflow.
     current_step: 1-based step number for the current page.
                   If None, auto-computed from voting state (for list view).
     """
     status = voting.status
-    has_processed = _has_processed_ballots(voting)
+    has_processed = voting.has_processed_ballots
 
     # Auto-compute current_step if not provided (list view)
     if current_step is None:
@@ -64,17 +59,7 @@ def _voting_wizard(voting, current_step: int = None) -> dict:
     else:  # draft
         max_done = 1 if voting.items else 0
 
-    steps = []
-    for i, s in enumerate(_VOTING_WIZARD_STEPS, 1):
-        if i < current_step and i <= max_done:
-            step_status = "done"
-        elif i == current_step:
-            step_status = "done" if i <= max_done else "active"
-        elif i <= max_done:
-            step_status = "done"
-        else:
-            step_status = "pending"
-        steps.append({"label": s["label"], "status": step_status})
+    steps = build_wizard_steps(_VOTING_WIZARD_STEPS, current_step, max_done)
 
     return {
         "wizard_steps": steps,

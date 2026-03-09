@@ -1,8 +1,13 @@
+import csv
+import io
 from datetime import datetime
+from io import BytesIO
 
 from fastapi import APIRouter, Depends, Form, Query, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
+from openpyxl import Workbook
+from openpyxl.styles import Font
 from sqlalchemy import cast, func, String
 from sqlalchemy.orm import Session, joinedload
 
@@ -504,9 +509,7 @@ async def unit_export(
             owners,
         ]
 
-    from datetime import datetime
     timestamp = datetime.now().strftime("%Y%m%d")
-    from fastapi.responses import Response
 
     # Suffix podle aktivního filtru
     typ_labels = {"byt": "byt", "garáž": "garaz", "jiný nebytový prostor": "nebytovy"}
@@ -521,10 +524,6 @@ async def unit_export(
     filename = f"jednotky{suffix}_{timestamp}"
 
     if fmt == "xlsx":
-        from io import BytesIO
-        from openpyxl import Workbook
-        from openpyxl.styles import Font
-
         wb = Workbook()
         ws = wb.active
         ws.title = "Jednotky"
@@ -548,8 +547,6 @@ async def unit_export(
             headers={"Content-Disposition": f'attachment; filename="{filename}.xlsx"'},
         )
     else:
-        import csv
-        import io
         buf = io.StringIO()
         writer = csv.writer(buf)
         writer.writerow(headers)

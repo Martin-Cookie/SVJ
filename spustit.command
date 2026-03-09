@@ -84,10 +84,10 @@ if [ "$NEEDS_INSTALL" -eq 1 ]; then
         "$VENV_DIR/bin/pip" install --no-index --find-links "$PROJECT_DIR/wheels" "$PROJECT_DIR/wheels"/*.whl 2>/dev/null
         if [ $? -ne 0 ]; then
             echo "Offline instalace selhala (jiná verze Pythonu), zkouším online..."
-            "$VENV_DIR/bin/pip" install fastapi "uvicorn[standard]" jinja2 python-multipart sqlalchemy pydantic-settings openpyxl python-docx docxtpl pdfplumber Pillow unidecode
+            "$VENV_DIR/bin/pip" install fastapi "uvicorn[standard]" jinja2 python-multipart sqlalchemy pydantic-settings openpyxl python-docx docxtpl pdfplumber Pillow
         fi
     else
-        "$VENV_DIR/bin/pip" install fastapi "uvicorn[standard]" jinja2 python-multipart sqlalchemy pydantic-settings openpyxl python-docx docxtpl pdfplumber Pillow unidecode
+        "$VENV_DIR/bin/pip" install fastapi "uvicorn[standard]" jinja2 python-multipart sqlalchemy pydantic-settings openpyxl python-docx docxtpl pdfplumber Pillow
     fi
 
     if [ $? -ne 0 ]; then

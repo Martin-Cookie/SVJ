@@ -6,6 +6,8 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -395,9 +397,6 @@ async def share_check_export(
     )
     for _, unit_num, oname in owner_units:
         owner_map.setdefault(unit_num, []).append(oname)
-
-    from openpyxl import Workbook
-    from openpyxl.styles import Font, PatternFill
 
     wb = Workbook()
     ws = wb.active

@@ -8,6 +8,8 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill
 from sqlalchemy import and_, cast, func, Integer, or_
 from sqlalchemy.orm import Session, joinedload
 
@@ -533,9 +535,6 @@ async def export_excel(
         query = query.filter(SyncRecord.status.in_([SyncStatus.MISSING_CSV, SyncStatus.MISSING_EXCEL]))
 
     records = query.order_by(cast(SyncRecord.unit_number, Integer).asc()).all()
-
-    from openpyxl import Workbook
-    from openpyxl.styles import Font, PatternFill
 
     wb = Workbook()
     ws = wb.active

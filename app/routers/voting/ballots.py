@@ -1,8 +1,11 @@
 from datetime import datetime
+from io import BytesIO
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, Query, Request
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse, Response
+from openpyxl import Workbook
+from openpyxl.styles import Font
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
@@ -14,7 +17,6 @@ from app.utils import build_list_url, is_htmx_partial, strip_diacritics
 
 from ._helpers import (
     _ballot_stats,
-    _has_processed_ballots,
     _voting_wizard,
     templates,
 )
@@ -101,7 +103,7 @@ async def ballot_list(
 
     list_url = build_list_url(request)
 
-    has_processed = _has_processed_ballots(voting)
+    has_processed = voting.has_processed_ballots
     ctx = {
         "request": request,
         "active_nav": "voting",
@@ -148,7 +150,7 @@ async def ballot_detail(
 
     back_url = back or f"/hlasovani/{voting_id}/listky"
     back_label = "Zpět na hlasovací lístky"
-    has_processed = _has_processed_ballots(voting)
+    has_processed = voting.has_processed_ballots
 
     ctx = {
         "request": request,
@@ -235,7 +237,7 @@ async def process_page(
     key_fn = sort_keys.get(sort, sort_keys["owner"])
     unprocessed.sort(key=key_fn, reverse=(order == "desc"))
 
-    has_processed = _has_processed_ballots(voting)
+    has_processed = voting.has_processed_ballots
     ctx = {
         "request": request,
         "active_nav": "voting",
@@ -484,7 +486,7 @@ async def not_submitted(
 
     list_url = build_list_url(request)
 
-    has_processed = _has_processed_ballots(voting)
+    has_processed = voting.has_processed_ballots
     ctx = {
         "request": request,
         "active_nav": "voting",
@@ -509,11 +511,6 @@ async def not_submitted(
 @router.get("/{voting_id}/neodevzdane/exportovat")
 async def export_not_submitted(voting_id: int, db: Session = Depends(get_db)):
     """Export not-submitted ballots to Excel."""
-    from io import BytesIO
-    from fastapi.responses import Response
-    from openpyxl import Workbook
-    from openpyxl.styles import Font
-
     voting = db.query(Voting).options(
         joinedload(Voting.ballots).joinedload(Ballot.owner).joinedload(Owner.units).joinedload(OwnerUnit.unit),
     ).get(voting_id)

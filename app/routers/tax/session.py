@@ -10,6 +10,8 @@ from typing import List
 from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill
 from sqlalchemy import cast, Integer
 from sqlalchemy.orm import Session, joinedload
 
@@ -602,9 +604,6 @@ async def reopen_session(
 @router.get("/{session_id}/exportovat")
 async def tax_export(session_id: int, db: Session = Depends(get_db)):
     """Export distribution overview to Excel."""
-    from openpyxl import Workbook
-    from openpyxl.styles import Font, PatternFill
-
     session = db.query(TaxSession).options(
         joinedload(TaxSession.documents)
         .joinedload(TaxDocument.distributions)

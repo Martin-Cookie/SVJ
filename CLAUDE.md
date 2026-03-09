@@ -124,7 +124,7 @@
 - **DB sloupec** `name_with_titles` zůstává pro index — nepoužívat v šablonách ani pro vyhledávání
 - **Hledání** v SQL: `Owner.name_normalized.like(search_ascii)` — viz sekce Vyhledávání výše
 - **Řazení**: `owner.name_normalized` (příjmení-first, bez diakritiky, lowercase)
-- **Budoucí importy**: `_build_name_with_titles()` v `excel_import.py` generuje příjmení-first formát
+- **Budoucí importy**: `build_name_with_titles()` z `app/utils.py` generuje příjmení-first formát
 
 ## Import hlasování — spoluvlastnictví (SJM)
 
@@ -201,7 +201,7 @@
 ### Helper funkce v routerech
 - Interní helper funkce mají prefix `_` (např. `_ballot_stats`, `_purge_counts`)
 - Vrací dict, který se rozbalí do template kontextu: `**_ballot_stats(voting)`
-- Typické helpery: `_has_processed_ballots(voting)` (bool), `_voting_wizard(voting, step)` / `_tax_wizard(...)` (wizard stepper kontext)
+- Typické helpery: `voting.has_processed_ballots` (model property), `_voting_wizard(voting, step)` / `_tax_wizard(...)` (wizard stepper kontext)
 - Validační funkce v service vrstvě: `validate_mapping(mapping)` → `str | None` (chybová zpráva nebo None)
 
 ### Dynamické formuláře
@@ -285,6 +285,8 @@
 - `is_valid_email(email)` — základní regex validace emailového formátu
 - `excel_auto_width(ws, max_width=45)` — auto-šířka sloupců v openpyxl worksheet (pro Excel exporty)
 - `compute_eta(current, total, started_at)` — výpočet progrese (%), uplynulého času a ETA textu. Vrací dict `{pct, elapsed, eta}`
+- `build_wizard_steps(step_defs, current_step, max_done, sending_step=None)` — společná logika wizard stepperu (voting + tax)
+- `build_name_with_titles(title, first_name, last_name)` — sestaví zobrazovací jméno: titul + příjmení + jméno
 - `setup_jinja_filters(templates)` — registrace custom Jinja2 filtrů (aktuálně `fmt_num`) na Jinja2Templates instanci
 
 ## JavaScript

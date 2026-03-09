@@ -168,3 +168,45 @@ def compute_eta(current: int, total: int, started_at: float) -> dict:
         elapsed_text = f"{int(elapsed)} s"
 
     return {"pct": pct, "elapsed": elapsed_text, "eta": eta_text}
+
+
+def build_wizard_steps(
+    step_defs: list,
+    current_step: int,
+    max_done: int,
+    sending_step: Optional[int] = None,
+) -> list:
+    """Build wizard step list with statuses (done/active/pending/sending).
+
+    step_defs: list of {"label": "..."} dicts
+    current_step: 1-based current step
+    max_done: highest completed step number
+    sending_step: if set, this step gets "sending" status when it's current
+    """
+    steps = []
+    for i, s in enumerate(step_defs, 1):
+        if i < current_step and i <= max_done:
+            status = "done"
+        elif i == current_step:
+            if sending_step and i == sending_step:
+                status = "sending"
+            else:
+                status = "done" if i <= max_done else "active"
+        elif i <= max_done:
+            status = "done"
+        else:
+            status = "pending"
+        steps.append({"label": s["label"], "status": status})
+    return steps
+
+
+def build_name_with_titles(title: Optional[str], first_name: str, last_name: Optional[str]) -> str:
+    """Build display name: title + příjmení + jméno."""
+    parts = []
+    if title:
+        parts.append(title)
+    if last_name:
+        parts.append(last_name)
+    if first_name:
+        parts.append(first_name)
+    return " ".join(parts)

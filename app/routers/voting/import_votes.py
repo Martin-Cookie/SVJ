@@ -21,7 +21,6 @@ from app.utils import UPLOAD_LIMITS, is_safe_path, validate_upload
 
 from ._helpers import (
     _ballot_stats,
-    _has_processed_ballots,
     _voting_wizard,
     logger,
     templates,
@@ -89,7 +88,7 @@ async def import_upload_page(
 
     saved_mapping = _load_saved_mapping(voting, db)
 
-    has_processed = _has_processed_ballots(voting)
+    has_processed = voting.has_processed_ballots
     return templates.TemplateResponse("voting/import_upload.html", {
         "request": request,
         "active_nav": "voting",
@@ -117,7 +116,7 @@ async def import_upload(
     if not voting:
         return RedirectResponse("/hlasovani", status_code=302)
 
-    has_processed = _has_processed_ballots(voting)
+    has_processed = voting.has_processed_ballots
     err = await validate_upload(file, **UPLOAD_LIMITS["excel"]) if file.filename else "Nahrajte soubor ve formátu .xlsx"
     if err:
         return templates.TemplateResponse("voting/import_upload.html", {
@@ -201,7 +200,7 @@ async def import_preview(
     # Build item lookup for template
     item_lookup = {item.id: item for item in voting.items}
 
-    has_processed = _has_processed_ballots(voting)
+    has_processed = voting.has_processed_ballots
     return templates.TemplateResponse("voting/import_preview.html", {
         "request": request,
         "active_nav": "voting",
@@ -274,7 +273,7 @@ async def import_confirm(
     except Exception:
         logger.debug("Failed to clean up import file: %s", file_path)
 
-    has_processed = _has_processed_ballots(voting)
+    has_processed = voting.has_processed_ballots
     return templates.TemplateResponse("voting/import_result.html", {
         "request": request,
         "active_nav": "voting",

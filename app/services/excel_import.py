@@ -42,7 +42,7 @@ from openpyxl import load_workbook
 from sqlalchemy.orm import Session
 
 from app.models.owner import Owner, OwnerType, OwnerUnit, Unit
-from app.utils import strip_diacritics
+from app.utils import build_name_with_titles, strip_diacritics
 
 # Column indices (0-based)
 COL_UNIT_KN = 0
@@ -148,16 +148,6 @@ def _normalize_ownership_type(raw: str | None) -> str | None:
     return val
 
 
-def _build_name_with_titles(title: str | None, first_name: str, last_name: str | None) -> str:
-    """Build display name: title + příjmení + jméno."""
-    parts = []
-    if title:
-        parts.append(title)
-    if last_name:
-        parts.append(last_name)
-    if first_name:
-        parts.append(first_name)
-    return " ".join(parts)
 
 
 def _build_name_normalized(first_name: str, last_name: str | None) -> str:
@@ -319,7 +309,7 @@ def preview_owners_from_excel(file_path: str) -> dict:
         first = parsed["first_name"] or ""
         preview_rows.append({
             "row": row_idx,
-            "name": _build_name_with_titles(parsed["title"], first, last),
+            "name": build_name_with_titles(parsed["title"], first, last),
             "sort_name": f"{last} {first}".strip().lower(),
             "owner_type": owner_type.value,
             "unit_number": parsed["unit_kn"],
@@ -388,7 +378,7 @@ def import_owners_from_excel(db: Session, file_path: str) -> dict:
                 birth_number = birth_or_ic.strip()
 
         # Build names
-        name_with_titles = _build_name_with_titles(
+        name_with_titles = build_name_with_titles(
             first_row["title"], first_row["first_name"], first_row["last_name"]
         )
         name_normalized = _build_name_normalized(first_row["first_name"], first_row["last_name"])

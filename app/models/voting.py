@@ -54,6 +54,11 @@ class Voting(Base):
     )
     ballots = relationship("Ballot", back_populates="voting", cascade="all, delete-orphan")
 
+    @property
+    def has_processed_ballots(self) -> bool:
+        """Check if voting has any processed ballots."""
+        return any(b.status == BallotStatus.PROCESSED for b in self.ballots)
+
 
 class VotingItem(Base):
     __tablename__ = "voting_items"

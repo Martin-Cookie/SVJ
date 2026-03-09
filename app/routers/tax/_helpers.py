@@ -16,7 +16,7 @@ from app.models import (
     MatchStatus, Owner, OwnerUnit, SendStatus,
     TaxDistribution, TaxDocument, TaxSession, Unit,
 )
-from app.utils import setup_jinja_filters
+from app.utils import build_wizard_steps, setup_jinja_filters
 
 logger = logging.getLogger(__name__)
 
@@ -75,21 +75,8 @@ def _tax_wizard(session, current_step: int, has_documents: bool = False) -> dict
     if has_documents and max_done < 1:
         max_done = 1
 
-    steps = []
-    for i, s in enumerate(_TAX_WIZARD_STEPS, 1):
-        if i < current_step and i <= max_done:
-            step_status = "done"
-        elif i == current_step:
-            # Mark as "sending" for pulsing animation during active send
-            if is_sending and i == 3:
-                step_status = "sending"
-            else:
-                step_status = "done" if i <= max_done else "active"
-        elif i <= max_done:
-            step_status = "done"
-        else:
-            step_status = "pending"
-        steps.append({"label": s["label"], "status": step_status})
+    sending_step = 3 if is_sending else None
+    steps = build_wizard_steps(_TAX_WIZARD_STEPS, current_step, max_done, sending_step)
 
     return {
         "wizard_steps": steps,

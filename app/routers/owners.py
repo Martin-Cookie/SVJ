@@ -1,17 +1,22 @@
+import csv
+import io
 import logging
 import shutil
 import threading
 import time as _time
 from datetime import date, datetime
-
-logger = logging.getLogger(__name__)
+from io import BytesIO
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
+from openpyxl import Workbook
+from openpyxl.styles import Font
 from sqlalchemy import cast, func, or_, String
 from sqlalchemy.orm import Session, joinedload
+
+logger = logging.getLogger(__name__)
 
 from app.config import settings
 from app.database import SessionLocal, get_db
@@ -374,7 +379,6 @@ async def owner_export(
         ]
 
     timestamp = datetime.now().strftime("%Y%m%d")
-    from fastapi.responses import Response
 
     # Suffix podle aktivního filtru
     typ_labels = {"physical": "fyzicke", "legal": "pravnicke"}
@@ -396,10 +400,6 @@ async def owner_export(
     filename = f"vlastnici{suffix}_{timestamp}"
 
     if fmt == "xlsx":
-        from io import BytesIO
-        from openpyxl import Workbook
-        from openpyxl.styles import Font
-
         wb = Workbook()
         ws = wb.active
         ws.title = "Vlastníci"
@@ -423,8 +423,6 @@ async def owner_export(
             headers={"Content-Disposition": f'attachment; filename="{filename}.xlsx"'},
         )
     else:
-        import csv
-        import io
         buf = io.StringIO()
         writer = csv.writer(buf)
         writer.writerow(headers)
@@ -455,8 +453,7 @@ async def contact_import_upload(
     if err:
         return RedirectResponse("/vlastnici/import?chyba_kontakty=format#kontakty", status_code=302)
 
-    from datetime import datetime as _dt
-    timestamp = _dt.now().strftime("%Y%m%d_%H%M%S")
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     dest = settings.upload_dir / "excel" / f"{timestamp}_{file.filename}"
     dest.parent.mkdir(parents=True, exist_ok=True)
     with open(dest, "wb") as f:
