@@ -18,6 +18,8 @@ router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
 setup_jinja_filters(templates)
 
+EMAIL_LOG_LIMIT = 100
+
 
 def _parse_attachments(raw: Optional[str]) -> list:
     """Parse attachment_paths into list of {name, path, exists}.
@@ -79,7 +81,7 @@ async def settings_view(
         query = query.order_by(col.asc().nulls_last())
     else:
         query = query.order_by(col.desc().nulls_last())
-    email_logs = query.limit(100).all()
+    email_logs = query.limit(EMAIL_LOG_LIMIT).all()
 
     # If searching, also try diacritics-insensitive name match (for č→c, ř→r etc.)
     if q and q_ascii:
@@ -91,7 +93,7 @@ async def settings_view(
             if e.id not in seen_ids and q_ascii in strip_diacritics(e.recipient_name or ""):
                 email_logs.append(e)
                 seen_ids.add(e.id)
-                if len(email_logs) >= 100:
+                if len(email_logs) >= EMAIL_LOG_LIMIT:
                     break
 
     # Build email → owner_id lookup for clickable recipients

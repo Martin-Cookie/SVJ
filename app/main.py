@@ -236,8 +236,13 @@ def _ensure_indexes():
         ("ix_activity_logs_module", "activity_logs", "module"),
         ("ix_activity_logs_created_at", "activity_logs", "created_at"),
     ]
+    import re
+    _SAFE_IDENT = re.compile(r'^"?[a-z_][a-z0-9_]*"?$')
     with engine.connect() as conn:
         for idx_name, table, column in _INDEXES:
+            if not all(_SAFE_IDENT.match(p) for p in (idx_name, table, column)):
+                logger.warning("Skipping index %s — invalid identifier", idx_name)
+                continue
             try:
                 conn.execute(text(
                     f"CREATE INDEX IF NOT EXISTS {idx_name} ON {table} ({column})"
@@ -348,6 +353,9 @@ def run_post_restore_migrations() -> list[str]:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    if settings.debug:
+        logger.warning("DEBUG mode je zapnutý — SQL echo aktivní. Pro produkci nastavte DEBUG=false v .env")
+
     # Import models so they register with Base
     import app.models  # noqa: F401
 
@@ -489,10 +497,12 @@ async def add_security_headers(request, call_next):
 
 # Raise default Starlette multipart limits (default max_files=1000 is too low
 # for large PDF directories uploaded via webkitdirectory)
-from starlette.requests import Request as _StarletteRequest
-for _method in (_StarletteRequest._get_form, _StarletteRequest.form):
-    _method.__kwdefaults__["max_files"] = 5000
-    _method.__kwdefaults__["max_fields"] = 5000
+try:
+    from starlette.requests import Request as _StarletteRequest
+    _StarletteRequest.form.__kwdefaults__["max_files"] = 5000
+    _StarletteRequest.form.__kwdefaults__["max_fields"] = 5000
+except (AttributeError, KeyError, TypeError):
+    logging.getLogger(__name__).warning("Cannot override Starlette max_files limit")
 
 # Static files
 app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")

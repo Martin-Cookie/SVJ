@@ -28,6 +28,103 @@ from ._helpers import (
 router = APIRouter()
 
 
+def _auto_assign_unmatched_docs(db, session_id, owner_id, email, session, all_docs):
+    """Auto-assign unmatched documents for units owned by this owner. Returns True if any assigned."""
+    changed = False
+    owner_unit_numbers = {
+        str(ou.unit.unit_number)
+        for ou in db.query(OwnerUnit)
+        .filter_by(owner_id=owner_id)
+        .options(joinedload(OwnerUnit.unit))
+        .all()
+    }
+    for doc in all_docs:
+        if str(doc.unit_number) not in owner_unit_numbers:
+            continue
+        doc_dists = doc.distributions
+        if any(d.owner_id == owner_id for d in doc_dists):
+            continue
+        if not all(d.match_status == MatchStatus.UNMATCHED for d in doc_dists):
+            continue
+        for d in doc_dists:
+            db.delete(d)
+        co_owner_ids = _find_coowners(
+            owner_id, str(doc.unit_number),
+            session.year if session else None, db,
+        )
+        for oid in co_owner_ids:
+            if oid == owner_id:
+                dist_email = email or None
+            else:
+                o = db.query(Owner).get(oid)
+                dist_email = o.email if o else None
+            db.add(TaxDistribution(
+                document_id=doc.id, owner_id=oid,
+                match_status=MatchStatus.MANUAL, email_address_used=dist_email,
+            ))
+            changed = True
+    return changed
+
+
+def _build_single_recipient(db, session_id, dist):
+    """Build a single recipient dict for HTMX row rebuild. Returns None if owner not found."""
+    if dist.owner_id:
+        owner = db.query(Owner).get(dist.owner_id)
+        if not owner:
+            return None
+        relevant_dists = (
+            db.query(TaxDistribution)
+            .filter(
+                TaxDistribution.document_id.in_(
+                    db.query(TaxDocument.id).filter_by(session_id=session_id)
+                ),
+                TaxDistribution.owner_id == dist.owner_id,
+            )
+            .options(joinedload(TaxDistribution.document))
+            .all()
+        )
+        docs_list, dist_ids, used_email, email_status = [], [], None, "pending"
+        for rd in relevant_dists:
+            docs_list.append({
+                "id": rd.document_id,
+                "filename": rd.document.filename or "",
+                "file_path": rd.document.file_path,
+            })
+            dist_ids.append(rd.id)
+            if rd.email_address_used:
+                used_email = rd.email_address_used
+            if rd.email_status:
+                email_status = rd.email_status.value if hasattr(rd.email_status, 'value') else rd.email_status
+        primary = owner.email or ""
+        secondary = owner.email_secondary or ""
+        final = used_email or primary or secondary or ""
+        return {
+            "key": f"owner_{dist.owner_id}",
+            "name": owner.display_name,
+            "email": final,
+            "primary_email": primary,
+            "secondary_email": secondary,
+            "selected_emails": [e.strip() for e in final.split(",") if e.strip()] if final else [],
+            "has_dual_email": bool(primary and secondary and primary != secondary),
+            "docs": docs_list, "dist_ids": dist_ids,
+            "owner_id": owner.id, "is_external": False, "email_status": email_status,
+        }
+    else:
+        doc = db.query(TaxDocument).get(dist.document_id) if dist.document_id else None
+        return {
+            "key": f"ext_{dist.id}",
+            "name": dist.ad_hoc_name or "Externí příjemce",
+            "email": dist.ad_hoc_email or "",
+            "primary_email": dist.ad_hoc_email or "",
+            "secondary_email": "",
+            "selected_emails": [dist.ad_hoc_email] if dist.ad_hoc_email else [],
+            "has_dual_email": False,
+            "docs": [{"id": doc.id, "filename": doc.filename or "", "file_path": doc.file_path}] if doc else [],
+            "dist_ids": [dist.id], "owner_id": None, "is_external": True,
+            "email_status": dist.email_status.value if dist.email_status and hasattr(dist.email_status, 'value') else "pending",
+        }
+
+
 # ---------------------------------------------------------------------------
 # Send preview endpoints
 # ---------------------------------------------------------------------------
@@ -228,47 +325,9 @@ async def update_recipient_email(
             owner.email = email
 
         # Auto-assign unmatched documents for units owned by this owner
-        owner_unit_numbers = {
-            str(ou.unit.unit_number)
-            for ou in db.query(OwnerUnit)
-            .filter_by(owner_id=dist.owner_id)
-            .options(joinedload(OwnerUnit.unit))
-            .all()
-        }
-        for doc in all_docs:
-            if str(doc.unit_number) not in owner_unit_numbers:
-                continue
-            doc_dists = doc.distributions  # already eager-loaded
-            has_this_owner = any(d.owner_id == dist.owner_id for d in doc_dists)
-            if has_this_owner:
-                continue
-            is_all_unmatched = all(
-                d.match_status == MatchStatus.UNMATCHED for d in doc_dists
-            )
-            if not is_all_unmatched:
-                continue
-            # Remove unmatched placeholders
-            for d in doc_dists:
-                db.delete(d)
-            # Find co-owners for this unit
-            co_owner_ids = _find_coowners(
-                dist.owner_id, str(doc.unit_number),
-                session.year if session else None, db,
-            )
-            for oid in co_owner_ids:
-                if oid == dist.owner_id:
-                    dist_email = email or None
-                else:
-                    o = db.query(Owner).get(oid)
-                    dist_email = o.email if o else None
-                new_dist = TaxDistribution(
-                    document_id=doc.id,
-                    owner_id=oid,
-                    match_status=MatchStatus.MANUAL,
-                    email_address_used=dist_email,
-                )
-                db.add(new_dist)
-                assignments_changed = True
+        assignments_changed = _auto_assign_unmatched_docs(
+            db, session_id, dist.owner_id, email, session, all_docs,
+        )
     else:
         # Ad-hoc recipient
         dist.ad_hoc_email = email or None
@@ -286,85 +345,15 @@ async def update_recipient_email(
         return RedirectResponse(redirect_url, status_code=302)
 
     # Rebuild only the relevant recipient row (optimized — no full rebuild)
-    if dist.owner_id:
-        key = f"owner_{dist.owner_id}"
-        # Load only documents for this owner
-        relevant_dists = (
-            db.query(TaxDistribution)
-            .filter(
-                TaxDistribution.document_id.in_(
-                    db.query(TaxDocument.id).filter_by(session_id=session_id)
-                ),
-                TaxDistribution.owner_id == dist.owner_id,
-            )
-            .options(joinedload(TaxDistribution.document))
-            .all()
-        )
-        owner = db.query(Owner).get(dist.owner_id)
-        if not owner:
-            return RedirectResponse(f"/dane/{session_id}/rozeslat", status_code=302)
-
-        # Build recipient dict manually
-        docs_list = []
-        dist_ids = []
-        used_email = None
-        email_status = "pending"
-        for rd in relevant_dists:
-            docs_list.append({
-                "id": rd.document_id,
-                "filename": rd.document.filename or "",
-                "file_path": rd.document.file_path,
-            })
-            dist_ids.append(rd.id)
-            if rd.email_address_used:
-                used_email = rd.email_address_used
-            if rd.email_status:
-                email_status = rd.email_status.value if hasattr(rd.email_status, 'value') else rd.email_status
-
-        primary_email = owner.email or ""
-        secondary_email = owner.email_secondary or ""
-        final_email = used_email or primary_email or secondary_email or ""
-
-        recipient = {
-            "key": key,
-            "name": owner.display_name,
-            "email": final_email,
-            "primary_email": primary_email,
-            "secondary_email": secondary_email,
-            "selected_emails": [e.strip() for e in final_email.split(",") if e.strip()] if final_email else [],
-            "has_dual_email": bool(primary_email and secondary_email and primary_email != secondary_email),
-            "docs": docs_list,
-            "dist_ids": dist_ids,
-            "owner_id": owner.id,
-            "is_external": False,
-            "email_status": email_status,
-        }
-    else:
-        key = f"ext_{dist.id}"
-        doc = db.query(TaxDocument).get(dist.document_id) if dist.document_id else None
-        recipient = {
-            "key": key,
-            "name": dist.ad_hoc_name or "Externí příjemce",
-            "email": dist.ad_hoc_email or "",
-            "primary_email": dist.ad_hoc_email or "",
-            "secondary_email": "",
-            "selected_emails": [dist.ad_hoc_email] if dist.ad_hoc_email else [],
-            "has_dual_email": False,
-            "docs": [{"id": doc.id, "filename": doc.filename or "", "file_path": doc.file_path}] if doc else [],
-            "dist_ids": [dist.id],
-            "owner_id": None,
-            "is_external": True,
-            "email_status": dist.email_status.value if dist.email_status and hasattr(dist.email_status, 'value') else "pending",
-        }
-
-    list_url = build_list_url(request)
-    session_obj = db.query(TaxSession).get(session_id)
+    recipient = _build_single_recipient(db, session_id, dist)
+    if not recipient:
+        return RedirectResponse(f"/dane/{session_id}/rozeslat", status_code=302)
 
     return templates.TemplateResponse("partials/tax_recipient_row.html", {
         "request": request,
         "r": recipient,
-        "session": session_obj,
-        "list_url": list_url,
+        "session": db.query(TaxSession).get(session_id),
+        "list_url": build_list_url(request),
     })
 
 

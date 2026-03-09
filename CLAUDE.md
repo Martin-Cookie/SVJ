@@ -3,6 +3,10 @@
 > **UI/frontend konvence** (layout, tabulky, formuláře, tlačítka, bubliny, badge, ikony, inline editace, HTMX vzory, formátování, back URL navigace, checkboxy, kolapsovatelné sekce) jsou v **[docs/UI_GUIDE.md](docs/UI_GUIDE.md)**.
 > Tento soubor definuje backend pravidla, datový model, routery, workflow a projektová specifika.
 
+## Obsah
+
+- [URL konvence](#url-konvence) · [Navigace a back URL](#navigace-a-back-url) · [Tabulky — povinný checklist](#tabulky--povinný-checklist) · [Procentuální vstupy](#procentuální-vstupy-kvórum-podíly) · [Statistiky podílů](#statistiky-podílů) · [Dashboard](#dashboard) · [Vyhledávání](#vyhledávání) · [Jména vlastníků](#jména-vlastníků) · [Import hlasování — SJM](#import-hlasování--spoluvlastnictví-sjm) · [SQLAlchemy vzory](#sqlalchemy-vzory) · [Router vzory](#router-vzory) · [Nové moduly / entity](#nové-moduly--entity) · [Export dat](#export-dat-excel--csv) · [Mazání dat](#mazání-dat-purge) · [Upload souborů](#upload-souborů) · [Service layer](#service-layer) · [Utility funkce](#utility-funkce-apputilspy) · [JavaScript](#javascript) · [Technologie](#technologie) · [Global exception handlers](#global-exception-handlers) · [Router packages](#router-packages) · [Startup](#startup-lifespan) · [Nasazení na USB](#nasazení-na-usb-jiný-počítač) · [Workflow](#workflow) · [Komunikace](#komunikace-s-uživatelem) · [Uživatelské role](#uživatelské-role--plán-implementace-na-konec) · [Pravidla pro práci](#pravidla-pro-práci-na-úkolech)
+
 ## URL konvence
 
 - Všechny URL cesty používají **české slugy bez diakritiky**: `/vlastnici`, `/jednotky`, `/hlasovani`, `/dane`, `/synchronizace`, `/sprava`, `/nastaveni`

@@ -75,9 +75,9 @@ document.body.addEventListener('htmx:sendError', function(event) {
 // Close modal on escape key
 document.addEventListener('keydown', function(event) {
     if (event.key === 'Escape') {
-        confirmCancel();
-        closePdfModal();
-        closeSendConfirmModal();
+        if (typeof confirmCancel === 'function') confirmCancel();
+        if (typeof closePdfModal === 'function') closePdfModal();
+        if (typeof closeSendConfirmModal === 'function') closeSendConfirmModal();
         var modalContainer = document.getElementById('modal-container');
         if (modalContainer) modalContainer.replaceChildren();
     }
@@ -502,11 +502,15 @@ function toggleEmailSelect(checkbox, sessionId, distId, email, key) {
     var form = new FormData();
     form.append('email', email);
     form.append('checked', checked ? 'true' : 'false');
+    checkbox.disabled = true;
     fetch('/dane/' + sessionId + '/rozeslat/email-vyber/' + distId, {
         method: 'POST',
         body: form,
         headers: {'HX-Request': 'true'}
-    }).then(function(resp) { return resp.text(); })
+    }).then(function(resp) {
+        if (!resp.ok) throw new Error('Server error ' + resp.status);
+        return resp.text();
+    })
     .then(function(html) {
         var row = document.getElementById('rcpt-' + key);
         if (row) {
@@ -514,6 +518,10 @@ function toggleEmailSelect(checkbox, sessionId, distId, email, key) {
             _restoreCheckedKeys();
             updateSendButtonCount();
         }
+    })
+    .catch(function() {
+        checkbox.checked = !checked;
+        checkbox.disabled = false;
     });
 }
 
