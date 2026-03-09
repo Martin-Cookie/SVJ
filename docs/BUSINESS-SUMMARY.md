@@ -2,7 +2,7 @@
 
 > Netechnický popis fungování aplikace SVJ Správa.
 > Dokument je určen členům výboru, kontrolní komisi a správcům.
-> Poslední aktualizace: 2026-03-05
+> Poslední aktualizace: 2026-03-09
 
 ---
 
@@ -16,13 +16,24 @@ Aplikace SVJ Správa slouží k evidenci vlastníků, správě hlasování per r
 
 ### Co se eviduje
 - **Vlastníci:** jméno, titul, rodné číslo/IČ, trvalá adresa, korespondenční adresa, telefon(y), email(y), typ (fyzická/právnická osoba)
-- **Jednotky:** číslo jednotky, podíl na společných částech domu (SČD), podlahová plocha, sekce domu, typ prostoru, LV číslo
+- **Jednotky:** číslo jednotky, číslo budovy, podíl na společných částech domu (SČD), podlahová plocha, sekce domu, typ prostoru, LV číslo
 - **Vztah vlastník-jednotka:** typ vlastnictví (SJM, VL...), podíl, platnost od/do
 
 ### Typ vlastnictví
 - **SJM** (společné jmění manželů) — manželé vlastní jednotku společně, v hlasování mají jeden společný lístek
 - **VL** — výlučné vlastnictví
 - Ostatní typy se evidují dle prohlášení vlastníků
+
+### Ruční vytvoření vlastníka
+Kromě importu z Excelu lze vlastníka vytvořit ručně přímo v aplikaci:
+- Zadání jména, příjmení, titulu, typu, emailu, telefonu, RČ/IČ
+- **Kontrola emailu** — aplikace ověří, že email má platný formát (např. `jmeno@domena.cz`)
+- **Detekce duplicit** — při vytváření se kontroluje, zda už vlastník se stejným jménem, rodným číslem nebo emailem neexistuje. Pokud ano, zobrazí se upozornění s odkazem na existujícího vlastníka. Vytvoření je možné i přesto potvrdit (není blokující)
+
+### Ruční vytvoření a úprava jednotky
+- Číslo jednotky musí být celé číslo v rozsahu 1–99999, nesmí se opakovat
+- Číslo budovy (volitelné): rozsah 1–99999
+- Při zadání neplatné plochy nebo podílu SČD se hodnota ignoruje a zobrazí se upozornění (žlutý banner)
 
 ### Import vlastníků z Excelu
 Aplikace umí načíst seznam vlastníků z Excelu (formát „Evidence vlastníků SVJ"):
@@ -40,6 +51,13 @@ Doplnění kontaktních údajů (telefon, email, adresa) z jiného Excelu:
 4. Výbor vybere které změny provést
 
 Inteligentní zpracování: pokud vlastník už má email, ale v Excelu je jiný, nový se uloží jako sekundární email (nepřepíše původní).
+
+### Export vlastníků a jednotek
+Data z evidence je možné kdykoliv vyexportovat do Excelu (XLSX) nebo CSV:
+- **Export vlastníků** — ze stránky „Vlastníci", tlačítko Export
+- **Export jednotek** — ze stránky „Jednotky", tlačítko Export
+- Exportovaná data odpovídají **aktuálně zobrazenému filtru** — např. pokud jsou zobrazeni jen vlastníci s emailem, vyexportují se jen ti
+- Název souboru automaticky obsahuje popis filtru (např. `vlastnici_fyzicke_20260309.xlsx`)
 
 ---
 
@@ -155,6 +173,7 @@ Porovná podíly na SČD v evidenci se souborem (CSV/Excel):
 1. **Nahrání souboru** — automatická nebo ruční volba sloupců
 2. **Porovnání** — shody, rozdíly, chybějící
 3. **Aktualizace** — možnost přepsat podíly v evidenci hodnotami ze souboru
+4. **Export výsledků** — výsledky porovnání lze vyexportovat do Excelu (včetně zvýraznění rozdílů)
 
 ---
 
@@ -177,6 +196,10 @@ Porovná podíly na SČD v evidenci se souborem (CSV/Excel):
 - Přednastavené šablony pro rozesílání
 - Předmět + tělo emailu
 
+### Nastavení SMTP (email server)
+- Konfigurace serveru pro odesílání emailů (adresa serveru, port, přihlášení)
+- **Test připojení** — tlačítko „Otestovat SMTP" ověří, že se aplikace dokáže připojit k emailovému serveru. Výsledek se zobrazí okamžitě (zelená = OK, červená = chyba s popisem)
+
 ### Zálohy
 - **Záloha:** vytvoří ZIP se vším (databáze + nahrané soubory)
 - **Obnova:** ze ZIP nebo rozbalené složky
@@ -191,13 +214,49 @@ Porovná podíly na SČD v evidenci se souborem (CSV/Excel):
 
 ## 6. Exporty
 
-- **Excel export** z libovolného filtrovaného pohledu
-- Formát XLSX s formátováním (tučné hlavičky, barevné zvýraznění rozdílů)
-- Export vždy reflektuje aktuálně zobrazený filtr
+- **Excel a CSV export** ze seznamu vlastníků a jednotek
+- Export z kontroly podílů do Excelu (s barevným zvýrazněním rozdílů)
+- Formát XLSX s formátováním (tučné hlavičky, automatická šířka sloupců)
+- Export vždy reflektuje aktuálně zobrazený filtr — exportuje se to, co je vidět na obrazovce
 
 ---
 
-## 7. Technické minimum pro výbor
+## 7. Ochrana dat a bezpečnost
+
+### Potvrzování destruktivních akcí
+Všechny akce, které mažou nebo přepisují data (smazání vlastníka, zrušení hlasování, smazání zálohy apod.), vyžadují potvrzení ve speciálním dialogovém okně. Nelze je provést omylem jedním kliknutím.
+
+### Upozornění na neuložené změny
+Pokud ve formuláři provedete změny a pokusíte se odejít ze stránky bez uložení, prohlížeč vás upozorní a zeptá se, zda chcete stránku opravdu opustit.
+
+### Validace vstupů
+Aplikace kontroluje správnost zadávaných údajů:
+- Email musí mít platný formát
+- Číslo jednotky musí být v rozsahu 1–99999
+- Číslo budovy musí být v rozsahu 1–99999
+- Neplatné číselné hodnoty (plocha, podíl) se nepřijmou a zobrazí se upozornění
+
+### Bezpečnostní hlavičky
+Aplikace automaticky přidává bezpečnostní hlavičky ke každé odpovědi — ochrana proti vložení stránky do rámce cizího webu a další standardní opatření.
+
+---
+
+## 8. Úvodní obrazovka (dashboard)
+
+### Přehled
+- 4 statistické karty: vlastníci, jednotky, hlasování, rozesílání
+- Tabulka poslední aktivity (emaily, importy, změny)
+- Porovnání podílů: deklarované vs. evidované vs. součet z jednotek
+
+### Uvítání pro nové instalace
+Pokud je databáze prázdná (žádní vlastníci), zobrazí se místo tabulky aktivity uvítací blok s návodem prvních kroků:
+1. Importovat vlastníky z Excelu
+2. Zkontrolovat data s katastrem (CSV ze sousede.cz)
+3. Založit první hlasování
+
+---
+
+## 9. Technické minimum pro výbor
 
 ### Spuštění
 - Dvakrát kliknout na `spustit.command` (macOS)
@@ -221,7 +280,7 @@ Porovná podíly na SČD v evidenci se souborem (CSV/Excel):
 
 ---
 
-## 8. Slovníček pojmů
+## 10. Slovníček pojmů
 
 | Pojem | Význam |
 |-------|--------|
@@ -236,10 +295,11 @@ Porovná podíly na SČD v evidenci se souborem (CSV/Excel):
 | **Výměna vlastníků** | Nahrazení vlastníků na jednotce novými (např. při prodeji) |
 | **Podíl** | Číslo vyjadřující váhu vlastníka (podíl na SČD = počet hlasů) |
 | **Číselník** | Seznam povolených hodnot (typ prostoru, sekce domu...) |
+| **SMTP** | Emailový server — nastavení pro odesílání emailů |
 
 ---
 
-## 9. Časté otázky
+## 11. Časté otázky
 
 **Kolik procent je potřeba pro schválení bodu hlasování?**
 Závisí na nastavení kvóra. Standardně 50 % podílů, ale výbor může nastavit jiné číslo. Pozor: počítají se podíly (SČD), ne osoby.
@@ -255,3 +315,12 @@ Vlastníci se identifikují podle rodného čísla/IČ. Pokud má stejné RČ, j
 
 **Jak funguje bezpečnostní záloha?**
 Před KAŽDOU obnovou ze zálohy aplikace automaticky vytvoří zálohu aktuálního stavu. Takže i kdyby se obnova nepovedla, data se neztratí.
+
+**Co když zadám špatný email při vytváření vlastníka?**
+Aplikace zkontroluje formát emailu a nepovolí uložení, pokud email nemá platný formát (např. chybí zavináč nebo doména). Zároveň upozorní, pokud vlastník se stejným emailem už existuje.
+
+**Jak zjistím, že emailový server funguje?**
+V Nastavení je tlačítko „Otestovat SMTP", které ověří připojení k emailovému serveru. Výsledek se zobrazí okamžitě — buď zelené potvrzení, nebo popis chyby.
+
+**Jak exportuji data?**
+Na stránce vlastníků nebo jednotek klikněte na tlačítko Export. Můžete si vybrat formát Excel (XLSX) nebo CSV. Exportují se vždy jen aktuálně zobrazená (filtrovaná) data.

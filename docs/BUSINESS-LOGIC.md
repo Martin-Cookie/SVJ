@@ -1,7 +1,7 @@
 # SVJ Aplikace — Business Logic Reference
 
 > Technický dokument s odkazy na zdrojový kód (soubor:řádek).
-> Poslední aktualizace: 2026-03-05
+> Poslední aktualizace: 2026-03-09
 
 ---
 
@@ -540,10 +540,28 @@ PENDING ──[zaradit do fronty]──> QUEUED ──[odeslat]──> SENT
 - Prilohy: libovolne soubory jako `MIMEApplication`
 - Podpora vice prijemcu (`,` oddeleni) a SJM emailu (`;` oddeleni)
 
-### 5.9 Excel export
-- Knihovna: `openpyxl`
-- Bold hlavicky, auto-width sloupcu (max 45 znaku), zlute zvyrazneni rozdilu
-- Response: `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`
+### 5.9 Excel + CSV export (vlastnici)
+- **Soubor:** `owners.py:393-488`
+- Endpoint: `GET /vlastnici/exportovat/{xlsx|csv}`
+- Exportuji se FILTROVANE data (stejne filtry jako v seznamu: typ, vlastnictvi, kontakt, stav, sekce, hledani)
+- Sloupce: vlastnik, typ, jednotky, sekce, email, email 2, telefon, podil SCD, RC/IC, trvala adresa, korespondencni adresa
+- Nazev souboru obsahuje suffix dle filtru (napr. `vlastnici_fyzicke_20260309.xlsx`)
+- Excel: `openpyxl`, bold hlavicky, auto-width (`excel_auto_width`)
+- CSV: UTF-8 s BOM (`utf-8-sig`), strednik jako oddelovac
+
+### 5.10 Excel + CSV export (jednotky)
+- **Soubor:** `units.py:491-571`
+- Endpoint: `GET /jednotky/exportovat/{xlsx|csv}`
+- Exportuji se FILTROVANE data (typ, sekce, hledani)
+- Sloupce: c. jednotky, budova, typ prostoru, sekce, adresa, LV, mistnosti, plocha, podil SCD, vlastnici
+- Nazev souboru obsahuje suffix dle filtru (napr. `jednotky_byt_20260309.xlsx`)
+
+### 5.11 Excel export (kontrola podilu)
+- **Soubor:** `share_check.py:363-458`
+- Endpoint: `POST /kontrola-podilu/{session_id}/exportovat`
+- Exportuji se zaznamy dle aktualniho filtru (shoda/rozdil/chybi)
+- Sloupce: jednotka, vlastnik, podil DB, podil soubor, rozdil, stav
+- Zlute zvyrazneni (`PatternFill`) pro rozdilne zaznamy
 
 ---
 
@@ -572,12 +590,10 @@ PENDING ──[zaradit do fronty]──> QUEUED ──[odeslat]──> SENT
 - V endpointu: pokud DB rika `SENDING` ale neexistuje progress dict → `PAUSED` (`tax.py:1420-1423`)
 
 ### 6.5 Zip Slip ochrana
-- **Soubor:** `backup_service.py:157`
-- Pred extrakcí: `os.path.realpath(target_path).startswith(resolved_target + os.sep)`
+- Viz sekce 10.3
 
 ### 6.6 Path traversal ochrana
-- **Soubor:** `utils.py:40-57`
-- `is_safe_path()` pouziva `Path.relative_to()` misto `startswith()` (prevence prefix utoku)
+- Viz sekce 10.2
 
 ### 6.7 Safari unzip — hleda svj.db o uroven hloubeji
 - **Soubor:** `backup_service.py:90-98`
@@ -626,3 +642,102 @@ libreoffice_path                        # Pro PDF generovani z Word
 - Akce: `CREATED`, `UPDATED`, `DELETED`, `STATUS_CHANGED`, `IMPORTED`, `EXPORTED`, `RESTORED`
 - Volano pres `log_activity(db, action, entity_type, module, ...)`
 - Loguji se: vytvoreni/zmena hlasovani, importy, zmeny stavu, rozesílaní
+
+---
+
+## 9. Validace vstupu
+
+### 9.1 Validace emailu
+- **Soubor:** `utils.py:135-140`
+- Regex `^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`
+- Pouziva se pri: vytvoreni vlastnika (`owners.py:88-99`), editaci kontaktu (`owners.py:1257-1258`)
+- Neplatny email vraci formular s chybovou hlaskou (ne redirect)
+
+### 9.2 Detekce duplicit pri vytvoreni vlastnika
+- **Soubor:** `owners.py:101-138`
+- Kontroluji se 3 kriteria: `name_normalized`, `birth_number`, `email`
+- Kazde kriterium hleda shodu pouze mezi aktivnimi vlastniky (`is_active=True`)
+- Pri nalezeni duplicit: zobrazi varovani s odkazem na existujiciho vlastnika
+- Uzivatel muze potvrdit vytvoreni (hidden field `force_create=1`) — neni blokujici
+
+### 9.3 Validace ciselnych vstupu (jednotky)
+- **Soubor:** `units.py:46-122` (vytvoreni), `units.py:261-377` (editace)
+- Cislo jednotky: cele cislo, rozsah 1–99999, unikatnost
+- Cislo budovy: rozsah 1–99999 (pokud zadano jako cislo; alfanumericke povoleno)
+- Plocha: rozsah 0–9999 m2, neplatna hodnota se ignoruje s varovanim
+- Podil SCD: rozsah 0–99999999, neplatna hodnota se ignoruje s varovanim
+- Varovani (warnings) se zobrazuji jako zlute bannery nad vysledkem
+
+### 9.4 SMTP test pripojeni
+- **Soubor:** `settings_page.py:193-226`
+- Endpoint: `POST /nastaveni/smtp/test`
+- Overuje: navazani spojeni, TLS, prihlaseni
+- Rozlisuje chybove stavy: nekonfigurovano, chyba prihlaseni, chyba spojeni
+- Vraci partial HTML s vysledkem (zeleny OK / cervena chyba)
+
+### 9.5 Centralizovane upload limity
+- **Soubor:** `utils.py:63-72`
+- `UPLOAD_LIMITS` dict: excel (50MB), csv (50MB), pdf (100MB), docx (10MB), backup (200MB), folder (500MB)
+- `validate_upload()` (`utils.py:75-106`): kontrola pripony + velikosti
+- `validate_uploads()` (`utils.py:109-121`): pro seznam souboru, vraci prvni chybu
+
+---
+
+## 10. Bezpecnost
+
+### 10.1 Security headers middleware
+- **Soubor:** `main.py:490-496`
+- Kazda HTTP odpoved obsahuje:
+  - `X-Frame-Options: DENY` (ochrana proti clickjacking)
+  - `X-Content-Type-Options: nosniff` (prevence MIME type sniffing)
+  - `Referrer-Policy: strict-origin-when-cross-origin` (omezeni referrer)
+
+### 10.2 Path traversal ochrana
+- **Soubor:** `utils.py:42-59`
+- `is_safe_path()` pouziva `Path.relative_to()` misto `startswith()` (prevence prefix utoku)
+- Pouziva se pri: servovani priloh (`settings_page.py:230+`), stahování souborů, kontrola podílů
+
+### 10.3 Zip Slip ochrana
+- **Soubor:** `backup_service.py:157`
+- Pred extrakcí ZIP: overeni ze cesta zustava uvnitr ciloveho adresare
+
+---
+
+## 11. UX — front-end business logika
+
+### 11.1 Custom confirm modal (`svjConfirm`)
+- **Soubor:** `app/static/js/app.js:170-245`
+- Nahradi nativni `window.confirm()` vlastnim modalem
+- 3 zpusoby interceptu:
+  - `data-confirm` atribut na `<form>` — intercept submit eventu
+  - `data-confirm` atribut na `<button>`/`<a>` — intercept click eventu
+  - `hx-confirm` atribut (HTMX) — intercept `htmx:confirm` eventu
+- Callback vzor: `svjConfirm(message, onConfirm)` — callback se vola az po potvrzeni
+
+### 11.2 Focus trap + focus restore v modalech
+- **Soubor:** `app/static/js/app.js:78-117`
+- Focus trap: Tab/Shift+Tab se cykli jen uvnitr modalniho okna (`_trapFocus`)
+- Focus restore: po zavreni modalu se focus vrati na puvodni element (`_restoreFocus`)
+- Aplikuje se na: PDF modal, confirm modal, send confirm modal
+- Escape klaves zavre libovolny otevreny modal
+
+### 11.3 Unsaved form warning (beforeunload)
+- **Soubor:** `app/static/js/app.js:249-267`
+- Formulare s atributem `data-warn-unsaved` sleduje zmeny (`input` event)
+- Pred opustenim stranky: prohlizec zobrazi nativni varovani
+- Reset pri submit nebo HTMX boosted navigaci
+
+### 11.4 Dashboard onboarding
+- **Soubor:** `app/templates/dashboard.html:114-122`
+- Pokud je DB prazdna (`owners_count == 0`) a neni aktivni vyhledavani:
+  - Zobrazi se uvitaci blok "Vitejte v SVJ Sprava"
+  - 3 kroky: import vlastniku, kontrola s katastrem, zalozeni hlasovani
+  - Nahrazuje tabulku posledni aktivity
+
+### 11.5 SQL agregace na seznamu hlasovani (performance)
+- **Soubor:** `voting/session.py:48-106`
+- Misto iterace pres vsechny listky v Pythonu: 3 SQL dotazy
+  1. `GROUP BY voting_id`: pocet zpracovanych listku
+  2. Subquery `voted_ids` + `GROUP BY voting_id`: soucet hlasu zpracovanych listku s alespon 1 hlasem
+  3. `GROUP BY voting_item_id`: SUM per-item hlasy (FOR/AGAINST/ABSTAIN) pres `case()` vyrazy
+- Vyrazne snizuje pocet SQL dotazu pri desítkach hlasovani
