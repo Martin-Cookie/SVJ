@@ -250,9 +250,9 @@
                     {% for entry in restore_log[:10] %}
                     <tr>
                         <td class="px-2 py-1.5 min-w-0">
-                            <div class="truncate text-xs font-mono text-gray-800" title="{{ entry.source }}">{{ entry.source }}</div>
+                            <div class="truncate text-xs font-mono text-gray-800" title="{{ entry.source }}" aria-label="{{ entry.source }}">{{ entry.source }}</div>
                             {% if entry.safety_backup is defined and entry.safety_backup %}
-                            <div class="truncate text-xs text-gray-500" title="Pojistná záloha: {{ entry.safety_backup }}">pojistná: {{ entry.safety_backup }}</div>
+                            <div class="truncate text-xs text-gray-500" title="Pojistná záloha: {{ entry.safety_backup }}" aria-label="Pojistná záloha: {{ entry.safety_backup }}">pojistná: {{ entry.safety_backup }}</div>
                             {% endif %}
                         </td>
                         <td class="px-2 py-1.5 text-xs text-gray-500 whitespace-nowrap">{{ entry.timestamp[:16].replace('T', ' ') }}</td>

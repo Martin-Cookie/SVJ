@@ -72,7 +72,30 @@ document.body.addEventListener('htmx:sendError', function(event) {
     _showHtmxError(event.detail.target, 'Nepodařilo se spojit se serverem.');
 });
 
-// Close modal on escape key
+// =========================================================================
+// Modal accessibility: focus trap + Escape close + focus restore
+// =========================================================================
+var _modalTrigger = null;
+
+function _trapFocus(modal, event) {
+    var focusable = modal.querySelectorAll('button:not([disabled]), a[href], input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])');
+    if (focusable.length === 0) return;
+    var first = focusable[0];
+    var last = focusable[focusable.length - 1];
+    if (event.shiftKey) {
+        if (document.activeElement === first) { event.preventDefault(); last.focus(); }
+    } else {
+        if (document.activeElement === last) { event.preventDefault(); first.focus(); }
+    }
+}
+
+function _restoreFocus() {
+    if (_modalTrigger && _modalTrigger.focus) {
+        _modalTrigger.focus();
+        _modalTrigger = null;
+    }
+}
+
 document.addEventListener('keydown', function(event) {
     if (event.key === 'Escape') {
         if (typeof confirmCancel === 'function') confirmCancel();
@@ -81,11 +104,22 @@ document.addEventListener('keydown', function(event) {
         var modalContainer = document.getElementById('modal-container');
         if (modalContainer) modalContainer.replaceChildren();
     }
+    if (event.key === 'Tab') {
+        var modals = ['pdf-modal', 'confirm-modal', 'send-confirm-modal'];
+        for (var i = 0; i < modals.length; i++) {
+            var m = document.getElementById(modals[i]);
+            if (m && !m.classList.contains('hidden')) {
+                _trapFocus(m, event);
+                return;
+            }
+        }
+    }
 });
 
 // PDF preview modal (pdf.js) — worker URL set in matching.html alongside the script tag
 
 function openPdfModal(url, title) {
+    _modalTrigger = document.activeElement;
     var modal = document.getElementById('pdf-modal');
     document.getElementById('pdf-modal-title').textContent = title || '';
     document.getElementById('pdf-modal-newtab').href = url;
@@ -130,6 +164,7 @@ function closePdfModal() {
     modal.classList.add('hidden');
     document.getElementById('pdf-modal-pages').innerHTML = '';
     document.body.style.overflow = '';
+    _restoreFocus();
 }
 
 // =========================================================================
@@ -138,6 +173,7 @@ function closePdfModal() {
 var _confirmCallback = null;
 
 function svjConfirm(message, onConfirm) {
+    _modalTrigger = document.activeElement;
     _confirmCallback = onConfirm;
     document.getElementById('confirm-message').textContent = message;
     document.getElementById('confirm-modal').classList.remove('hidden');
@@ -155,6 +191,7 @@ function confirmOk() {
         _confirmCallback = null;
         cb();
     }
+    // Don't restore focus — callback usually submits form
 }
 
 function confirmCancel() {
@@ -163,6 +200,7 @@ function confirmCancel() {
     modal.classList.add('hidden');
     document.body.style.overflow = '';
     _confirmCallback = null;
+    _restoreFocus();
 }
 
 // Global handler: intercept form submit with data-confirm
@@ -558,6 +596,7 @@ function toggleEmailEdit(key) {
 
 // --- Send confirmation modal ---
 function showSendConfirmModal() {
+    _modalTrigger = document.activeElement;
     var counts = _countEmailsAndRecipients();
     if (counts.recipients === 0) return;
     var emailText = _czPlural(counts.emails, 'email', 'emaily', 'emailů');
@@ -570,6 +609,7 @@ function showSendConfirmModal() {
     document.getElementById('modal-subject').textContent = subj ? subj.value : '';
     document.getElementById('send-confirm-modal').classList.remove('hidden');
     document.body.style.overflow = 'hidden';
+    document.getElementById('confirm-send-btn').focus();
 }
 
 function closeSendConfirmModal() {
@@ -577,6 +617,7 @@ function closeSendConfirmModal() {
     if (!modal) return;
     modal.classList.add('hidden');
     document.body.style.overflow = '';
+    _restoreFocus();
 }
 
 function startBatchSend() {

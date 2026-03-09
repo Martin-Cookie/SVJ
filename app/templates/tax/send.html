@@ -271,10 +271,10 @@
 </div>
 
 <!-- Send confirmation modal -->
-<div id="send-confirm-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center">
-    <div class="absolute inset-0 bg-black/50" onclick="closeSendConfirmModal()"></div>
+<div id="send-confirm-modal" role="alertdialog" aria-modal="true" aria-labelledby="send-modal-title" class="hidden fixed inset-0 z-50 flex items-center justify-center">
+    <div class="absolute inset-0 bg-black/50" onclick="closeSendConfirmModal()" role="presentation"></div>
     <div class="relative bg-white rounded-lg shadow-xl w-full max-w-md p-6">
-        <h3 class="text-lg font-bold text-gray-800 mb-3">Potvrdit odeslání</h3>
+        <h3 id="send-modal-title" class="text-lg font-bold text-gray-800 mb-3">Potvrdit odeslání</h3>
         <div class="space-y-2 text-sm text-gray-600 mb-4">
             <p><span id="modal-count-verb">Bude odesláno</span> <strong id="modal-count-emails" class="text-blue-600">0 emailů</strong> <strong id="modal-count-recipients" class="text-gray-700">0 příjemcům</strong>.</p>
             <p>Předmět: <em id="modal-subject" class="text-gray-800"></em></p>

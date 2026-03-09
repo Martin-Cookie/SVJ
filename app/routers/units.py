@@ -83,6 +83,20 @@ async def unit_create(
             "code_lists": get_all_code_lists(db),
         })
 
+    # Validate building_number range
+    bn_clean = building_number.strip()
+    if bn_clean:
+        try:
+            bn_int = int(bn_clean)
+            if bn_int < 1 or bn_int > 99999:
+                return templates.TemplateResponse("partials/unit_create_form.html", {
+                    "request": request,
+                    "error": f"Číslo budovy {bn_int} mimo rozsah 1–99999.",
+                    "code_lists": get_all_code_lists(db),
+                })
+        except (ValueError, TypeError):
+            pass  # alphanumeric building numbers are OK
+
     try:
         lv_number_int = int(lv_number.strip()) if lv_number.strip() else None
     except (ValueError, TypeError):

@@ -3,7 +3,7 @@
     <td class="px-6 py-4 text-sm">
         <span class="font-medium text-gray-900">{{ r.item.order }}.</span>
         <span class="item-title-{{ r.item.id }}">{{ r.item.title }}</span>
-        {% if r.item.description %}<span class="text-xs text-gray-400 ml-1" title="{{ r.item.description }}">ℹ</span>{% endif %}
+        {% if r.item.description %}<span class="text-xs text-gray-400 ml-1" title="{{ r.item.description }}" aria-label="{{ r.item.description }}">ℹ</span>{% endif %}
     </td>
     <td class="px-6 py-4 text-sm font-medium text-green-600 whitespace-nowrap">{{ "{:,}".format(r.votes_for).replace(",", " ") }}</td>
     <td class="px-6 py-4 text-sm text-green-600 whitespace-nowrap">{{ "%.2f"|format(r.pct_for) }}%</td>
@@ -24,7 +24,7 @@
             {% if not loop.first %}
             <form action="/hlasovani/{{ voting.id }}/bod/{{ r.item.id }}/posunout" method="post" style="display:inline" hx-boost="false">
                 <input type="hidden" name="direction" value="up">
-                <button type="submit" title="Posunout nahoru" class="p-1 text-gray-400 hover:text-blue-600 rounded hover:bg-blue-50">
+                <button type="submit" title="Posunout nahoru" aria-label="Posunout nahoru" class="p-1 text-gray-400 hover:text-blue-600 rounded hover:bg-blue-50">
                     <svg aria-hidden="true" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/>
                     </svg>
@@ -37,7 +37,7 @@
             {% if not loop.last %}
             <form action="/hlasovani/{{ voting.id }}/bod/{{ r.item.id }}/posunout" method="post" style="display:inline" hx-boost="false">
                 <input type="hidden" name="direction" value="down">
-                <button type="submit" title="Posunout dolů" class="p-1 text-gray-400 hover:text-blue-600 rounded hover:bg-blue-50">
+                <button type="submit" title="Posunout dolů" aria-label="Posunout dolů" class="p-1 text-gray-400 hover:text-blue-600 rounded hover:bg-blue-50">
                     <svg aria-hidden="true" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                     </svg>
@@ -56,7 +56,7 @@
             {# Delete #}
             <form action="/hlasovani/{{ voting.id }}/smazat-bod/{{ r.item.id }}" method="post" style="display:inline" hx-boost="false"
                   data-confirm="Smazat bod {{ r.item.order }}. {{ r.item.title }}?">
-                <button type="submit" title="Smazat" class="p-1 text-gray-400 hover:text-red-600 rounded hover:bg-red-50">
+                <button type="submit" title="Smazat" aria-label="Smazat" class="p-1 text-gray-400 hover:text-red-600 rounded hover:bg-red-50">
                     <svg aria-hidden="true" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
                     </svg>
