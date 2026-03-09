@@ -59,12 +59,8 @@
         </tbody>
     </table>
 </div>
-<div class="mt-4 flex items-center justify-between">
+<div class="mt-4">
     <span class="text-sm text-gray-500">Celkem neodevzdáno: {{ missing|length }} lístků</span>
-    <a href="/hlasovani/{{ voting.id }}/neodevzdane/exportovat" hx-boost="false"
-       onclick="var b=this,t=b.textContent;b.textContent='Generuji…';b.classList.add('opacity-50');setTimeout(function(){b.textContent=t;b.classList.remove('opacity-50')},3000)"
-       class="px-2.5 py-1.5 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 text-xs font-medium transition-colors border border-gray-200"
-       title="Export neodevzdaných do Excelu">↓ Export neodevzdaných</a>
 </div>
 {% else %}
 <div class="bg-white rounded-lg shadow p-8 text-center text-gray-500">

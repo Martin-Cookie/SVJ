@@ -550,7 +550,7 @@ async def export_not_submitted(voting_id: int, db: Session = Depends(get_db)):
     wb.save(buf)
     buf.seek(0)
 
-    filename = f"neodevzdane_{voting.title[:30]}_{datetime.utcnow().strftime('%Y%m%d')}.xlsx"
+    filename = f"neodevzdane_{voting.id}_{datetime.utcnow().strftime('%Y%m%d')}.xlsx"
     return Response(
         content=buf.getvalue(),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

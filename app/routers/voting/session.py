@@ -616,8 +616,8 @@ async def update_voting_status(
 
 
 @router.get("/{voting_id}/exportovat")
-async def voting_export(voting_id: int, db: Session = Depends(get_db)):
-    """Export voting results to Excel."""
+async def voting_export(voting_id: int, stav: str = "", db: Session = Depends(get_db)):
+    """Export voting results to Excel. Optional stav filter: generated, sent, processed (default all processed)."""
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill
 
@@ -631,7 +631,17 @@ async def voting_export(voting_id: int, db: Session = Depends(get_db)):
 
     declared = _get_declared_shares(db) or 1
     items = sorted(voting.items, key=lambda i: i.order)
-    processed = [b for b in voting.ballots if b.status == BallotStatus.PROCESSED]
+
+    # Filter ballots by status
+    status_filter = {
+        "generated": BallotStatus.GENERATED,
+        "sent": BallotStatus.SENT,
+        "processed": BallotStatus.PROCESSED,
+    }
+    if stav and stav in status_filter:
+        processed = [b for b in voting.ballots if b.status == status_filter[stav]]
+    else:
+        processed = [b for b in voting.ballots if b.status == BallotStatus.PROCESSED]
     processed.sort(key=lambda b: (b.owner.name_normalized or ""))
 
     wb = Workbook()
@@ -703,7 +713,8 @@ async def voting_export(voting_id: int, db: Session = Depends(get_db)):
     buf = BytesIO()
     wb.save(buf)
     timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-    filename = f"hlasovani_{voting.id}_{timestamp}.xlsx"
+    stav_suffix = f"_{stav}" if stav and stav in status_filter else ""
+    filename = f"hlasovani_{voting.id}{stav_suffix}_{timestamp}.xlsx"
 
     return Response(
         content=buf.getvalue(),
