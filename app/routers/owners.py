@@ -91,6 +91,45 @@ async def owner_create(
         email_warning = "neplatny-email"
         email_clean = ""
 
+    # Check for duplicates — name, birth_number, email
+    duplicates = []
+    if name_normalized:
+        dup_name = db.query(Owner).filter(
+            Owner.is_active == True,
+            Owner.name_normalized == name_normalized,
+        ).first()
+        if dup_name:
+            duplicates.append(("jméno", dup_name))
+    bn_clean = birth_number.strip() if birth_number else ""
+    if bn_clean:
+        dup_bn = db.query(Owner).filter(
+            Owner.is_active == True,
+            Owner.birth_number == bn_clean,
+        ).first()
+        if dup_bn and dup_bn not in [d[1] for d in duplicates]:
+            duplicates.append(("RČ", dup_bn))
+    if email_clean:
+        dup_email = db.query(Owner).filter(
+            Owner.is_active == True,
+            Owner.email == email_clean,
+        ).first()
+        if dup_email and dup_email not in [d[1] for d in duplicates]:
+            duplicates.append(("email", dup_email))
+
+    # If duplicates found and user hasn't confirmed, show warning
+    force = (await request.form()).get("force_create", "")
+    if duplicates and force != "1":
+        return templates.TemplateResponse("partials/owner_create_form.html", {
+            "request": request,
+            "duplicates": duplicates,
+            "form_data": {
+                "first_name": first_name, "last_name": last_name,
+                "title": title, "owner_type": owner_type,
+                "email": email, "phone": phone,
+                "birth_number": birth_number,
+            },
+        })
+
     owner = Owner(
         first_name=first_name.strip(),
         last_name=last_name.strip() or None,
@@ -100,7 +139,7 @@ async def owner_create(
         name_normalized=name_normalized,
         email=email_clean or None,
         phone=phone.strip() or None,
-        birth_number=birth_number.strip() or None,
+        birth_number=bn_clean or None,
         data_source="manual",
         is_active=True,
         created_at=datetime.utcnow(),

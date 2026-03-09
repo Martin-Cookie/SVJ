@@ -33,7 +33,7 @@
 {% endif %}
 
 <div class="bg-white rounded-lg shadow p-6 max-w-2xl">
-    <form id="create-form" action="/hlasovani/nova" method="post" enctype="multipart/form-data" hx-boost="false">
+    <form id="create-form" action="/hlasovani/nova" method="post" enctype="multipart/form-data" hx-boost="false" data-warn-unsaved>
         <div class="space-y-4">
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Šablona Word (.docx)</label>

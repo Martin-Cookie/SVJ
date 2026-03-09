@@ -206,6 +206,28 @@ document.body.addEventListener('htmx:confirm', function(event) {
     }
 });
 
+// =========================================================================
+// Unsaved form warning (beforeunload)
+// =========================================================================
+(function() {
+    var _formDirty = false;
+    document.addEventListener('input', function(e) {
+        var form = e.target.closest('form[data-warn-unsaved]');
+        if (form) _formDirty = true;
+    });
+    document.addEventListener('submit', function() { _formDirty = false; });
+    window.addEventListener('beforeunload', function(e) {
+        if (_formDirty) {
+            e.preventDefault();
+            e.returnValue = '';
+        }
+    });
+    // Reset dirty flag on HTMX navigation (boosted links)
+    document.body.addEventListener('htmx:beforeRequest', function(e) {
+        if (e.detail.elt.hasAttribute('hx-boost')) _formDirty = false;
+    });
+})();
+
 // Generic client-side table column sorting
 function sortTableCol(th) {
     var col = parseInt(th.dataset.col);

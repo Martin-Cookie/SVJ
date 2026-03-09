@@ -190,6 +190,42 @@ async def save_smtp(
     })
 
 
+@router.post("/smtp/test")
+async def test_smtp_connection(request: Request):
+    """Test SMTP connection and return result as partial HTML."""
+    import smtplib
+    try:
+        if settings.smtp_host in ("smtp.example.com", ""):
+            return templates.TemplateResponse("partials/smtp_info.html", {
+                "request": request,
+                "settings": settings,
+                "smtp_test_error": "SMTP server není nakonfigurován.",
+            })
+        server = smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=10)
+        if settings.smtp_use_tls:
+            server.starttls()
+        if settings.smtp_user:
+            server.login(settings.smtp_user, settings.smtp_password)
+        server.quit()
+        return templates.TemplateResponse("partials/smtp_info.html", {
+            "request": request,
+            "settings": settings,
+            "smtp_test_ok": True,
+        })
+    except smtplib.SMTPAuthenticationError:
+        return templates.TemplateResponse("partials/smtp_info.html", {
+            "request": request,
+            "settings": settings,
+            "smtp_test_error": "Přihlášení selhalo — zkontrolujte uživatele a heslo.",
+        })
+    except Exception as e:
+        return templates.TemplateResponse("partials/smtp_info.html", {
+            "request": request,
+            "settings": settings,
+            "smtp_test_error": f"Připojení selhalo: {e}",
+        })
+
+
 @router.get("/priloha/{log_id}/{filename}")
 async def serve_attachment(
     log_id: int,
