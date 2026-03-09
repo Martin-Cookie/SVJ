@@ -7,6 +7,7 @@ import time as _time
 from datetime import date, datetime
 from io import BytesIO
 from pathlib import Path
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
@@ -21,8 +22,12 @@ logger = logging.getLogger(__name__)
 from app.config import settings
 from app.database import SessionLocal, get_db
 from app.models import ImportLog, Owner, OwnerType, OwnerUnit, SvjInfo, Unit, ActivityAction, log_activity
+from app.services.code_list_service import get_all_code_lists
+from app.services.contact_import import preview_contact_import, execute_contact_import
 from app.services.excel_import import import_owners_from_excel, preview_owners_from_excel
-from app.utils import UPLOAD_LIMITS, build_list_url, excel_auto_width, is_htmx_partial, is_safe_path, is_valid_email, setup_jinja_filters, strip_diacritics, validate_upload
+from app.services.owner_exchange import recalculate_unit_votes
+from app.services.owner_service import merge_owners
+from app.utils import UPLOAD_LIMITS, build_list_url, compute_eta, excel_auto_width, is_htmx_partial, is_safe_path, is_valid_email, setup_jinja_filters, strip_diacritics, validate_upload
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -424,7 +429,7 @@ async def owner_export(
         )
     else:
         buf = io.StringIO()
-        writer = csv.writer(buf)
+        writer = csv.writer(buf, delimiter=";")
         writer.writerow(headers)
         for o in owners:
             writer.writerow(_row(o))
@@ -482,7 +487,6 @@ async def contact_import_upload(
     )
     thread.start()
 
-    from urllib.parse import quote
     return RedirectResponse(f"/vlastnici/import-kontaktu/zpracovani?soubor={quote(file_key)}", status_code=302)
 
 
@@ -490,7 +494,6 @@ def _run_contact_preview(file_key: str, file_path: str):
     """Background thread: parse Excel and compare with DB."""
     db = SessionLocal()
     try:
-        from app.services.contact_import import preview_contact_import
         progress = _contact_import_progress[file_key]
         result = preview_contact_import(file_path, db, progress=progress)
         progress["result"] = result
@@ -504,7 +507,6 @@ def _run_contact_preview(file_key: str, file_path: str):
 
 def _contact_progress_ctx(progress: dict) -> dict:
     """Compute progress context for contact import templates."""
-    from app.utils import compute_eta
 
     total = progress.get("total", 0)
     current = progress.get("current", 0)
@@ -527,7 +529,6 @@ async def contact_import_processing(
     if not progress:
         return RedirectResponse("/vlastnici/import#kontakty", status_code=302)
     if progress.get("done"):
-        from urllib.parse import quote
         return RedirectResponse(f"/vlastnici/import-kontaktu/nahled?soubor={quote(soubor)}", status_code=302)
 
     return templates.TemplateResponse("owners/contact_import_processing.html", {
@@ -551,7 +552,6 @@ async def contact_import_status(
         return response
 
     if progress.get("done"):
-        from urllib.parse import quote
         response = HTMLResponse("")
         response.headers["HX-Redirect"] = f"/vlastnici/import-kontaktu/nahled?soubor={quote(soubor)}"
         return response
@@ -615,7 +615,6 @@ async def contact_import_rerun(
     )
     thread.start()
 
-    from urllib.parse import quote
     return RedirectResponse(f"/vlastnici/import-kontaktu/zpracovani?soubor={quote(file_key)}", status_code=302)
 
 
@@ -635,7 +634,6 @@ async def contact_import_confirm(
     if not selected:
         return RedirectResponse("/vlastnici/import#kontakty", status_code=302)
 
-    from app.services.contact_import import execute_contact_import
     result = execute_contact_import(file_path, db, selected, overwrite_existing=bool(overwrite))
 
     # Log the import
@@ -732,8 +730,6 @@ async def import_excel_confirm(
     if not is_safe_path(Path(file_path), settings.upload_dir):
         return RedirectResponse("/vlastnici/import", status_code=302)
 
-    from app.models.owner import OwnerUnit
-
     # Clear existing owners
     db.query(OwnerUnit).delete()
     db.query(Owner).delete()
@@ -826,7 +822,6 @@ async def owner_detail(
     info: str = Query(""),
     db: Session = Depends(get_db),
 ):
-    from app.services.code_list_service import get_all_code_lists
 
     owner = db.query(Owner).options(
         joinedload(Owner.units).joinedload(OwnerUnit.unit)
@@ -1014,7 +1009,6 @@ async def owner_identity_update(
         )
 
     if request.headers.get("HX-Request"):
-        from fastapi.responses import HTMLResponse
         identity_html = templates.TemplateResponse("partials/owner_identity_info.html", {
             "request": request,
             "owner": owner,
@@ -1052,14 +1046,11 @@ async def owner_merge(
         if dup and dup.id != owner.id:
             duplicates.append(dup)
 
-    from app.services.owner_service import merge_owners
     merge_owners(owner, duplicates, db)
     db.commit()
     db.refresh(owner)
 
     if request.headers.get("HX-Request"):
-        from fastapi.responses import HTMLResponse
-        from app.services.code_list_service import get_all_code_lists
         # Refresh identity section (no more duplicates)
         identity_html = templates.TemplateResponse("partials/owner_identity_info.html", {
             "request": request,
@@ -1279,7 +1270,6 @@ async def owner_add_unit(
         db.add(ou)
         db.flush()
 
-        from app.services.owner_exchange import recalculate_unit_votes
         unit = db.query(Unit).get(unit_id_int)
         if unit:
             recalculate_unit_votes(unit, db)
@@ -1289,7 +1279,6 @@ async def owner_add_unit(
         db.refresh(owner)
 
     if request.headers.get("HX-Request"):
-        from app.services.code_list_service import get_all_code_lists
         available_units, declared_shares = _owner_units_context(owner, db)
         return templates.TemplateResponse("partials/owner_units_section.html", {
             "request": request,
@@ -1318,7 +1307,6 @@ async def owner_remove_unit(
     ).get(owner_id)
 
     if request.headers.get("HX-Request"):
-        from app.services.code_list_service import get_all_code_lists
         available_units, declared_shares = _owner_units_context(owner, db)
         return templates.TemplateResponse("partials/owner_units_section.html", {
             "request": request,

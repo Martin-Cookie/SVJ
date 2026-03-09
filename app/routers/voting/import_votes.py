@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.config import settings
 from app.database import get_db
 from app.models import (
-    Ballot, BallotVote, Owner, OwnerUnit, SvjInfo, Voting,
+    Ballot, BallotVote, Owner, OwnerUnit, SvjInfo, Voting, VotingStatus,
     ActivityAction, log_activity,
 )
 from app.services.voting_import import (
@@ -235,7 +235,6 @@ async def import_confirm(
         return RedirectResponse("/hlasovani", status_code=302)
 
     # Check voting is active before importing
-    from app.models import VotingStatus
     if voting.status != VotingStatus.ACTIVE:
         return RedirectResponse(f"/hlasovani/{voting_id}", status_code=302)
 

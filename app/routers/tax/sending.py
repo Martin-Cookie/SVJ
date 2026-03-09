@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import re
 import threading
 import time
@@ -17,7 +18,7 @@ from app.models import (
     ActivityAction, log_activity,
 )
 from app.services.email_service import create_smtp_connection, send_email
-from app.utils import build_list_url, strip_diacritics
+from app.utils import build_list_url, compute_eta, strip_diacritics
 
 from ._helpers import (
     logger, templates,
@@ -481,7 +482,6 @@ async def send_test_email(
 
     attachments = [test_doc.file_path] if test_doc else []
 
-    import asyncio
     result = await asyncio.to_thread(
         send_email,
         to_email=test_email.strip(),
@@ -596,7 +596,6 @@ async def save_send_settings(
 
 def _sending_eta(progress: dict) -> dict:
     """Compute ETA fields from sending progress dict."""
-    from app.utils import compute_eta
 
     sent = progress["sent"]
     failed = progress["failed"]

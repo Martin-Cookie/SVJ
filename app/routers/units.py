@@ -13,6 +13,8 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.models import Owner, OwnerUnit, SvjInfo, Unit
+from app.services.code_list_service import get_all_code_lists
+from app.services.owner_exchange import recalculate_unit_votes
 from app.utils import build_list_url, excel_auto_width, is_htmx_partial, setup_jinja_filters, strip_diacritics
 
 router = APIRouter()
@@ -35,7 +37,6 @@ SORT_COLUMNS = {
 
 @router.get("/nova-formular")
 async def unit_create_form(request: Request, db: Session = Depends(get_db)):
-    from app.services.code_list_service import get_all_code_lists
     return templates.TemplateResponse("partials/unit_create_form.html", {
         "request": request,
         "code_lists": get_all_code_lists(db),
@@ -56,7 +57,6 @@ async def unit_create(
     podil_scd: str = Form(""),
     db: Session = Depends(get_db),
 ):
-    from app.services.code_list_service import get_all_code_lists
 
     # Parse unit_number
     try:
@@ -199,7 +199,6 @@ async def owner_unit_update(
     ou.ownership_type = ownership_type.strip() or None
 
     # Recalculate votes for all owners of the unit
-    from app.services.owner_exchange import recalculate_unit_votes
     recalculate_unit_votes(unit, db)
 
     db.commit()
@@ -219,7 +218,6 @@ async def unit_edit_form(
     request: Request,
     db: Session = Depends(get_db),
 ):
-    from app.services.code_list_service import get_all_code_lists
     unit = db.query(Unit).get(unit_id)
     if not unit:
         return RedirectResponse("/jednotky", status_code=302)
@@ -261,7 +259,6 @@ async def unit_update(
     podil_scd: str = Form(""),
     db: Session = Depends(get_db),
 ):
-    from app.services.code_list_service import get_all_code_lists
 
     unit = db.query(Unit).get(unit_id)
     if not unit:
@@ -338,7 +335,6 @@ async def unit_update(
     unit.floor_area = floor_area_float
     unit.podil_scd = podil_scd_float
 
-    from app.services.owner_exchange import recalculate_unit_votes
     recalculate_unit_votes(unit, db)
 
     db.commit()
@@ -548,7 +544,7 @@ async def unit_export(
         )
     else:
         buf = io.StringIO()
-        writer = csv.writer(buf)
+        writer = csv.writer(buf, delimiter=";")
         writer.writerow(headers)
         for u in units:
             writer.writerow(_row(u))

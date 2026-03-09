@@ -320,7 +320,7 @@ def export_category_csv(db: Session, category: str) -> bytes:
     gen = _ROW_GENERATORS[category]
 
     buf = io.StringIO()
-    writer = csv.writer(buf)
+    writer = csv.writer(buf, delimiter=";")
     writer.writerow(info["headers"])
     for row in gen(db):
         writer.writerow([_fmt(v) for v in row])

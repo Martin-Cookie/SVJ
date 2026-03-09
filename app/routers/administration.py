@@ -17,7 +17,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import case
 from sqlalchemy.orm import Session, joinedload
 
-from app.database import get_db
+from app.database import SessionLocal, get_db
 from app.models import (
     SvjInfo, SvjAddress, BoardMember, CodeListItem, EmailTemplate,
     Unit, OwnerUnit, Owner, Proxy,
@@ -42,7 +42,8 @@ from app.services.data_export import (
     EXPORT_ORDER, _EXPORTS as EXPORT_CATEGORIES,
     export_category_xlsx, export_category_csv,
 )
-from app.main import run_post_restore_migrations
+from app.services.owner_exchange import recalculate_unit_votes
+from app.services.owner_service import find_duplicate_groups, merge_owners
 
 # Field mapping for bulk edit
 _BULK_FIELDS = {
@@ -551,7 +552,6 @@ async def backup_create(filename: str = Form(""), db: Session = Depends(get_db))
     create_backup(str(DB_PATH), str(UPLOADS_DIR), str(GENERATED_DIR), str(BACKUP_DIR), custom_name=name)
 
     # Log activity — backup is file-based, use separate session
-    from app.database import SessionLocal
     _db = SessionLocal()
     try:
         log_activity(_db, ActivityAction.CREATED, "backup", "sprava",
@@ -627,9 +627,9 @@ async def backup_restore_existing(filename: str):
         new_backups = set(p.name for p in BACKUP_DIR.glob("*.zip")) - existing
         safety = next(iter(new_backups), "")
         log_restore(str(BACKUP_DIR), filename, "Existující záloha", safety_backup=safety)
+        from app.main import run_post_restore_migrations
         warnings = run_post_restore_migrations()
 
-        from app.database import SessionLocal
         _db = SessionLocal()
         try:
             log_activity(_db, ActivityAction.RESTORED, "backup", "sprava",
@@ -678,9 +678,9 @@ async def backup_restore(file: UploadFile = File(...)):
         safety = next(iter(new_backups), "")
         log_restore(str(BACKUP_DIR), file.filename or "upload.zip", "ZIP soubor", safety_backup=safety)
 
+        from app.main import run_post_restore_migrations
         warnings = run_post_restore_migrations()
 
-        from app.database import SessionLocal
         _db = SessionLocal()
         try:
             log_activity(_db, ActivityAction.RESTORED, "backup", "sprava",
@@ -742,9 +742,9 @@ async def backup_restore_db_file(file: UploadFile = File(...)):
             return RedirectResponse("/sprava/zalohy?chyba=neplatny_db", status_code=302)
 
         log_restore(str(BACKUP_DIR), file.filename or "svj.db", "DB soubor", safety_backup=safety)
+        from app.main import run_post_restore_migrations
         warnings = run_post_restore_migrations()
 
-        from app.database import SessionLocal
         _db = SessionLocal()
         try:
             log_activity(_db, ActivityAction.RESTORED, "backup", "sprava",
@@ -826,9 +826,9 @@ async def backup_restore_folder(files: List[UploadFile] = File(...)):
 
         log_restore(str(BACKUP_DIR), folder_name or "složka", "Složka (Finder)")
 
+        from app.main import run_post_restore_migrations
         warnings = run_post_restore_migrations()
 
-        from app.database import SessionLocal
         _db = SessionLocal()
         try:
             log_activity(_db, ActivityAction.RESTORED, "backup", "sprava",
@@ -1281,7 +1281,6 @@ async def bulk_edit_apply(
 
     # Recalculate votes when share changes
     if pole == "share":
-        from app.services.owner_exchange import recalculate_unit_votes
         affected_ous = q.all()
         seen_units = set()
         for ou in affected_ous:
@@ -1308,8 +1307,6 @@ async def duplicates_page(
     db: Session = Depends(get_db),
     back: str = Query(""),
 ):
-    from app.services.owner_service import find_duplicate_groups
-
     groups = find_duplicate_groups(db)
     back_url = back or "/sprava"
 
@@ -1335,8 +1332,6 @@ async def merge_duplicate_group(
 
     if not target_id or not dup_ids:
         return RedirectResponse("/sprava/duplicity", status_code=302)
-
-    from app.services.owner_service import merge_owners
 
     target = db.query(Owner).options(
         joinedload(Owner.units).joinedload(OwnerUnit.unit)
@@ -1364,7 +1359,6 @@ async def merge_all_duplicates(
     db: Session = Depends(get_db),
 ):
     """Merge ALL duplicate groups at once using recommended targets."""
-    from app.services.owner_service import find_duplicate_groups, merge_owners
 
     groups = find_duplicate_groups(db)
     merged_count = 0

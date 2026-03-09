@@ -18,11 +18,11 @@ from app.database import get_db
 
 logger = logging.getLogger(__name__)
 from app.models import (
-    ImportLog, Owner, OwnerUnit, ShareCheckSession, SyncRecord, SyncResolution,
+    ImportLog, Owner, OwnerType, OwnerUnit, ShareCheckSession, SyncRecord, SyncResolution,
     SyncSession, SyncStatus, Unit,
 )
 from app.services.csv_comparator import compare_owners, parse_sousede_csv
-from app.services.owner_exchange import execute_exchange, prepare_exchange_preview
+from app.services.owner_exchange import execute_exchange, prepare_exchange_preview, recalculate_unit_votes
 from app.services.owner_matcher import normalize_for_matching
 from app.utils import UPLOAD_LIMITS, build_list_url, excel_auto_width, is_htmx_partial, setup_jinja_filters, strip_diacritics, validate_upload
 
@@ -628,7 +628,6 @@ ALLOWED_UPDATE_FIELDS = {"ownership_type", "space_type", "podil_scd", "owner_nam
 
 def _apply_owner_name_update(db, unit, record, new_value):
     """Apply owner name changes from CSV to DB. Returns list of change descriptions."""
-    from app.models import OwnerType
 
     changes = []
     csv_names = [n.strip() for n in re.split(r'\s*[;,]\s*', new_value.strip()) if n.strip()]
@@ -827,7 +826,6 @@ async def apply_selected_updates(
                 old_val = record.excel_podil_scd or unit.podil_scd
                 unit.podil_scd = float(new_value)
                 record.excel_podil_scd = float(new_value)
-                from app.services.owner_exchange import recalculate_unit_votes
                 recalculate_unit_votes(unit, db)
                 changes.append(
                     f"podíl: {old_val} → {new_value}"

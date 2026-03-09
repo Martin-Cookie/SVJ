@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import shutil
 import threading
+import time as _time
 from datetime import datetime
+from html import escape
 from io import BytesIO
 from pathlib import Path
 from typing import List
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
@@ -18,7 +21,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.config import settings
 from app.database import get_db
 from app.models import (
-    MatchStatus, Owner, OwnerUnit, SendStatus,
+    EmailTemplate, MatchStatus, Owner, OwnerUnit, SendStatus,
     TaxDistribution, TaxDocument, TaxSession,
     ActivityAction, log_activity,
 )
@@ -141,7 +144,6 @@ async def tax_create_page(
     chyba: str = Query("", alias="chyba"),
     db: Session = Depends(get_db),
 ):
-    from app.models import EmailTemplate
     # Wizard step 1 for new session (no session object yet, build manually)
     steps = [{"label": s["label"], "status": "active" if i == 0 else "pending"} for i, s in enumerate(_TAX_WIZARD_STEPS)]
     email_templates = (
@@ -176,7 +178,6 @@ async def tax_create(
     # Filter to PDF files only (webkitdirectory sends all files including .DS_Store)
     pdf_files = [f for f in files if f.filename and f.filename.lower().endswith(".pdf")]
     if not pdf_files:
-        from urllib.parse import quote
         return RedirectResponse(
             f"/dane/nova?chyba={quote('Nebyly nalezeny žádné PDF soubory. Zkontrolujte, zda vybraný adresář obsahuje soubory s příponou .pdf.')}",
             status_code=302,
@@ -184,7 +185,6 @@ async def tax_create(
 
     err = await validate_uploads(pdf_files, **UPLOAD_LIMITS["pdf"])
     if err:
-        from urllib.parse import quote
         return RedirectResponse(f"/dane/nova?chyba={quote(err)}", status_code=302)
 
     if not year or year < 2020 or year > 2099:
@@ -220,7 +220,6 @@ async def tax_create(
     db.commit()
 
     # Initialize progress tracker
-    import time as _time
     with _processing_lock:
         _processing_progress[session.id] = {
             "total": len(saved_files),
@@ -284,7 +283,6 @@ async def tax_upload_additional(
     # Filter to PDF files only (webkitdirectory sends all files including .DS_Store)
     pdf_files = [f for f in files if f.filename and f.filename.lower().endswith(".pdf")]
     if not pdf_files:
-        from urllib.parse import quote
         return RedirectResponse(
             f"/dane/{session_id}/upload?chyba={quote('Nebyly nalezeny žádné PDF soubory.')}",
             status_code=302,
@@ -292,7 +290,6 @@ async def tax_upload_additional(
 
     err = await validate_uploads(pdf_files, **UPLOAD_LIMITS["pdf"])
     if err:
-        from urllib.parse import quote
         return RedirectResponse(f"/dane/{session_id}/upload?chyba={quote(err)}", status_code=302)
 
     session = db.query(TaxSession).options(
@@ -336,7 +333,6 @@ async def tax_upload_additional(
     db.commit()
 
     # Initialize progress tracker
-    import time as _time
     with _processing_lock:
         _processing_progress[session_id] = {
             "total": len(saved_files),
@@ -552,7 +548,6 @@ async def rename_session(
     session.title = title.strip()
     db.commit()
 
-    from html import escape
     t = escape(session.title)
     return HTMLResponse(
         f'<div id="session-title-area">'

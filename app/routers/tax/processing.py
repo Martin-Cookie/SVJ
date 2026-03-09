@@ -14,6 +14,7 @@ from app.models import (
     MatchStatus, Owner, OwnerUnit,
     TaxDistribution, TaxDocument, TaxSession,
 )
+from app.utils import compute_eta
 from app.services.owner_matcher import match_name
 from app.services.pdf_extractor import (
     extract_owner_from_tax_pdf, parse_unit_from_filename,
@@ -272,7 +273,6 @@ def _process_tax_files(session_id: int, file_paths: list, tax_year):
 
 def _progress_eta(progress: dict) -> dict:
     """Compute ETA fields from progress dict."""
-    from app.utils import compute_eta
 
     eta = compute_eta(progress["current"], progress["total"], progress["started_at"])
     return {

@@ -13,7 +13,7 @@ from app.models import (
     Ballot, BallotStatus, BallotVote, Owner, OwnerUnit, Voting,
     VotingStatus, VoteValue,
 )
-from app.utils import build_list_url, is_htmx_partial, strip_diacritics
+from app.utils import build_list_url, excel_auto_width, is_htmx_partial, strip_diacritics
 
 from ._helpers import (
     _ballot_stats,
@@ -391,7 +391,6 @@ async def bulk_reset_ballots(
     db: Session = Depends(get_db),
 ):
     """Bulk reset selected processed ballots back to GENERATED."""
-    from fastapi import Form as FastForm
     form_data = await request.form()
     ballot_ids_raw = form_data.get("ballot_ids", "")
     ballot_ids = [int(x) for x in ballot_ids_raw.split(",") if x.strip()]
@@ -539,9 +538,7 @@ async def export_not_submitted(voting_id: int, db: Session = Depends(get_db)):
         ws.cell(row=row_idx, column=5, value=ballot.total_votes or 0)
         ws.cell(row=row_idx, column=6, value=ballot.status.value)
 
-    for col in ws.columns:
-        max_len = max((len(str(c.value or "")) for c in col), default=10)
-        ws.column_dimensions[col[0].column_letter].width = min(max_len + 2, 45)
+    excel_auto_width(ws)
 
     buf = BytesIO()
     wb.save(buf)

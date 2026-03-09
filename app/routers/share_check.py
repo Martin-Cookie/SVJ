@@ -2,6 +2,7 @@ import logging
 import shutil
 from datetime import datetime
 from pathlib import Path
+from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
 from fastapi.responses import FileResponse, RedirectResponse
@@ -104,7 +105,6 @@ async def share_check_upload(
         shutil.copyfileobj(file.file, f)
 
     # Redirect to mapping page (PRG pattern)
-    from urllib.parse import urlencode
     params = urlencode({"file_path": str(dest), "filename": file.filename})
     return RedirectResponse(f"/kontrola-podilu/mapovani?{params}", status_code=302)
 

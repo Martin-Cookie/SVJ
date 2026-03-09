@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from urllib.parse import urlparse
+
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
@@ -92,7 +94,6 @@ async def confirm_all(
     # Preserve scroll position via referer or hash
     referer = request.headers.get("referer", "")
     if referer and f"/dane/{session_id}" in referer:
-        from urllib.parse import urlparse
         parsed = urlparse(referer)
         redirect_url = parsed.path
         if parsed.query:
@@ -122,7 +123,6 @@ async def confirm_selected(
     # Preserve scroll position via referer
     referer = request.headers.get("referer", "")
     if referer and f"/dane/{session_id}" in referer:
-        from urllib.parse import urlparse
         parsed = urlparse(referer)
         redirect_url = parsed.path
         if parsed.query:
