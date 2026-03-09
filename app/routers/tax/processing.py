@@ -191,9 +191,11 @@ def _process_tax_files(session_id: int, file_paths: list, tax_year):
                     unit_assignments.setdefault(key, []).append(d)
 
             # Check new unmatched docs
-            new_docs = db.query(TaxDocument).filter(TaxDocument.id.in_(new_doc_ids)).all()
+            new_docs = db.query(TaxDocument).options(
+                joinedload(TaxDocument.distributions)
+            ).filter(TaxDocument.id.in_(new_doc_ids)).all()
             for doc in new_docs:
-                doc_dists = db.query(TaxDistribution).filter_by(document_id=doc.id).all()
+                doc_dists = doc.distributions
                 is_unmatched = all(d.match_status == MatchStatus.UNMATCHED for d in doc_dists)
                 if not is_unmatched:
                     continue
