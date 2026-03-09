@@ -651,6 +651,10 @@ if has_documents and max_done < 1:
 - Zobrazí uživatelsky přívětivou českou chybovou hlášku s odkazem na reload
 - Definováno globálně, neřeší se per-stránka
 
+### Cache busting: app.js
+- `base.html` načítá `app.js?v=N` — query string zabrání cachování staré verze
+- **Při každé změně `app.js` inkrementovat `?v=N`** v `base.html`
+
 ### hx-push-url
 - Všechny search inputy používají `hx-push-url="true"` — aktualizuje URL v prohlížeči při filtrování/hledání
 - Umožňuje sdílení filtrované URL a navigaci zpět
@@ -769,7 +773,9 @@ Pro mazání uzavřených/odeslaných entit se používá custom modal s DELETE 
 
 ## 18c. PDF náhled (modal)
 
-- pdf.js z CDN načteno v `base.html`
+- pdf.js z CDN načteno v šabloně, která ho potřebuje (aktuálně `tax/matching.html`), NE v `base.html`
+- Worker URL se nastavuje vedle script tagu: `<script>pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';</script>`
+- Verze pdf.js je na jednom místě (v šabloně) — při upgrade změnit obě URL (script + worker)
 - Modal pro náhled PDF: `openPdfModal(url)` / `closePdfModal()` v `app.js`
 - Vždy `hx-boost="false"` na odkazech na PDF soubory
 - PDF canvas má `background:#fff` inline — zůstává bílý i v dark mode

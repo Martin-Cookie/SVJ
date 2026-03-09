@@ -275,10 +275,12 @@
 - `build_list_url(request)` — sestaví URL aktuální stránky s query parametry pro `list_url`
 - `is_htmx_partial(request)` — `True` pokud request je HTMX ale NE boosted (pro partial odpovědi)
 - `is_safe_path(path, allowed_dirs)` — validace cesty proti path traversal
-- `validate_upload(file, extensions, max_size)` — validace nahraného souboru (přípona, velikost)
-- `validate_uploads(files, extensions, max_size)` — validace seznamu souborů (vrací první chybu)
+- `UPLOAD_LIMITS` — dict centralizovaných upload limitů (`max_size_mb`, `extensions`). Klíče: `excel`, `csv`, `csv_xlsx`, `pdf`, `docx`, `backup`, `db`, `folder`
+- `async validate_upload(file, max_size_mb, allowed_extensions)` — validace nahraného souboru (přípona, velikost). Volání: `await validate_upload(file, **UPLOAD_LIMITS["excel"])`
+- `async validate_uploads(files, max_size_mb, allowed_extensions)` — validace seznamu souborů (vrací první chybu)
 - `is_valid_email(email)` — základní regex validace emailového formátu
 - `excel_auto_width(ws, max_width=45)` — auto-šířka sloupců v openpyxl worksheet (pro Excel exporty)
+- `compute_eta(current, total, started_at)` — výpočet progrese (%), uplynulého času a ETA textu. Vrací dict `{pct, elapsed, eta}`
 - `setup_jinja_filters(templates)` — registrace custom Jinja2 filtrů (aktuálně `fmt_num`) na Jinja2Templates instanci
 
 ## JavaScript

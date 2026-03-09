@@ -137,12 +137,13 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
 - Klikací vlastníci a jednotky v seznamu lístků i neodevzdaných — prokliky s back URL a scroll restoration
 - Detail hlasovacího lístku s prokliky na vlastníka (back URL chain pro zanoření)
 - Zpracování lístků: zadání hlasů (PRO/PROTI/Zdržel se) s vyhledáváním vlastníka
-- Neodevzdané lístky s vyhledáváním (diacritics-insensitive, jméno, email), server-side řazení (vlastník, jednotky, email, hlasy, stav), klikací vlastníci a jednotky s back URL
+- Neodevzdané lístky s vyhledáváním (diacritics-insensitive, jméno, email), server-side řazení (vlastník, jednotky, email, hlasy, stav), klikací vlastníci a jednotky s back URL, export do Excelu
 - Sčítání hlasů a výpočet kvóra (vstup v %, uložení jako podíl 0–1)
 - Podpora hlasování v zastoupení (plné moci)
 - Stavy hlasování: koncept → aktivní → uzavřené / zrušené
 - Zpracování lístků: řazení dle vlastníka/jednotek/hlasů
 - Hromadné zpracování: checkboxy, select all, batch zadání hlasů pro více lístků najednou
+- Oprava zpracovaného lístku: reset hlasů a znovu zpracování (tlačítko „Opravit" na detailu lístku)
 - Import výsledků hlasování z Excelu:
   - 4-krokový flow: upload → mapování sloupců → náhled → potvrzení
   - Mapování sloupců na role (vlastník, jednotka, bod hlasování) s předvyplněním z uloženého mapování (globálně sdílené napříč hlasováními)
@@ -377,7 +378,7 @@ app/
 ├── main.py                    # FastAPI aplikace
 ├── config.py                  # Nastavení (Pydantic)
 ├── database.py                # SQLAlchemy engine + session
-├── utils.py                   # Sdílené utility (strip_diacritics, build_list_url, is_htmx_partial, fmt_num, is_safe_path, validate_upload, validate_uploads, setup_jinja_filters)
+├── utils.py                   # Sdílené utility (strip_diacritics, build_list_url, is_htmx_partial, fmt_num, is_safe_path, validate_upload, validate_uploads, setup_jinja_filters, excel_auto_width, compute_eta, UPLOAD_LIMITS, is_valid_email)
 ├── models/                    # Databázové modely
 │   ├── owner.py               #   Owner, Unit, OwnerUnit, Proxy
 │   ├── voting.py              #   Voting, VotingItem, Ballot, BallotVote
@@ -628,7 +629,10 @@ wheels/                        # Offline Python balíčky (gitignored)
 | POST | `/hlasovani/{id}/import` | Nahrání Excel souboru → mapování sloupců |
 | POST | `/hlasovani/{id}/import/nahled` | Náhled importu (přiřazení + statistika) |
 | POST | `/hlasovani/{id}/import/potvrdit` | Potvrzení a provedení importu |
+| POST | `/hlasovani/{id}/listek/{ballot_id}/opravit` | Oprava zpracovaného lístku (reset hlasů → znovu zpracovat) |
+| GET | `/hlasovani/{id}/listek/{ballot_id}/pdf` | Stažení PDF lístku |
 | POST | `/hlasovani/{id}/listky/hromadny-reset` | Hromadný reset vybraných zpracovaných lístků |
+| GET | `/hlasovani/{id}/neodevzdane/exportovat` | Export neodevzdaných lístků do Excelu |
 | GET | `/hlasovani/{id}/exportovat` | Export do Excelu |
 
 ### Hromadné rozesílání (`/dane`)
@@ -770,7 +774,7 @@ LIBREOFFICE_PATH=/Applications/LibreOffice.app/Contents/MacOS/soffice
 - **Unit** — jednotka (číslo KN jako INTEGER, budova, sekce, plocha, podíl SČD, orientation_number)
 - **OwnerUnit** — vazba vlastník-jednotka (typ vlastnictví, podíl, hlasovací váha, valid_from, valid_to); valid_to=NULL = aktuálně platný, valid_to=datum = historický záznam
 - **Proxy** — plná moc pro hlasování
-- **Voting** (partial_owner_mode, import_column_mapping) → VotingItem → Ballot → BallotVote
+- **Voting** (partial_owner_mode, import_column_mapping) → VotingItem → Ballot (scan_path, voted_by_proxy, shared_owners_text) → BallotVote
 - **TaxSession** → TaxDocument → TaxDistribution
 - **SyncSession** → SyncRecord (cascade delete)
 - **ShareCheckSession** → ShareCheckRecord (cascade delete); ShareCheckColumnMapping (zapamatované mapování sloupců)
