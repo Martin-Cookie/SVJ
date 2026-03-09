@@ -69,6 +69,7 @@
                     <span class="{% if stats.quorum_reached %}text-green-600 font-medium{% else %}text-gray-500{% endif %}">
                         Kvórum: {{ "%.2f"|format(stats.quorum_pct) }}%{% if stats.quorum_reached %} ✓{% endif %}
                     </span>
+                    <span class="text-gray-400">Režim: {{ "Společný lístek" if voting.partial_owner_mode == "shared" else "Každý svůj lístek" }}</span>
                 </div>
                 <div class="mt-1">
                     {% with wizard_steps=stats.wizard_steps, wizard_current=stats.wizard_current, wizard_total=stats.wizard_total %}
