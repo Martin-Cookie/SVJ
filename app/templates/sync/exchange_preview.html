@@ -101,9 +101,13 @@
                class="px-3 py-2 border border-gray-300 rounded text-sm">
         <p class="text-xs text-gray-500 mt-1">Výchozí: dnešní datum. Změňte pokud výměna proběhla dříve.</p>
     </div>
+    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-3">
+        <p class="text-sm text-yellow-800"><strong>Upozornění:</strong> Výměna vlastníků je nevratná operace. Před potvrzením pečlivě zkontrolujte náhled výše. Pro návrat k původnímu stavu by bylo nutné obnovit data ze zálohy.</p>
+    </div>
     <div class="flex items-center gap-3">
         <a href="{{ back_url }}" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm">Zrušit</a>
-        <button type="submit" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm font-medium transition-colors">
+        <button type="submit" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm font-medium transition-colors"
+                data-confirm="Opravdu provést výměnu vlastníků? Tato operace je nevratná.">
             Potvrdit výměnu ({{ previews|length }} {% if previews|length == 1 %}jednotka{% elif previews|length < 5 %}jednotky{% else %}jednotek{% endif %})
         </button>
     </div>

@@ -43,6 +43,11 @@
         </ul>
     </div>
     {% endif %}
+
+    <div class="flex gap-3 mt-4">
+        <a href="/hlasovani/{{ voting.id }}" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium transition-colors">Zobrazit výsledky</a>
+        <a href="/hlasovani/{{ voting.id }}/zpracovani" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm transition-colors">Zpracovat ručně</a>
+    </div>
 </div>
 </div>
 </div>
