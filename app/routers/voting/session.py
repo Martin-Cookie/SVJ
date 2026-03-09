@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
 from fastapi.responses import JSONResponse, RedirectResponse, Response
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
-from sqlalchemy import func
+from sqlalchemy import case, func
 from sqlalchemy.orm import Session, joinedload
 
 from app.config import settings
@@ -40,10 +40,7 @@ async def voting_list(
     stav: str = Query("", alias="stav"),
     db: Session = Depends(get_db),
 ):
-    q = db.query(Voting).options(
-        joinedload(Voting.items),
-        joinedload(Voting.ballots).joinedload(Ballot.votes),
-    )
+    q = db.query(Voting).options(joinedload(Voting.items))
     if stav:
         q = q.filter(Voting.status == stav)
     votings = q.order_by(Voting.created_at.desc()).all()
@@ -54,44 +51,83 @@ async def voting_list(
     for st, cnt in status_rows:
         status_counts[st.value] = cnt
 
-    # Compute stats per voting
+    # --- SQL aggregation instead of Python iteration (#36 performance fix) ---
     declared_shares = _get_declared_shares(db)
+
+    # 1a) Per-voting: processed ballot count
+    proc_count_q = (
+        db.query(Ballot.voting_id, func.count(Ballot.id))
+        .filter(Ballot.status == BallotStatus.PROCESSED)
+        .group_by(Ballot.voting_id)
+        .all()
+    )
+    # 1b) Per-voting: sum of total_votes for ballots that have at least one non-null vote
+    voted_ids = (
+        db.query(BallotVote.ballot_id)
+        .filter(BallotVote.vote.isnot(None))
+        .distinct()
+        .subquery()
+    )
+    proc_votes_q = (
+        db.query(Ballot.voting_id, func.coalesce(func.sum(Ballot.total_votes), 0))
+        .filter(Ballot.status == BallotStatus.PROCESSED)
+        .filter(Ballot.id.in_(db.query(voted_ids.c.ballot_id)))
+        .group_by(Ballot.voting_id)
+        .all()
+    )
+    ballot_agg = {}
+    for vid, pcount in proc_count_q:
+        ballot_agg[vid] = {"processed_count": pcount, "processed_votes": 0}
+    for vid, pvotes in proc_votes_q:
+        ballot_agg.setdefault(vid, {"processed_count": 0, "processed_votes": 0})
+        ballot_agg[vid]["processed_votes"] = pvotes
+
+    # 2) Per-item: votes_for / votes_against / votes_abstain via SQL SUM
+    item_stats_q = (
+        db.query(
+            BallotVote.voting_item_id,
+            func.coalesce(func.sum(case(
+                (BallotVote.vote == VoteValue.FOR, BallotVote.votes_count), else_=0
+            )), 0).label("votes_for"),
+            func.coalesce(func.sum(case(
+                (BallotVote.vote == VoteValue.AGAINST, BallotVote.votes_count), else_=0
+            )), 0).label("votes_against"),
+            func.coalesce(func.sum(case(
+                (BallotVote.vote == VoteValue.ABSTAIN, BallotVote.votes_count), else_=0
+            )), 0).label("votes_abstain"),
+        )
+        .join(Ballot, BallotVote.ballot_id == Ballot.id)
+        .filter(Ballot.status == BallotStatus.PROCESSED)
+        .group_by(BallotVote.voting_item_id)
+        .all()
+    )
+    item_agg = {}
+    for item_id, vf, va, vab in item_stats_q:
+        item_agg[item_id] = {"votes_for": vf, "votes_against": va, "votes_abstain": vab}
+
+    # Build voting_stats from aggregated data
     voting_stats = {}
     for voting in votings:
         total = declared_shares or 1
-        processed = [b for b in voting.ballots if b.status == BallotStatus.PROCESSED]
-        voted = [b for b in processed if any(bv.vote is not None for bv in b.votes)]
-        processed_votes = sum(b.total_votes for b in voted)
+        ba = ballot_agg.get(voting.id, {"processed_count": 0, "processed_votes": 0})
+        processed_votes = ba["processed_votes"]
 
-        # Per-item results
         item_results = []
         for item in voting.items:
-            votes_for = 0
-            votes_against = 0
-            votes_abstain = 0
-            for b in processed:
-                for bv in b.votes:
-                    if bv.voting_item_id == item.id:
-                        if bv.vote == VoteValue.FOR:
-                            votes_for += bv.votes_count
-                        elif bv.vote == VoteValue.AGAINST:
-                            votes_against += bv.votes_count
-                        elif bv.vote == VoteValue.ABSTAIN:
-                            votes_abstain += bv.votes_count
+            ia = item_agg.get(item.id, {"votes_for": 0, "votes_against": 0, "votes_abstain": 0})
             item_results.append({
                 "item": item,
-                "votes_for": votes_for,
-                "votes_against": votes_against,
-                "votes_abstain": votes_abstain,
-                "pct_for": round(votes_for / total * 100, 2) if total else 0,
-                "pct_against": round(votes_against / total * 100, 2) if total else 0,
+                "votes_for": ia["votes_for"],
+                "votes_against": ia["votes_against"],
+                "votes_abstain": ia["votes_abstain"],
+                "pct_for": round(ia["votes_for"] / total * 100, 2) if total else 0,
+                "pct_against": round(ia["votes_against"] / total * 100, 2) if total else 0,
             })
 
-        # Wizard steps (reuse shared helper)
         wizard = _voting_wizard(voting)
 
         voting_stats[voting.id] = {
-            "processed_count": len(processed),
+            "processed_count": ba["processed_count"],
             "processed_votes": processed_votes,
             "quorum_pct": round(processed_votes / declared_shares * 100, 2) if declared_shares else 0,
             "quorum_reached": processed_votes / declared_shares >= voting.quorum_threshold if declared_shares else False,
