@@ -641,7 +641,7 @@ async def voting_export(voting_id: int, stav: str = "", db: Session = Depends(ge
     if stav and stav in status_filter:
         processed = [b for b in voting.ballots if b.status == status_filter[stav]]
     else:
-        processed = [b for b in voting.ballots if b.status == BallotStatus.PROCESSED]
+        processed = list(voting.ballots)
     processed.sort(key=lambda b: (b.owner.name_normalized or ""))
 
     wb = Workbook()
