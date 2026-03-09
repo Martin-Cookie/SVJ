@@ -15,6 +15,17 @@ form.htmx-request button[type="submit"] {
     pointer-events: none;
 }
 
+/* Search input loading indicator during HTMX requests */
+input[type="text"].htmx-request {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 1px #3b82f6;
+    animation: htmx-pulse 1s ease-in-out infinite;
+}
+@keyframes htmx-pulse {
+    0%, 100% { box-shadow: 0 0 0 1px #3b82f6; }
+    50% { box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3); }
+}
+
 /* Smooth transitions for HTMX swaps */
 .htmx-swapping {
     opacity: 0;

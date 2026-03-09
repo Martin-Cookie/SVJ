@@ -96,7 +96,7 @@
                 </a>
                 {% endif %}
                 <form action="/hlasovani/{{ voting.id }}/smazat" method="post" class="inline" hx-boost="false"
-                      {% if voting.status.value == 'closed' %}
+                      {% if voting.ballots|length > 0 %}
                       onsubmit="event.preventDefault(); openDeleteModal(this, '{{ voting.title }}')"
                       {% else %}
                       data-confirm="Smazat hlasování „{{ voting.title }}"?"

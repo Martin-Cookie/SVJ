@@ -17,6 +17,8 @@
                 <p class="text-sm font-semibold text-gray-700 group-hover:text-blue-600 transition-colors">Info o SVJ</p>
                 {% if info %}
                 <p class="text-xs text-gray-500">{{ board_count }} výbor, {{ control_count }} kontrola</p>
+                {% else %}
+                <p class="text-xs text-gray-500">Název, adresa, členové výboru</p>
                 {% endif %}
             </div>
         </div>
@@ -32,7 +34,7 @@
             </div>
             <div>
                 <p class="text-sm font-semibold text-gray-700 group-hover:text-purple-600 transition-colors">Číselníky</p>
-                <p class="text-xs text-gray-500">{{ code_list_total }} položek v {{ code_list_categories|length }} kat.</p>
+                <p class="text-xs text-gray-500">{{ code_list_total }} položek — typy prostorů, sekce, vlastnictví</p>
             </div>
         </div>
     </a>
