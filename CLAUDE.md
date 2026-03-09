@@ -279,7 +279,7 @@
 - `build_list_url(request)` — sestaví URL aktuální stránky s query parametry pro `list_url`
 - `is_htmx_partial(request)` — `True` pokud request je HTMX ale NE boosted (pro partial odpovědi)
 - `is_safe_path(path, allowed_dirs)` — validace cesty proti path traversal
-- `UPLOAD_LIMITS` — dict centralizovaných upload limitů (`max_size_mb`, `extensions`). Klíče: `excel`, `csv`, `csv_xlsx`, `pdf`, `docx`, `backup`, `db`, `folder`
+- `UPLOAD_LIMITS` — dict centralizovaných upload limitů (`max_size_mb`, `allowed_extensions`). Klíče: `excel`, `csv`, `csv_xlsx`, `pdf`, `docx`, `backup`, `db`, `folder`
 - `async validate_upload(file, max_size_mb, allowed_extensions)` — validace nahraného souboru (přípona, velikost). Volání: `await validate_upload(file, **UPLOAD_LIMITS["excel"])`
 - `async validate_uploads(files, max_size_mb, allowed_extensions)` — validace seznamu souborů (vrací první chybu)
 - `is_valid_email(email)` — základní regex validace emailového formátu

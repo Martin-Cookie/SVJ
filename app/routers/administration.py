@@ -29,6 +29,7 @@ from app.models import (
     ActivityLog, ActivityAction, log_activity,
 )
 from app.services.backup_service import (
+    _rollback_from_safety,
     create_backup, restore_backup, restore_from_directory,
     log_restore, read_restore_log,
     acquire_restore_lock, release_restore_lock,
@@ -715,9 +716,30 @@ async def backup_restore_db_file(file: UploadFile = File(...)):
     try:
         safety = _safety_backup()
 
+        # Dispose existing DB connections before overwriting
+        from app.database import engine
+        engine.dispose()
+
         # Overwrite database
+        db_content = await file.read()
         with open(str(DB_PATH), "wb") as f:
-            f.write(await file.read())
+            f.write(db_content)
+
+        # Validate SQLite integrity before proceeding
+        import sqlite3
+        try:
+            conn = sqlite3.connect(str(DB_PATH))
+            result = conn.execute("PRAGMA integrity_check").fetchone()
+            conn.close()
+            if result[0] != "ok":
+                raise ValueError(f"SQLite integrity check failed: {result[0]}")
+        except (sqlite3.DatabaseError, ValueError) as e:
+            logger.error("Neplatný SQLite soubor: %s", e)
+            _rollback_from_safety(
+                str(Path(BACKUP_DIR) / safety), str(DB_PATH),
+                str(UPLOADS_DIR), str(GENERATED_DIR),
+            )
+            return RedirectResponse("/sprava/zalohy?chyba=neplatny_db", status_code=302)
 
         log_restore(str(BACKUP_DIR), file.filename or "svj.db", "DB soubor", safety_backup=safety)
         warnings = run_post_restore_migrations()
@@ -735,6 +757,10 @@ async def backup_restore_db_file(file: UploadFile = File(...)):
         return RedirectResponse(f"/sprava/zalohy?zprava={zprava}", status_code=302)
     except Exception:
         logger.exception("Selhání obnovy z DB souboru")
+        _rollback_from_safety(
+            str(Path(BACKUP_DIR) / safety), str(DB_PATH),
+            str(UPLOADS_DIR), str(GENERATED_DIR),
+        )
         return RedirectResponse("/sprava/zalohy?chyba=selhani", status_code=302)
     finally:
         release_restore_lock(str(BACKUP_DIR))

@@ -61,14 +61,14 @@ def is_safe_path(file_path: Path, *allowed_dirs: Path) -> bool:
 
 # ── Centralizované upload limity ──────────────────────────────────────
 UPLOAD_LIMITS = {
-    "excel":    {"max_size_mb": 50,  "extensions": [".xlsx", ".xls"]},
-    "csv":      {"max_size_mb": 50,  "extensions": [".csv"]},
-    "csv_xlsx": {"max_size_mb": 50,  "extensions": [".csv", ".xlsx", ".xls"]},
-    "pdf":      {"max_size_mb": 100, "extensions": [".pdf"]},
-    "docx":     {"max_size_mb": 10,  "extensions": [".docx"]},
-    "backup":   {"max_size_mb": 200, "extensions": [".zip"]},
-    "db":       {"max_size_mb": 200, "extensions": [".db"]},
-    "folder":   {"max_size_mb": 500, "extensions": []},
+    "excel":    {"max_size_mb": 50,  "allowed_extensions": [".xlsx", ".xls"]},
+    "csv":      {"max_size_mb": 50,  "allowed_extensions": [".csv"]},
+    "csv_xlsx": {"max_size_mb": 50,  "allowed_extensions": [".csv", ".xlsx", ".xls"]},
+    "pdf":      {"max_size_mb": 100, "allowed_extensions": [".pdf"]},
+    "docx":     {"max_size_mb": 10,  "allowed_extensions": [".docx"]},
+    "backup":   {"max_size_mb": 200, "allowed_extensions": [".zip"]},
+    "db":       {"max_size_mb": 200, "allowed_extensions": [".db"]},
+    "folder":   {"max_size_mb": 500, "allowed_extensions": []},
 }
 
 
