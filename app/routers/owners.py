@@ -84,12 +84,19 @@ async def owner_create(
         parts_norm.append(first_name)
     name_normalized = strip_diacritics(" ".join(parts_norm))
 
-    # Validate email — flash warning if invalid format
+    # Validate email — return form with error if invalid
     email_clean = email.strip() if email else ""
-    email_warning = ""
     if email_clean and not is_valid_email(email_clean):
-        email_warning = "neplatny-email"
-        email_clean = ""
+        return templates.TemplateResponse("partials/owner_create_form.html", {
+            "request": request,
+            "error": f"Neplatný formát emailu: {email_clean}",
+            "form_data": {
+                "first_name": first_name, "last_name": last_name,
+                "title": title, "owner_type": owner_type,
+                "email": email, "phone": phone,
+                "birth_number": birth_number,
+            },
+        })
 
     # Check for duplicates — name, birth_number, email
     duplicates = []
@@ -147,7 +154,7 @@ async def owner_create(
     db.add(owner)
     db.commit()
 
-    redirect_url = f"/vlastnici/{owner.id}?info={email_warning or 'vytvoren'}"
+    redirect_url = f"/vlastnici/{owner.id}?info=vytvoren"
     return RedirectResponse(redirect_url, status_code=302)
 
 

@@ -124,7 +124,8 @@ async def unit_create(
 
     warn_html = ""
     if warnings:
-        warn_html = f'<p class="text-sm text-yellow-600 p-2">{"<br>".join(warnings)}</p>'
+        warn_items = "".join(f"<li>{w}</li>" for w in warnings)
+        warn_html = f'<div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-2"><p class="text-sm font-medium text-yellow-800 mb-1">Upozornění</p><ul class="text-sm text-yellow-700 list-disc list-inside">{warn_items}</ul></div>'
     if request.headers.get("HX-Request"):
         return HTMLResponse(
             content=f'{warn_html}<p class="text-sm text-green-600 p-4">Jednotka {unit_number_int} vytvořena. <a href="/jednotky/{unit.id}" class="text-blue-600 hover:underline">Zobrazit</a></p>',
@@ -344,7 +345,8 @@ async def unit_update(
         db.expire(unit, ["owners"])
         warn_html = ""
         if warnings:
-            warn_html = f'<div class="mb-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-700">{"<br>".join(warnings)}</div>'
+            warn_items = "".join(f"<li>{w}</li>" for w in warnings)
+            warn_html = f'<div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-2"><p class="text-sm font-medium text-yellow-800 mb-1">Upozornění</p><ul class="text-sm text-yellow-700 list-disc list-inside">{warn_items}</ul></div>'
         info_html = templates.TemplateResponse("partials/unit_info.html", {
             "request": request,
             "unit": unit,

@@ -65,7 +65,7 @@
             </td>
         </tr>
         <!-- Detail records row (loaded via HTMX) -->
-        <tr id="detail-{{ loop.index }}" class="bg-gray-50 hidden"></tr>
+        <tr id="detail-{{ loop.index }}" class="bg-gray-50 hidden" data-count="{{ v.count }}"></tr>
         {% endfor %}
     </tbody>
 </table>
@@ -180,7 +180,8 @@ function submitBulkEdit(form, idx) {
     } else if (detail.children.length === 0 || detail.classList.contains('hidden')) {
         // Detail not expanded — apply to all (old behavior)
         if (form._svjConfirmed) { form._svjConfirmed = false; return true; }
-        svjConfirm('Opravit všechny záznamy s touto hodnotou?', function() {
+        var totalCount = detail.dataset.count || '?';
+        svjConfirm('Opravit všech ' + totalCount + ' záznamů s touto hodnotou?', function() {
             form._svjConfirmed = true;
             form.requestSubmit ? form.requestSubmit() : form.submit();
         });
