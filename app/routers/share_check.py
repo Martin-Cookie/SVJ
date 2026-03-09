@@ -21,7 +21,7 @@ from app.services.owner_exchange import recalculate_unit_votes
 from app.services.share_check_comparator import (
     compare_shares, get_file_headers, get_file_preview, parse_file, suggest_mapping,
 )
-from app.utils import build_list_url, excel_auto_width, is_htmx_partial, is_safe_path, setup_jinja_filters, strip_diacritics, validate_upload
+from app.utils import UPLOAD_LIMITS, build_list_url, excel_auto_width, is_htmx_partial, is_safe_path, setup_jinja_filters, strip_diacritics, validate_upload
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -90,7 +90,7 @@ async def share_check_upload(
     if not file.filename:
         return RedirectResponse("/synchronizace?chyba=soubor#kontrola-podilu", status_code=302)
 
-    err = await validate_upload(file, max_size_mb=50, allowed_extensions=[".csv", ".xlsx", ".xls"])
+    err = await validate_upload(file, **UPLOAD_LIMITS["csv_xlsx"])
     if err:
         return RedirectResponse("/synchronizace?chyba=upload#kontrola-podilu", status_code=302)
 

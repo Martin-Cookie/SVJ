@@ -93,7 +93,7 @@ _ROLE_SORT = case(
     else_=2,
 )
 
-from app.utils import is_safe_path, is_valid_email, setup_jinja_filters, validate_upload
+from app.utils import UPLOAD_LIMITS, is_safe_path, is_valid_email, setup_jinja_filters, validate_upload
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -649,7 +649,7 @@ async def backup_restore_existing(filename: str):
 
 @router.post("/zaloha/obnovit")
 async def backup_restore(file: UploadFile = File(...)):
-    err = await validate_upload(file, max_size_mb=200, allowed_extensions=[".zip"])
+    err = await validate_upload(file, **UPLOAD_LIMITS["backup"])
     if err:
         return RedirectResponse("/sprava/zalohy?chyba=upload", status_code=302)
 
@@ -703,7 +703,7 @@ async def backup_restore(file: UploadFile = File(...)):
 @router.post("/zaloha/obnovit-soubor")
 async def backup_restore_db_file(file: UploadFile = File(...)):
     """Restore from an uploaded svj.db file (from an unzipped backup)."""
-    err = await validate_upload(file, max_size_mb=200, allowed_extensions=[".db"])
+    err = await validate_upload(file, **UPLOAD_LIMITS["db"])
     if err:
         return RedirectResponse("/sprava/zalohy?chyba=upload", status_code=302)
 
@@ -751,7 +751,7 @@ async def backup_restore_folder(files: List[UploadFile] = File(...)):
         content = await f.read()
         total_size += len(content)
         await f.seek(0)
-    if total_size > 500 * 1024 * 1024:
+    if total_size > UPLOAD_LIMITS["folder"]["max_size_mb"] * 1024 * 1024:
         return RedirectResponse("/sprava/zalohy?chyba=upload", status_code=302)
 
     if not acquire_restore_lock(str(BACKUP_DIR)):

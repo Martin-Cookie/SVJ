@@ -17,7 +17,7 @@ from app.models import (
 from app.services.voting_import import (
     read_excel_headers, preview_voting_import, execute_voting_import, validate_mapping,
 )
-from app.utils import is_safe_path, validate_upload
+from app.utils import UPLOAD_LIMITS, is_safe_path, validate_upload
 
 from ._helpers import (
     _ballot_stats,
@@ -118,7 +118,7 @@ async def import_upload(
         return RedirectResponse("/hlasovani", status_code=302)
 
     has_processed = _has_processed_ballots(voting)
-    err = await validate_upload(file, max_size_mb=50, allowed_extensions=[".xlsx", ".xls"]) if file.filename else "Nahrajte soubor ve formátu .xlsx"
+    err = await validate_upload(file, **UPLOAD_LIMITS["excel"]) if file.filename else "Nahrajte soubor ve formátu .xlsx"
     if err:
         return templates.TemplateResponse("voting/import_upload.html", {
             "request": request,

@@ -16,7 +16,7 @@ from app.models import (
     ActivityAction, log_activity,
 )
 from app.services.word_parser import extract_voting_items, extract_voting_metadata
-from app.utils import build_list_url, excel_auto_width, is_htmx_partial, strip_diacritics, validate_upload
+from app.utils import UPLOAD_LIMITS, build_list_url, excel_auto_width, is_htmx_partial, strip_diacritics, validate_upload
 
 from ._helpers import (
     _VOTING_WIZARD_STEPS,
@@ -150,7 +150,7 @@ async def voting_preview_metadata(
     if not file.filename or not file.filename.endswith(".docx"):
         return JSONResponse({"error": "Nahrajte .docx soubor"}, status_code=400)
 
-    err = await validate_upload(file, max_size_mb=10, allowed_extensions=[".docx"])
+    err = await validate_upload(file, **UPLOAD_LIMITS["docx"])
     if err:
         return JSONResponse({"error": err}, status_code=400)
 
@@ -206,7 +206,7 @@ async def voting_create(
 
     # Handle Word template upload
     if file and file.filename:
-        err = await validate_upload(file, max_size_mb=10, allowed_extensions=[".docx"])
+        err = await validate_upload(file, **UPLOAD_LIMITS["docx"])
         if err:
             return RedirectResponse("/hlasovani/nova?chyba=upload", status_code=302)
 

@@ -20,7 +20,7 @@ from app.models import (
     TaxDistribution, TaxDocument, TaxSession,
     ActivityAction, log_activity,
 )
-from app.utils import build_list_url, excel_auto_width, is_htmx_partial, is_safe_path, strip_diacritics, validate_uploads
+from app.utils import UPLOAD_LIMITS, build_list_url, excel_auto_width, is_htmx_partial, is_safe_path, strip_diacritics, validate_uploads
 
 from ._helpers import (
     logger, templates,
@@ -180,7 +180,7 @@ async def tax_create(
             status_code=302,
         )
 
-    err = await validate_uploads(pdf_files, max_size_mb=100, allowed_extensions=[".pdf"])
+    err = await validate_uploads(pdf_files, **UPLOAD_LIMITS["pdf"])
     if err:
         from urllib.parse import quote
         return RedirectResponse(f"/dane/nova?chyba={quote(err)}", status_code=302)
@@ -288,7 +288,7 @@ async def tax_upload_additional(
             status_code=302,
         )
 
-    err = await validate_uploads(pdf_files, max_size_mb=100, allowed_extensions=[".pdf"])
+    err = await validate_uploads(pdf_files, **UPLOAD_LIMITS["pdf"])
     if err:
         from urllib.parse import quote
         return RedirectResponse(f"/dane/{session_id}/upload?chyba={quote(err)}", status_code=302)
