@@ -84,17 +84,22 @@ async def unit_create(
         lv_number_int = None
     if lv_number_int is not None and (lv_number_int < 1 or lv_number_int > 99999):
         lv_number_int = None
+    warnings = []
     try:
         floor_area_float = float(floor_area.strip()) if floor_area.strip() else None
     except (ValueError, TypeError):
         floor_area_float = None
+        warnings.append("Plocha '" + floor_area.strip() + "' není platné číslo — ignorováno")
     if floor_area_float is not None and (floor_area_float < 0 or floor_area_float > 9999):
+        warnings.append(f"Plocha {floor_area_float} mimo rozsah 0–9999 — ignorováno")
         floor_area_float = None
     try:
         podil_scd_float = float(podil_scd.strip()) if podil_scd.strip() else None
     except (ValueError, TypeError):
         podil_scd_float = None
+        warnings.append("Podíl SČD '" + podil_scd.strip() + "' není platné číslo — ignorováno")
     if podil_scd_float is not None and (podil_scd_float < 0 or podil_scd_float > 99999999):
+        warnings.append(f"Podíl SČD {podil_scd_float} mimo rozsah — ignorováno")
         podil_scd_float = None
 
     unit = Unit(
@@ -112,9 +117,12 @@ async def unit_create(
     db.add(unit)
     db.commit()
 
+    warn_html = ""
+    if warnings:
+        warn_html = f'<p class="text-sm text-yellow-600 p-2">{"<br>".join(warnings)}</p>'
     if request.headers.get("HX-Request"):
         return HTMLResponse(
-            content=f'<p class="text-sm text-green-600 p-4">Jednotka {unit_number_int} vytvořena. <a href="/jednotky/{unit.id}" class="text-blue-600 hover:underline">Zobrazit</a></p>',
+            content=f'{warn_html}<p class="text-sm text-green-600 p-4">Jednotka {unit_number_int} vytvořena. <a href="/jednotky/{unit.id}" class="text-blue-600 hover:underline">Zobrazit</a></p>',
         )
     return RedirectResponse(f"/jednotky/{unit.id}", status_code=302)
 
@@ -296,17 +304,22 @@ async def unit_update(
         lv_number_int = None
     if lv_number_int is not None and (lv_number_int < 1 or lv_number_int > 99999):
         lv_number_int = None
+    warnings = []
     try:
         floor_area_float = float(floor_area.strip()) if floor_area.strip() else None
     except (ValueError, TypeError):
         floor_area_float = None
+        warnings.append("Plocha '" + floor_area.strip() + "' není platné číslo — ignorováno")
     if floor_area_float is not None and (floor_area_float < 0 or floor_area_float > 9999):
+        warnings.append(f"Plocha {floor_area_float} mimo rozsah 0–9999 — ignorováno")
         floor_area_float = None
     try:
         podil_scd_float = float(podil_scd.strip()) if podil_scd.strip() else None
     except (ValueError, TypeError):
         podil_scd_float = None
+        warnings.append("Podíl SČD '" + podil_scd.strip() + "' není platné číslo — ignorováno")
     if podil_scd_float is not None and (podil_scd_float < 0 or podil_scd_float > 99999999):
+        warnings.append(f"Podíl SČD {podil_scd_float} mimo rozsah — ignorováno")
         podil_scd_float = None
 
     unit.unit_number = unit_number_int
@@ -328,6 +341,9 @@ async def unit_update(
     if request.headers.get("HX-Request"):
         # Refresh unit + owners (recalculate changed owner votes)
         db.expire(unit, ["owners"])
+        warn_html = ""
+        if warnings:
+            warn_html = f'<div class="mb-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-700">{"<br>".join(warnings)}</div>'
         info_html = templates.TemplateResponse("partials/unit_info.html", {
             "request": request,
             "unit": unit,
@@ -340,7 +356,7 @@ async def unit_update(
         # OOB swap: main target gets unit_info, owners section updates out-of-band
         # unit_owners.html already has <div id="unit-owners">, add hx-swap-oob attribute
         owners_oob = owners_html.replace('<div id="unit-owners">', '<div id="unit-owners" hx-swap-oob="true">', 1)
-        return HTMLResponse(content=info_html + owners_oob)
+        return HTMLResponse(content=warn_html + info_html + owners_oob)
     return RedirectResponse(f"/jednotky/{unit_id}", status_code=302)
 
 

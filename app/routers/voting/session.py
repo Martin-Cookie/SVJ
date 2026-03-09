@@ -360,6 +360,9 @@ async def voting_detail(
     else:  # draft
         detail_step = 2 if voting.items else 1
 
+    # Count owners for ballot generation estimate (draft mode)
+    owner_count = db.query(func.count(Owner.id)).filter_by(is_active=True).scalar() if voting.status == VotingStatus.DRAFT else 0
+
     ctx = {
         "request": request,
         "active_nav": "voting",
@@ -370,6 +373,7 @@ async def voting_detail(
         "active_bubble": "",
         "show_close_voting": has_processed,
         "snapshot_warning": snapshot_warning,
+        "owner_count": owner_count,
         "q": q,
         "sort": sort,
         "order": order,

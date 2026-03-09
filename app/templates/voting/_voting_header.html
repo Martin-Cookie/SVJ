@@ -31,7 +31,7 @@
         {% if voting.status.value == 'draft' %}
         <span class="px-3 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">Koncept</span>
         <form action="/hlasovani/{{ voting.id }}/generovat" method="post"
-              data-confirm="Vygenerovat lístky pro všechny vlastníky?\n\nPo generování nelze přidávat ani odebírat body hlasování. Hlasování přejde do stavu Aktivní." hx-boost="false">
+              data-confirm="Vygenerovat lístky pro {% if owner_count %}{{ owner_count }} vlastníků{% else %}všechny vlastníky{% endif %}?\n\nPo generování nelze přidávat ani odebírat body hlasování. Hlasování přejde do stavu Aktivní." hx-boost="false">
             <button type="submit" class="px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium transition-colors">
                 Generovat lístky
             </button>

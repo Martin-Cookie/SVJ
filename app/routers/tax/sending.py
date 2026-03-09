@@ -238,9 +238,7 @@ async def update_recipient_email(
         for doc in all_docs:
             if str(doc.unit_number) not in owner_unit_numbers:
                 continue
-            doc_dists = (
-                db.query(TaxDistribution).filter_by(document_id=doc.id).all()
-            )
+            doc_dists = doc.distributions  # already eager-loaded
             has_this_owner = any(d.owner_id == dist.owner_id for d in doc_dists)
             if has_this_owner:
                 continue
