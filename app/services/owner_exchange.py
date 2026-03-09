@@ -23,7 +23,7 @@ def recalculate_unit_votes(unit, db: Session):
     Zajistí, že sum(votes) == unit.podil_scd (zbytky se rozmístí).
     """
     ous = db.query(OwnerUnit).filter_by(unit_id=unit.id).filter(OwnerUnit.valid_to.is_(None)).all()
-    total = unit.podil_scd or 0
+    total = int(unit.podil_scd or 0)
     if not ous or not total:
         for ou in ous:
             ou.votes = 0
