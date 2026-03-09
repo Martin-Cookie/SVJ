@@ -5,7 +5,7 @@
 
 ## Obsah
 
-- [URL konvence](#url-konvence) · [Navigace a back URL](#navigace-a-back-url) · [Tabulky — povinný checklist](#tabulky--povinný-checklist) · [Procentuální vstupy](#procentuální-vstupy-kvórum-podíly) · [Statistiky podílů](#statistiky-podílů) · [Dashboard](#dashboard) · [Vyhledávání](#vyhledávání) · [Jména vlastníků](#jména-vlastníků) · [Import hlasování — SJM](#import-hlasování--spoluvlastnictví-sjm) · [SQLAlchemy vzory](#sqlalchemy-vzory) · [Router vzory](#router-vzory) · [Nové moduly / entity](#nové-moduly--entity) · [Export dat](#export-dat-excel--csv) · [Mazání dat](#mazání-dat-purge) · [Upload souborů](#upload-souborů) · [Service layer](#service-layer) · [Utility funkce](#utility-funkce-apputilspy) · [JavaScript](#javascript) · [Technologie](#technologie) · [Global exception handlers](#global-exception-handlers) · [Router packages](#router-packages) · [Startup](#startup-lifespan) · [Nasazení na USB](#nasazení-na-usb-jiný-počítač) · [Workflow](#workflow) · [Komunikace](#komunikace-s-uživatelem) · [Uživatelské role](#uživatelské-role--plán-implementace-na-konec) · [Pravidla pro práci](#pravidla-pro-práci-na-úkolech)
+- [URL konvence](#url-konvence) · [Navigace a back URL](#navigace-a-back-url) · [Tabulky — povinný checklist](#tabulky--povinný-checklist) · [Procentuální vstupy](#procentuální-vstupy-kvórum-podíly) · [Statistiky podílů](#statistiky-podílů) · [Dashboard](#dashboard) · [Vyhledávání](#vyhledávání) · [Jména vlastníků](#jména-vlastníků) · [Import hlasování — SJM](#import-hlasování--spoluvlastnictví-sjm) · [SQLAlchemy vzory](#sqlalchemy-vzory) · [Router vzory](#router-vzory) · [Nové moduly / entity](#nové-moduly--entity) · [Export dat](#export-dat-excel--csv) · [Mazání dat](#mazání-dat-purge) · [Upload souborů](#upload-souborů) · [Service layer](#service-layer) · [Utility funkce](#utility-funkce-apputilspy) · [JavaScript](#javascript) · [Technologie](#technologie) · [Global exception handlers](#global-exception-handlers) · [Security headers](#security-headers) · [Router packages](#router-packages) · [Startup](#startup-lifespan) · [Nasazení na USB](#nasazení-na-usb-jiný-počítač) · [Workflow](#workflow) · [Komunikace](#komunikace-s-uživatelem) · [Uživatelské role](#uživatelské-role--plán-implementace-na-konec) · [Pravidla pro práci](#pravidla-pro-práci-na-úkolech)
 
 ## URL konvence
 
@@ -204,6 +204,28 @@
 - Typické helpery: `voting.has_processed_ballots` (model property), `_voting_wizard(voting, step)` / `_tax_wizard(...)` (wizard stepper kontext)
 - Validační funkce v service vrstvě: `validate_mapping(mapping)` → `str | None` (chybová zpráva nebo None)
 
+### Formulářová validace — návrat formuláře s chybou
+- Při validační chybě (neplatný email, duplicita, rozsah) vracet **formulářovou šablonu s `error`** místo tichého redirectu:
+  ```python
+  return templates.TemplateResponse("partials/owner_create_form.html", {
+      "request": request,
+      "error": "Neplatný formát emailu",
+      "form_data": {"first_name": first_name, "last_name": last_name, ...},
+  })
+  ```
+- Šablona zobrazí červenou hlášku a zachová vyplněná pole přes `form_data`
+- Používáno v: `owners.py` (email validace), `units.py` (unit_number, building_number rozsah)
+
+### Detekce duplicit při vytváření entity
+- Před vytvořením vlastníka ověřit duplicitu (jméno, RČ, email) — zobrazit varování s existujícími záznamy
+- Uživatel může vynuceně pokračovat přes hidden field `force_create`:
+  ```python
+  if duplicates and not force_create:
+      return templates.TemplateResponse("partials/owner_create_form.html", {
+          "request": request, "duplicates": duplicates, "form_data": {...},
+      })
+  ```
+
 ### Dynamické formuláře
 - `Form(...)` pro fixní pole. `await request.form()` + `.get()`/`.getlist()` pro dynamické názvy polí (např. `vote_5`, `update__12__field`)
 
@@ -228,7 +250,7 @@
 - Export modelů v `app/models/__init__.py`
 - Odkaz v sidebar (`base.html`) s `active_nav` kontrolou
 - Přidání do README.md (popis modulu + API endpointy)
-- Odkaz v sidebaru (`base.html`): sekce Moduly (doménové funkce), Systém (admin/config). Ikona `w-4 h-4 mr-2` SVG + text label
+- Odkaz v sidebaru (`base.html`): položky bez sekce nahoře (Přehled, Vlastníci, Jednotky, Import), sekce Moduly (doménové funkce), sekce Systém (admin/config). Ikona `w-4 h-4 mr-2` SVG + text label
 
 ## Export dat (Excel + CSV)
 
@@ -293,7 +315,7 @@
 
 - Stránkový JS jde do `<script>` na konci `{% block content %}` — ne do separátních `.js` souborů
 - Vanilla JS only (žádný jQuery, žádné external knihovny kromě HTMX)
-- `/static/js/app.js` pro HTMX globální handlery + dark mode toggle
+- `/static/js/app.js` pro HTMX globální handlery, dark mode toggle, custom confirm modal (`svjConfirm`), focus trap + focus restore v modalech, `beforeunload` varování (`data-warn-unsaved`), scroll position save/restore, client-side sort (`sortTableCol`), auto-dismiss flash zpráv
 - Jinja2 macro je OK pro opakující se UI struktury v rámci jedné šablony, pokud všechna data přijdou jako parametry macro
 - **`<script>` tagy v HTML vloženém přes `innerHTML` se NESPUSTÍ** — prohlížeč je ignoruje. HTMX (`hx-swap`) naopak skripty vyhodnotí. Pokud je nutné fetch + innerHTML, definovat funkce v nadřazené šabloně.
 
@@ -312,6 +334,13 @@
 - **404 Not Found** → custom `error.html` šablona
 - **500 Server Error** → custom `error.html` šablona
 - Handlery v `main.py`, šablona `app/templates/error.html`
+
+## Security headers
+
+- Middleware v `main.py` přidává bezpečnostní hlavičky ke každé odpovědi:
+  - `X-Frame-Options: DENY` — prevence clickjacking
+  - `X-Content-Type-Options: nosniff` — prevence MIME sniffing
+  - `Referrer-Policy: strict-origin-when-cross-origin`
 
 ## Router packages
 
@@ -439,7 +468,7 @@
 ### Pravidlo pro průběžný vývoj
 
 - **NEPOUŽÍVAT hardcoded admin logiku** rozsekanou po šablonách (např. `{% if is_admin %}`)
-- Destruktivní akce řešit přes `hx-confirm` / `onsubmit="return confirm()"` — to zůstane i po přidání rolí
+- Destruktivní akce řešit přes `data-confirm` / `hx-confirm` — obojí automaticky používá custom `svjConfirm()` modal (viz [UI_GUIDE.md § 17](docs/UI_GUIDE.md))
 - Nové moduly navrhovat tak, aby šly snadno obalit `require_role()` dependency
 
 ---

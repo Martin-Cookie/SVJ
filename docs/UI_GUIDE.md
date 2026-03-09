@@ -102,6 +102,24 @@ Akční tlačítka (Uložit, Nahrát, Zrušit) se umísťují **nahoře vedle na
 - Pokud je tlačítko **mimo** `<form>`, propojí se přes `form="id"` atribut
 - Pokud je tlačítko **uvnitř** `<form>` (inline editace), `form` atribut není potřeba
 
+### Zobrazení validační chyby ve formuláři
+Při validační chybě (neplatný email, duplicita, rozsah mimo meze) router vrátí formulářovou šablonu s proměnnou `error`:
+```html
+{% if error %}
+<div class="bg-red-50 border border-red-200 rounded-lg p-3 mb-3">
+    <p class="text-sm text-red-800">{{ error }}</p>
+</div>
+{% endif %}
+```
+- Formulář zachová vyplněná pole přes `form_data` dict (viz [CLAUDE.md — Formulářová validace](../CLAUDE.md))
+- Pro varování (ne chyby) se používá žlutý box: `bg-yellow-50 border-yellow-200 text-yellow-800`
+
+### Varování při opuštění neuloženého formuláře
+- Atribut `data-warn-unsaved` na `<form>` aktivuje `beforeunload` varování při neuložených změnách
+- `app.js` sleduje `input` event na formuláři a nastavuje `_formDirty` flag
+- Flag se resetuje při submit a při HTMX boosted navigaci (`htmx:beforeRequest`)
+- Používáno na formulářích kde ztráta dat je bolestivá (voting create, settings)
+
 ### Upload formuláře — skryté tlačítko
 
 Submit tlačítko je **skryté** (`hidden`) dokud uživatel nevybere soubor. Tlačítko je vedle nadpisu, formulář má `id` a tlačítko `form="id"`.
@@ -347,9 +365,19 @@ function clCancelEdit(id) {
 </a>
 ```
 
-### Accessibility — SVG ikony
+### Accessibility — SVG ikony a tlačítka
 - Dekorativní SVG ikony vždy `aria-hidden="true"` — konzistentně napříč celým projektem (42+ souborů)
+- **Icon-only tlačítka** (bez viditelného textu) musí mít `aria-label` shodný s `title` atributem
 - Error/flash zprávy vždy `role="alert"` pro screen readery
+
+### Accessibility — modály a focus
+- **ARIA atributy na modalech:**
+  - Confirm/alert modaly: `role="alertdialog"`, `aria-modal="true"`, `aria-describedby="message-id"`
+  - PDF/content modaly: `role="dialog"`, `aria-modal="true"`, `aria-labelledby="title-id"`
+  - Backdrop overlay: `role="presentation"`
+- **Focus trap** (`_trapFocus()` v `app.js`): Tab/Shift+Tab cyklí jen přes focusovatelné elementy uvnitř aktivního modalu
+- **Focus restore** (`_restoreFocus()` v `app.js`): po zavření modalu se focus vrátí na element, který modal otevřel (`_modalTrigger`)
+- Aktivní pro: `#pdf-modal`, `#confirm-modal`, `#send-confirm-modal`
 
 ---
 
@@ -643,6 +671,11 @@ if has_documents and max_done < 1:
 - Globální CSS v `custom.css` automaticky disable submit tlačítka během HTMX requestů:
   ```css
   .htmx-request button[type="submit"] { opacity: 0.5; pointer-events: none; }
+  button[hx-post].htmx-request, button[hx-get].htmx-request { opacity: 0.5; pointer-events: none; }
+  ```
+- **Search input pulse**: `custom.css` animace `htmx-pulse` pulzuje border search inputu během HTMX requestu (vizuální feedback že se hledá):
+  ```css
+  .htmx-request input[type="text"][hx-get] { animation: htmx-pulse 1.5s ease-in-out infinite; }
   ```
 - Žádné per-button spinnery — CSS pokryje všechny formuláře automaticky
 
@@ -720,7 +753,11 @@ if has_documents and max_done < 1:
 
 ## 17. Potvrzení destruktivních akcí
 
-### Standardní potvrzení — `data-confirm` atribut (primární vzor)
+### Custom confirm modal — `svjConfirm()` (primární vzor)
+
+Projekt **nepoužívá** nativní `window.confirm()`. Všechna potvrzení jdou přes custom modal `#confirm-modal` v `base.html` s focus trap a focus restore.
+
+**`data-confirm` atribut** — funguje na `<form>`, `<button>`, `<a>`:
 ```html
 <form action="/endpoint" method="post"
       data-confirm="Opravdu smazat?\n\nTato akce je nevratná."
@@ -728,10 +765,19 @@ if has_documents and max_done < 1:
     <button type="submit">Smazat</button>
 </form>
 ```
-- `data-confirm` funguje na `<form>`, `<button>`, `<a>` — globální handler v `app.js`
-- Podporuje víceřádkové zprávy přes `\n`
-- `hx-boost="false"` je **povinné** na formulářích s potvrzením — jinak HTMX zachytí submit dřív než confirm dialog
-- Alternativa: `onsubmit="return confirm('...')"` — starší vzor, preferovat `data-confirm`
+- Globální handler v `app.js` zachytí `submit`/`click` event → zavolá `svjConfirm(msg, callback)`
+- `svjConfirm()` zobrazí `#confirm-modal` s textem, tlačítky Potvrdit/Zrušit a focus trap
+- Podporuje víceřádkové zprávy přes `\n` (převedeno na `<br>`)
+- `hx-boost="false"` je **povinné** na formulářích s potvrzením
+
+**`hx-confirm` integrace** — `htmx:confirm` event handler automaticky přesměruje HTMX confirm na `svjConfirm()`:
+```javascript
+document.addEventListener('htmx:confirm', function(e) {
+    e.preventDefault();
+    svjConfirm(e.detail.question, function() { e.detail.issueRequest(); });
+});
+```
+- Takže `<button hx-confirm="Smazat?">` také použije custom modal
 
 ### Kritické operace (purge, nevratné akce)
 ```html
@@ -747,7 +793,7 @@ if has_documents and max_done < 1:
 Pro mazání uzavřených/odeslaných entit se používá custom modal s DELETE input:
 - `openDeleteModal(id, name)` / `closeDeleteModal()` / `confirmDeleteModal()` — JS funkce v šabloně
 - Modal obsahuje název entity + DELETE input + potvrzovací tlačítko
-- Odlišný od inline `confirm()` — vizuálně výraznější pro kritické akce
+- Odlišný od `svjConfirm()` — vizuálně výraznější pro kritické akce
 
 ---
 

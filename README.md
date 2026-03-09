@@ -528,9 +528,9 @@ app/
 │       ├── unit_owners.html
 │       └── unit_owner_edit_row.html
 └── static/                    # CSS, JS
-    ├── css/custom.css         # HTMX animace
+    ├── css/custom.css         # HTMX animace, search pulse, loading indicators
     ├── css/dark-mode.css      # Dark mode CSS override (~300 pravidel)
-    └── js/app.js              # HTMX handlery, dark mode toggle, PDF modal
+    └── js/app.js              # HTMX handlery, dark mode, confirm modal, focus trap, beforeunload, PDF modal
 CLAUDE.md                          # Pravidla pro vývoj (backend, routery, modely, workflow)
 docs/
 └── UI_GUIDE.md                # UI/frontend konvence — jediný zdroj pravdy pro UI vzory
@@ -752,6 +752,7 @@ wheels/                        # Offline Python balíčky (gitignored)
 | GET | `/nastaveni/smtp/formular` | HTMX: editační formulář SMTP |
 | GET | `/nastaveni/smtp/info` | HTMX: zobrazení SMTP nastavení |
 | POST | `/nastaveni/smtp` | Uložení SMTP nastavení |
+| POST | `/nastaveni/smtp/test` | Test SMTP připojení (smtplib) |
 | GET | `/nastaveni/priloha/{log_id}/{filename}` | Stažení přílohy emailové šablony |
 
 ## Konfigurace (.env)
