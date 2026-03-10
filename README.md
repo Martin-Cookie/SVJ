@@ -866,6 +866,15 @@ Zbývající nálezy z druhého auditu: autentizace (plánováno), CSRF ochrana,
 - `build_name_with_titles()` přesunut z `excel_import.py` do `utils.py`
 - Inline importy přesunuty na top-level v 8 routerech
 
+**Šestý audit (2026-03-10) — 8 nálezů, opraveno 8:**
+- XSS escape uživatelského vstupu ve varováních jednotek (`markupsafe.escape()`)
+- Generická chybová zpráva místo exception detailu v DOCX preview (info leakage)
+- Generická chybová zpráva místo SMTP exception (info leakage)
+- Smazány redundantní inline importy (`Path` 3×, `smtplib`, `markupsafe`, `sa_func`, `engine`, `sqlite3`)
+- Extrahován `_parse_numeric_fields()` a `_build_warn_html()` v units.py (deduplikace)
+- `force_create` jako Form parametr místo `request.form()` v owners.py
+- Smazán zastaralý `docs/CLAUDE-zaloha.md`
+
 **Audit zálohovacího systému (2026-03-05) — 14 nálezů, opraveno 12:**
 - ZIP validace: CRC integrity check (`testzip()`) před restore
 - Rollback: automatická obnova ze safety backup při selhání restore
