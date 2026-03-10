@@ -375,7 +375,7 @@
 - Po dokončení změn: commit + push (pokud uživatel požádá)
 - **Po pushi VŽDY rovnou aktualizovat README.md** — neptyat se, rovnou zapsat změny do README a commitnout+pushnout
 - Commit message v češtině, stručný, popisuje "co a proč"
-- **Úklid po testování**: po použití Playwright (browser_navigate, browser_snapshot, browser_take_screenshot) smazat soubory v `.playwright-mcp/` — `rm -rf .playwright-mcp/*.log .playwright-mcp/*.png .playwright-mcp/*.jpeg`
+- **Úklid po testování**: po použití Playwright (browser_navigate, browser_snapshot, browser_take_screenshot) smazat soubory v `.playwright-mcp/` — `rm -rf .playwright-mcp/*.log .playwright-mcp/*.png .playwright-mcp/*.jpeg` — a také testovací screenshoty z kořenového adresáře: `rm -f *.png *.jpeg`
 - **Dokumentace — jeden zdroj pravdy**: UI vzory → `docs/UI_GUIDE.md`, backend pravidla → `CLAUDE.md`, projektová dokumentace → `README.md`. Při změně/přidání vzoru zapsat na jedno místo, z ostatních jen odkázat. Při přejmenování modulu/funkce projít VŠECHNY tři soubory
 
 ## Komunikace s uživatelem
