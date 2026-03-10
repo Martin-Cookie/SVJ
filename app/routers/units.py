@@ -6,6 +6,7 @@ from io import BytesIO
 from fastapi import APIRouter, Depends, Form, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
+from markupsafe import escape
 from openpyxl import Workbook
 from openpyxl.styles import Font
 from sqlalchemy import cast, func, String
@@ -108,7 +109,7 @@ async def unit_create(
         floor_area_float = float(floor_area.strip()) if floor_area.strip() else None
     except (ValueError, TypeError):
         floor_area_float = None
-        warnings.append("Plocha '" + floor_area.strip() + "' není platné číslo — ignorováno")
+        warnings.append(f"Plocha '{escape(floor_area.strip())}' není platné číslo — ignorováno")
     if floor_area_float is not None and (floor_area_float < 0 or floor_area_float > 9999):
         warnings.append(f"Plocha {floor_area_float} mimo rozsah 0–9999 — ignorováno")
         floor_area_float = None
@@ -116,7 +117,7 @@ async def unit_create(
         podil_scd_float = float(podil_scd.strip()) if podil_scd.strip() else None
     except (ValueError, TypeError):
         podil_scd_float = None
-        warnings.append("Podíl SČD '" + podil_scd.strip() + "' není platné číslo — ignorováno")
+        warnings.append(f"Podíl SČD '{escape(podil_scd.strip())}' není platné číslo — ignorováno")
     if podil_scd_float is not None and (podil_scd_float < 0 or podil_scd_float > 99999999):
         warnings.append(f"Podíl SČD {podil_scd_float} mimo rozsah — ignorováno")
         podil_scd_float = None
@@ -326,7 +327,7 @@ async def unit_update(
         floor_area_float = float(floor_area.strip()) if floor_area.strip() else None
     except (ValueError, TypeError):
         floor_area_float = None
-        warnings.append("Plocha '" + floor_area.strip() + "' není platné číslo — ignorováno")
+        warnings.append(f"Plocha '{escape(floor_area.strip())}' není platné číslo — ignorováno")
     if floor_area_float is not None and (floor_area_float < 0 or floor_area_float > 9999):
         warnings.append(f"Plocha {floor_area_float} mimo rozsah 0–9999 — ignorováno")
         floor_area_float = None
@@ -334,7 +335,7 @@ async def unit_update(
         podil_scd_float = float(podil_scd.strip()) if podil_scd.strip() else None
     except (ValueError, TypeError):
         podil_scd_float = None
-        warnings.append("Podíl SČD '" + podil_scd.strip() + "' není platné číslo — ignorováno")
+        warnings.append(f"Podíl SČD '{escape(podil_scd.strip())}' není platné číslo — ignorováno")
     if podil_scd_float is not None and (podil_scd_float < 0 or podil_scd_float > 99999999):
         warnings.append(f"Podíl SČD {podil_scd_float} mimo rozsah — ignorováno")
         podil_scd_float = None
