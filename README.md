@@ -918,7 +918,7 @@ Projekt prošel UX analýzou klíčových modulů (6 expertních perspektiv: UX 
 - K6: Flash chybové zprávy v kontrolách (share_check, sync) — 5 typů chybových zpráv
 - K7: Zachování pozice v tabulce po potvrzení přiřazení (referer-based redirect)
 
-**Celoplošný UX audit (2026-03-09) — 26 nálezů, opraveno 26:**
+**Celoplošný UX audit (2026-03-09) — 27 nálezů, opraveno 27:**
 
 *Wave 1 (8):* responsive grid na detailu vlastníka, exchange varování (nevratná operace), čitelné kontaktní filtry (text místo ikon), popisky admin karet, smazání hlasování — DELETE modal pokud má lístky, HTMX loading pulzace na search inputech.
 
@@ -930,7 +930,7 @@ Projekt prošel UX analýzou klíčových modulů (6 expertních perspektiv: UX 
 
 *Wave 5 (6):* validace rozsahu čísla budovy (1–99999), vizuální oddělení sekcí na stránce kontrol, ARIA atributy pro modály (`role="dialog"`, `aria-modal`, `aria-labelledby`), focus trap v modalech (Tab/Shift+Tab), focus restore po zavření modálu, `aria-label` na icon-only tlačítkách (14 šablon).
 
-*Wave 6 (1):* SQL agregace na seznamu hlasování — nahrazeno joinedload + Python iterace dvěma GROUP BY dotazy, eliminuje načítání tisíců BallotVote objektů do paměti.
+*Wave 6 (2):* SQL agregace na seznamu hlasování — nahrazeno joinedload + Python iterace dvěma GROUP BY dotazy, eliminuje načítání tisíců BallotVote objektů do paměti. XSS escape uživatelského vstupu ve varováních jednotek (`markupsafe.escape()`).
 
 **Audit zálohovacího systému + business logiky (2026-03-08) — 8 nálezů, opraveno 8:**
 
