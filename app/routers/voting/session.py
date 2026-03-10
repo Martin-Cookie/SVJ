@@ -205,7 +205,7 @@ async def voting_preview_metadata(
         })
     except Exception as e:
         logger.exception("Chyba při extrakci metadat z DOCX šablony")
-        return JSONResponse({"error": f"{type(e).__name__}: {e}"}, status_code=500)
+        return JSONResponse({"error": "Nelze zpracovat nahranou šablonu."}, status_code=500)
     finally:
         # Clean up temp file — the real upload happens on form submit
         try:

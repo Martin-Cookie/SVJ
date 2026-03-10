@@ -12,6 +12,7 @@ from urllib.parse import quote
 from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
+from markupsafe import escape
 from openpyxl import Workbook
 from openpyxl.styles import Font
 from sqlalchemy import cast, func, or_, String
@@ -65,6 +66,7 @@ async def owner_create(
     email: str = Form(""),
     phone: str = Form(""),
     birth_number: str = Form(""),
+    force_create: str = Form(""),
     db: Session = Depends(get_db),
 ):
     # Build name_with_titles and name_normalized
@@ -124,8 +126,7 @@ async def owner_create(
             duplicates.append(("email", dup_email))
 
     # If duplicates found and user hasn't confirmed, show warning
-    force = (await request.form()).get("force_create", "")
-    if duplicates and force != "1":
+    if duplicates and force_create != "1":
         return templates.TemplateResponse("partials/owner_create_form.html", {
             "request": request,
             "duplicates": duplicates,
@@ -638,7 +639,6 @@ async def contact_import_rerun(
     soubor: str = Query("", alias="soubor"),
 ):
     """Re-run preview for an already uploaded file."""
-    from pathlib import Path
     if not soubor or not is_safe_path(Path(soubor), settings.upload_dir) or not Path(soubor).is_file():
         return RedirectResponse("/vlastnici/import#kontakty", status_code=302)
 
@@ -816,8 +816,6 @@ async def import_delete(
     db: Session = Depends(get_db),
 ):
     """Delete an import log entry and its uploaded file (data remain intact)."""
-    from pathlib import Path
-
     log = db.query(ImportLog).filter_by(id=log_id, import_type="owners_excel").first()
     if not log:
         return RedirectResponse("/vlastnici/import", status_code=302)
@@ -843,8 +841,6 @@ async def contact_import_delete(
     db: Session = Depends(get_db),
 ):
     """Delete a contact import log entry and its uploaded file."""
-    from pathlib import Path
-
     log = db.query(ImportLog).filter_by(id=log_id, import_type="contacts_excel").first()
     if not log:
         return RedirectResponse("/vlastnici/import", status_code=302)
@@ -982,7 +978,6 @@ def _find_duplicate_owners(db: Session, owner: Owner) -> list[Owner]:
 
 def _header_oob_html(owner: Owner) -> str:
     """Build OOB swap HTML for owner display name + badges in page header."""
-    from markupsafe import escape
     name_html = (
         f'<h1 id="owner-display-name" hx-swap-oob="true"'
         f' class="text-2xl font-bold text-gray-800">{escape(owner.display_name)}</h1>'

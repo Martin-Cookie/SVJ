@@ -1,3 +1,5 @@
+import logging
+import smtplib
 from pathlib import Path
 from typing import Optional
 
@@ -13,6 +15,8 @@ from app.config import settings
 from app.database import get_db
 from app.models import EmailLog, Owner
 from app.utils import build_list_url, is_htmx_partial, is_safe_path, setup_jinja_filters, strip_diacritics
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -193,7 +197,6 @@ async def save_smtp(
 @router.post("/smtp/test")
 async def test_smtp_connection(request: Request):
     """Test SMTP connection and return result as partial HTML."""
-    import smtplib
     try:
         if settings.smtp_host in ("smtp.example.com", ""):
             return templates.TemplateResponse("partials/smtp_info.html", {
@@ -219,10 +222,11 @@ async def test_smtp_connection(request: Request):
             "smtp_test_error": "Přihlášení selhalo — zkontrolujte uživatele a heslo.",
         })
     except Exception as e:
+        logger.warning("SMTP test failed: %s", e)
         return templates.TemplateResponse("partials/smtp_info.html", {
             "request": request,
             "settings": settings,
-            "smtp_test_error": f"Připojení selhalo: {e}",
+            "smtp_test_error": "Připojení k SMTP serveru selhalo.",
         })
 
 

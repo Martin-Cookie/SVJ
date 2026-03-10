@@ -3,6 +3,7 @@ import logging
 import os
 import re
 import shutil
+import sqlite3
 import tempfile
 import zipfile
 from datetime import datetime
@@ -14,10 +15,10 @@ logger = logging.getLogger(__name__)
 from fastapi import APIRouter, Depends, Form, Query, Request, UploadFile, File
 from fastapi.responses import FileResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import case
+from sqlalchemy import case, func as sa_func
 from sqlalchemy.orm import Session, joinedload
 
-from app.database import SessionLocal, get_db
+from app.database import SessionLocal, engine, get_db
 from app.models import (
     SvjInfo, SvjAddress, BoardMember, CodeListItem, EmailTemplate,
     Unit, OwnerUnit, Owner, Proxy,
@@ -136,7 +137,6 @@ async def administration_page(request: Request, db: Session = Depends(get_db)):
     code_list_total = db.query(CodeListItem).count()
 
     # Duplicate owner groups count
-    from sqlalchemy import func as sa_func
     duplicate_count = (
         db.query(sa_func.count())
         .select_from(
@@ -717,7 +717,6 @@ async def backup_restore_db_file(file: UploadFile = File(...)):
         safety = _safety_backup()
 
         # Dispose existing DB connections before overwriting
-        from app.database import engine
         engine.dispose()
 
         # Overwrite database
@@ -726,7 +725,6 @@ async def backup_restore_db_file(file: UploadFile = File(...)):
             f.write(db_content)
 
         # Validate SQLite integrity before proceeding
-        import sqlite3
         try:
             conn = sqlite3.connect(str(DB_PATH))
             result = conn.execute("PRAGMA integrity_check").fetchone()

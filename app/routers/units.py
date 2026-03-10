@@ -23,6 +23,40 @@ templates = Jinja2Templates(directory="app/templates")
 setup_jinja_filters(templates)
 
 
+def _parse_numeric_fields(floor_area: str, podil_scd: str):
+    """Parse floor_area and podil_scd strings, return (float|None, float|None, list[str])."""
+    warnings = []
+    try:
+        floor_area_float = float(floor_area.strip()) if floor_area.strip() else None
+    except (ValueError, TypeError):
+        floor_area_float = None
+        warnings.append(f"Plocha '{escape(floor_area.strip())}' není platné číslo — ignorováno")
+    if floor_area_float is not None and (floor_area_float < 0 or floor_area_float > 9999):
+        warnings.append(f"Plocha {floor_area_float} mimo rozsah 0–9999 — ignorováno")
+        floor_area_float = None
+    try:
+        podil_scd_float = float(podil_scd.strip()) if podil_scd.strip() else None
+    except (ValueError, TypeError):
+        podil_scd_float = None
+        warnings.append(f"Podíl SČD '{escape(podil_scd.strip())}' není platné číslo — ignorováno")
+    if podil_scd_float is not None and (podil_scd_float < 0 or podil_scd_float > 99999999):
+        warnings.append(f"Podíl SČD {podil_scd_float} mimo rozsah — ignorováno")
+        podil_scd_float = None
+    return floor_area_float, podil_scd_float, warnings
+
+
+def _build_warn_html(warnings: list) -> str:
+    """Build warning HTML from list of warning strings."""
+    if not warnings:
+        return ""
+    warn_items = "".join(f"<li>{w}</li>" for w in warnings)
+    return (
+        '<div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-2">'
+        '<p class="text-sm font-medium text-yellow-800 mb-1">Upozornění</p>'
+        f'<ul class="text-sm text-yellow-700 list-disc list-inside">{warn_items}</ul></div>'
+    )
+
+
 SORT_COLUMNS = {
     "unit_number": Unit.unit_number,
     "building": Unit.building_number,
@@ -104,23 +138,7 @@ async def unit_create(
         lv_number_int = None
     if lv_number_int is not None and (lv_number_int < 1 or lv_number_int > 99999):
         lv_number_int = None
-    warnings = []
-    try:
-        floor_area_float = float(floor_area.strip()) if floor_area.strip() else None
-    except (ValueError, TypeError):
-        floor_area_float = None
-        warnings.append(f"Plocha '{escape(floor_area.strip())}' není platné číslo — ignorováno")
-    if floor_area_float is not None and (floor_area_float < 0 or floor_area_float > 9999):
-        warnings.append(f"Plocha {floor_area_float} mimo rozsah 0–9999 — ignorováno")
-        floor_area_float = None
-    try:
-        podil_scd_float = float(podil_scd.strip()) if podil_scd.strip() else None
-    except (ValueError, TypeError):
-        podil_scd_float = None
-        warnings.append(f"Podíl SČD '{escape(podil_scd.strip())}' není platné číslo — ignorováno")
-    if podil_scd_float is not None and (podil_scd_float < 0 or podil_scd_float > 99999999):
-        warnings.append(f"Podíl SČD {podil_scd_float} mimo rozsah — ignorováno")
-        podil_scd_float = None
+    floor_area_float, podil_scd_float, warnings = _parse_numeric_fields(floor_area, podil_scd)
 
     unit = Unit(
         unit_number=unit_number_int,
@@ -137,10 +155,7 @@ async def unit_create(
     db.add(unit)
     db.commit()
 
-    warn_html = ""
-    if warnings:
-        warn_items = "".join(f"<li>{w}</li>" for w in warnings)
-        warn_html = f'<div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-2"><p class="text-sm font-medium text-yellow-800 mb-1">Upozornění</p><ul class="text-sm text-yellow-700 list-disc list-inside">{warn_items}</ul></div>'
+    warn_html = _build_warn_html(warnings)
     if request.headers.get("HX-Request"):
         return HTMLResponse(
             content=f'{warn_html}<p class="text-sm text-green-600 p-4">Jednotka {unit_number_int} vytvořena. <a href="/jednotky/{unit.id}" class="text-blue-600 hover:underline">Zobrazit</a></p>',
@@ -322,23 +337,7 @@ async def unit_update(
         lv_number_int = None
     if lv_number_int is not None and (lv_number_int < 1 or lv_number_int > 99999):
         lv_number_int = None
-    warnings = []
-    try:
-        floor_area_float = float(floor_area.strip()) if floor_area.strip() else None
-    except (ValueError, TypeError):
-        floor_area_float = None
-        warnings.append(f"Plocha '{escape(floor_area.strip())}' není platné číslo — ignorováno")
-    if floor_area_float is not None and (floor_area_float < 0 or floor_area_float > 9999):
-        warnings.append(f"Plocha {floor_area_float} mimo rozsah 0–9999 — ignorováno")
-        floor_area_float = None
-    try:
-        podil_scd_float = float(podil_scd.strip()) if podil_scd.strip() else None
-    except (ValueError, TypeError):
-        podil_scd_float = None
-        warnings.append(f"Podíl SČD '{escape(podil_scd.strip())}' není platné číslo — ignorováno")
-    if podil_scd_float is not None and (podil_scd_float < 0 or podil_scd_float > 99999999):
-        warnings.append(f"Podíl SČD {podil_scd_float} mimo rozsah — ignorováno")
-        podil_scd_float = None
+    floor_area_float, podil_scd_float, warnings = _parse_numeric_fields(floor_area, podil_scd)
 
     unit.unit_number = unit_number_int
     unit.building_number = building_number.strip() or None
@@ -358,10 +357,7 @@ async def unit_update(
     if request.headers.get("HX-Request"):
         # Refresh unit + owners (recalculate changed owner votes)
         db.expire(unit, ["owners"])
-        warn_html = ""
-        if warnings:
-            warn_items = "".join(f"<li>{w}</li>" for w in warnings)
-            warn_html = f'<div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-2"><p class="text-sm font-medium text-yellow-800 mb-1">Upozornění</p><ul class="text-sm text-yellow-700 list-disc list-inside">{warn_items}</ul></div>'
+        warn_html = _build_warn_html(warnings)
         info_html = templates.TemplateResponse("partials/unit_info.html", {
             "request": request,
             "unit": unit,
