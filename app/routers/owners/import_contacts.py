@@ -53,7 +53,7 @@ async def contact_import_upload(
 
     err = await validate_upload(file, **UPLOAD_LIMITS["excel"])
     if err:
-        return RedirectResponse("/vlastnici/import?chyba_kontakty=format#kontakty", status_code=302)
+        return RedirectResponse(f"/vlastnici/import?chyba_kontakty_msg={quote(err)}#kontakty", status_code=302)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     dest = settings.upload_dir / "excel" / f"{timestamp}_{file.filename}"
@@ -89,6 +89,8 @@ def _contact_mapping_page(
     start_row: int | None = None,
 ):
     """Build and return contact mapping page context."""
+    if not Path(file_path).exists():
+        return RedirectResponse("/vlastnici/import?chyba_kontakty=soubor_chybi#kontakty", status_code=302)
     sheets = read_excel_sheet_names(file_path)
     current_sheet = sheet_name or (sheets[0] if sheets else None)
 

@@ -32,15 +32,16 @@ matchMedia('(prefers-color-scheme:dark)').addEventListener('change', function(e)
     }
 });
 
-// Auto-dismiss flash messages after 5 seconds
+// Auto-dismiss flash messages (default 5s, configurable via data-auto-dismiss="3000")
 function _autoDismiss(container) {
     var msgs = (container || document).querySelectorAll('[data-auto-dismiss]');
     msgs.forEach(function(msg) {
+        var delay = parseInt(msg.getAttribute('data-auto-dismiss'), 10) || 5000;
         setTimeout(function() {
             msg.style.transition = 'opacity 0.3s';
             msg.style.opacity = '0';
             setTimeout(function() { msg.remove(); }, 300);
-        }, 5000);
+        }, delay);
     });
 }
 
@@ -335,7 +336,15 @@ function _restoreCheckedKeys() {
     if (!tbody) return;
     var saved = _getCheckedKeys();
     if (saved.length === 0) return;
-    var savedSet = new Set(saved);
+    // Validate: only restore keys that still exist on the page
+    var pageKeys = new Set();
+    tbody.querySelectorAll('.rcpt-cb').forEach(function(cb) { pageKeys.add(cb.value); });
+    var validKeys = saved.filter(function(k) { return pageKeys.has(k); });
+    if (validKeys.length !== saved.length) {
+        // Stale keys detected — update storage
+        try { sessionStorage.setItem(_SS_KEY, JSON.stringify(validKeys)); } catch(e) {}
+    }
+    var savedSet = new Set(validKeys);
     tbody.querySelectorAll('.rcpt-cb').forEach(function(cb) {
         if (!cb.disabled && savedSet.has(cb.value)) {
             cb.checked = true;

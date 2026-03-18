@@ -13,7 +13,8 @@
 <div class="flex items-center justify-between mb-4 max-w-2xl">
     <h1 class="text-2xl font-bold text-gray-800">Nové rozesílání</h1>
     <div class="flex items-center gap-2">
-        <button id="submit-btn" type="button" onclick="startUpload()" class="hidden px-3 py-1.5 text-sm font-medium text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors">
+        <button id="submit-btn" type="button" onclick="startUpload()" disabled
+                class="px-3 py-1.5 text-sm font-medium text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
             Nahrát a zpracovat
         </button>
         <a href="/dane" class="px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm font-medium">
@@ -160,7 +161,7 @@ function startUpload() {
 function checkFormReady() {
     var hasFile = document.getElementById('file-input').files.length > 0;
     var hasTitle = document.getElementById('title-input').value.trim() !== '';
-    document.getElementById('submit-btn').classList.toggle('hidden', !(hasFile && hasTitle));
+    document.getElementById('submit-btn').disabled = !(hasFile && hasTitle);
 }
 function updateFileName(inp) {
     var nameEl = document.getElementById('file-name');

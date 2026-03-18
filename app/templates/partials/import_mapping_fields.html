@@ -19,6 +19,13 @@
     'gray': {'bg': 'bg-gray-50', 'border': 'border-gray-200', 'text': 'text-gray-700', 'badge': 'bg-gray-100 text-gray-800', 'ring_saved': 'ring-blue-300', 'ring_auto': 'ring-green-300', 'ring_req': 'ring-red-300'},
 } %}
 
+<div class="flex flex-wrap items-center gap-3 mb-3 text-xs text-gray-500">
+    <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 rounded ring-2 ring-blue-300 border border-blue-300 bg-blue-50"></span> Uložené mapování</span>
+    <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 rounded ring-2 ring-green-300 border border-green-300 bg-green-50"></span> Auto-detekce</span>
+    <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 rounded ring-2 ring-red-300 border border-red-300 bg-red-50"></span> Povinné — chybí</span>
+    <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 rounded border border-gray-300"></span> Nepřiřazeno</span>
+</div>
+
 {% for group in groups_data %}
 {% set c = color_map.get(group.color, color_map.gray) %}
 <div class="mb-3">
@@ -30,7 +37,8 @@
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
         {% for field in group.fields %}
         <div class="flex flex-col">
-            <label class="text-xs font-medium mb-0.5 {% if field.required %}{{ c.text }}{% else %}text-gray-600{% endif %}">
+            <label class="text-xs font-medium mb-0.5 {% if field.required %}{{ c.text }}{% else %}text-gray-600{% endif %}"
+                   {% if field.description %}title="{{ field.description }}"{% endif %}>
                 {{ field.label }}{% if field.required %} <span class="text-red-500">*</span>{% endif %}
             </label>
             <select name="field_{{ field.key }}"

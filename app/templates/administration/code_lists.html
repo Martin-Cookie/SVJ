@@ -30,10 +30,13 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ _ico.path }}"/>
                 </svg>
             </div>
-            <div>
+            <div class="flex-1">
                 <p class="text-sm font-semibold text-gray-700 {{ _ico.text|replace('text-', 'group-hover:text-') }} transition-colors">{{ cat_meta.label }}</p>
                 <p class="text-xs text-gray-500">{{ items|length }} položek</p>
             </div>
+            <svg aria-hidden="true" class="w-4 h-4 text-gray-400 group-hover:text-gray-600 transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            </svg>
         </div>
     </button>
     {% endfor %}
@@ -47,10 +50,13 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
                 </svg>
             </div>
-            <div>
+            <div class="flex-1">
                 <p class="text-sm font-semibold text-gray-700 group-hover:text-teal-600 transition-colors">Emailové šablony</p>
                 <p class="text-xs text-gray-500">{{ email_templates|length }} šablon</p>
             </div>
+            <svg aria-hidden="true" class="w-4 h-4 text-gray-400 group-hover:text-gray-600 transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            </svg>
         </div>
     </button>
 </div>
@@ -90,8 +96,8 @@
             <li class="py-1.5">
                 <div class="flex items-center justify-between gap-2">
                     <span id="cl-val-{{ item.id }}"
-                          class="text-sm text-gray-800 min-w-0 truncate {% if usage == 0 %}cursor-pointer hover:text-blue-600{% endif %}"
-                          {% if usage == 0 %}onclick="clStartEdit({{ item.id }})" title="Klikněte pro úpravu" aria-label="Klikněte pro úpravu"{% endif %}>
+                          class="text-sm text-gray-800 min-w-0 truncate {% if usage == 0 %}cursor-pointer hover:text-blue-600{% else %}text-gray-500{% endif %}"
+                          {% if usage == 0 %}onclick="clStartEdit({{ item.id }})" title="Klikněte pro úpravu" aria-label="Klikněte pro úpravu"{% else %}title="Nelze upravit — používáno u {{ usage }} záznamů"{% endif %}>
                         {{ item.value }}
                     </span>
                     {% if usage == 0 %}
@@ -180,6 +186,7 @@
                         <label class="block text-xs text-gray-500 mb-1">Text emailu</label>
                         <textarea name="body_template" rows="4" placeholder="Dobrý den,&#10;&#10;v příloze zasíláme..."
                                   class="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"></textarea>
+                        <p class="text-xs text-gray-400 mt-1">Proměnné: <code class="bg-gray-100 px-1 rounded">{rok}</code> = rok rozesílání</p>
                     </div>
                     <div class="flex items-center gap-2">
                         <button type="submit" class="px-3 py-1.5 text-sm font-medium text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors">Uložit</button>
@@ -235,6 +242,7 @@
                             <label class="block text-xs text-gray-500 mb-1">Text emailu</label>
                             <textarea name="body_template" rows="4"
                                       class="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">{{ tpl.body_template }}</textarea>
+                            <p class="text-xs text-gray-400 mt-1">Proměnné: <code class="bg-gray-100 px-1 rounded">{rok}</code> = rok rozesílání</p>
                         </div>
                         <div class="flex items-center gap-2">
                             <button type="submit" class="px-3 py-1.5 text-sm font-medium text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors">Uložit</button>

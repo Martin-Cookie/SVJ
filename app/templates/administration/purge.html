@@ -40,7 +40,7 @@
                     </div>
                     <p class="text-xs text-gray-500 mt-0.5">{{ cat.description }}</p>
                     {% if key == 'owners' %}
-                    <p class="text-xs text-amber-600 hidden mt-1" id="purge-cascade-warn">Automaticky smaže i hlasování, daňové podklady, sync data a soubory</p>
+                    <p class="text-xs text-amber-600 font-medium hidden mt-1 bg-amber-50 px-1.5 py-0.5 rounded" id="purge-cascade-warn">⚠ Automaticky smaže i hlasování, daňové podklady, sync data a soubory</p>
                     {% endif %}
                     {% if key == 'backups' and purge_counts['backups'] > 0 %}
                     <p class="text-xs text-gray-500 mt-0.5">{{ purge_counts['backups'] }} ZIP {% if purge_counts['backups'] == 1 %}soubor{% elif purge_counts['backups'] < 5 %}soubory{% else %}souborů{% endif %}</p>

@@ -126,11 +126,20 @@ async def tax_list(request: Request, back: str = Query("", alias="back"), stav: 
     if stav and stav in ("draft", "ready", "sending", "completed"):
         sessions = [s for s in sessions if session_status_map[s.id] == stav]
 
+    back_label = ""
+    if back:
+        back_label = (
+            "Zpět na přehled" if back == "/" or back.startswith("/?")
+            else "Zpět na nastavení" if back.startswith("/nastaveni")
+            else "Zpět"
+        )
+
     return templates.TemplateResponse("tax/index.html", {
         "request": request,
         "active_nav": "tax",
         "sessions": sessions,
         "back_url": back,
+        "back_label": back_label,
         "list_url": list_url,
         "session_stats": session_stats,
         "status_counts": status_counts,

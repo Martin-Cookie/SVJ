@@ -122,28 +122,33 @@ async def home(
                 "quorum_pct": quorum_pct,
             }
 
-    active_tax_sessions = (
-        db.query(TaxSession)
-        .order_by(TaxSession.created_at.desc())
-        .limit(50)
+    # Tax sessions — count per status in one query
+    tax_status_counts = (
+        db.query(TaxSession.send_status, func.count(TaxSession.id))
+        .group_by(TaxSession.send_status)
         .all()
     )
 
-    # Group tax sessions by status — pre-fetch dist stats in one query
+    # Latest session per status (one query per status)
     latest_session_ids = {}
     tax_by_status = {}
-    for t in active_tax_sessions:
-        s = t.send_status.value
-        if s not in tax_by_status:
-            latest_session_ids[t.id] = s
+    for status, count in tax_status_counts:
+        latest = (
+            db.query(TaxSession)
+            .filter(TaxSession.send_status == status)
+            .order_by(TaxSession.created_at.desc())
+            .first()
+        )
+        if latest:
+            s = status.value
+            latest_session_ids[latest.id] = s
             tax_by_status[s] = {
-                "count": 0,
-                "latest": t,
-                "date": t.created_at,
+                "count": count,
+                "latest": latest,
+                "date": latest.created_at,
                 "sent": 0,
                 "total_dists": 0,
             }
-        tax_by_status[s]["count"] += 1
 
     # Single query for distribution stats of latest sessions per status
     if latest_session_ids:
@@ -231,7 +236,7 @@ async def home(
         "units_count": units_count,
         "active_votings": total_votings,
         "voting_by_status": voting_by_status,
-        "active_tax_count": len(active_tax_sessions),
+        "active_tax_count": sum(c for _, c in tax_status_counts),
         "tax_by_status": tax_by_status,
         "recent_activity": unified,
         "declared_shares": declared_shares,

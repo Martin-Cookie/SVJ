@@ -105,6 +105,7 @@ OWNER_FIELD_DEFS: dict[str, dict] = {
     "unit_kn": {
         "label": "Číslo jednotky (KN)",
         "required": True,
+        "description": "Číslo jednotky z katastru nemovitostí — povinné pro párování",
         "candidates": [
             "cislo jednotky", "cislo jednotky kn", "jednotka kn", "jednotka",
             "unit number", "unit kn", "c.j.", "cj", "kn",
@@ -184,6 +185,7 @@ OWNER_FIELD_DEFS: dict[str, dict] = {
     "first_name": {
         "label": "Jméno",
         "required": True,
+        "description": "Křestní jméno vlastníka — povinné",
         "candidates": [
             "jmeno", "krestni jmeno", "first name", "name", "firstname",
         ],
@@ -406,6 +408,7 @@ CONTACT_FIELD_DEFS: dict[str, dict] = {
     "match_name": {
         "label": "Jméno (pro párování)",
         "required": True,
+        "description": "Jméno vlastníka pro párování s evidencí — povinné",
         "candidates": [
             "jmeno", "prijmeni", "jmeno a prijmeni", "jmeno prijmeni",
             "name", "vlastnik", "osoba",
@@ -690,6 +693,7 @@ def build_mapping_context(
                 "key": field_key,
                 "label": field_defs[field_key]["label"],
                 "required": field_defs[field_key].get("required", False),
+                "description": field_defs[field_key].get("description", ""),
                 "col": det.get("col"),
                 "status": det.get("status", "unmatched"),
             })

@@ -4,7 +4,7 @@
 {% block content %}
 {% if back_url %}
 <div class="mb-3">
-    <a href="{{ back_url }}" class="text-sm text-blue-600 hover:text-blue-800">&larr; Zpět na přehled</a>
+    <a href="{{ back_url }}" class="text-sm text-blue-600 hover:text-blue-800">&larr; {{ back_label|default('Zpět') }}</a>
 </div>
 {% endif %}
 <div class="flex items-center justify-between mb-6">

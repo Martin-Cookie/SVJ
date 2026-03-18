@@ -33,18 +33,30 @@ router = APIRouter()
 @router.get("/import")
 async def import_page(
     request: Request,
+    chyba: str = Query(""),
     chyba_kontakty: str = Query("", alias="chyba_kontakty"),
+    chyba_kontakty_msg: str = Query("", alias="chyba_kontakty_msg"),
     db: Session = Depends(get_db),
 ):
     imports = db.query(ImportLog).filter_by(import_type="owners_excel").order_by(ImportLog.created_at.desc()).all()
     contact_imports = db.query(ImportLog).filter_by(import_type="contacts_excel").order_by(ImportLog.created_at.desc()).all()
     owner_count = db.query(Owner).count()
 
+    flash_message = None
+    flash_type = None
+    if chyba == "soubor_chybi":
+        flash_message = "Nahraný soubor již neexistuje. Nahrajte soubor znovu."
+        flash_type = "error"
+
     contact_flash = None
-    if chyba_kontakty == "format":
+    if chyba_kontakty_msg:
+        contact_flash = chyba_kontakty_msg
+    elif chyba_kontakty == "format":
         contact_flash = "Nahrajte soubor ve formátu .xlsx"
     elif chyba_kontakty == "zpracovani":
         contact_flash = "Chyba při zpracování souboru"
+    elif chyba_kontakty == "soubor_chybi":
+        contact_flash = "Nahraný soubor již neexistuje. Nahrajte soubor znovu."
 
     return templates.TemplateResponse("owners/import.html", {
         "request": request,
@@ -52,6 +64,8 @@ async def import_page(
         "imports": imports,
         "contact_imports": contact_imports,
         "contact_flash": contact_flash,
+        "flash_message": flash_message,
+        "flash_type": flash_type,
         "owner_count": owner_count,
     })
 
@@ -107,6 +121,8 @@ def _owner_mapping_page(
     start_row: int | None = None,
 ):
     """Build and return owner mapping page context."""
+    if not Path(file_path).exists():
+        return RedirectResponse("/vlastnici/import?chyba=soubor_chybi", status_code=302)
     sheets = read_excel_sheet_names(file_path)
     current_sheet = sheet_name or (sheets[0] if sheets else None)
 

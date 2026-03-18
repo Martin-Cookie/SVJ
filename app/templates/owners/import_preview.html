@@ -16,7 +16,8 @@
         <p class="text-xs text-gray-500 mt-0.5">{{ preview.rows_processed }} řádků | {{ preview.owners_count }} vlastníků | {{ preview.units_count }} jednotek</p>
     </div>
     <div class="flex gap-2">
-        <form action="/vlastnici/import/potvrdit" method="post">
+        <form action="/vlastnici/import/potvrdit" method="post" hx-boost="false"
+              data-confirm="Importovat {{ preview.owners_count }} vlastníků a {{ preview.units_count }} jednotek?\nTato operace nahradí stávající data v evidenci.">
             <input type="hidden" name="file_path" value="{{ file_path }}">
             <input type="hidden" name="filename" value="{{ filename }}">
             <input type="hidden" name="mapping_json" value="{{ mapping_json|default('', true)|e }}">

@@ -692,20 +692,23 @@ def _send_emails_batch(session_id: int, recipient_data: list, email_subject: str
                     smtp_server=smtp_conn,
                 )
 
-                # Update only unsent distribution statuses in DB
-                for dist_id in unsent_dist_ids:
-                    dist = db.query(TaxDistribution).get(dist_id)
-                    if dist:
-                        if result["success"]:
-                            dist.email_status = EmailDeliveryStatus.SENT
-                            dist.email_sent = True
-                            dist.email_sent_at = datetime.utcnow()
-                            dist.email_address_used = rcpt["email"]
-                            dist.email_error = None
-                        else:
-                            dist.email_status = EmailDeliveryStatus.FAILED
-                            dist.email_error = result.get("error", "Unknown error")
-                            dist.email_address_used = rcpt["email"]
+                # Batch-update distribution statuses in DB (avoid N+1)
+                dists = (
+                    db.query(TaxDistribution)
+                    .filter(TaxDistribution.id.in_(unsent_dist_ids))
+                    .all()
+                )
+                for dist in dists:
+                    if result["success"]:
+                        dist.email_status = EmailDeliveryStatus.SENT
+                        dist.email_sent = True
+                        dist.email_sent_at = datetime.utcnow()
+                        dist.email_address_used = rcpt["email"]
+                        dist.email_error = None
+                    else:
+                        dist.email_status = EmailDeliveryStatus.FAILED
+                        dist.email_error = result.get("error", "Unknown error")
+                        dist.email_address_used = rcpt["email"]
 
                 db.commit()
 

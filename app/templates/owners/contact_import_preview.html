@@ -58,7 +58,8 @@
     </div>
 </div>
 
-<form action="/vlastnici/import-kontaktu/potvrdit" method="post" hx-boost="false" id="confirm-form">
+<form action="/vlastnici/import-kontaktu/potvrdit" method="post" hx-boost="false" id="confirm-form"
+      onsubmit="if(document.getElementById('overwrite-cb').checked){return confirm('Přepsat existující údaje? Tato akce změní stávající data u vybraných vlastníků.')}">
     <input type="hidden" name="file_path" value="{{ file_path }}">
     <input type="hidden" name="mapping_json" value="{{ mapping_json|default('', true)|e }}">
 
@@ -67,10 +68,10 @@
         <label class="flex items-center gap-1.5 text-xs text-gray-600">
             <input type="checkbox" id="select-all" onchange="toggleSelectAll(this.checked)"
                    class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
-            Vybrat vše se změnami
+            <span id="select-all-label">Vybrat vše se změnami</span>
         </label>
         <label class="flex items-center gap-1.5 text-xs text-gray-600">
-            <input type="checkbox" name="overwrite" value="1"
+            <input type="checkbox" name="overwrite" value="1" id="overwrite-cb"
                    class="rounded border-gray-300 text-orange-600 focus:ring-orange-500">
             Přepsat existující údaje
         </label>
@@ -203,6 +204,7 @@ function filterRows(type) {
             if (!show) detail.classList.add('hidden');
         }
     });
+    _updateSelectAllLabel();
 }
 
 function filterByField(field) {
@@ -224,18 +226,39 @@ function filterByField(field) {
             if (!show) detail.classList.add('hidden');
         }
     });
+    _updateSelectAllLabel();
 }
 
+function stripDia(s) {
+    return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
 function searchRows(q) {
     var lower = q.toLowerCase();
+    var ascii = stripDia(q);
     document.querySelectorAll('.preview-row').forEach(function(row) {
         var name = row.dataset.name || '';
-        row.style.display = name.indexOf(lower) !== -1 ? '' : 'none';
+        var nameAscii = stripDia(name);
+        row.style.display = (name.indexOf(lower) !== -1 || nameAscii.indexOf(ascii) !== -1) ? '' : 'none';
         var detail = row.nextElementSibling;
         if (detail && detail.classList.contains('detail-row') && row.style.display === 'none') {
             detail.classList.add('hidden');
         }
     });
+    _updateSelectAllLabel();
+}
+
+var _activeContactFilter = 'all';
+function _updateSelectAllLabel() {
+    var label = document.getElementById('select-all-label');
+    if (!label) return;
+    var visible = 0;
+    document.querySelectorAll('.owner-cb').forEach(function(cb) {
+        if (cb.closest('tr').style.display !== 'none') visible++;
+    });
+    var total = document.querySelectorAll('.owner-cb').length;
+    label.textContent = visible < total
+        ? 'Vybrat viditelné se změnami (' + visible + ')'
+        : 'Vybrat vše se změnami';
 }
 
 function toggleSelectAll(checked) {
