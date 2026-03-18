@@ -52,10 +52,16 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
 ### A. Evidence vlastníků (`/vlastnici`)
 
 - Vytvoření nového vlastníka (inline HTMX formulář: příjmení, jméno, titul, typ, email, telefon, RČ/IČ)
-- Import z Excelu (31 sloupců, sheet `Vlastnici_SVJ`) s náhledem a potvrzením
+- Import z Excelu s dynamickým mapováním sloupců:
+  - Upload → automatická detekce mapování (31 polí v 6 skupinách: Jednotka, Vlastník, Trvalá adresa, Korespondenční adresa, Kontakty, Ostatní)
+  - Mapování uložené v DB (`SvjInfo.owner_import_mapping`) — při dalším importu předvyplněné
+  - Výběr sheetu a počátečního řádku dat, uložení mapování pro příští import
+  - 4-krokový sub-stepper: Nahrání → Mapování → Náhled → Výsledek
+  - Náhled a potvrzení importu
 - Historia importů s možností smazání (smaže vlastníky, jednotky i přiřazení)
 - **Import kontaktů** (dolní sekce na `/vlastnici/import`):
-  - Nahrání Excelu se kontaktními údaji (sheet "ZU" nebo první sheet)
+  - Nahrání Excelu se kontaktními údaji s dynamickým mapováním sloupců (17 polí v 5 skupinách: Párování, Kontakty, Identifikace, Trvalá adresa, Korespondenční adresa)
+  - Mapování uložené v DB (`SvjInfo.contact_import_mapping`) — při dalším importu předvyplněné
   - Párování Excel řádků na vlastníky v evidenci (fuzzy match podle jména + fallback RČ/IČ)
   - Podpora IČ (company_id field) pro právnické osoby + detekce RČ vs IČ podle typu vlastníka
   - Progress bar s reálným procentem a odhadem zbývajícího času (ETA) během zpracování
@@ -385,11 +391,16 @@ app/
 │   ├── tax.py                 #   TaxSession, TaxDocument, TaxDistribution
 │   ├── sync.py                #   SyncSession, SyncRecord
 │   ├── share_check.py         #   ShareCheckSession, ShareCheckRecord, ShareCheckColumnMapping
-│   ├── common.py              #   EmailLog, ImportLog, ActivityLog, ActivityAction, log_activity()
-│   └── administration.py      #   SvjInfo, SvjAddress, BoardMember, CodeListItem, EmailTemplate
+│   ├── common.py              #   EmailLog (+ name_normalized), ImportLog, ActivityLog, ActivityAction, log_activity()
+│   └── administration.py      #   SvjInfo (+ owner/contact_import_mapping), SvjAddress, BoardMember, CodeListItem, EmailTemplate
 ├── routers/                   # HTTP endpointy
 │   ├── dashboard.py           #   GET /
-│   ├── owners.py              #   /vlastnici (+ /vlastnici/import)
+│   ├── owners/                #   /vlastnici (crud, import vlastníků, import kontaktů)
+│   │   ├── __init__.py
+│   │   ├── crud.py            #   CRUD, detail, export
+│   │   ├── import_owners.py   #   Import vlastníků z Excelu (mapování + náhled)
+│   │   ├── import_contacts.py #   Import kontaktů z Excelu (mapování + zpracování)
+│   │   └── _helpers.py        #   Sdílené funkce (uložení/načtení mapování)
 │   ├── units.py               #   /jednotky
 │   ├── voting/                #   /hlasovani (session, ballots, import_votes, _helpers)
 │   │   ├── __init__.py
@@ -423,6 +434,7 @@ app/
 │   ├── owner_exchange.py      #   Výměna vlastníků při synchronizaci
 │   ├── backup_service.py      #   Zálohování a obnova dat (ZIP)
 │   ├── data_export.py         #   Export dat do Excel/CSV (7 kategorií)
+│   ├── import_mapping.py      #   Definice polí a auto-detekce mapování pro import vlastníků/kontaktů
 │   ├── email_service.py       #   SMTP odesílání emailů
 │   └── code_list_service.py   #   Sdílený přístup k číselníkům
 ├── templates/                 # Jinja2 šablony
@@ -434,9 +446,11 @@ app/
 │   │   ├── list.html          #     Seznam vlastníků
 │   │   ├── detail.html        #     Detail vlastníka
 │   │   ├── import.html        #     Import z Excelu + historie
+│   │   ├── owner_import_mapping.html #  Mapování sloupců pro import vlastníků
 │   │   ├── import_preview.html#     Náhled před importem
 │   │   ├── import_result.html #     Výsledek importu
 │   │   ├── contact_import.html #    Import kontaktů — hlavní stránka
+│   │   ├── contact_import_mapping.html # Mapování sloupců pro import kontaktů
 │   │   ├── contact_import_processing.html # Progress bar zpracování kontaktů
 │   │   ├── contact_import_preview.html #  Náhled párování kontaktů
 │   │   └── contact_import_result.html #   Výsledek importu kontaktů
@@ -524,6 +538,8 @@ app/
 │       ├── wizard_stepper.html
 │       ├── wizard_stepper_compact.html
 │       ├── import_stepper.html
+│       ├── import_mapping_fields.html  # Sdílený Jinja2 macro pro mapování sloupců
+│       ├── import_mapping_js.html      # Sdílený JS pro mapování sloupců
 │       ├── ballot_vote_error.html
 │       ├── unit_owners.html
 │       └── unit_owner_edit_row.html
@@ -561,17 +577,21 @@ wheels/                        # Offline Python balíčky (gitignored)
 | GET | `/vlastnici/novy-formular` | HTMX: formulář nového vlastníka |
 | POST | `/vlastnici/novy` | Vytvoření vlastníka → redirect na detail |
 | GET | `/vlastnici/import` | Sloučená stránka importu: vlastníci (nahoře) + kontakty (dole), každý s upload + historií |
-| POST | `/vlastnici/import` | Nahrání Excel souboru vlastníků → náhled |
+| POST | `/vlastnici/import` | Nahrání Excel souboru vlastníků → mapování sloupců |
+| POST | `/vlastnici/import/mapovani` | Potvrzení mapování → zpracování a přesměrování na náhled |
+| POST | `/vlastnici/import/nahled` | Náhled importovaných dat před potvrzením |
 | POST | `/vlastnici/import/potvrdit` | Potvrzení importu vlastníků → uložení |
 | POST | `/vlastnici/import/{log_id}/smazat` | Smazání logu importu vlastníků (log + soubor) |
 | GET | `/vlastnici/import-kontaktu` | Redirect → `/vlastnici/import#kontakty` |
-| POST | `/vlastnici/import-kontaktu` | Nahrání Excel kontaktů → zpracování na pozadí |
-| POST | `/vlastnici/import-kontaktu/{log_id}/smazat` | Smazání logu importu kontaktů (log + soubor) |
+| POST | `/vlastnici/import-kontaktu` | Nahrání Excel kontaktů → mapování sloupců |
+| POST | `/vlastnici/import-kontaktu/mapovani` | Potvrzení mapování → náhled s auto-detekcí |
+| POST | `/vlastnici/import-kontaktu/nahled` | Potvrzení náhledu → zpracování na pozadí |
 | GET | `/vlastnici/import-kontaktu/zpracovani` | Stránka progress baru zpracování kontaktů |
 | GET | `/vlastnici/import-kontaktu/zpracovani-stav` | HTMX polling: stav zpracování (nebo HX-Redirect po dokončení) |
-| GET | `/vlastnici/import-kontaktu/nahled` | Náhled párování a změn z cache, klikací stat karty a field filtry |
+| GET | `/vlastnici/import-kontaktu/nahled-vysledek` | Náhled párování a změn z cache, klikací stat karty a field filtry |
 | POST | `/vlastnici/import-kontaktu/potvrdit` | Potvrzení importu kontaktů + uložení do DB + ImportLog |
 | GET | `/vlastnici/import-kontaktu/znovu` | Restart zpracování importu kontaktů |
+| POST | `/vlastnici/import-kontaktu/{log_id}/smazat` | Smazání logu importu kontaktů (log + soubor) |
 | GET | `/vlastnici/{id}` | Detail vlastníka |
 | GET | `/vlastnici/{id}/upravit-formular` | HTMX: formulář kontaktů |
 | GET | `/vlastnici/{id}/info` | HTMX: zobrazení kontaktů |
@@ -779,12 +799,12 @@ LIBREOFFICE_PATH=/Applications/LibreOffice.app/Contents/MacOS/soffice
 - **TaxSession** → TaxDocument → TaxDistribution
 - **SyncSession** → SyncRecord (cascade delete)
 - **ShareCheckSession** → ShareCheckRecord (cascade delete); ShareCheckColumnMapping (zapamatované mapování sloupců)
-- **SvjInfo** → SvjAddress — informace o SVJ a adresy; `voting_import_mapping` pro globální uložení mapování sloupců importu hlasování
+- **SvjInfo** → SvjAddress — informace o SVJ a adresy; `voting_import_mapping`, `owner_import_mapping`, `contact_import_mapping` pro globální uložení mapování sloupců importů (JSON)
 - **BoardMember** — členové výboru a kontrolního orgánu (group: board/control)
 - **CodeListItem** — položky číselníků (category: space_type/section/room_count/ownership_type, value, order); unique index na (category, value)
 - **EmailTemplate** — šablony emailů pro hromadné rozesílání (name, subject_template, body_template, order); placeholder `{rok}` nahrazen při výběru
 - **ActivityLog** — log aktivit (modul, akce, entita, timestamp); **ActivityAction** — enum typů aktivit (CREATED, UPDATED, DELETED, STATUS_CHANGED, IMPORTED, EXPORTED, RESTORED)
-- **EmailLog**, **ImportLog** — systémové logy
+- **EmailLog** (+ `name_normalized` pro diacritics-insensitive vyhledávání), **ImportLog** — systémové logy
 
 ## Bezpečnost a kvalita kódu
 
@@ -872,8 +892,19 @@ Zbývající nálezy z druhého auditu: autentizace (plánováno), CSRF ochrana,
 - Generická chybová zpráva místo SMTP exception (info leakage)
 - Smazány redundantní inline importy (`Path` 3×, `smtplib`, `markupsafe`, `sa_func`, `engine`, `sqlite3`)
 - Extrahován `_parse_numeric_fields()` a `_build_warn_html()` v units.py (deduplikace)
-- `force_create` jako Form parametr místo `request.form()` v owners.py
+- `force_create` jako Form parametr místo `request.form()` v owners/crud.py
 - Smazán zastaralý `docs/CLAUDE-zaloha.md`
+
+**Sedmý audit — Code Guardian (2026-03-18) — 9 nálezů, opraveno 9:**
+- Rozdělen `owners.py` (1800+ řádků) na package `owners/` — 4 moduly (crud, import_owners, import_contacts, _helpers)
+- Dynamické mapování sloupců pro import vlastníků a kontaktů — sdílená service `import_mapping.py` s auto-detekcí, validací a uloženým mapováním
+- Sdílené Jinja2 partials pro mapování: `import_mapping_fields.html` (macro), `import_mapping_js.html` (JS), `import_stepper.html` (4-krokový sub-stepper)
+- `EmailLog.name_normalized` sloupec pro diacritics-insensitive vyhledávání v email logu
+- Voting detail: SQL agregace (GROUP BY) místo Python iterace pro statistiky hlasování
+- PDF parser fix: parsování jmen ze spoluvlastnického podílu v daňových dokumentech
+- Formulář rozesílání zjednodušen: rok odstraněn, title+subject sloučeny
+- Číselníky redesign: kolapsovatelné karty s ikonami (5-sloupcový grid)
+- Nové migrace v `main.py`: `_migrate_svj_import_mappings()`, `_migrate_email_log_name_normalized()`
 
 **Audit zálohovacího systému (2026-03-05) — 14 nálezů, opraveno 12:**
 - ZIP validace: CRC integrity check (`testzip()`) před restore

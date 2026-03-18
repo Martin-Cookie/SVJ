@@ -117,6 +117,7 @@
   Owner.name_normalized.like(search_ascii)  # NE ilike — name_normalized je už lowercase
   ```
 - **Nikdy nepoužívat `name_with_titles.ilike(search)` jako hlavní vyhledávání jmen** — selže pro české znaky. Vždy `name_normalized.like(search_ascii)`.
+- **Stejný vzor pro EmailLog**: `EmailLog.name_normalized` slouží pro diacritics-insensitive hledání v historii emailů (nastavení stránka)
 
 ## Jména vlastníků
 
@@ -202,7 +203,7 @@
 - Interní helper funkce mají prefix `_` (např. `_ballot_stats`, `_purge_counts`)
 - Vrací dict, který se rozbalí do template kontextu: `**_ballot_stats(voting)`
 - Typické helpery: `voting.has_processed_ballots` (model property), `_voting_wizard(voting, step)` / `_tax_wizard(...)` (wizard stepper kontext)
-- Validační funkce v service vrstvě: `validate_mapping(mapping)` → `str | None` (chybová zpráva nebo None)
+- Validační funkce v service vrstvě: `validate_owner_mapping(mapping)` / `validate_contact_mapping(mapping)` → `str | None` (chybová zpráva nebo None)
 
 ### Formulářová validace — návrat formuláře s chybou
 - Při validační chybě (neplatný email, duplicita, rozsah) vracet **formulářovou šablonu s `error`** místo tichého redirectu:
@@ -214,7 +215,7 @@
   })
   ```
 - Šablona zobrazí červenou hlášku a zachová vyplněná pole přes `form_data`
-- Používáno v: `owners.py` (email validace), `units.py` (unit_number, building_number rozsah)
+- Používáno v: `owners/crud.py` (email validace), `units.py` (unit_number, building_number rozsah)
 
 ### Detekce duplicit při vytváření entity
 - Před vytvořením vlastníka ověřit duplicitu (jméno, RČ, email) — zobrazit varování s existujícími záznamy
@@ -281,7 +282,8 @@
 - Ukládání: `{YYYYMMDD_HHMMSS}_{original_filename}` do podadresáře `settings.upload_dir`
 - Podadresáře: `excel/`, `word_templates/`, `scanned_ballots/`, `tax_pdfs/`, `csv/`
 - Zápis přes `shutil.copyfileobj(file.file, f)` + `dest.parent.mkdir(parents=True, exist_ok=True)`
-- Multi-step import workflow: Upload → Preview → Confirm. Cesta k souboru se předává jako hidden field, ne přes session
+- Multi-step import workflow: Upload → Mapování → Preview → Confirm. Cesta k souboru se předává jako hidden field, ne přes session
+- **Dynamické mapování sloupců** pro importy vlastníků a kontaktů: `import_mapping.py` service definuje pole, auto-detekci z hlaviček a validaci. Uložené mapování v `SvjInfo.owner_import_mapping` / `contact_import_mapping` (JSON). Sdílené UI: `partials/import_mapping_fields.html` (Jinja2 macro) + `partials/import_mapping_js.html` (sdílený JS) + `partials/import_stepper.html` (4-krokový sub-stepper)
 
 ## Mazání entit se soubory
 
@@ -313,7 +315,7 @@
 
 ## JavaScript
 
-- Stránkový JS jde do `<script>` na konci `{% block content %}` — ne do separátních `.js` souborů
+- Stránkový JS jde do `<script>` na konci `{% block content %}` — ne do separátních `.js` souborů. **Výjimka:** sdílený JS pro více stránek se stejnou logikou může být v Jinja2 partial (`{% include "partials/import_mapping_js.html" %}`) místo duplikace — viz import mapping
 - Vanilla JS only (žádný jQuery, žádné external knihovny kromě HTMX)
 - `/static/js/app.js` pro HTMX globální handlery, dark mode toggle, custom confirm modal (`svjConfirm`), focus trap + focus restore v modalech, `beforeunload` varování (`data-warn-unsaved`), scroll position save/restore, client-side sort (`sortTableCol`), auto-dismiss flash zpráv
 - Jinja2 macro je OK pro opakující se UI struktury v rámci jedné šablony, pokud všechna data přijdou jako parametry macro
@@ -349,12 +351,13 @@
 - `__init__.py`: vlastní `APIRouter()` + `include_router(sub_router)` pro každý sub-modul
 - `main.py` import zůstává beze změny (`from app.routers import modul`)
 - Příklady:
+  - `owners/` — `crud.py`, `import_owners.py`, `import_contacts.py`, `_helpers.py`
   - `voting/` — `session.py`, `ballots.py`, `import_votes.py`, `_helpers.py`
   - `tax/` — `session.py`, `processing.py`, `matching.py`, `sending.py`, `_helpers.py`
 
 ## Startup (lifespan)
 
-- `main.py` lifespan: (1) import modelů, (2) `create_all`, (3) migrace (6 migračních funkcí), (4) `_ensure_indexes()`, (5) `_seed_code_lists()`, (6) `_seed_email_templates()`, (7) `recover_stuck_sending_sessions()`, (8) vytvoření upload/generated/temp adresářů
+- `main.py` lifespan: (1) import modelů, (2) `create_all`, (3) migrace (8 migračních funkcí), (4) `_ensure_indexes()`, (5) `_seed_code_lists()`, (6) `_seed_email_templates()`, (7) `recover_stuck_sending_sessions()`, (8) vytvoření upload/generated/temp adresářů
 - Nové funkce vyžadující adresáře: přidat do lifespan. Nové indexy: přidat do `_ensure_indexes()`
 
 ## Nasazení na USB (jiný počítač)
