@@ -8,6 +8,9 @@
 </div><!-- /bubble+search kontejner -->
 
 {% include "partials/import_stepper.html" %}
+<form id="back-to-mapping-form" action="/hlasovani/{{ voting.id }}/import/mapovani" method="post" class="hidden" hx-boost="false">
+    <input type="hidden" name="file_path" value="{{ file_path }}">
+</form>
 <div class="flex items-center justify-between mb-3">
     <div>
         <h2 class="text-lg font-bold text-gray-800">Náhled importu výsledků</h2>

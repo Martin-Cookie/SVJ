@@ -1,12 +1,22 @@
 {# Import sub-stepper: shows current step in the import flow.
    Required context: import_step (int, 1-4)
+   Optional: import_step_urls (dict step_num→url for clickable done steps)
+             Values starting with "#" are treated as form IDs to submit via JS.
 #}
 {% set _steps = [("Nahrání", 1), ("Mapování", 2), ("Náhled", 3), ("Výsledek", 4)] %}
 <div class="flex items-center gap-1 text-xs mb-2">
     {% for label, num in _steps %}
+    {% set _url = (import_step_urls or {})[num] if import_step > num else None %}
+    {% if _url %}
+    <a href="{{ _url }}" {% if _url.startswith('#') %}onclick="event.preventDefault();document.getElementById('{{ _url[1:] }}').submit()"{% endif %}
+       class="text-green-600 hover:text-green-800 hover:underline cursor-pointer">
+        &#10003; {{ label }}
+    </a>
+    {% else %}
     <span class="{% if import_step == num %}font-bold text-blue-600{% elif import_step > num %}text-green-600{% else %}text-gray-400{% endif %}">
         {% if import_step > num %}&#10003;{% else %}{{ num }}.{% endif %} {{ label }}
     </span>
+    {% endif %}
     {% if not loop.last %}<span class="text-gray-300 mx-0.5">→</span>{% endif %}
     {% endfor %}
 </div>

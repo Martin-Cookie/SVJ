@@ -9,6 +9,11 @@
     <div class="mb-3">
         <a href="/vlastnici/import#kontakty" class="text-sm text-blue-600 hover:text-blue-800">&larr; Zpět na import</a>
     </div>
+    {% include "partials/import_stepper.html" %}
+    <form id="back-to-mapping-form" action="/vlastnici/import-kontaktu/mapovani" method="post" class="hidden" hx-boost="false">
+        <input type="hidden" name="file_path" value="{{ file_path }}">
+        <input type="hidden" name="filename" value="{{ filename }}">
+    </form>
     <h1 class="text-xl font-bold text-gray-800 mb-3">Náhled importu kontaktů</h1>
 
     <!-- Stats + filter cards -->

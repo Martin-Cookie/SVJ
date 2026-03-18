@@ -153,6 +153,46 @@ async def import_upload(
         "filename": file.filename,
         "saved_mapping": saved_mapping,
         "import_step": 2,
+        "import_step_urls": {1: f"/hlasovani/{voting.id}/import"},
+        "active_bubble": "",
+        "show_close_voting": has_processed,
+        **_ballot_stats(voting, db),
+        **_voting_wizard(voting, 3),
+    })
+
+
+@router.post("/{voting_id}/import/mapovani")
+async def import_back_to_mapping(
+    voting_id: int,
+    request: Request,
+    file_path: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    """Return to mapping page from preview (back navigation)."""
+    voting = db.query(Voting).options(
+        joinedload(Voting.items),
+        joinedload(Voting.ballots).joinedload(Ballot.votes),
+    ).get(voting_id)
+    if not voting:
+        return RedirectResponse("/hlasovani", status_code=302)
+
+    if not Path(file_path).exists() or not is_safe_path(Path(file_path), settings.upload_dir):
+        return RedirectResponse(f"/hlasovani/{voting_id}/import", status_code=302)
+
+    headers = read_excel_headers(file_path)
+    saved_mapping = _load_saved_mapping(voting, db)
+    has_processed = voting.has_processed_ballots
+
+    return templates.TemplateResponse("voting/import_mapping.html", {
+        "request": request,
+        "active_nav": "voting",
+        "voting": voting,
+        "headers": headers,
+        "file_path": file_path,
+        "filename": Path(file_path).name,
+        "saved_mapping": saved_mapping,
+        "import_step": 2,
+        "import_step_urls": {1: f"/hlasovani/{voting.id}/import"},
         "active_bubble": "",
         "show_close_voting": has_processed,
         **_ballot_stats(voting, db),
@@ -211,6 +251,7 @@ async def import_preview(
         "file_path": file_path,
         "item_lookup": item_lookup,
         "import_step": 3,
+        "import_step_urls": {1: f"/hlasovani/{voting.id}/import", 2: "#back-to-mapping-form"},
         "active_bubble": "",
         "show_close_voting": has_processed,
         **_ballot_stats(voting, db),

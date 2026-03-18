@@ -9,6 +9,10 @@
 </div>
 
 {% include "partials/import_stepper.html" %}
+<form id="back-to-mapping-form" action="/vlastnici/import/mapovani" method="post" class="hidden" hx-boost="false">
+    <input type="hidden" name="file_path" value="{{ file_path }}">
+    <input type="hidden" name="filename" value="{{ filename }}">
+</form>
 
 <div class="flex items-center justify-between mb-3">
     <div>
