@@ -200,6 +200,7 @@ def _migrate_svj_import_mappings():
         ]
         for col_name in ("owner_import_mapping", "contact_import_mapping"):
             if col_name not in columns:
+                # safe: col_name from hardcoded tuple above
                 conn.execute(text(
                     f"ALTER TABLE svj_info ADD COLUMN {col_name} TEXT"
                 ))
@@ -349,6 +350,21 @@ def _seed_email_templates():
         logger.info("Default email template seeded")
 
 
+_ALL_MIGRATIONS = [
+    ("units table", _migrate_units_table),
+    ("owner_units history", _migrate_owner_units_history),
+    ("tax tables", _migrate_tax_tables),
+    ("owners phone_secondary", _migrate_owners_phone_secondary),
+    ("ballots shared_owners", _migrate_ballots_shared_owners),
+    ("svj_info voting_import_mapping", _migrate_svj_info_voting_mapping),
+    ("svj_info import_mappings", _migrate_svj_import_mappings),
+    ("email_logs name_normalized", _migrate_email_log_name_normalized),
+    ("index creation", _ensure_indexes),
+    ("code list seeding", _seed_code_lists),
+    ("email template seeding", _seed_email_templates),
+]
+
+
 def run_post_restore_migrations() -> list[str]:
     """Re-connect to the (possibly replaced) database and run all migrations.
 
@@ -364,19 +380,7 @@ def run_post_restore_migrations() -> list[str]:
     import app.models  # noqa: F401
     Base.metadata.create_all(bind=engine)
 
-    _MIGRATIONS = [
-        ("units table", _migrate_units_table),
-        ("owner_units history", _migrate_owner_units_history),
-        ("tax tables", _migrate_tax_tables),
-        ("owners phone_secondary", _migrate_owners_phone_secondary),
-        ("ballots shared_owners", _migrate_ballots_shared_owners),
-        ("svj_info voting_import_mapping", _migrate_svj_info_voting_mapping),
-        ("svj_info import_mappings", _migrate_svj_import_mappings),
-        ("index creation", _ensure_indexes),
-        ("code list seeding", _seed_code_lists),
-        ("email template seeding", _seed_email_templates),
-    ]
-    for name, func in _MIGRATIONS:
+    for name, func in _ALL_MIGRATIONS:
         try:
             func()
         except Exception:
@@ -405,71 +409,12 @@ async def lifespan(app: FastAPI):
 
     Base.metadata.create_all(bind=engine)
 
-    # One-time migrations
-    try:
-        _migrate_units_table()
-    except Exception:
-        logger.warning("units migration skipped (table may not exist yet)")
-
-    # Add valid_from / valid_to to owner_units
-    try:
-        _migrate_owner_units_history()
-    except Exception:
-        logger.warning("owner_units history migration skipped")
-
-    # Add send workflow columns to tax tables
-    try:
-        _migrate_tax_tables()
-    except Exception:
-        logger.warning("tax tables migration skipped")
-
-    # Add phone_secondary to owners
-    try:
-        _migrate_owners_phone_secondary()
-    except Exception:
-        logger.warning("owners phone_secondary migration skipped")
-
-    # Add shared_owners_text to ballots
-    try:
-        _migrate_ballots_shared_owners()
-    except Exception:
-        logger.warning("ballots shared_owners migration skipped")
-
-    # Add voting_import_mapping to svj_info
-    try:
-        _migrate_svj_info_voting_mapping()
-    except Exception:
-        logger.warning("svj_info voting_import_mapping migration skipped")
-
-    # Add owner/contact import mappings to svj_info
-    try:
-        _migrate_svj_import_mappings()
-    except Exception:
-        logger.warning("svj_info import_mappings migration skipped")
-
-    # Add name_normalized to email_logs
-    try:
-        _migrate_email_log_name_normalized()
-    except Exception:
-        logger.warning("email_logs name_normalized migration skipped")
-
-    # Ensure indexes on existing tables
-    try:
-        _ensure_indexes()
-    except Exception:
-        logger.warning("index creation skipped")
-
-    # Seed code lists from existing data
-    try:
-        _seed_code_lists()
-    except Exception:
-        logger.warning("code list seeding skipped")
-
-    # Seed default email templates
-    try:
-        _seed_email_templates()
-    except Exception:
-        logger.warning("email template seeding skipped")
+    # Run all migrations (shared list with post-restore)
+    for name, func in _ALL_MIGRATIONS:
+        try:
+            func()
+        except Exception:
+            logger.warning("%s migration skipped", name)
 
     # Recover stuck SENDING sessions (server restart recovery)
     try:

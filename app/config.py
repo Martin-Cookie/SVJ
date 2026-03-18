@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     database_path: Path = Path(__file__).resolve().parent.parent / "data" / "svj.db"
     upload_dir: Path = Path(__file__).resolve().parent.parent / "data" / "uploads"
     generated_dir: Path = Path(__file__).resolve().parent.parent / "data" / "generated"
+    backup_dir: Path = Path(__file__).resolve().parent.parent / "data" / "backups"
     temp_dir: Path = Path(__file__).resolve().parent.parent / "data" / "temp"
 
     smtp_host: str = "smtp.example.com"

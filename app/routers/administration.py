@@ -18,6 +18,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import case, func as sa_func
 from sqlalchemy.orm import Session, joinedload
 
+from app.config import settings
 from app.database import SessionLocal, engine, get_db
 from app.models import (
     SvjInfo, SvjAddress, BoardMember, CodeListItem, EmailTemplate,
@@ -80,11 +81,10 @@ def _get_usage_count(db: Session, category: str, value: str) -> int:
     return q.count()
 
 
-DATA_DIR = Path("data")
-DB_PATH = DATA_DIR / "svj.db"
-UPLOADS_DIR = DATA_DIR / "uploads"
-GENERATED_DIR = DATA_DIR / "generated"
-BACKUP_DIR = DATA_DIR / "backups"
+DB_PATH = settings.database_path
+UPLOADS_DIR = settings.upload_dir
+GENERATED_DIR = settings.generated_dir
+BACKUP_DIR = settings.backup_dir
 
 # Sort priority: Předseda/Předsedkyně first, then Místopředseda, then others
 # Use func.lower to handle case variations (člen vs Člen)
