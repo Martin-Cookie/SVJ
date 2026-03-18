@@ -191,6 +191,22 @@ def _migrate_svj_info_voting_mapping():
         conn.commit()
 
 
+def _migrate_svj_import_mappings():
+    """Add owner_import_mapping and contact_import_mapping columns to svj_info table."""
+    with engine.connect() as conn:
+        columns = [
+            row[1] for row in
+            conn.execute(text("PRAGMA table_info(svj_info)")).fetchall()
+        ]
+        for col_name in ("owner_import_mapping", "contact_import_mapping"):
+            if col_name not in columns:
+                conn.execute(text(
+                    f"ALTER TABLE svj_info ADD COLUMN {col_name} TEXT"
+                ))
+                logger.info("Added %s column to svj_info", col_name)
+        conn.commit()
+
+
 def _ensure_indexes():
     """Create indexes defined in models that may be missing on existing tables."""
     _INDEXES = [
@@ -328,6 +344,7 @@ def run_post_restore_migrations() -> list[str]:
         ("owners phone_secondary", _migrate_owners_phone_secondary),
         ("ballots shared_owners", _migrate_ballots_shared_owners),
         ("svj_info voting_import_mapping", _migrate_svj_info_voting_mapping),
+        ("svj_info import_mappings", _migrate_svj_import_mappings),
         ("index creation", _ensure_indexes),
         ("code list seeding", _seed_code_lists),
         ("email template seeding", _seed_email_templates),
@@ -396,6 +413,12 @@ async def lifespan(app: FastAPI):
         _migrate_svj_info_voting_mapping()
     except Exception:
         logger.warning("svj_info voting_import_mapping migration skipped")
+
+    # Add owner/contact import mappings to svj_info
+    try:
+        _migrate_svj_import_mappings()
+    except Exception:
+        logger.warning("svj_info import_mappings migration skipped")
 
     # Ensure indexes on existing tables
     try:

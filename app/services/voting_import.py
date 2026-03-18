@@ -175,14 +175,14 @@ def validate_mapping(mapping: dict) -> str | None:
 
 
 def read_excel_headers(file_path: str) -> list[str]:
-    """Read first row (headers) from Excel file."""
-    wb = load_workbook(file_path, read_only=True, data_only=True)
-    ws = wb.active
-    headers = []
-    for row in ws.iter_rows(min_row=1, max_row=1, values_only=True):
-        headers = [str(c).strip() if c is not None else f"Sloupec {i+1}" for i, c in enumerate(row)]
-    wb.close()
-    return headers
+    """Read first row (headers) from Excel file.
+
+    NOTE: This is a thin wrapper for backward compatibility.
+    For new code, prefer import_mapping.read_excel_headers() which supports
+    sheet_name and header_row parameters.
+    """
+    from app.services.import_mapping import read_excel_headers as _read_headers
+    return _read_headers(file_path)
 
 
 def preview_voting_import(file_path: str, mapping: dict, voting: Voting, db: Session) -> dict:

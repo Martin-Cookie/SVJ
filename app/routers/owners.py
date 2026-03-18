@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 import csv
 import io
+import json
 import logging
 import shutil
 import threading
@@ -26,6 +29,11 @@ from app.models import ImportLog, Owner, OwnerType, OwnerUnit, SvjInfo, Unit, Ac
 from app.services.code_list_service import get_all_code_lists
 from app.services.contact_import import preview_contact_import, execute_contact_import
 from app.services.excel_import import import_owners_from_excel, preview_owners_from_excel
+from app.services.import_mapping import (
+    CONTACT_FIELD_DEFS, CONTACT_FIELD_GROUPS, OWNER_FIELD_DEFS, OWNER_FIELD_GROUPS,
+    build_mapping_context, read_excel_headers, read_excel_sheet_names,
+    validate_contact_mapping, validate_owner_mapping,
+)
 from app.services.owner_exchange import recalculate_unit_votes
 from app.services.owner_service import merge_owners
 from app.utils import UPLOAD_LIMITS, build_list_url, compute_eta, excel_auto_width, is_htmx_partial, is_safe_path, is_valid_email, setup_jinja_filters, strip_diacritics, validate_upload
@@ -36,6 +44,44 @@ setup_jinja_filters(templates)
 
 # In-memory progress tracker for contact import background processing
 _contact_import_progress: dict[str, dict] = {}
+
+
+def _load_owner_mapping(db: Session) -> dict | None:
+    """Load saved owner import mapping from SvjInfo."""
+    info = db.query(SvjInfo).first()
+    if info and info.owner_import_mapping:
+        try:
+            return json.loads(info.owner_import_mapping)
+        except (json.JSONDecodeError, TypeError):
+            pass
+    return None
+
+
+def _save_owner_mapping(db: Session, mapping: dict):
+    """Save owner import mapping to SvjInfo."""
+    info = db.query(SvjInfo).first()
+    if info:
+        info.owner_import_mapping = json.dumps(mapping, ensure_ascii=False)
+        db.commit()
+
+
+def _load_contact_mapping(db: Session) -> dict | None:
+    """Load saved contact import mapping from SvjInfo."""
+    info = db.query(SvjInfo).first()
+    if info and info.contact_import_mapping:
+        try:
+            return json.loads(info.contact_import_mapping)
+        except (json.JSONDecodeError, TypeError):
+            pass
+    return None
+
+
+def _save_contact_mapping(db: Session, mapping: dict):
+    """Save contact import mapping to SvjInfo."""
+    info = db.query(SvjInfo).first()
+    if info:
+        info.contact_import_mapping = json.dumps(mapping, ensure_ascii=False)
+        db.commit()
 
 
 SORT_COLUMNS = {
@@ -499,6 +545,7 @@ async def contact_import_page():
 async def contact_import_upload(
     request: Request,
     file: UploadFile = File(...),
+    db: Session = Depends(get_db),
 ):
     if not file.filename:
         return RedirectResponse("/vlastnici/import?chyba_kontakty=format#kontakty", status_code=302)
@@ -513,15 +560,97 @@ async def contact_import_upload(
     with open(dest, "wb") as f:
         shutil.copyfileobj(file.file, f)
 
-    file_key = dest.name  # unique key for progress tracking
+    # Show mapping page instead of directly processing
+    return _contact_mapping_page(request, str(dest), file.filename, db)
+
+
+@router.post("/import-kontaktu/mapovani")
+async def contact_mapping_reload(
+    request: Request,
+    file_path: str = Form(...),
+    filename: str = Form(""),
+    sheet_name: str = Form(""),
+    start_row: int = Form(1),
+    db: Session = Depends(get_db),
+):
+    """Reload contact mapping page with different sheet/start_row."""
+    if not is_safe_path(Path(file_path), settings.upload_dir):
+        return RedirectResponse("/vlastnici/import#kontakty", status_code=302)
+    return _contact_mapping_page(request, file_path, filename, db, sheet_name=sheet_name or None, start_row=start_row)
+
+
+def _contact_mapping_page(
+    request: Request,
+    file_path: str,
+    filename: str,
+    db: Session,
+    sheet_name: str | None = None,
+    start_row: int | None = None,
+):
+    """Build and return contact mapping page context."""
+    sheets = read_excel_sheet_names(file_path)
+    current_sheet = sheet_name or (sheets[0] if sheets else None)
+
+    saved_mapping = _load_contact_mapping(db)
+    sr = start_row or (saved_mapping or {}).get("start_row", 7)
+    header_row = max(1, sr - 1)
+
+    headers = read_excel_headers(file_path, sheet_name=current_sheet, header_row=header_row)
+
+    ctx = build_mapping_context(headers, CONTACT_FIELD_DEFS, CONTACT_FIELD_GROUPS, saved_mapping)
+
+    return templates.TemplateResponse("owners/contact_import_mapping.html", {
+        "request": request,
+        "active_nav": "owners",
+        "import_step": 2,
+        "file_path": file_path,
+        "filename": filename or Path(file_path).name,
+        "sheets": sheets,
+        "current_sheet": current_sheet,
+        "start_row": sr,
+        **ctx,
+    })
+
+
+@router.post("/import-kontaktu/nahled")
+async def contact_import_mapping_submit(
+    request: Request,
+    file_path: str = Form(...),
+    filename: str = Form(""),
+    mapping_json: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    """Step 2 → 3: Mapping → start background processing."""
+    if not is_safe_path(Path(file_path), settings.upload_dir):
+        return RedirectResponse("/vlastnici/import#kontakty", status_code=302)
+
+    # Parse mapping
+    mapping = None
+    if mapping_json:
+        try:
+            mapping = json.loads(mapping_json)
+        except json.JSONDecodeError:
+            pass
+
+    if mapping:
+        err = validate_contact_mapping(mapping)
+        if err:
+            return _contact_mapping_page(request, file_path, filename, db)
+
+        # Save mapping if requested
+        if mapping.pop("save", False):
+            _save_contact_mapping(db, mapping)
+
+    file_key = Path(file_path).name
 
     # Initialize progress tracker
     _contact_import_progress[file_key] = {
         "done": False,
         "error": None,
         "result": None,
-        "file_path": str(dest),
-        "filename": file.filename,
+        "file_path": file_path,
+        "filename": filename,
+        "mapping": mapping,
         "started_at": _time.monotonic(),
         "total": 0,
         "current": 0,
@@ -531,7 +660,7 @@ async def contact_import_upload(
     # Start background processing thread
     thread = threading.Thread(
         target=_run_contact_preview,
-        args=(file_key, str(dest)),
+        args=(file_key, file_path),
         daemon=True,
     )
     thread.start()
@@ -544,7 +673,8 @@ def _run_contact_preview(file_key: str, file_path: str):
     db = SessionLocal()
     try:
         progress = _contact_import_progress[file_key]
-        result = preview_contact_import(file_path, db, progress=progress)
+        mapping = progress.get("mapping")
+        result = preview_contact_import(file_path, db, progress=progress, mapping=mapping)
         progress["result"] = result
     except Exception as e:
         logger.exception("Contact import failed for %s", file_key)
@@ -578,7 +708,7 @@ async def contact_import_processing(
     if not progress:
         return RedirectResponse("/vlastnici/import#kontakty", status_code=302)
     if progress.get("done"):
-        return RedirectResponse(f"/vlastnici/import-kontaktu/nahled?soubor={quote(soubor)}", status_code=302)
+        return RedirectResponse(f"/vlastnici/import-kontaktu/nahled-vysledek?soubor={quote(soubor)}", status_code=302)
 
     return templates.TemplateResponse("owners/contact_import_processing.html", {
         "request": request,
@@ -602,7 +732,7 @@ async def contact_import_status(
 
     if progress.get("done"):
         response = HTMLResponse("")
-        response.headers["HX-Redirect"] = f"/vlastnici/import-kontaktu/nahled?soubor={quote(soubor)}"
+        response.headers["HX-Redirect"] = f"/vlastnici/import-kontaktu/nahled-vysledek?soubor={quote(soubor)}"
         return response
 
     return templates.TemplateResponse("partials/contact_import_progress.html", {
@@ -611,7 +741,7 @@ async def contact_import_status(
     })
 
 
-@router.get("/import-kontaktu/nahled")
+@router.get("/import-kontaktu/nahled-vysledek")
 async def contact_import_preview_page(
     request: Request,
     soubor: str = Query("", alias="soubor"),
@@ -624,12 +754,17 @@ async def contact_import_preview_page(
             return RedirectResponse(f"/vlastnici/import?chyba_kontakty=zpracovani#kontakty", status_code=302)
         return RedirectResponse("/vlastnici/import#kontakty", status_code=302)
 
+    mapping = data.get("mapping")
+    mapping_json_str = json.dumps(mapping, ensure_ascii=False) if mapping else ""
+
     return templates.TemplateResponse("owners/contact_import_preview.html", {
         "request": request,
         "active_nav": "owners",
+        "import_step": 3,
         "preview": data["result"],
         "file_path": data["file_path"],
         "filename": data.get("filename", ""),
+        "mapping_json": mapping_json_str,
     })
 
 
@@ -637,12 +772,14 @@ async def contact_import_preview_page(
 async def contact_import_rerun(
     request: Request,
     soubor: str = Query("", alias="soubor"),
+    db: Session = Depends(get_db),
 ):
     """Re-run preview for an already uploaded file."""
     if not soubor or not is_safe_path(Path(soubor), settings.upload_dir) or not Path(soubor).is_file():
         return RedirectResponse("/vlastnici/import#kontakty", status_code=302)
 
     file_key = Path(soubor).name
+    saved_mapping = _load_contact_mapping(db)
 
     _contact_import_progress[file_key] = {
         "done": False,
@@ -650,6 +787,7 @@ async def contact_import_rerun(
         "result": None,
         "file_path": soubor,
         "filename": Path(soubor).name,
+        "mapping": saved_mapping,
         "started_at": _time.monotonic(),
         "total": 0,
         "current": 0,
@@ -671,6 +809,7 @@ async def contact_import_confirm(
     request: Request,
     file_path: str = Form(...),
     overwrite: str = Form(""),
+    mapping_json: str = Form(""),
     db: Session = Depends(get_db),
 ):
     if not is_safe_path(Path(file_path), settings.upload_dir):
@@ -682,7 +821,15 @@ async def contact_import_confirm(
     if not selected:
         return RedirectResponse("/vlastnici/import#kontakty", status_code=302)
 
-    result = execute_contact_import(file_path, db, selected, overwrite_existing=bool(overwrite))
+    # Parse mapping
+    mapping = None
+    if mapping_json:
+        try:
+            mapping = json.loads(mapping_json)
+        except json.JSONDecodeError:
+            pass
+
+    result = execute_contact_import(file_path, db, selected, overwrite_existing=bool(overwrite), mapping=mapping)
 
     # Log the import
     log = ImportLog(
@@ -734,11 +881,12 @@ async def import_page(
 
 
 @router.post("/import")
-async def import_excel_preview(
+async def import_excel_upload(
     request: Request,
     file: UploadFile = File(...),
+    db: Session = Depends(get_db),
 ):
-    """Step 1: Upload Excel, show preview of parsed data."""
+    """Step 1: Upload Excel → show mapping page."""
     err = await validate_upload(file, **UPLOAD_LIMITS["excel"]) if file.filename else "Nahrajte prosím soubor ve formátu .xlsx"
     if err:
         return templates.TemplateResponse("owners/import.html", {
@@ -755,15 +903,101 @@ async def import_excel_preview(
     with open(dest, "wb") as f:
         shutil.copyfileobj(file.file, f)
 
-    # Parse without saving to DB
-    preview = preview_owners_from_excel(str(dest))
+    # Read headers and show mapping page
+    return _owner_mapping_page(request, str(dest), file.filename, db)
+
+
+@router.post("/import/mapovani")
+async def import_owner_mapping_reload(
+    request: Request,
+    file_path: str = Form(...),
+    filename: str = Form(""),
+    sheet_name: str = Form(""),
+    start_row: int = Form(1),
+    db: Session = Depends(get_db),
+):
+    """Reload mapping page with different sheet/start_row."""
+    if not is_safe_path(Path(file_path), settings.upload_dir):
+        return RedirectResponse("/vlastnici/import", status_code=302)
+    return _owner_mapping_page(request, file_path, filename, db, sheet_name=sheet_name or None, start_row=start_row)
+
+
+def _owner_mapping_page(
+    request: Request,
+    file_path: str,
+    filename: str,
+    db: Session,
+    sheet_name: str | None = None,
+    start_row: int | None = None,
+):
+    """Build and return owner mapping page context."""
+    sheets = read_excel_sheet_names(file_path)
+    current_sheet = sheet_name or (sheets[0] if sheets else None)
+
+    # Determine header row (one above start_row)
+    saved_mapping = _load_owner_mapping(db)
+    sr = start_row or (saved_mapping or {}).get("start_row", 2)
+    header_row = max(1, sr - 1)
+
+    headers = read_excel_headers(file_path, sheet_name=current_sheet, header_row=header_row)
+
+    ctx = build_mapping_context(headers, OWNER_FIELD_DEFS, OWNER_FIELD_GROUPS, saved_mapping)
+
+    owner_count = db.query(Owner).count()
+
+    return templates.TemplateResponse("owners/owner_import_mapping.html", {
+        "request": request,
+        "active_nav": "import",
+        "import_step": 2,
+        "file_path": file_path,
+        "filename": filename or Path(file_path).name,
+        "sheets": sheets,
+        "current_sheet": current_sheet,
+        "start_row": sr,
+        "owner_count": owner_count,
+        **ctx,
+    })
+
+
+@router.post("/import/nahled")
+async def import_excel_preview(
+    request: Request,
+    file_path: str = Form(...),
+    filename: str = Form(""),
+    mapping_json: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    """Step 2: Mapping → preview parsed data."""
+    if not is_safe_path(Path(file_path), settings.upload_dir):
+        return RedirectResponse("/vlastnici/import", status_code=302)
+
+    # Parse mapping
+    mapping = None
+    if mapping_json:
+        try:
+            mapping = json.loads(mapping_json)
+        except json.JSONDecodeError:
+            pass
+
+    if mapping:
+        err = validate_owner_mapping(mapping)
+        if err:
+            return _owner_mapping_page(request, file_path, filename, db)
+
+        # Save mapping if requested
+        if mapping.pop("save", False):
+            _save_owner_mapping(db, mapping)
+
+    preview = preview_owners_from_excel(file_path, mapping=mapping)
 
     return templates.TemplateResponse("owners/import_preview.html", {
         "request": request,
         "active_nav": "import",
+        "import_step": 3,
         "preview": preview,
-        "file_path": str(dest),
-        "filename": file.filename,
+        "file_path": file_path,
+        "filename": filename,
+        "mapping_json": json.dumps(mapping, ensure_ascii=False) if mapping else "",
     })
 
 
@@ -772,11 +1006,20 @@ async def import_excel_confirm(
     request: Request,
     file_path: str = Form(...),
     filename: str = Form(""),
+    mapping_json: str = Form(""),
     db: Session = Depends(get_db),
 ):
-    """Step 2: Confirm preview and save to DB."""
+    """Step 3: Confirm preview and save to DB."""
     if not is_safe_path(Path(file_path), settings.upload_dir):
         return RedirectResponse("/vlastnici/import", status_code=302)
+
+    # Parse mapping
+    mapping = None
+    if mapping_json:
+        try:
+            mapping = json.loads(mapping_json)
+        except json.JSONDecodeError:
+            pass
 
     # Clear existing owners
     db.query(OwnerUnit).delete()
@@ -785,7 +1028,7 @@ async def import_excel_confirm(
     db.commit()
 
     # Import
-    result = import_owners_from_excel(db, file_path)
+    result = import_owners_from_excel(db, file_path, mapping=mapping)
 
     # Log the import
     log = ImportLog(

@@ -8,6 +8,8 @@
     <a href="/vlastnici/import" class="text-sm text-blue-600 hover:text-blue-800">&larr; Zpět na import</a>
 </div>
 
+{% include "partials/import_stepper.html" %}
+
 <div class="flex items-center justify-between mb-3">
     <div>
         <h1 class="text-xl font-bold text-gray-800">Náhled importu - {{ filename }}</h1>
@@ -17,6 +19,7 @@
         <form action="/vlastnici/import/potvrdit" method="post">
             <input type="hidden" name="file_path" value="{{ file_path }}">
             <input type="hidden" name="filename" value="{{ filename }}">
+            <input type="hidden" name="mapping_json" value="{{ mapping_json|default('', true)|e }}">
             <button type="submit" class="px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-xs font-medium transition-colors">Potvrdit a uložit</button>
         </form>
         <a href="/vlastnici/import" class="px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-xs font-medium">Zrušit</a>

@@ -15,6 +15,8 @@ class SvjInfo(Base):
     total_shares = Column(Integer, nullable=True)
     unit_count = Column(Integer, nullable=True)
     voting_import_mapping = Column(Text, nullable=True)  # Global JSON — last used import column mapping
+    owner_import_mapping = Column(Text, nullable=True)   # JSON — last used owner import column mapping
+    contact_import_mapping = Column(Text, nullable=True)  # JSON — last used contact import column mapping
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

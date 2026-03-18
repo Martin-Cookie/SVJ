@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+{% block title %}Mapování sloupců - Import vlastníků{% endblock %}
+
+{% block content %}
+{% from "partials/import_mapping_fields.html" import render_mapping_groups %}
+
+<div class="flex flex-col" style="height:calc(100vh - 3rem)">
+<div class="shrink-0">
+    <div class="mb-3">
+        <a href="/vlastnici/import" class="text-sm text-blue-600 hover:text-blue-800">&larr; Zpět na import</a>
+    </div>
+
+    {% include "partials/import_stepper.html" %}
+
+    <div class="flex items-center justify-between mb-3">
+        <div>
+            <h1 class="text-xl font-bold text-gray-800 dark:text-gray-100">Mapování sloupců — Import vlastníků</h1>
+            <p class="text-xs text-gray-500 mt-0.5">Soubor: {{ filename }} | {{ headers|length }} sloupců nalezeno</p>
+        </div>
+    </div>
+
+    <!-- Warning: destructive import -->
+    {% if owner_count > 0 %}
+    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-3">
+        <p class="text-sm text-yellow-800">
+            <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
+            Import nahradí všech <strong>{{ owner_count }}</strong> vlastníků v evidenci. Tato operace je nevratná.
+        </p>
+    </div>
+    {% endif %}
+
+    <!-- Sheet selector + start row -->
+    {% if sheets|length > 1 %}
+    <div class="flex items-center gap-4 mb-3">
+        <div class="flex items-center gap-2">
+            <label class="text-xs font-medium text-gray-700">List:</label>
+            <select id="sheet-select" class="text-xs border border-gray-300 rounded px-2 py-1.5"
+                    onchange="reloadMapping()">
+                {% for s in sheets %}
+                <option value="{{ s }}" {% if s == current_sheet %}selected{% endif %}>{{ s }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="flex items-center gap-2">
+            <label class="text-xs font-medium text-gray-700">Data od řádku:</label>
+            <input type="number" id="start-row" value="{{ start_row }}" min="1" max="100"
+                   class="text-xs border border-gray-300 rounded px-2 py-1 w-16">
+        </div>
+        <button type="button" onclick="reloadMapping()" class="text-xs px-2 py-1 bg-gray-100 rounded hover:bg-gray-200">
+            Aktualizovat hlavičky
+        </button>
+    </div>
+    {% else %}
+    <div class="flex items-center gap-4 mb-3">
+        <div class="flex items-center gap-2">
+            <label class="text-xs font-medium text-gray-700">Data od řádku:</label>
+            <input type="number" id="start-row" value="{{ start_row }}" min="1" max="100"
+                   class="text-xs border border-gray-300 rounded px-2 py-1 w-16">
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Stats bar -->
+    <div class="flex items-center gap-3 mb-3" id="stats-bar">
+        <span id="stats-matched" class="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800">
+            {{ stats.matched }}/{{ stats.total }} nalezeno
+        </span>
+        {% if stats.required_missing > 0 %}
+        <span id="stats-required" class="px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-800">
+            {{ stats.required_missing }} povinných chybí
+        </span>
+        {% else %}
+        <span id="stats-required" class="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800">
+            Povinná pole OK
+        </span>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Mapping fields -->
+<div class="flex-1 overflow-y-auto min-h-0 pr-1">
+    {{ render_mapping_groups(groups_data, headers) }}
+</div>
+
+<!-- Bottom bar: save checkbox + submit -->
+<div class="shrink-0 mt-3 flex items-center justify-between border-t pt-3">
+    <label class="flex items-center gap-2 text-xs text-gray-600">
+        <input type="checkbox" id="save-mapping" checked
+               class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+        Uložit mapování pro příští import
+    </label>
+    <div class="flex gap-2">
+        <a href="/vlastnici/import" class="px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-xs font-medium">Zrušit</a>
+        <button type="button" id="submit-mapping" onclick="submitMapping()"
+                class="px-4 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+            Pokračovat na náhled
+        </button>
+    </div>
+</div>
+</div>
+
+<form id="mapping-form" action="/vlastnici/import/nahled" method="post" class="hidden">
+    <input type="hidden" name="file_path" value="{{ file_path }}">
+    <input type="hidden" name="filename" value="{{ filename }}">
+    <input type="hidden" name="mapping_json" id="mapping-json" value="">
+</form>
+
+<!-- Reload form (sheet change) -->
+<form id="reload-form" action="/vlastnici/import/mapovani" method="post" class="hidden">
+    <input type="hidden" name="file_path" value="{{ file_path }}">
+    <input type="hidden" name="filename" value="{{ filename }}">
+    <input type="hidden" name="sheet_name" id="reload-sheet" value="">
+    <input type="hidden" name="start_row" id="reload-start-row" value="">
+</form>
+
+<script>
+function reloadMapping() {
+    var sheetEl = document.getElementById('sheet-select');
+    document.getElementById('reload-sheet').value = sheetEl ? sheetEl.value : '';
+    document.getElementById('reload-start-row').value = document.getElementById('start-row').value;
+    document.getElementById('reload-form').submit();
+}
+
+function collectMapping() {
+    var fields = {};
+    document.querySelectorAll('.mapping-select').forEach(function(sel) {
+        var key = sel.dataset.field;
+        var val = sel.value;
+        if (val !== '') {
+            fields[key] = parseInt(val);
+        }
+    });
+    var sheetEl = document.getElementById('sheet-select');
+    return {
+        fields: fields,
+        sheet_name: sheetEl ? sheetEl.value : '',
+        start_row: parseInt(document.getElementById('start-row').value) || 2,
+        save: document.getElementById('save-mapping').checked
+    };
+}
+
+function updateStats() {
+    var total = document.querySelectorAll('.mapping-select').length;
+    var matched = 0;
+    var requiredMissing = 0;
+    document.querySelectorAll('.mapping-select').forEach(function(sel) {
+        if (sel.value !== '') matched++;
+        else if (sel.dataset.required === 'true') requiredMissing++;
+    });
+    var matchedEl = document.getElementById('stats-matched');
+    if (matchedEl) matchedEl.textContent = matched + '/' + total + ' nalezeno';
+    var reqEl = document.getElementById('stats-required');
+    if (reqEl) {
+        if (requiredMissing > 0) {
+            reqEl.textContent = requiredMissing + ' povinných chybí';
+            reqEl.className = 'px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-800';
+        } else {
+            reqEl.textContent = 'Povinná pole OK';
+            reqEl.className = 'px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800';
+        }
+    }
+    var btn = document.getElementById('submit-mapping');
+    btn.disabled = requiredMissing > 0;
+}
+
+function submitMapping() {
+    var mapping = collectMapping();
+    document.getElementById('mapping-json').value = JSON.stringify(mapping);
+    document.getElementById('mapping-form').submit();
+}
+
+// Update stats on any dropdown change
+document.querySelectorAll('.mapping-select').forEach(function(sel) {
+    sel.addEventListener('change', updateStats);
+});
+</script>
+{% endblock %}

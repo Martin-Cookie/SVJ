@@ -3,40 +3,8 @@ from __future__ import annotations
 """
 Excel import service for parsing SVJ owner data.
 
-Expected file: SVJ_Evidence_Vlastniku_CLEAN.xlsx
-Sheet: Vlastnici_SVJ
-Columns (0-indexed):
-  A  (0)  = Číslo jednotky (KN)          e.g. "1098/1"
-  B  (1)  = Číslo prostoru (stavební)     e.g. "A 111"
-  C  (2)  = Podíl na SČD                  e.g. 12212
-  D  (3)  = Podlahová plocha (m²)         e.g. 185.56
-  E  (4)  = Počet místností               e.g. "3+1"
-  F  (5)  = Druh prostoru                 e.g. "byt"
-  G  (6)  = Sekce domu                    e.g. "A"
-  H  (7)  = Číslo orientační              e.g. 22
-  I  (8)  = Adresa jednotky               e.g. "Štěpařská"
-  J  (9)  = LV číslo                      e.g. 3504
-  K  (10) = Typ vlastnictví               e.g. "ANO", "VL", "SJVL"
-  L  (11) = Jméno                         first name or company name
-  M  (12) = Příjmení / název              last name or company name
-  N  (13) = Titul                         e.g. "Ing."
-  O  (14) = Rodné číslo / IČ              e.g. "711128/9911" or "12345678"
-  P  (15) = Trvalá adresa – ulice
-  Q  (16) = Trvalá adresa – část obce
-  R  (17) = Trvalá adresa – město
-  S  (18) = Trvalá adresa – PSČ
-  T  (19) = Trvalá adresa – stát
-  U  (20) = Koresp. adresa – ulice
-  V  (21) = Koresp. adresa – část obce
-  W  (22) = Koresp. adresa – město
-  X  (23) = Koresp. adresa – PSČ
-  Y  (24) = Koresp. adresa – stát
-  Z  (25) = Telefon GSM
-  AA (26) = Telefon pevný
-  AB (27) = Email (Evidence 2024)
-  AC (28) = Email (Kontakty)
-  AD (29) = Vlastník od
-  AE (30) = Poznámka
+Supports dynamic column mapping via `mapping` dict parameter.
+Falls back to DEFAULT_OWNER_MAPPING when no mapping is provided.
 """
 from openpyxl import load_workbook
 from sqlalchemy.orm import Session
@@ -44,51 +12,62 @@ from sqlalchemy.orm import Session
 from app.models.owner import Owner, OwnerType, OwnerUnit, Unit
 from app.utils import build_name_with_titles, strip_diacritics
 
-# Column indices (0-based)
-COL_UNIT_KN = 0
-COL_BUILDING_NUM = 1
-COL_PODIL_SCD = 2
-COL_FLOOR_AREA = 3
-COL_ROOM_COUNT = 4
-COL_SPACE_TYPE = 5
-COL_SECTION = 6
-COL_ORIENT_NUM = 7
-COL_ADDRESS = 8
-COL_LV_NUMBER = 9
-COL_OWNERSHIP_TYPE = 10
-COL_FIRST_NAME = 11
-COL_LAST_NAME = 12
-COL_TITLE = 13
-COL_BIRTH_OR_IC = 14
-COL_PERM_STREET = 15
-COL_PERM_DISTRICT = 16
-COL_PERM_CITY = 17
-COL_PERM_ZIP = 18
-COL_PERM_COUNTRY = 19
-COL_CORR_STREET = 20
-COL_CORR_DISTRICT = 21
-COL_CORR_CITY = 22
-COL_CORR_ZIP = 23
-COL_CORR_COUNTRY = 24
-COL_PHONE_GSM = 25
-COL_PHONE_LANDLINE = 26
-COL_EMAIL_EVIDENCE = 27
-COL_EMAIL_CONTACTS = 28
-COL_OWNER_SINCE = 29
-COL_NOTE = 30
+# Default column indices (0-based) — legacy layout
+DEFAULT_OWNER_MAPPING = {
+    "fields": {
+        "unit_kn": 0,
+        "building_number": 1,
+        "podil_scd": 2,
+        "floor_area": 3,
+        "room_count": 4,
+        "space_type": 5,
+        "section": 6,
+        "orientation_number": 7,
+        "address": 8,
+        "lv_number": 9,
+        "ownership_type": 10,
+        "first_name": 11,
+        "last_name": 12,
+        "title": 13,
+        "birth_or_ic": 14,
+        "perm_street": 15,
+        "perm_district": 16,
+        "perm_city": 17,
+        "perm_zip": 18,
+        "perm_country": 19,
+        "corr_street": 20,
+        "corr_district": 21,
+        "corr_city": 22,
+        "corr_zip": 23,
+        "corr_country": 24,
+        "phone_gsm": 25,
+        "phone_landline": 26,
+        "email_evidence": 27,
+        "email_contacts": 28,
+        "owner_since": 29,
+        "note": 30,
+    },
+    "sheet_name": "Vlastnici_SVJ",
+    "start_row": 2,
+}
 
-SHEET_NAME = "Vlastnici_SVJ"
+
+def _build_field_map(mapping: dict | None) -> dict[str, int | None]:
+    """Extract field→column_index dict from mapping, filtering out None values."""
+    if not mapping or "fields" not in mapping:
+        return DEFAULT_OWNER_MAPPING["fields"]
+    return {k: v for k, v in mapping["fields"].items() if v is not None}
 
 
-def _cell(row: tuple, idx: int) -> str | None:
+def _cell(row: tuple, idx: int | None) -> str | None:
     """Safely get cell value as stripped string, or None."""
-    if idx >= len(row) or row[idx] is None:
+    if idx is None or idx >= len(row) or row[idx] is None:
         return None
     val = str(row[idx]).strip()
     return val if val else None
 
 
-def _cell_int(row: tuple, idx: int) -> int | None:
+def _cell_int(row: tuple, idx: int | None) -> int | None:
     """Safely get cell value as integer."""
     raw = _cell(row, idx)
     if raw is None:
@@ -99,7 +78,7 @@ def _cell_int(row: tuple, idx: int) -> int | None:
         return None
 
 
-def _cell_float(row: tuple, idx: int) -> float | None:
+def _cell_float(row: tuple, idx: int | None) -> float | None:
     """Safely get cell value as float."""
     raw = _cell(row, idx)
     if raw is None:
@@ -148,8 +127,6 @@ def _normalize_ownership_type(raw: str | None) -> str | None:
     return val
 
 
-
-
 def _build_name_normalized(first_name: str, last_name: str | None) -> str:
     """Build normalized name for search: 'last_name first_name' lowercased, no diacritics."""
     parts = []
@@ -161,10 +138,7 @@ def _build_name_normalized(first_name: str, last_name: str | None) -> str:
 
 
 def _owner_group_key(first_name: str | None, last_name: str | None, birth_or_ic: str | None) -> str:
-    """
-    Generate a grouping key for identifying unique owners across rows.
-    Uses birth_number/IČ if available, otherwise normalized name.
-    """
+    """Generate a grouping key for identifying unique owners across rows."""
     if birth_or_ic:
         clean = birth_or_ic.replace(" ", "").strip()
         if clean:
@@ -174,11 +148,11 @@ def _owner_group_key(first_name: str | None, last_name: str | None, birth_or_ic:
     return f"name:{ln}|{fn}"
 
 
-def _describe_skip_error(row: tuple, row_idx: int) -> str:
-    """Build a detailed error message for a skipped row showing what data is present/missing."""
-    unit_kn = _cell(row, COL_UNIT_KN)
-    first_name = _cell(row, COL_FIRST_NAME)
-    last_name = _cell(row, COL_LAST_NAME)
+def _describe_skip_error(row: tuple, row_idx: int, fm: dict) -> str:
+    """Build a detailed error message for a skipped row."""
+    unit_kn = _cell(row, fm.get("unit_kn"))
+    first_name = _cell(row, fm.get("first_name"))
+    last_name = _cell(row, fm.get("last_name"))
 
     missing = []
     if not unit_kn:
@@ -193,16 +167,16 @@ def _describe_skip_error(row: tuple, row_idx: int) -> str:
         present.append(f"jméno={first_name}")
     if last_name:
         present.append(f"příjmení={last_name}")
-    title = _cell(row, COL_TITLE)
+    title = _cell(row, fm.get("title"))
     if title:
         present.append(f"titul={title}")
-    birth_ic = _cell(row, COL_BIRTH_OR_IC)
+    birth_ic = _cell(row, fm.get("birth_or_ic"))
     if birth_ic:
         present.append(f"RČ/IČ={birth_ic}")
-    ownership = _cell(row, COL_OWNERSHIP_TYPE)
+    ownership = _cell(row, fm.get("ownership_type"))
     if ownership:
         present.append(f"vlastnictví={ownership}")
-    space_type = _cell(row, COL_SPACE_TYPE)
+    space_type = _cell(row, fm.get("space_type"))
     if space_type:
         present.append(f"typ={space_type}")
 
@@ -212,20 +186,22 @@ def _describe_skip_error(row: tuple, row_idx: int) -> str:
     return msg
 
 
-def _get_worksheet(file_path: str):
+def _get_worksheet(file_path: str, sheet_name: str | None = None):
     """Open workbook and return the correct worksheet."""
     wb = load_workbook(file_path, read_only=True, data_only=True)
-    if SHEET_NAME in wb.sheetnames:
-        ws = wb[SHEET_NAME]
+    if sheet_name and sheet_name in wb.sheetnames:
+        ws = wb[sheet_name]
+    elif "Vlastnici_SVJ" in wb.sheetnames:
+        ws = wb["Vlastnici_SVJ"]
     else:
         ws = wb.active
     return wb, ws
 
 
-def _parse_row(row: tuple, row_idx: int) -> dict | None:
+def _parse_row(row: tuple, row_idx: int, fm: dict) -> dict | None:
     """Parse a single row into a structured dict. Returns None if row should be skipped."""
-    unit_kn = _cell(row, COL_UNIT_KN)
-    first_name = _cell(row, COL_FIRST_NAME)
+    unit_kn = _cell(row, fm.get("unit_kn"))
+    first_name = _cell(row, fm.get("first_name"))
 
     if not unit_kn or not first_name:
         return None
@@ -243,46 +219,51 @@ def _parse_row(row: tuple, row_idx: int) -> dict | None:
         "row_idx": row_idx,
         # Unit data
         "unit_kn": unit_kn,
-        "building_number": _cell(row, COL_BUILDING_NUM),
-        "podil_scd": _cell_float(row, COL_PODIL_SCD),
-        "floor_area": _cell_float(row, COL_FLOOR_AREA),
-        "room_count": _cell(row, COL_ROOM_COUNT),
-        "space_type": _cell(row, COL_SPACE_TYPE),
-        "section": _cell(row, COL_SECTION),
-        "orientation_number": _cell_int(row, COL_ORIENT_NUM),
-        "address": _cell(row, COL_ADDRESS),
-        "lv_number": _cell_int(row, COL_LV_NUMBER),
+        "building_number": _cell(row, fm.get("building_number")),
+        "podil_scd": _cell_float(row, fm.get("podil_scd")),
+        "floor_area": _cell_float(row, fm.get("floor_area")),
+        "room_count": _cell(row, fm.get("room_count")),
+        "space_type": _cell(row, fm.get("space_type")),
+        "section": _cell(row, fm.get("section")),
+        "orientation_number": _cell_int(row, fm.get("orientation_number")),
+        "address": _cell(row, fm.get("address")),
+        "lv_number": _cell_int(row, fm.get("lv_number")),
         # Owner data
-        "ownership_type": _cell(row, COL_OWNERSHIP_TYPE),
+        "ownership_type": _cell(row, fm.get("ownership_type")),
         "first_name": first_name,
-        "last_name": _cell(row, COL_LAST_NAME),
-        "title": _cell(row, COL_TITLE),
-        "birth_or_ic": _cell(row, COL_BIRTH_OR_IC),
+        "last_name": _cell(row, fm.get("last_name")),
+        "title": _cell(row, fm.get("title")),
+        "birth_or_ic": _cell(row, fm.get("birth_or_ic")),
         # Addresses
-        "perm_street": _cell(row, COL_PERM_STREET),
-        "perm_district": _cell(row, COL_PERM_DISTRICT),
-        "perm_city": _cell(row, COL_PERM_CITY),
-        "perm_zip": _cell(row, COL_PERM_ZIP),
-        "perm_country": _cell(row, COL_PERM_COUNTRY),
-        "corr_street": _cell(row, COL_CORR_STREET),
-        "corr_district": _cell(row, COL_CORR_DISTRICT),
-        "corr_city": _cell(row, COL_CORR_CITY),
-        "corr_zip": _cell(row, COL_CORR_ZIP),
-        "corr_country": _cell(row, COL_CORR_COUNTRY),
+        "perm_street": _cell(row, fm.get("perm_street")),
+        "perm_district": _cell(row, fm.get("perm_district")),
+        "perm_city": _cell(row, fm.get("perm_city")),
+        "perm_zip": _cell(row, fm.get("perm_zip")),
+        "perm_country": _cell(row, fm.get("perm_country")),
+        "corr_street": _cell(row, fm.get("corr_street")),
+        "corr_district": _cell(row, fm.get("corr_district")),
+        "corr_city": _cell(row, fm.get("corr_city")),
+        "corr_zip": _cell(row, fm.get("corr_zip")),
+        "corr_country": _cell(row, fm.get("corr_country")),
         # Contacts
-        "phone_gsm": _cell(row, COL_PHONE_GSM),
-        "phone_landline": _cell(row, COL_PHONE_LANDLINE),
-        "email_evidence": _cell(row, COL_EMAIL_EVIDENCE),
-        "email_contacts": _cell(row, COL_EMAIL_CONTACTS),
+        "phone_gsm": _cell(row, fm.get("phone_gsm")),
+        "phone_landline": _cell(row, fm.get("phone_landline")),
+        "email_evidence": _cell(row, fm.get("email_evidence")),
+        "email_contacts": _cell(row, fm.get("email_contacts")),
         # Other
-        "owner_since": _cell(row, COL_OWNER_SINCE),
-        "note": _cell(row, COL_NOTE),
+        "owner_since": _cell(row, fm.get("owner_since")),
+        "note": _cell(row, fm.get("note")),
     }
 
 
-def preview_owners_from_excel(file_path: str) -> dict:
+def preview_owners_from_excel(file_path: str, mapping: dict | None = None) -> dict:
     """Parse Excel and return preview data without saving to DB."""
-    wb, ws = _get_worksheet(file_path)
+    m = mapping or DEFAULT_OWNER_MAPPING
+    fm = _build_field_map(m)
+    sheet_name = m.get("sheet_name")
+    start_row = m.get("start_row", 2)
+
+    wb, ws = _get_worksheet(file_path, sheet_name)
 
     owner_keys = set()
     unit_numbers = set()
@@ -290,11 +271,11 @@ def preview_owners_from_excel(file_path: str) -> dict:
     errors = []
     preview_rows = []
 
-    for row_idx, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
-        parsed = _parse_row(row, row_idx)
+    for row_idx, row in enumerate(ws.iter_rows(min_row=start_row, values_only=True), start=start_row):
+        parsed = _parse_row(row, row_idx, fm)
         if parsed is None:
             if row and any(c is not None for c in row[:15]):
-                errors.append(_describe_skip_error(row, row_idx))
+                errors.append(_describe_skip_error(row, row_idx, fm))
             continue
 
         rows_processed += 1
@@ -332,20 +313,25 @@ def preview_owners_from_excel(file_path: str) -> dict:
     }
 
 
-def import_owners_from_excel(db: Session, file_path: str) -> dict:
+def import_owners_from_excel(db: Session, file_path: str, mapping: dict | None = None) -> dict:
     """Parse Excel and save owners, units, and relationships to DB."""
-    wb, ws = _get_worksheet(file_path)
+    m = mapping or DEFAULT_OWNER_MAPPING
+    fm = _build_field_map(m)
+    sheet_name = m.get("sheet_name")
+    start_row = m.get("start_row", 2)
+
+    wb, ws = _get_worksheet(file_path, sheet_name)
 
     # First pass: collect all rows grouped by owner key
     owner_groups: dict[str, list[dict]] = {}
     rows_processed = 0
     errors = []
 
-    for row_idx, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
-        parsed = _parse_row(row, row_idx)
+    for row_idx, row in enumerate(ws.iter_rows(min_row=start_row, values_only=True), start=start_row):
+        parsed = _parse_row(row, row_idx, fm)
         if parsed is None:
             if row and any(c is not None for c in row[:15]):
-                errors.append(_describe_skip_error(row, row_idx))
+                errors.append(_describe_skip_error(row, row_idx, fm))
             continue
 
         rows_processed += 1

@@ -60,6 +60,7 @@
 
 <form action="/vlastnici/import-kontaktu/potvrdit" method="post" hx-boost="false" id="confirm-form">
     <input type="hidden" name="file_path" value="{{ file_path }}">
+    <input type="hidden" name="mapping_json" value="{{ mapping_json|default('', true)|e }}">
 
     <!-- Select all / overwrite options -->
     <div class="flex items-center gap-4 mb-2 shrink-0">

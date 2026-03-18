@@ -2,13 +2,15 @@ from __future__ import annotations
 
 """Import kontaktních údajů vlastníků z Excelu.
 
-Excel formát (KontaktyVlastnici):
+Supports dynamic column mapping via `mapping` dict parameter.
+Falls back to DEFAULT_CONTACT_MAPPING when no mapping is provided.
+
+Default Excel format (KontaktyVlastnici):
 - Sheet "ZU", data od řádku 7 (hlavičky v řádcích 4-6)
-- Sloupce (0-indexed):
-  15: Titul před, 16: Jméno, 17: Příjmení, 18: Titul za
+- Sloupce (1-indexed, openpyxl):
+  16: Jméno, 17: Příjmení
   19: RČ / IČ
-  20-24: Trvalá adresa (ulice, část obce, obec, PSČ, země)
-  25-29: Korespondenční adresa (ulice, část obce, obec, PSČ, země)
+  20-24: Trvalá adresa, 25-29: Korespondenční adresa
   30: GSM, 31: Pevný telefon, 32: Email
 """
 from openpyxl import load_workbook
@@ -18,28 +20,60 @@ from app.models import Owner, OwnerType
 from app.utils import strip_diacritics
 
 
-# Mapování Excel sloupců (1-indexed, openpyxl) → Owner polí
-# col 15=titul před, 16=jméno, 17=příjmení, 18=titul za, 19=RČ/IČ
-# col 20-24=trvalá adresa, 25-29=koresp. adresa, 30=GSM, 31=pevný, 32=email
-# col 33=vlastník od, 34=poznámka (někdy obsahuje 2. email → email_secondary)
-_CONTACT_FIELDS = [
-    {"col": 32, "field": "email", "label": "Email"},
-    {"col": 34, "field": "email_secondary", "label": "Email 2", "validate": "email"},
-    {"col": 30, "field": "phone", "label": "Telefon (GSM)"},
-    {"col": 31, "field": "phone_landline", "label": "Pevný telefon"},
-    {"col": 19, "field": "birth_number", "label": "Rodné číslo / IČ"},
-    # Trvalá adresa
-    {"col": 20, "field": "perm_street", "label": "Trvalá ulice"},
-    {"col": 21, "field": "perm_district", "label": "Trvalá část obce"},
-    {"col": 22, "field": "perm_city", "label": "Trvalá obec"},
-    {"col": 23, "field": "perm_zip", "label": "Trvalé PSČ"},
-    {"col": 24, "field": "perm_country", "label": "Trvalá země"},
-    # Korespondenční adresa
-    {"col": 25, "field": "corr_street", "label": "Koresp. ulice"},
-    {"col": 26, "field": "corr_district", "label": "Koresp. část obce"},
-    {"col": 27, "field": "corr_city", "label": "Koresp. obec"},
-    {"col": 28, "field": "corr_zip", "label": "Koresp. PSČ"},
-    {"col": 29, "field": "corr_country", "label": "Koresp. země"},
+# Default mapping — 0-based column indices (converted to 1-based internally for openpyxl)
+DEFAULT_CONTACT_MAPPING = {
+    "fields": {
+        "match_name": 15,         # col 16 (1-based) = Jméno — used for matching
+        "match_birth_number": 18, # col 19 (1-based) = RČ/IČ — fallback matching
+        "email": 31,              # col 32
+        "email_secondary": 33,    # col 34 (poznámka, may contain email)
+        "phone": 29,              # col 30
+        "phone_landline": 30,     # col 31
+        "birth_number": 18,       # col 19
+        "perm_street": 19,        # col 20
+        "perm_district": 20,      # col 21
+        "perm_city": 21,          # col 22
+        "perm_zip": 22,           # col 23
+        "perm_country": 23,       # col 24
+        "corr_street": 24,        # col 25
+        "corr_district": 25,      # col 26
+        "corr_city": 26,          # col 27
+        "corr_zip": 27,           # col 28
+        "corr_country": 28,       # col 29
+    },
+    "sheet_name": "ZU",
+    "start_row": 7,
+    # Extra fields used by default layout for name building
+    "_title_before_col": 14,   # col 15 (1-based) — titul před
+    "_last_name_col": 16,      # col 17 (1-based) — příjmení
+    "_title_after_col": 17,    # col 18 (1-based) — titul za
+}
+
+
+# Field labels for UI display
+_FIELD_LABELS = {
+    "email": "Email",
+    "email_secondary": "Email 2",
+    "phone": "Telefon (GSM)",
+    "phone_landline": "Pevný telefon",
+    "birth_number": "Rodné číslo / IČ",
+    "perm_street": "Trvalá ulice",
+    "perm_district": "Trvalá část obce",
+    "perm_city": "Trvalá obec",
+    "perm_zip": "Trvalé PSČ",
+    "perm_country": "Trvalá země",
+    "corr_street": "Koresp. ulice",
+    "corr_district": "Koresp. část obce",
+    "corr_city": "Koresp. obec",
+    "corr_zip": "Koresp. PSČ",
+    "corr_country": "Koresp. země",
+}
+
+# Fields that are imported (not used for matching)
+_IMPORT_FIELDS = [
+    "email", "email_secondary", "phone", "phone_landline", "birth_number",
+    "perm_street", "perm_district", "perm_city", "perm_zip", "perm_country",
+    "corr_street", "corr_district", "corr_city", "corr_zip", "corr_country",
 ]
 
 
@@ -79,16 +113,36 @@ def _build_normalized_name(first_name: str | None, last_name: str | None) -> str
     return strip_diacritics(" ".join(parts))
 
 
-def preview_contact_import(file_path: str, db: Session, progress: dict | None = None) -> dict:
+def _get_cell(cells: dict, field_key: str, fm: dict) -> str | None:
+    """Get cell value from cells dict using 0-based mapping (converted to 1-based for openpyxl cells)."""
+    col_0 = fm.get(field_key)
+    if col_0 is None:
+        return None
+    col_1 = col_0 + 1  # openpyxl cells dict is 1-based
+    return cells.get(col_1)
+
+
+def preview_contact_import(
+    file_path: str,
+    db: Session,
+    progress: dict | None = None,
+    mapping: dict | None = None,
+) -> dict:
     """Parse Excel and return preview of changes.
 
     Args:
         progress: optional shared dict updated with 'total'/'current' for progress tracking.
+        mapping: column mapping dict. If None, uses DEFAULT_CONTACT_MAPPING.
 
     Returns dict with keys:
     - rows: list of dicts with excel_row, excel_name, owner_id, owner_name, matched, changes
     - stats: total_rows, matched_count, unmatched_count, with_changes, changes_by_field
     """
+    m = mapping or DEFAULT_CONTACT_MAPPING
+    fm = m.get("fields", DEFAULT_CONTACT_MAPPING["fields"])
+    sheet_name = m.get("sheet_name", "ZU")
+    start_row = m.get("start_row", 7)
+
     if progress is not None:
         progress["phase"] = "Načítám Excel..."
 
@@ -107,17 +161,17 @@ def preview_contact_import(file_path: str, db: Session, progress: dict | None = 
             "error": f"Nepodařilo se otevřít Excel soubor: {e}",
         }
 
-    # Try sheet "ZU" first, fallback to first sheet
-    if "ZU" in wb.sheetnames:
+    # Select sheet
+    if sheet_name and sheet_name in wb.sheetnames:
+        ws = wb[sheet_name]
+    elif "ZU" in wb.sheetnames:
         ws = wb["ZU"]
     else:
         ws = wb.active
 
     # Pre-load all data rows into list of tuples (row_num, cells...)
-    # This avoids read_only/max_row issues
     data_rows = []
-    for row in ws.iter_rows(min_row=7, values_only=False):
-        # Extract cell values as dict keyed by column index (1-based)
+    for row in ws.iter_rows(min_row=start_row, values_only=False):
         cells = {}
         for cell in row:
             if cell.value is not None:
@@ -137,7 +191,7 @@ def preview_contact_import(file_path: str, db: Session, progress: dict | None = 
     # Build owner lookup by normalized name + RČ/IČ
     owners = db.query(Owner).filter_by(is_active=True).all()
     owner_by_name = {}
-    owner_by_rc = {}  # lookup by birth_number OR company_id
+    owner_by_rc = {}
     for o in owners:
         if o.name_normalized:
             key = o.name_normalized.strip()
@@ -150,38 +204,66 @@ def preview_contact_import(file_path: str, db: Session, progress: dict | None = 
             ic_key = o.company_id.replace(" ", "")
             owner_by_rc[ic_key] = o
 
+    # Name building columns — for display of Excel name
+    # Default layout has separate first_name(16), last_name(17), title_before(15), title_after(18)
+    # Custom mapping: match_name is the primary name column
+    title_before_col = m.get("_title_before_col")
+    last_name_col = m.get("_last_name_col")
+    title_after_col = m.get("_title_after_col")
+    match_name_col_0 = fm.get("match_name")
+    match_rc_col_0 = fm.get("match_birth_number")
+
     rows = []
-    seen_owners = set()  # Track owners to avoid duplicates
+    seen_owners = set()
     changes_by_field = {}
 
     for idx, (row_num, cells) in enumerate(data_rows):
         if progress is not None:
             progress["current"] = idx + 1
-        first_name = cells.get(16)   # col P = jméno
-        last_name = cells.get(17)    # col Q = příjmení
+
+        # Get name for matching
+        if match_name_col_0 is not None:
+            first_name = cells.get(match_name_col_0 + 1)
+        else:
+            first_name = None
+
+        # Try to get last_name from separate column (default layout)
+        if last_name_col is not None:
+            last_name = cells.get(last_name_col + 1)
+        else:
+            last_name = None
 
         if not first_name and not last_name:
             continue
 
-        excel_name = " ".join(filter(None, [
-            cells.get(15),  # titul před
-            last_name,
-            first_name,
-            cells.get(18),  # titul za
-        ]))
+        # Build display name
+        name_parts = []
+        if title_before_col is not None:
+            t = cells.get(title_before_col + 1)
+            if t:
+                name_parts.append(t)
+        if last_name:
+            name_parts.append(last_name)
+        if first_name:
+            name_parts.append(first_name)
+        if title_after_col is not None:
+            t = cells.get(title_after_col + 1)
+            if t:
+                name_parts.append(t)
+        excel_name = " ".join(name_parts) if name_parts else (first_name or "")
 
         # Match to DB owner
         norm_name = _build_normalized_name(first_name, last_name)
         owner = owner_by_name.get(norm_name)
 
         # Fallback: try RČ/IČ
-        if not owner:
-            rc_raw = cells.get(19)  # col S = RČ/IČ
+        if not owner and match_rc_col_0 is not None:
+            rc_raw = cells.get(match_rc_col_0 + 1)
             if rc_raw:
                 rc_key = rc_raw.replace(" ", "").replace("/", "")
                 owner = owner_by_rc.get(rc_key)
 
-        # Skip duplicate rows for same owner (keep first occurrence)
+        # Skip duplicate rows for same owner
         if owner and owner.id in seen_owners:
             continue
         if owner:
@@ -190,18 +272,21 @@ def preview_contact_import(file_path: str, db: Session, progress: dict | None = 
         # Compare fields
         changes = []
         if owner:
-            for fdef in _CONTACT_FIELDS:
-                excel_val = cells.get(fdef["col"])
+            for field_key in _IMPORT_FIELDS:
+                col_0 = fm.get(field_key)
+                if col_0 is None:
+                    continue
+                excel_val = cells.get(col_0 + 1)
                 if not excel_val:
                     continue
 
-                # Col 34 (poznámka) — use only if value looks like email
-                if fdef.get("validate") == "email" and "@" not in excel_val:
+                label = _FIELD_LABELS.get(field_key, field_key)
+
+                # email_secondary: only use if value looks like email
+                if field_key == "email_secondary" and "@" not in excel_val:
                     continue
 
-                field = fdef["field"]
-                label = fdef["label"]
-
+                field = field_key
                 # RČ/IČ: use correct DB field based on owner type
                 if field == "birth_number" and owner.owner_type == OwnerType.LEGAL_ENTITY:
                     field = "company_id"
@@ -219,7 +304,6 @@ def preview_contact_import(file_path: str, db: Session, progress: dict | None = 
                     sec_val = getattr(owner, sec_field, None) or ""
                     is_phone = field == "phone"
 
-                    # Normalize comparison for phones
                     if is_phone:
                         match_primary = _normalize_phone(current_val) == _normalize_phone(excel_val)
                         match_secondary = _normalize_phone(sec_val) == _normalize_phone(excel_val)
@@ -228,13 +312,10 @@ def preview_contact_import(file_path: str, db: Session, progress: dict | None = 
                         match_secondary = sec_val.strip().lower() == excel_val.strip().lower()
 
                     if not current_val.strip():
-                        # Primary empty → fill primary (standard)
-                        pass
+                        pass  # Primary empty → fill primary
                     elif match_primary or match_secondary:
-                        # Already matches primary or secondary → skip
                         continue
                     elif not sec_val.strip():
-                        # Primary differs, secondary empty → route to secondary
                         changes.append({
                             "field": sec_field,
                             "label": sec_label,
@@ -248,21 +329,17 @@ def preview_contact_import(file_path: str, db: Session, progress: dict | None = 
                         changes_by_field[sec_field] = changes_by_field.get(sec_field, 0) + 1
                         continue
                     else:
-                        # Both occupied, neither matches → overwrite primary
-                        pass
+                        pass  # Both occupied → overwrite primary
                 else:
-                    # Non-phone/email fields: standard comparison
                     if field in ("phone_landline",):
                         if _normalize_phone(current_val) == _normalize_phone(excel_val):
                             continue
                     elif field == "email_secondary":
-                        # Col 34: skip if matches primary email or already in secondary
                         primary_email = (getattr(owner, "email", None) or "").strip().lower()
                         if excel_val.strip().lower() == primary_email:
                             continue
                         if current_val and current_val.strip().lower() == excel_val.strip().lower():
                             continue
-                        # Skip if email routing already targets email_secondary
                         if any(c["field"] == "email_secondary" for c in changes):
                             continue
                     elif current_val and current_val.strip() == excel_val.strip():
@@ -306,13 +383,14 @@ def execute_contact_import(
     db: Session,
     selected_owner_ids: list[int],
     overwrite_existing: bool = False,
+    mapping: dict | None = None,
 ) -> dict:
     """Execute the import for selected owners.
 
     Returns dict with owners_updated, fields_updated, per_field counts.
     """
     # Re-run preview to get current data
-    preview = preview_contact_import(file_path, db)
+    preview = preview_contact_import(file_path, db, mapping=mapping)
 
     selected_set = set(selected_owner_ids)
     owners_updated = 0
