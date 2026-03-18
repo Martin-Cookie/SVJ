@@ -488,8 +488,7 @@ app/
 │   │   ├── compare.html       #     Porovnání s filtry a bublinami
 │   │   ├── contacts_preview.html #  Náhled přenosu kontaktů
 │   │   └── exchange_preview.html #  Preview výměny vlastníků
-│   ├── share_check/           #   Stránky kontroly podílu
-│   │   ├── index.html         #     Nahrání souboru + historie kontrol
+│   ├── share_check/           #   Stránky kontroly podílu (upload + historie na sloučené /synchronizace)
 │   │   ├── mapping.html       #     Mapování sloupců (krok 2)
 │   │   └── compare.html       #     Výsledky s filtry a bublinami
 │   ├── administration/        #   Stránky administrace

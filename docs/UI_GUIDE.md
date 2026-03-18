@@ -38,7 +38,7 @@ Tento soubor je **jediný zdroj pravdy** pro UI/frontend vzory a konvence. Stack
 
 ### Řazení sloupců
 - Klikací hlavičky s indikátorem směru (šipka SVG nahoru/dolů)
-- Implementace přes `sort_th` macro (definované přímo v šabloně — dominantní přístup, 9+ souborů) nebo `{% set _cols = [...] %}` + `{% for %}` cyklus (4 soubory)
+- Implementace přes `sort_th` macro (definované přímo v šabloně — dominantní přístup, 7 souborů) nebo `{% set _cols = [...] %}` + `{% for %}` cyklus (4 soubory)
 - Sort parametry: `sort` (název sloupce), `order` (`asc`/`desc`)
 
 ### Řádkové akce — ikony
