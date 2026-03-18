@@ -66,14 +66,15 @@ async def settings_view(
     # Build query
     query = db.query(EmailLog)
 
-    # Search — SQL filter for email/subject/module, Python fallback for diacritics in names
+    # Search — SQL filter for email/subject/module + diacritics-insensitive name via name_normalized
     if q:
         q_pattern = f"%{q}%"
-        q_ascii = strip_diacritics(q)
+        q_ascii = f"%{strip_diacritics(q)}%"
         query = query.filter(
             or_(
                 EmailLog.recipient_email.ilike(q_pattern),
                 EmailLog.recipient_name.ilike(q_pattern),
+                EmailLog.name_normalized.like(q_ascii),
                 EmailLog.subject.ilike(q_pattern),
                 EmailLog.module.ilike(q_pattern),
             )
@@ -86,19 +87,6 @@ async def settings_view(
     else:
         query = query.order_by(col.desc().nulls_last())
     email_logs = query.limit(EMAIL_LOG_LIMIT).all()
-
-    # If searching, also try diacritics-insensitive name match (for č→c, ř→r etc.)
-    if q and q_ascii:
-        seen_ids = {e.id for e in email_logs}
-        name_query = db.query(EmailLog).order_by(
-            col.desc().nulls_last() if order == "desc" else col.asc().nulls_last()
-        ).limit(500)
-        for e in name_query:
-            if e.id not in seen_ids and q_ascii in strip_diacritics(e.recipient_name or ""):
-                email_logs.append(e)
-                seen_ids.add(e.id)
-                if len(email_logs) >= EMAIL_LOG_LIMIT:
-                    break
 
     # Build email → owner_id lookup for clickable recipients
     emails_in_log = {e.recipient_email for e in email_logs if e.recipient_email}

@@ -26,6 +26,7 @@ class EmailLog(Base):
     module = Column(String(50), nullable=False, index=True)
     reference_id = Column(Integer, nullable=True, index=True)
     attachment_paths = Column(Text, nullable=True)
+    name_normalized = Column(String(300), nullable=True, index=True)
     sent_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 

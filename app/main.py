@@ -207,6 +207,32 @@ def _migrate_svj_import_mappings():
         conn.commit()
 
 
+def _migrate_email_log_name_normalized():
+    """Add name_normalized column to email_logs and backfill from recipient_name."""
+    with engine.connect() as conn:
+        columns = [
+            row[1] for row in
+            conn.execute(text("PRAGMA table_info(email_logs)")).fetchall()
+        ]
+        if "name_normalized" not in columns:
+            conn.execute(text(
+                "ALTER TABLE email_logs ADD COLUMN name_normalized VARCHAR(300)"
+            ))
+            logger.info("Added name_normalized column to email_logs")
+            # Backfill — SQLite doesn't have strip_diacritics, do in Python
+            from app.utils import strip_diacritics
+            rows = conn.execute(text(
+                "SELECT id, recipient_name FROM email_logs WHERE recipient_name IS NOT NULL"
+            )).fetchall()
+            for row_id, name in rows:
+                conn.execute(text(
+                    "UPDATE email_logs SET name_normalized = :norm WHERE id = :id"
+                ), {"norm": strip_diacritics(name), "id": row_id})
+            if rows:
+                logger.info("Backfilled name_normalized for %d email_logs", len(rows))
+            conn.commit()
+
+
 def _ensure_indexes():
     """Create indexes defined in models that may be missing on existing tables."""
     _INDEXES = [
@@ -236,6 +262,7 @@ def _ensure_indexes():
         ("ix_email_logs_status", "email_logs", "status"),
         ("ix_email_logs_module", "email_logs", "module"),
         ("ix_email_logs_reference_id", "email_logs", "reference_id"),
+        ("ix_email_logs_name_normalized", "email_logs", "name_normalized"),
         ("ix_import_logs_import_type", "import_logs", "import_type"),
         # owner_units history
         ("ix_owner_units_valid_from", "owner_units", "valid_from"),
@@ -419,6 +446,12 @@ async def lifespan(app: FastAPI):
         _migrate_svj_import_mappings()
     except Exception:
         logger.warning("svj_info import_mappings migration skipped")
+
+    # Add name_normalized to email_logs
+    try:
+        _migrate_email_log_name_normalized()
+    except Exception:
+        logger.warning("email_logs name_normalized migration skipped")
 
     # Ensure indexes on existing tables
     try:

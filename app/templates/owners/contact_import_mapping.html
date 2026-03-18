@@ -110,65 +110,6 @@
     <input type="hidden" name="start_row" id="reload-start-row" value="">
 </form>
 
-<script>
-function reloadMapping() {
-    var sheetEl = document.getElementById('sheet-select');
-    document.getElementById('reload-sheet').value = sheetEl ? sheetEl.value : '';
-    document.getElementById('reload-start-row').value = document.getElementById('start-row').value;
-    document.getElementById('reload-form').submit();
-}
-
-function collectMapping() {
-    var fields = {};
-    document.querySelectorAll('.mapping-select').forEach(function(sel) {
-        var key = sel.dataset.field;
-        var val = sel.value;
-        if (val !== '') {
-            fields[key] = parseInt(val);
-        }
-    });
-    var sheetEl = document.getElementById('sheet-select');
-    return {
-        fields: fields,
-        sheet_name: sheetEl ? sheetEl.value : '',
-        start_row: parseInt(document.getElementById('start-row').value) || 7,
-        save: document.getElementById('save-mapping').checked
-    };
-}
-
-function updateStats() {
-    var total = document.querySelectorAll('.mapping-select').length;
-    var matched = 0;
-    var requiredMissing = 0;
-    document.querySelectorAll('.mapping-select').forEach(function(sel) {
-        if (sel.value !== '') matched++;
-        else if (sel.dataset.required === 'true') requiredMissing++;
-    });
-    var matchedEl = document.getElementById('stats-matched');
-    if (matchedEl) matchedEl.textContent = matched + '/' + total + ' nalezeno';
-    var reqEl = document.getElementById('stats-required');
-    if (reqEl) {
-        if (requiredMissing > 0) {
-            reqEl.textContent = requiredMissing + ' povinných chybí';
-            reqEl.className = 'px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-800';
-        } else {
-            reqEl.textContent = 'Povinná pole OK';
-            reqEl.className = 'px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800';
-        }
-    }
-    var btn = document.getElementById('submit-mapping');
-    btn.disabled = requiredMissing > 0;
-}
-
-function submitMapping() {
-    var mapping = collectMapping();
-    document.getElementById('mapping-json').value = JSON.stringify(mapping);
-    document.getElementById('mapping-form').submit();
-}
-
-// Update stats on any dropdown change
-document.querySelectorAll('.mapping-select').forEach(function(sel) {
-    sel.addEventListener('change', updateStats);
-});
-</script>
+{% set mapping_default_start_row = 7 %}
+{% include "partials/import_mapping_js.html" %}
 {% endblock %}

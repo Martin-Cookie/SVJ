@@ -4,9 +4,6 @@ Provides field definitions, auto-detection of column mappings based on
 header names, and validation of mapping dicts.
 """
 from __future__ import annotations
-from __future__ import annotations
-
-import json
 
 from openpyxl import load_workbook
 

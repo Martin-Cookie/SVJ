@@ -147,8 +147,10 @@ def preview_contact_import(
         progress["phase"] = "Načítám Excel..."
 
     try:
-        wb = load_workbook(file_path, data_only=True)
+        wb = load_workbook(file_path, read_only=True, data_only=True)
     except Exception as e:
+        import logging as _log
+        _log.getLogger(__name__).warning("Failed to open Excel: %s", e)
         return {
             "rows": [],
             "stats": {
@@ -158,7 +160,7 @@ def preview_contact_import(
                 "with_changes": 0,
                 "changes_by_field": {},
             },
-            "error": f"Nepodařilo se otevřít Excel soubor: {e}",
+            "error": "Nepodařilo se otevřít Excel soubor.",
         }
 
     # Select sheet

@@ -88,8 +88,7 @@ BACKUP_DIR = DATA_DIR / "backups"
 
 # Sort priority: Předseda/Předsedkyně first, then Místopředseda, then others
 # Use func.lower to handle case variations (člen vs Člen)
-from sqlalchemy import func as _sa_func
-_role_lower = _sa_func.lower(BoardMember.role)
+_role_lower = sa_func.lower(BoardMember.role)
 _ROLE_SORT = case(
     (_role_lower.like("předseda%"), 0),
     (_role_lower.like("předsedkyně%"), 0),

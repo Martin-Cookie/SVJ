@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.models.common import EmailLog, EmailStatus
+from app.utils import strip_diacritics
 
 
 def create_smtp_connection():
@@ -90,7 +91,7 @@ def send_email(
         if db:
             log = EmailLog(
                 recipient_email=to_email,
-                recipient_name=to_name,
+                recipient_name=to_name, name_normalized=strip_diacritics(to_name or ""),
                 subject=subject,
                 body_preview=body_html[:500] if body_html else None,
                 status=EmailStatus.FAILED,
@@ -116,7 +117,7 @@ def send_email(
             error_msg = "Přihlášení k SMTP serveru selhalo. Zkontrolujte uživatelské jméno a heslo v Nastavení. Pro Gmail použijte App Password."
             if db:
                 log = EmailLog(
-                    recipient_email=to_email, recipient_name=to_name, subject=subject,
+                    recipient_email=to_email, recipient_name=to_name, name_normalized=strip_diacritics(to_name or ""), subject=subject,
                     body_preview=body_html[:500] if body_html else None,
                     status=EmailStatus.FAILED, module=module, reference_id=reference_id,
                     error_message=error_msg,
@@ -128,7 +129,7 @@ def send_email(
             error_msg = f"SMTP server '{settings.smtp_host}' není dostupný. Zkontrolujte nastavení v souboru .env"
             if db:
                 log = EmailLog(
-                    recipient_email=to_email, recipient_name=to_name, subject=subject,
+                    recipient_email=to_email, recipient_name=to_name, name_normalized=strip_diacritics(to_name or ""), subject=subject,
                     body_preview=body_html[:500] if body_html else None,
                     status=EmailStatus.FAILED, module=module, reference_id=reference_id,
                     error_message=error_msg,
@@ -139,7 +140,7 @@ def send_email(
         except Exception as e:
             if db:
                 log = EmailLog(
-                    recipient_email=to_email, recipient_name=to_name, subject=subject,
+                    recipient_email=to_email, recipient_name=to_name, name_normalized=strip_diacritics(to_name or ""), subject=subject,
                     body_preview=body_html[:500] if body_html else None,
                     status=EmailStatus.FAILED, module=module, reference_id=reference_id,
                     error_message=str(e),
@@ -157,7 +158,7 @@ def send_email(
         if db:
             log = EmailLog(
                 recipient_email=addr,
-                recipient_name=to_name,
+                recipient_name=to_name, name_normalized=strip_diacritics(to_name or ""),
                 subject=subject,
                 body_preview=body_html[:500] if body_html else None,
                 status=EmailStatus.PENDING,

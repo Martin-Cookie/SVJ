@@ -341,34 +341,46 @@ async def voting_detail(
         if stale_count > 0:
             snapshot_warning = f"U {stale_count} {'lístku se změnil' if stale_count == 1 else 'lístků se změnil'} počet hlasů vlastníka od generování lístků (např. změna podílů nebo vlastníka jednotky)"
 
-    # Calculate results per item
+    # Calculate results per item via SQL aggregation
     declared = _get_declared_shares(db) or 1
+    vote_agg = (
+        db.query(
+            BallotVote.voting_item_id,
+            func.coalesce(func.sum(case(
+                (BallotVote.vote == VoteValue.FOR, BallotVote.votes_count),
+                else_=0,
+            )), 0).label("votes_for"),
+            func.coalesce(func.sum(case(
+                (BallotVote.vote == VoteValue.AGAINST, BallotVote.votes_count),
+                else_=0,
+            )), 0).label("votes_against"),
+            func.coalesce(func.sum(case(
+                (BallotVote.vote == VoteValue.ABSTAIN, BallotVote.votes_count),
+                else_=0,
+            )), 0).label("votes_abstain"),
+        )
+        .join(Ballot, Ballot.id == BallotVote.ballot_id)
+        .filter(Ballot.voting_id == voting.id, Ballot.status == BallotStatus.PROCESSED)
+        .group_by(BallotVote.voting_item_id)
+        .all()
+    )
+    agg_map = {row.voting_item_id: row for row in vote_agg}
+
     results = []
     for item in voting.items:
-        votes_for = 0
-        votes_against = 0
-        votes_abstain = 0
-        for ballot in voting.ballots:
-            if ballot.status != BallotStatus.PROCESSED:
-                continue
-            for bv in ballot.votes:
-                if bv.voting_item_id == item.id:
-                    if bv.vote == VoteValue.FOR:
-                        votes_for += bv.votes_count
-                    elif bv.vote == VoteValue.AGAINST:
-                        votes_against += bv.votes_count
-                    elif bv.vote == VoteValue.ABSTAIN:
-                        votes_abstain += bv.votes_count
-
-        votes_missing = declared - votes_for - votes_against - votes_abstain
+        row = agg_map.get(item.id)
+        vf = row.votes_for if row else 0
+        va = row.votes_against if row else 0
+        vab = row.votes_abstain if row else 0
+        votes_missing = declared - vf - va - vab
         results.append({
             "item": item,
-            "votes_for": votes_for,
-            "votes_against": votes_against,
-            "votes_abstain": votes_abstain,
-            "pct_for": round(votes_for / declared * 100, 2) if declared else 0,
-            "pct_against": round(votes_against / declared * 100, 2) if declared else 0,
-            "pct_abstain": round(votes_abstain / declared * 100, 2) if declared else 0,
+            "votes_for": vf,
+            "votes_against": va,
+            "votes_abstain": vab,
+            "pct_for": round(vf / declared * 100, 2) if declared else 0,
+            "pct_against": round(va / declared * 100, 2) if declared else 0,
+            "pct_abstain": round(vab / declared * 100, 2) if declared else 0,
             "votes_missing": votes_missing,
             "pct_missing": round(votes_missing / declared * 100, 2) if declared else 0,
         })
