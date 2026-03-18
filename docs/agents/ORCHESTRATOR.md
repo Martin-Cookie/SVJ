@@ -71,7 +71,8 @@ Na základě odpovědí a stavu projektu navrhni plán. Vysvětli PROČ doporuč
 **Po bloku změn:**
 1. **Code Guardian** — nejdřív zjisti jestli je kód v pořádku
 2. **Doc Sync** — pak synchronizuj dokumentaci s realitou
-3. **UX Optimizer** (volitelně) — pokud se měnilo UI
+3. **Test Agent** — ověř že aplikace funguje
+4. **UX Optimizer** (volitelně) — pokud se měnilo UI
 
 **Zlepšení UX:**
 1. **UX Optimizer** — analýza a návrhy
@@ -81,7 +82,8 @@ Na základě odpovědí a stavu projektu navrhni plán. Vysvětli PROČ doporuč
 1. **Code Guardian** — audit kódu
 2. **Backup Agent** — ověř zálohy
 3. **Doc Sync** — dokumentace aktuální?
-4. **Release Agent** — pre-release kontrola + balíček
+4. **Test Agent** — finální testování celé aplikace
+5. **Release Agent** — pre-release kontrola + balíček
 
 **Dokumentace projektu:**
 1. **Business Logic Agent** — extrahuj logiku z kódu
@@ -90,9 +92,10 @@ Na základě odpovědí a stavu projektu navrhni plán. Vysvětli PROČ doporuč
 **Kompletní údržba (nevím co potřebuji):**
 1. **Code Guardian** — stav kódu
 2. **Doc Sync** — stav dokumentace
-3. **UX Optimizer** — stav UX
-4. **Backup Agent** — stav záloh
-5. **Business Logic Agent** — stav dokumentace logiky
+3. **Test Agent** — stav funkčnosti aplikace
+4. **UX Optimizer** — stav UX
+5. **Backup Agent** — stav záloh
+6. **Business Logic Agent** — stav dokumentace logiky
 
 #### Formát návrhu:
 
@@ -168,6 +171,7 @@ Po dokončení všech agentů vypiš souhrnnou tabulku:
 | **Backup Agent** | docs/agents/BACKUP-AGENT.md | Kontrola integrity záloh | ~3 min |
 | **Release Agent** | docs/agents/RELEASE-AGENT.md | Příprava verze (pre-release + balíček) | ~5 min |
 | **Business Logic** | docs/agents/BUSINESS-LOGIC-AGENT.md | Extrakce business logiky z kódu | ~8 min |
+| **Test Agent** | docs/agents/TEST-AGENT.md | Automatické testování celé aplikace (8 fází) | ~15 min |
 | **Cloud Deploy** | docs/agents/CLOUD-DEPLOY.md | Analýza připravenosti pro cloud | ~5 min |
 
 > **Task Agent** není v seznamu — ten běží automaticky při zadání úkolů.

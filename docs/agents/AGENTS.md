@@ -12,10 +12,12 @@
 |-------|--------|
 | **Doc Sync** | `Přečti DOC-SYNC.md a proveď synchronizaci dokumentace s aktuálním stavem projektu.` |
 | **Code Guardian** | `Přečti CODE-GUARDIAN.md a proveď audit projektu. Výstupem je AUDIT-REPORT.md. Nic neopravuj, pouze reportuj.` |
+| **Test Agent** | `Přečti TEST-AGENT.md a proveď kompletní testování projektu. Výstupem je TEST-REPORT.md. Nic neopravuj, pouze testuj a reportuj.` |
 
 ### Před vydáním verze
 | Agent | Příkaz |
 |-------|--------|
+| **Test Agent** | `Přečti TEST-AGENT.md a proveď kompletní testování projektu. Výstupem je TEST-REPORT.md. Nic neopravuj, pouze testuj a reportuj.` |
 | **Release Agent** | `Přečti RELEASE-AGENT.md a připrav release. Nejdřív proveď pre-release kontrolu, pak po schválení připrav balíček.` |
 | **Backup Agent** | `Přečti BACKUP-AGENT.md a proveď kontrolu integrity zálohovacího systému. Testuj na kopiích dat.` |
 
@@ -34,11 +36,15 @@ Denní práce:
 Po větším bloku změn:
   1. Doc Sync (aktualizuj dokumentaci)
   2. Code Guardian (audit kódu)
-  3. Oprav nalezené problémy
+  3. Test Agent (otestuj aplikaci)
+  4. Oprav nalezené problémy
 
 Před vydáním:
-  1. Backup Agent (ověř zálohy)
-  2. Release Agent (kontrola + tag)
+  1. Code Guardian (audit kódu)
+  2. Backup Agent (ověř zálohy)
+  3. Doc Sync (dokumentace aktuální?)
+  4. Test Agent (finální testování)
+  5. Release Agent (kontrola + tag)
 
 Jednorázově:
   - Business Logic Agent (extrakce know-how)
