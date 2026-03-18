@@ -169,9 +169,7 @@ async def tax_create_page(
 async def tax_create(
     request: Request,
     title: str = Form(...),
-    email_subject: str = Form(""),
     email_body: str = Form(""),
-    year: int = Form(0),
     files: List[UploadFile] = File(...),
     db: Session = Depends(get_db),
 ):
@@ -187,12 +185,11 @@ async def tax_create(
     if err:
         return RedirectResponse(f"/dane/nova?chyba={quote(err)}", status_code=302)
 
-    if not year or year < 2020 or year > 2099:
-        year = datetime.now().year
+    year = datetime.now().year
     session = TaxSession(
         title=title,
         year=year,
-        email_subject=email_subject or title,
+        email_subject=title,
         email_body=email_body,
     )
     db.add(session)

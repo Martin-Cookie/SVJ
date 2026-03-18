@@ -61,11 +61,19 @@ def _is_company_suffix(name: str) -> bool:
 def _extract_name_from_sp_line(line: str) -> str | None:
     """Extract owner name appended after SP fraction(s).
 
-    Handles single fraction (e.g. 'SP 2 3108/907635 Kočí Martin')
-    and multiple comma-separated fractions (e.g. 'SP 6 1/515, 1/524, 1/525, 1/526 NOTABENE ART s.r.o.').
+    Handles both abbreviated 'SP 2 3108/907635 Kočí Martin' and
+    full form 'Spoluvlastnický podíl 4: 12212 / 1903227 Gavrilovičová Kateřina'.
+    Also handles multiple comma-separated fractions.
     """
-    # Match SP label, then one or more fractions (comma-separated), then optional name
-    m = re.match(r"SP\s+\S+\s+\d+/\d+(?:,\s*\d+/\d+)*\s*(.*)", line.strip())
+    stripped = line.strip()
+    # Pattern 1: "SP label fraction(s) Name"
+    m = re.match(r"SP\s+\S+\s+\d+/\d+(?:,\s*\d+/\d+)*\s*(.*)", stripped)
+    if not m:
+        # Pattern 2: "Spoluvlastnický podíl N: fraction Name"
+        m = re.match(
+            r"[Ss]poluvlastnick[ýy]\s+pod[ií]l\s+\S+:?\s+\d+\s*/\s*\d+(?:,\s*\d+\s*/\s*\d+)*\s*(.*)",
+            stripped,
+        )
     if m:
         name = m.group(1).strip()
         # Filter out non-name text (must start with uppercase letter)
@@ -125,7 +133,8 @@ def parse_owner_names_from_details(text: str) -> list[str]:
         if in_details:
             # Stop at known section boundaries
             if re.match(
-                r"(Vlastn[ií]k:|Vyúčtov|Případné|Stavy|Typ vlastnictv|Služba|Celkem|Celkov|Výnos|Tento)",
+                r"(Vlastn[ií]k:|Vyúčtov|Případné|Stavy|Typ vlastnictv|Služba|Celkem|Celkov|Výnos|Tento"
+                r"|Předpis|Bankovní|CELKEM|Důležité|Číslo popisné|Číslo prostoru|Adresa:|Vchod)",
                 stripped, re.IGNORECASE,
             ):
                 break
@@ -136,7 +145,7 @@ def parse_owner_names_from_details(text: str) -> list[str]:
             # Standalone name line (not an SP line) — e.g. "SJM Kočovi" between SP rows
             # or name starting with digit (e.g. "35 ASSOCIATES INVESTMENT GROUP")
             # or company suffix fragment (e.g. "s.r.o.", "a.s.")
-            elif not re.match(r"^SP\s", stripped) and stripped:
+            elif not re.match(r"^(?:SP\s|[Ss]poluvlastnick)", stripped) and stripped:
                 if re.match(r"(?:SJM?\s|[A-ZÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ][a-záčďéěíňóřšťúůýž])", stripped):
                     names.append(stripped)
                 elif re.match(r"\d+\s+[A-ZÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ]", stripped):
