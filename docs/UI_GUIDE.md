@@ -686,7 +686,7 @@ Pro stránky s inline formuláři (POST+redirect na stejnou stránku, např. pla
 ```javascript
 (function() {
     var SC_KEY = 'svj_scroll_payment';
-    var sc = document.querySelector('.flex-1.overflow-auto');
+    var sc = document.querySelector('.flex-1.overflow-y-auto');
     var hash = location.hash;
 
     // Strip hash → zabrání browser auto-scroll na anchor
