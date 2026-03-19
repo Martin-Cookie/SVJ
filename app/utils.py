@@ -146,6 +146,17 @@ def setup_jinja_filters(templates):
     return templates
 
 
+def _create_templates():
+    """Create shared Jinja2Templates instance with custom filters."""
+    from fastapi.templating import Jinja2Templates
+    t = Jinja2Templates(directory="app/templates")
+    setup_jinja_filters(t)
+    return t
+
+
+templates = _create_templates()
+
+
 def compute_eta(current: int, total: int, started_at: float) -> dict:
     """Compute progress percentage, elapsed and ETA text.
 

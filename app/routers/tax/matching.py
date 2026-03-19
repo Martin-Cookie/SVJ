@@ -27,6 +27,7 @@ async def confirm_match(
     request: Request,
     db: Session = Depends(get_db),
 ):
+    """Potvrzení automatického párování dokumentu s vlastníkem."""
     dist = db.query(TaxDistribution).get(dist_id)
     if dist:
         dist.match_status = MatchStatus.CONFIRMED
@@ -45,6 +46,7 @@ async def manual_assign(
     request: Request = None,
     db: Session = Depends(get_db),
 ):
+    """Ruční přiřazení dokumentu k vlastníkovi."""
     doc = db.query(TaxDocument).get(doc_id)
     if not doc:
         return RedirectResponse(f"/dane/{session_id}", status_code=302)

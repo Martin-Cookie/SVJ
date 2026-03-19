@@ -37,7 +37,7 @@ def _load_saved_mapping(voting: Voting, db: Session) -> Optional[dict]:
         try:
             return json.loads(voting.import_column_mapping)
         except (json.JSONDecodeError, TypeError):
-            pass
+            logger.debug("Failed to parse per-voting import mapping for voting %s", voting.id, exc_info=True)
 
     # 2. Global fallback from SvjInfo
     svj = db.query(SvjInfo).first()
@@ -79,6 +79,7 @@ async def import_upload_page(
     request: Request,
     db: Session = Depends(get_db),
 ):
+    """Stránka nahrání souboru pro import hlasů z Excelu."""
     voting = db.query(Voting).options(
         joinedload(Voting.items),
         joinedload(Voting.ballots).joinedload(Ballot.votes),
@@ -109,6 +110,7 @@ async def import_upload(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
 ):
+    """Nahrání Excel souboru a zobrazení mapování sloupců."""
     voting = db.query(Voting).options(
         joinedload(Voting.items),
         joinedload(Voting.ballots).joinedload(Ballot.votes),
@@ -209,6 +211,7 @@ async def import_preview(
     save_mapping: str = Form(""),
     db: Session = Depends(get_db),
 ):
+    """Náhled importovaných hlasů před potvrzením."""
     voting = db.query(Voting).options(
         joinedload(Voting.items),
         joinedload(Voting.ballots).joinedload(Ballot.owner).joinedload(Owner.units).joinedload(OwnerUnit.unit),
@@ -267,6 +270,7 @@ async def import_confirm(
     mapping_json: str = Form(...),
     db: Session = Depends(get_db),
 ):
+    """Potvrzení a provedení importu hlasů do lístků."""
     voting = db.query(Voting).options(
         joinedload(Voting.items),
         joinedload(Voting.ballots).joinedload(Ballot.owner).joinedload(Owner.units).joinedload(OwnerUnit.unit),

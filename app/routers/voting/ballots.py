@@ -18,6 +18,7 @@ from app.utils import build_list_url, excel_auto_width, is_htmx_partial, strip_d
 from ._helpers import (
     _ballot_stats,
     _voting_wizard,
+    logger,
     templates,
 )
 
@@ -35,6 +36,7 @@ async def ballot_list(
     order: str = Query("asc"),
     db: Session = Depends(get_db),
 ):
+    """Seznam hlasovacích lístků s filtry podle stavu."""
     voting = db.query(Voting).options(
         joinedload(Voting.items),
     ).get(voting_id)
@@ -54,7 +56,7 @@ async def ballot_list(
             stav_enum = BallotStatus(stav)
             ballot_query = ballot_query.filter(Ballot.status == stav_enum)
         except ValueError:
-            pass
+            logger.debug("Invalid ballot status filter value: '%s'", stav)
 
     # Search filter (SQL via name_normalized)
     if q:
@@ -97,7 +99,7 @@ async def ballot_list(
                     4,
                 )
             except ValueError:
-                pass
+                logger.debug("Invalid item_id in sort key: '%s'", sort)
         key_fn = sort_keys.get(sort, lambda b: (b.owner.name_normalized or ""))
         ballots = sorted(ballots, key=key_fn, reverse=(order == "desc"))
 
@@ -135,6 +137,7 @@ async def ballot_detail(
     back: str = Query(""),
     db: Session = Depends(get_db),
 ):
+    """Detail hlasovacího lístku s hlasy a vlastníkem."""
     ballot = db.query(Ballot).options(
         joinedload(Ballot.owner).joinedload(Owner.units).joinedload(OwnerUnit.unit),
         joinedload(Ballot.votes).joinedload(BallotVote.voting_item),
@@ -177,6 +180,7 @@ async def process_page(
     info: str = Query(""),
     db: Session = Depends(get_db),
 ):
+    """Stránka zpracování hlasovacích lístků s formuláři hlasů."""
     voting = db.query(Voting).options(
         joinedload(Voting.items),
         joinedload(Voting.ballots).joinedload(Ballot.owner).joinedload(Owner.units).joinedload(OwnerUnit.unit),
@@ -258,7 +262,7 @@ async def process_page(
             n = int(info.split("-", 1)[1])
             ctx["flash_message"] = f"Hromadně zpracováno {n} lístků."
         except ValueError:
-            pass
+            logger.debug("Cannot parse batch process count from info param: '%s'", info)
 
     if is_htmx_partial(request):
         return templates.TemplateResponse("voting/process_cards.html", ctx)
@@ -273,6 +277,7 @@ async def process_ballot(
     request: Request,
     db: Session = Depends(get_db),
 ):
+    """Zpracování jednoho hlasovacího lístku s uložením hlasů."""
     form_data = await request.form()
     ballot = db.query(Ballot).options(joinedload(Ballot.votes)).get(ballot_id)
     if not ballot or ballot.voting_id != voting_id:
@@ -456,6 +461,7 @@ async def not_submitted(
     order: str = Query("asc"),
     db: Session = Depends(get_db),
 ):
+    """Seznam neodevzdaných hlasovacích lístků."""
     voting = db.query(Voting).options(
         joinedload(Voting.ballots).joinedload(Ballot.owner).joinedload(Owner.units).joinedload(OwnerUnit.unit),
         joinedload(Voting.ballots).joinedload(Ballot.votes),

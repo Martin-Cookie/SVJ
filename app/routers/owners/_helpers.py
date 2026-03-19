@@ -3,19 +3,15 @@ from __future__ import annotations
 import json
 import logging
 
-from fastapi.templating import Jinja2Templates
 from markupsafe import escape
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from app.models import Owner, OwnerType, OwnerUnit, SvjInfo, Unit
 from app.services.code_list_service import get_all_code_lists
-from app.utils import setup_jinja_filters, strip_diacritics
+from app.utils import strip_diacritics, templates
 
 logger = logging.getLogger(__name__)
-
-templates = Jinja2Templates(directory="app/templates")
-setup_jinja_filters(templates)
 
 
 SORT_COLUMNS = {
@@ -247,7 +243,7 @@ def _load_owner_mapping(db: Session) -> dict | None:
         try:
             return json.loads(info.owner_import_mapping)
         except (json.JSONDecodeError, TypeError):
-            pass
+            logger.debug("Failed to parse saved owner import mapping", exc_info=True)
     return None
 
 
@@ -266,7 +262,7 @@ def _load_contact_mapping(db: Session) -> dict | None:
         try:
             return json.loads(info.contact_import_mapping)
         except (json.JSONDecodeError, TypeError):
-            pass
+            logger.debug("Failed to parse saved contact import mapping", exc_info=True)
     return None
 
 

@@ -5,7 +5,6 @@ from io import BytesIO
 
 from fastapi import APIRouter, Depends, Form, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
-from fastapi.templating import Jinja2Templates
 from markupsafe import escape
 from openpyxl import Workbook
 from openpyxl.styles import Font
@@ -16,11 +15,9 @@ from app.database import get_db
 from app.models import Owner, OwnerUnit, SvjInfo, Unit
 from app.services.code_list_service import get_all_code_lists
 from app.services.owner_exchange import recalculate_unit_votes
-from app.utils import build_list_url, excel_auto_width, is_htmx_partial, setup_jinja_filters, strip_diacritics
+from app.utils import build_list_url, excel_auto_width, is_htmx_partial, strip_diacritics, templates
 
 router = APIRouter()
-templates = Jinja2Templates(directory="app/templates")
-setup_jinja_filters(templates)
 
 
 def _parse_numeric_fields(floor_area: str, podil_scd: str):
@@ -89,6 +86,7 @@ SORT_COLUMNS = {
 
 @router.get("/nova-formular")
 async def unit_create_form(request: Request, db: Session = Depends(get_db)):
+    """Formulář pro vytvoření nové jednotky."""
     return templates.TemplateResponse("partials/unit_create_form.html", {
         "request": request,
         "code_lists": get_all_code_lists(db),
@@ -109,6 +107,7 @@ async def unit_create(
     podil_scd: str = Form(""),
     db: Session = Depends(get_db),
 ):
+    """Vytvoření nové jednotky z formuláře."""
 
     # Parse unit_number
     try:
@@ -193,6 +192,7 @@ async def unit_owners_section(
     request: Request,
     db: Session = Depends(get_db),
 ):
+    """Sekce vlastníků jednotky pro HTMX obnovení."""
     unit = db.query(Unit).options(
         joinedload(Unit.owners).joinedload(OwnerUnit.owner)
     ).get(unit_id)
@@ -211,6 +211,7 @@ async def owner_unit_edit_form(
     request: Request,
     db: Session = Depends(get_db),
 ):
+    """Inline editační řádek vazby vlastník–jednotka."""
     unit = db.query(Unit).get(unit_id)
     ou = db.query(OwnerUnit).options(joinedload(OwnerUnit.owner)).get(ou_id)
     if not unit or not ou or ou.unit_id != unit_id:
@@ -231,6 +232,7 @@ async def owner_unit_update(
     ownership_type: str = Form(""),
     db: Session = Depends(get_db),
 ):
+    """Uložení změn podílu a typu vlastnictví na jednotce."""
     unit = db.query(Unit).options(
         joinedload(Unit.owners).joinedload(OwnerUnit.owner)
     ).get(unit_id)
@@ -273,6 +275,7 @@ async def unit_edit_form(
     request: Request,
     db: Session = Depends(get_db),
 ):
+    """Formulář pro inline editaci údajů jednotky."""
     unit = db.query(Unit).get(unit_id)
     if not unit:
         return RedirectResponse("/jednotky", status_code=302)
@@ -289,6 +292,7 @@ async def unit_info(
     request: Request,
     db: Session = Depends(get_db),
 ):
+    """Zobrazení údajů jednotky po zrušení editace."""
     unit = db.query(Unit).get(unit_id)
     if not unit:
         return RedirectResponse("/jednotky", status_code=302)
@@ -314,6 +318,7 @@ async def unit_update(
     podil_scd: str = Form(""),
     db: Session = Depends(get_db),
 ):
+    """Uložení změn údajů jednotky."""
 
     unit = db.query(Unit).get(unit_id)
     if not unit:
@@ -464,6 +469,7 @@ async def unit_list(
     back: str = Query("", alias="back"),
     db: Session = Depends(get_db),
 ):
+    """Seznam jednotek s filtry, hledáním a řazením."""
     units = _filter_units(db, q, typ, sekce, sort, order)
 
     # Current list URL for back navigation
@@ -607,6 +613,7 @@ async def unit_detail(
     back: str = Query("", alias="back"),
     db: Session = Depends(get_db),
 ):
+    """Detail jednotky s vlastníky a editací."""
     unit = db.query(Unit).options(
         joinedload(Unit.owners).joinedload(OwnerUnit.owner)
     ).get(unit_id)

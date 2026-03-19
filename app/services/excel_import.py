@@ -6,8 +6,12 @@ Excel import service for parsing SVJ owner data.
 Supports dynamic column mapping via `mapping` dict parameter.
 Falls back to DEFAULT_OWNER_MAPPING when no mapping is provided.
 """
+import logging
+
 from openpyxl import load_workbook
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 from app.models.owner import Owner, OwnerType, OwnerUnit, Unit
 from app.utils import build_name_with_titles, strip_diacritics
@@ -213,7 +217,7 @@ def _parse_row(row: tuple, row_idx: int, fm: dict) -> dict | None:
     try:
         unit_kn = int(unit_kn)
     except (ValueError, TypeError):
-        pass
+        logger.debug("Cannot convert unit_kn '%s' to int, keeping as string", unit_kn)
 
     return {
         "row_idx": row_idx,

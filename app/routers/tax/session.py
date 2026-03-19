@@ -12,7 +12,6 @@ from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
-from fastapi.templating import Jinja2Templates
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill
 from sqlalchemy import cast, Integer
@@ -43,6 +42,7 @@ router = APIRouter()
 
 @router.get("/")
 async def tax_list(request: Request, back: str = Query("", alias="back"), stav: str = Query("", alias="stav"), db: Session = Depends(get_db)):
+    """Seznam daňových sessions s filtrováním podle stavu."""
     sessions = (
         db.query(TaxSession)
         .options(
@@ -153,6 +153,7 @@ async def tax_create_page(
     chyba: str = Query("", alias="chyba"),
     db: Session = Depends(get_db),
 ):
+    """Formulář pro vytvoření nové daňové session."""
     # Wizard step 1 for new session (no session object yet, build manually)
     steps = [{"label": s["label"], "status": "active" if i == 0 else "pending"} for i, s in enumerate(_TAX_WIZARD_STEPS)]
     email_templates = (
@@ -182,6 +183,7 @@ async def tax_create(
     files: List[UploadFile] = File(...),
     db: Session = Depends(get_db),
 ):
+    """Vytvoření nové daňové session s nahráním PDF souborů."""
     # Filter to PDF files only (webkitdirectory sends all files including .DS_Store)
     pdf_files = [f for f in files if f.filename and f.filename.lower().endswith(".pdf")]
     if not pdf_files:
@@ -372,6 +374,7 @@ async def tax_detail(
     stranka: int = Query(1, alias="stranka"),
     db: Session = Depends(get_db),
 ):
+    """Detail daňové session s dokumenty, párováním a filtrováním."""
     session = db.query(TaxSession).get(session_id)
     if not session:
         return RedirectResponse("/dane", status_code=302)
@@ -547,6 +550,7 @@ async def rename_session(
     title: str = Form(...),
     db: Session = Depends(get_db),
 ):
+    """Přejmenování daňové session."""
     session = db.query(TaxSession).get(session_id)
     if not session:
         return RedirectResponse("/dane", status_code=302)

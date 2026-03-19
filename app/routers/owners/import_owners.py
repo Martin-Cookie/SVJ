@@ -38,6 +38,7 @@ async def import_page(
     chyba_kontakty_msg: str = Query("", alias="chyba_kontakty_msg"),
     db: Session = Depends(get_db),
 ):
+    """Stránka importu vlastníků a kontaktů s historií importů."""
     imports = db.query(ImportLog).filter_by(import_type="owners_excel").order_by(ImportLog.created_at.desc()).all()
     contact_imports = db.query(ImportLog).filter_by(import_type="contacts_excel").order_by(ImportLog.created_at.desc()).all()
     owner_count = db.query(Owner).count()
@@ -163,6 +164,8 @@ async def import_excel_preview(
     """Step 2: Mapping -> preview parsed data."""
     if not is_safe_path(Path(file_path), settings.upload_dir):
         return RedirectResponse("/vlastnici/import", status_code=302)
+    if not Path(file_path).exists():
+        return RedirectResponse("/vlastnici/import?chyba=soubor_chybi", status_code=302)
 
     # Parse mapping
     mapping = None
@@ -170,7 +173,7 @@ async def import_excel_preview(
         try:
             mapping = json.loads(mapping_json)
         except json.JSONDecodeError:
-            pass
+            logger.debug("Failed to parse owner mapping JSON for preview", exc_info=True)
 
     if mapping:
         err = validate_owner_mapping(mapping)
@@ -206,6 +209,8 @@ async def import_excel_confirm(
     """Step 3: Confirm preview and save to DB."""
     if not is_safe_path(Path(file_path), settings.upload_dir):
         return RedirectResponse("/vlastnici/import", status_code=302)
+    if not Path(file_path).exists():
+        return RedirectResponse("/vlastnici/import?chyba=soubor_chybi", status_code=302)
 
     # Parse mapping
     mapping = None
@@ -213,7 +218,7 @@ async def import_excel_confirm(
         try:
             mapping = json.loads(mapping_json)
         except json.JSONDecodeError:
-            pass
+            logger.debug("Failed to parse owner mapping JSON for confirm", exc_info=True)
 
     # Clear existing owners
     db.query(OwnerUnit).delete()

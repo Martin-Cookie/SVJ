@@ -7,7 +7,6 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
 from fastapi.responses import FileResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill
 from sqlalchemy import and_, cast, func, Integer, or_
@@ -24,12 +23,10 @@ from app.models import (
 from app.services.csv_comparator import compare_owners, parse_sousede_csv
 from app.services.owner_exchange import execute_exchange, prepare_exchange_preview, recalculate_unit_votes
 from app.services.owner_matcher import normalize_for_matching
-from app.utils import UPLOAD_LIMITS, build_list_url, excel_auto_width, is_htmx_partial, setup_jinja_filters, strip_diacritics, validate_upload
+from app.utils import UPLOAD_LIMITS, build_list_url, excel_auto_width, is_htmx_partial, strip_diacritics, templates, validate_upload
 
 
 router = APIRouter()
-templates = Jinja2Templates(directory="app/templates")
-setup_jinja_filters(templates)
 
 
 @router.get("/")
@@ -49,6 +46,7 @@ async def sync_list(
     chyba: str = Query("", alias="chyba"),
     db: Session = Depends(get_db),
 ):
+    """Seznam synchronizačních a kontrolních sessions."""
     # Legacy fallback: if old q/sort/order params are used (HTMX partial)
     _sync_q = sync_q or q
     _sync_sort = sync_sort if sync_sort != "date" or not sort else sort
@@ -162,6 +160,7 @@ async def sync_delete(session_id: int, db: Session = Depends(get_db)):
 
 @router.get("/nova")
 async def sync_create_page():
+    """Přesměrování na stránku synchronizace."""
     return RedirectResponse("/synchronizace", status_code=302)
 
 
@@ -171,6 +170,7 @@ async def sync_create(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
 ):
+    """Nahrání CSV souboru a vytvoření nové synchronizační session."""
     if not file.filename:
         return RedirectResponse("/synchronizace/nova", status_code=302)
 
@@ -290,6 +290,7 @@ async def sync_detail(
     back: str = Query("", alias="back"),
     db: Session = Depends(get_db),
 ):
+    """Detail synchronizační session s porovnáním záznamů."""
     session = db.query(SyncSession).get(session_id)
     if not session:
         return RedirectResponse("/synchronizace", status_code=302)
@@ -441,6 +442,7 @@ async def accept_change(
     request: Request,
     db: Session = Depends(get_db),
 ):
+    """Přijetí navržené změny v synchronizačním záznamu."""
     record = db.query(SyncRecord).get(record_id)
     if record:
         record.resolution = SyncResolution.ACCEPTED
@@ -461,6 +463,7 @@ async def reject_change(
     request: Request,
     db: Session = Depends(get_db),
 ):
+    """Odmítnutí navržené změny v synchronizačním záznamu."""
     record = db.query(SyncRecord).get(record_id)
     if record:
         record.resolution = SyncResolution.REJECTED
@@ -482,6 +485,7 @@ async def manual_edit(
     request: Request = None,
     db: Session = Depends(get_db),
 ):
+    """Ruční oprava jména v synchronizačním záznamu."""
     record = db.query(SyncRecord).get(record_id)
     if record:
         record.admin_corrected_name = corrected_name
@@ -502,6 +506,7 @@ async def export_excel(
     request: Request,
     db: Session = Depends(get_db),
 ):
+    """Export porovnání synchronizační session do Excelu."""
     form_data = await request.form()
     filtr = form_data.get("filtr", "")
 

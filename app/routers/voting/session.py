@@ -40,6 +40,7 @@ async def voting_list(
     stav: str = Query("", alias="stav"),
     db: Session = Depends(get_db),
 ):
+    """Seznam hlasování s filtrováním podle stavu a statistikami."""
     q = db.query(Voting).options(joinedload(Voting.items))
     if stav:
         q = q.filter(Voting.status == stav)
@@ -156,6 +157,7 @@ async def voting_create_page(
     chyba: str = Query(""),
     db: Session = Depends(get_db),
 ):
+    """Formulář pro vytvoření nového hlasování."""
     wizard = {
         "wizard_steps": [
             {"label": s["label"], "status": "active" if i == 0 else "pending"}
@@ -226,6 +228,7 @@ async def voting_create(
     file: UploadFile = File(None),
     db: Session = Depends(get_db),
 ):
+    """Vytvoření nového hlasování s volitelnou DOCX šablonou."""
     quorum_threshold = max(0.0, min(100.0, quorum_threshold))
     date_warning = None
     voting = Voting(
@@ -288,7 +291,7 @@ async def voting_create(
             if not end_date and meta.get("end_date"):
                 voting.end_date = date.fromisoformat(meta["end_date"])
         except Exception:
-            pass  # metadata extraction is best-effort
+            logger.debug("Metadata extraction from DOCX template failed (best-effort)", exc_info=True)
     else:
         db.add(voting)
         db.flush()
@@ -322,6 +325,7 @@ async def voting_detail(
     info: str = Query(""),
     db: Session = Depends(get_db),
 ):
+    """Detail hlasování s výsledky, body a statistikami."""
     voting = db.query(Voting).options(
         joinedload(Voting.items),
         joinedload(Voting.ballots).joinedload(Ballot.owner).joinedload(Owner.units).joinedload(OwnerUnit.unit),
@@ -463,6 +467,7 @@ async def generate_ballots(
     request: Request,
     db: Session = Depends(get_db),
 ):
+    """Vygenerování hlasovacích lístků pro všechny aktivní vlastníky."""
     voting = db.query(Voting).options(joinedload(Voting.items)).get(voting_id)
     if not voting:
         return RedirectResponse("/hlasovani", status_code=302)
@@ -654,6 +659,7 @@ async def update_voting_status(
     status: str = Form(...),
     db: Session = Depends(get_db),
 ):
+    """Změna stavu hlasování (aktivní/uzavřené)."""
     voting = db.query(Voting).get(voting_id)
     if voting:
         old = voting.status
@@ -820,6 +826,7 @@ async def delete_voting_item(
     item_id: int,
     db: Session = Depends(get_db),
 ):
+    """Smazání bodu hlasování s přečíslováním zbývajících."""
     item = db.query(VotingItem).filter_by(id=item_id, voting_id=voting_id).first()
     if item:
         db.delete(item)
@@ -844,6 +851,7 @@ async def add_voting_item(
     description: str = Form(""),
     db: Session = Depends(get_db),
 ):
+    """Přidání nového bodu hlasování."""
     voting = db.query(Voting).options(joinedload(Voting.items)).get(voting_id)
     if not voting:
         return RedirectResponse("/hlasovani", status_code=302)

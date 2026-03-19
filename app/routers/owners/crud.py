@@ -36,6 +36,7 @@ router = APIRouter()
 
 @router.get("/novy-formular")
 async def owner_create_form(request: Request):
+    """Formulář pro vytvoření nového vlastníka."""
     return templates.TemplateResponse("partials/owner_create_form.html", {
         "request": request,
     })
@@ -54,6 +55,7 @@ async def owner_create(
     force_create: str = Form(""),
     db: Session = Depends(get_db),
 ):
+    """Vytvoření nového vlastníka s kontrolou duplicit."""
     # Build name_with_titles and name_normalized
     parts_wt = []
     if title:
@@ -158,6 +160,7 @@ async def owner_list(
     back: str = Query("", alias="back"),
     db: Session = Depends(get_db),
 ):
+    """Seznam vlastníků s filtry, hledáním a řazením."""
     owners = _filter_owners(db, q, owner_type, vlastnictvi, kontakt, stav, sekce, sort, order)
 
     # Current list URL for back navigation
@@ -355,6 +358,7 @@ async def owner_detail(
     info: str = Query(""),
     db: Session = Depends(get_db),
 ):
+    """Detail vlastníka s jednotkami, kontakty a adresami."""
 
     owner = db.query(Owner).options(
         joinedload(Owner.units).joinedload(OwnerUnit.unit)
@@ -406,6 +410,7 @@ async def owner_identity_edit_form(
     request: Request,
     db: Session = Depends(get_db),
 ):
+    """Formulář pro inline editaci identity vlastníka."""
     owner = db.query(Owner).get(owner_id)
     if not owner:
         return RedirectResponse("/vlastnici", status_code=302)
@@ -421,6 +426,7 @@ async def owner_identity_info(
     request: Request,
     db: Session = Depends(get_db),
 ):
+    """Zobrazení identity vlastníka po zrušení editace."""
     owner = db.query(Owner).get(owner_id)
     if not owner:
         return RedirectResponse("/vlastnici", status_code=302)
@@ -443,6 +449,7 @@ async def owner_identity_update(
     company_id: str = Form(""),
     db: Session = Depends(get_db),
 ):
+    """Uložení změn identity vlastníka (jméno, typ, RČ/IČ)."""
     owner = db.query(Owner).options(
         joinedload(Owner.units).joinedload(OwnerUnit.unit)
     ).get(owner_id)
@@ -559,6 +566,7 @@ async def owner_edit_form(
     request: Request,
     db: Session = Depends(get_db),
 ):
+    """Formulář pro inline editaci kontaktních údajů vlastníka."""
     owner = db.query(Owner).get(owner_id)
     if not owner:
         return RedirectResponse("/vlastnici", status_code=302)
@@ -574,6 +582,7 @@ async def owner_info(
     request: Request,
     db: Session = Depends(get_db),
 ):
+    """Zobrazení kontaktních údajů vlastníka po zrušení editace."""
     owner = db.query(Owner).get(owner_id)
     if not owner:
         return RedirectResponse("/vlastnici", status_code=302)
@@ -590,6 +599,7 @@ async def owner_address_edit_form(
     request: Request,
     db: Session = Depends(get_db),
 ):
+    """Formulář pro inline editaci adresy vlastníka."""
     if prefix not in ("perm", "corr"):
         return RedirectResponse(f"/vlastnici/{owner_id}", status_code=302)
     owner = db.query(Owner).get(owner_id)
@@ -609,6 +619,7 @@ async def owner_address_info(
     request: Request,
     db: Session = Depends(get_db),
 ):
+    """Zobrazení adresy vlastníka po zrušení editace."""
     if prefix not in ("perm", "corr"):
         return RedirectResponse(f"/vlastnici/{owner_id}", status_code=302)
     owner = db.query(Owner).get(owner_id)
@@ -633,6 +644,7 @@ async def owner_address_update(
     country: str = Form(""),
     db: Session = Depends(get_db),
 ):
+    """Uložení změn adresy vlastníka."""
     if prefix not in ("perm", "corr"):
         return RedirectResponse(f"/vlastnici/{owner_id}", status_code=302)
     owner = db.query(Owner).get(owner_id)
@@ -668,6 +680,7 @@ async def owner_update(
     phone_landline: str = Form(""),
     db: Session = Depends(get_db),
 ):
+    """Uložení změn kontaktních údajů vlastníka."""
     owner = db.query(Owner).get(owner_id)
     if owner:
         owner.email = (email.strip() if email.strip() and is_valid_email(email.strip()) else None)
@@ -697,6 +710,7 @@ async def owner_add_unit(
     votes: str = Form("0"),
     db: Session = Depends(get_db),
 ):
+    """Přiřazení jednotky k vlastníkovi."""
     owner = db.query(Owner).options(
         joinedload(Owner.units).joinedload(OwnerUnit.unit)
     ).get(owner_id)
@@ -747,6 +761,7 @@ async def owner_remove_unit(
     request: Request,
     db: Session = Depends(get_db),
 ):
+    """Odebrání jednotky od vlastníka (nastavení valid_to)."""
     ou = db.query(OwnerUnit).filter_by(id=ou_id, owner_id=owner_id).first()
     if ou:
         ou.valid_to = date.today()

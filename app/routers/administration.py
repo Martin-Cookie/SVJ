@@ -14,7 +14,6 @@ logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, Depends, Form, Query, Request, UploadFile, File
 from fastapi.responses import FileResponse, RedirectResponse, Response
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import case, func as sa_func
 from sqlalchemy.orm import Session, joinedload
 
@@ -97,11 +96,9 @@ _ROLE_SORT = case(
     else_=2,
 )
 
-from app.utils import UPLOAD_LIMITS, is_safe_path, is_valid_email, setup_jinja_filters, validate_upload
+from app.utils import UPLOAD_LIMITS, is_safe_path, is_valid_email, templates, validate_upload
 
 router = APIRouter()
-templates = Jinja2Templates(directory="app/templates")
-setup_jinja_filters(templates)
 
 
 def _get_or_create_svj_info(db: Session) -> SvjInfo:
@@ -115,6 +112,7 @@ def _get_or_create_svj_info(db: Session) -> SvjInfo:
 
 @router.get("/")
 async def administration_page(request: Request, db: Session = Depends(get_db)):
+    """Hlavní stránka administrace s přehledem sekcí."""
     info = db.query(SvjInfo).first()
     board_count = db.query(BoardMember).filter_by(group="board").count()
     control_count = db.query(BoardMember).filter_by(group="control").count()
@@ -164,6 +162,7 @@ async def administration_page(request: Request, db: Session = Depends(get_db)):
 
 @router.get("/svj-info")
 async def svj_info_page(request: Request, db: Session = Depends(get_db)):
+    """Stránka informací o SVJ s adresami a členy výboru."""
     info = db.query(SvjInfo).options(joinedload(SvjInfo.addresses)).first()
     if not info:
         info = SvjInfo()
@@ -185,6 +184,7 @@ async def svj_info_page(request: Request, db: Session = Depends(get_db)):
 
 @router.get("/ciselniky")
 async def code_lists_page(request: Request, db: Session = Depends(get_db)):
+    """Správa číselníků a emailových šablon."""
     code_lists = get_all_code_lists(db)
     code_list_usage = {}
     for cat in CODE_LIST_ORDER:
@@ -210,6 +210,7 @@ async def code_lists_page(request: Request, db: Session = Depends(get_db)):
 
 @router.get("/zalohy")
 async def backups_page(request: Request, chyba: str = Query(""), zprava: str = Query(""), db: Session = Depends(get_db)):
+    """Stránka správy záloh s historií obnovení."""
     backups = []
     if BACKUP_DIR.is_dir():
         for f in sorted(BACKUP_DIR.iterdir(), reverse=True):
@@ -239,6 +240,7 @@ async def backups_page(request: Request, chyba: str = Query(""), zprava: str = Q
 
 @router.get("/smazat")
 async def purge_page(request: Request, db: Session = Depends(get_db)):
+    """Stránka pro hromadné mazání dat podle kategorií."""
     purge_counts = _purge_counts(db)
     return templates.TemplateResponse("administration/purge.html", {
         "request": request,
@@ -252,6 +254,7 @@ async def purge_page(request: Request, db: Session = Depends(get_db)):
 
 @router.get("/export")
 async def export_page(request: Request, db: Session = Depends(get_db)):
+    """Stránka pro export dat podle kategorií."""
     purge_counts = _purge_counts(db)
     return templates.TemplateResponse("administration/export.html", {
         "request": request,
@@ -270,6 +273,7 @@ async def update_svj_info(
     total_shares: str = Form(""),
     db: Session = Depends(get_db),
 ):
+    """Uložení základních informací o SVJ."""
     info = _get_or_create_svj_info(db)
     info.name = name.strip() or None
     info.building_type = building_type.strip() or None
@@ -291,6 +295,7 @@ async def add_address(
     address: str = Form(...),
     db: Session = Depends(get_db),
 ):
+    """Přidání nové adresy SVJ."""
     info = _get_or_create_svj_info(db)
     max_order = db.query(SvjAddress).filter_by(svj_info_id=info.id).count()
     addr = SvjAddress(
@@ -309,6 +314,7 @@ async def edit_address(
     address: str = Form(...),
     db: Session = Depends(get_db),
 ):
+    """Úprava existující adresy SVJ."""
     addr = db.query(SvjAddress).get(addr_id)
     if addr:
         addr.address = address.strip()
@@ -318,6 +324,7 @@ async def edit_address(
 
 @router.post("/adresa/{addr_id}/smazat")
 async def delete_address(addr_id: int, db: Session = Depends(get_db)):
+    """Smazání adresy SVJ."""
     addr = db.query(SvjAddress).get(addr_id)
     if addr:
         db.delete(addr)
@@ -335,6 +342,7 @@ async def add_member(
     group: str = Form("board"),
     db: Session = Depends(get_db),
 ):
+    """Přidání nového člena výboru nebo kontrolního orgánu."""
     max_order = db.query(BoardMember).filter_by(group=group).count()
     member = BoardMember(
         name=name.strip(),
@@ -358,6 +366,7 @@ async def edit_member(
     phone: str = Form(""),
     db: Session = Depends(get_db),
 ):
+    """Úprava údajů člena výboru."""
     member = db.query(BoardMember).get(member_id)
     if member:
         member.name = name.strip()
@@ -370,6 +379,7 @@ async def edit_member(
 
 @router.post("/clen/{member_id}/smazat")
 async def delete_member(member_id: int, db: Session = Depends(get_db)):
+    """Smazání člena výboru."""
     member = db.query(BoardMember).get(member_id)
     if member:
         db.delete(member)
@@ -387,6 +397,7 @@ async def code_list_add(
     value: str = Form(...),
     db: Session = Depends(get_db),
 ):
+    """Přidání nové hodnoty do číselníku."""
     value = value.strip()
     if not value or category not in CODE_LIST_CATEGORIES:
         return RedirectResponse("/sprava/ciselniky", status_code=302)
@@ -409,6 +420,7 @@ async def code_list_edit(
     new_value: str = Form(...),
     db: Session = Depends(get_db),
 ):
+    """Úprava hodnoty v číselníku."""
     item = db.query(CodeListItem).get(item_id)
     if not item:
         return RedirectResponse("/sprava/ciselniky", status_code=302)
@@ -441,6 +453,7 @@ async def code_list_delete(
     item_id: int,
     db: Session = Depends(get_db),
 ):
+    """Smazání nepoužívané hodnoty z číselníku."""
     item = db.query(CodeListItem).get(item_id)
     if not item:
         return RedirectResponse("/sprava/ciselniky", status_code=302)
@@ -464,6 +477,7 @@ async def email_template_add(
     body_template: str = Form(""),
     db: Session = Depends(get_db),
 ):
+    """Přidání nové emailové šablony."""
     name = name.strip()
     subject_template = subject_template.strip()
     if not name or not subject_template:
@@ -493,6 +507,7 @@ async def email_template_edit(
     body_template: str = Form(""),
     db: Session = Depends(get_db),
 ):
+    """Úprava existující emailové šablony."""
     tpl = db.query(EmailTemplate).get(tpl_id)
     if not tpl:
         return RedirectResponse("/sprava/ciselniky", status_code=302)
@@ -521,6 +536,7 @@ async def email_template_delete(
     tpl_id: int,
     db: Session = Depends(get_db),
 ):
+    """Smazání emailové šablony."""
     tpl = db.query(EmailTemplate).get(tpl_id)
     if tpl:
         db.delete(tpl)
@@ -539,6 +555,7 @@ def _safety_backup() -> str:
 
 @router.post("/zaloha/vytvorit")
 async def backup_create(filename: str = Form(""), db: Session = Depends(get_db)):
+    """Vytvoření nové zálohy databáze a souborů."""
     # Check if there is any data to backup
     total = sum(
         db.query(m).count()
@@ -564,6 +581,7 @@ async def backup_create(filename: str = Form(""), db: Session = Depends(get_db))
 
 @router.get("/zaloha/{filename}/stahnout")
 async def backup_download(filename: str):
+    """Stažení záložního souboru."""
     file_path = BACKUP_DIR / filename
     if not file_path.is_file() or not filename.endswith(".zip") or not is_safe_path(file_path, BACKUP_DIR):
         return RedirectResponse("/sprava/zalohy", status_code=302)
@@ -576,6 +594,7 @@ async def backup_download(filename: str):
 
 @router.post("/zaloha/{filename}/smazat")
 async def backup_delete(filename: str):
+    """Smazání záložního souboru."""
     file_path = BACKUP_DIR / filename
     if file_path.is_file() and filename.endswith(".zip") and is_safe_path(file_path, BACKUP_DIR):
         file_path.unlink()
@@ -651,6 +670,7 @@ async def backup_restore_existing(filename: str):
 
 @router.post("/zaloha/obnovit")
 async def backup_restore(file: UploadFile = File(...)):
+    """Obnovení dat z nahraného ZIP záložního souboru."""
     err = await validate_upload(file, **UPLOAD_LIMITS["backup"])
     if err:
         return RedirectResponse("/sprava/zalohy?chyba=upload", status_code=302)
@@ -1104,6 +1124,7 @@ async def purge_data(request: Request, db: Session = Depends(get_db)):
 
 @router.get("/hromadne-upravy")
 async def bulk_edit_page(request: Request, db: Session = Depends(get_db)):
+    """Stránka hromadných úprav polí jednotek a vazeb."""
     # Compute stats for each field
     field_stats = {}
     for key, info in _BULK_FIELDS.items():
@@ -1133,6 +1154,7 @@ async def bulk_edit_page(request: Request, db: Session = Depends(get_db)):
 
 @router.get("/hromadne-upravy/hodnoty")
 async def bulk_edit_values(request: Request, pole: str, db: Session = Depends(get_db)):
+    """Seznam unikátních hodnot pro hromadnou úpravu daného pole."""
     field_info = _BULK_FIELDS.get(pole)
     if not field_info:
         return templates.TemplateResponse("administration/bulk_edit_values.html", {
@@ -1174,6 +1196,7 @@ async def bulk_edit_values(request: Request, pole: str, db: Session = Depends(ge
 async def bulk_edit_records(
     request: Request, pole: str, hodnota: str = "", db: Session = Depends(get_db),
 ):
+    """Záznamy s konkrétní hodnotou pole pro hromadnou úpravu."""
     field_info = _BULK_FIELDS.get(pole)
     if not field_info:
         return templates.TemplateResponse("administration/bulk_edit_records.html", {
@@ -1219,6 +1242,7 @@ async def bulk_edit_apply(
     request: Request,
     db: Session = Depends(get_db),
 ):
+    """Aplikování hromadné změny hodnoty na vybrané záznamy."""
     form_data = await request.form()
     pole = form_data.get("pole", "")
     old_value = form_data.get("old_value", "")
@@ -1247,12 +1271,12 @@ async def bulk_edit_apply(
             try:
                 filter_value = int(old_value)
             except ValueError:
-                pass
+                logger.debug("Cannot convert orientation_number filter '%s' to int", old_value)
         elif pole == "share":
             try:
                 filter_value = float(old_value)
             except ValueError:
-                pass
+                logger.debug("Cannot convert share filter '%s' to float", old_value)
         q = db.query(model).filter(col == filter_value)
 
     # Set new value (empty string → None)
@@ -1304,6 +1328,7 @@ async def duplicates_page(
     db: Session = Depends(get_db),
     back: str = Query(""),
 ):
+    """Stránka detekce a slučování duplicitních vlastníků."""
     groups = find_duplicate_groups(db)
     back_url = back or "/sprava"
 

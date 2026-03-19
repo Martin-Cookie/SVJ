@@ -6,7 +6,6 @@ from datetime import date
 from urllib.parse import urlparse
 
 from fastapi import Request
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import cast, Integer
 from sqlalchemy.orm import Session, joinedload
 
@@ -16,12 +15,9 @@ from app.models import (
     MatchStatus, Owner, OwnerUnit, SendStatus,
     TaxDistribution, TaxDocument, TaxSession, Unit,
 )
-from app.utils import build_wizard_steps, setup_jinja_filters
+from app.utils import build_wizard_steps, templates
 
 logger = logging.getLogger(__name__)
-
-templates = Jinja2Templates(directory="app/templates")
-setup_jinja_filters(templates)
 
 # In-memory progress tracker for background PDF processing
 _processing_progress: dict[int, dict] = {}

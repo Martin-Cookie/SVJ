@@ -1,19 +1,15 @@
 import logging
 
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models import (
     Ballot, BallotStatus, BallotVote, SvjInfo, VotingStatus,
 )
-from app.utils import build_wizard_steps, setup_jinja_filters
+from app.utils import build_wizard_steps, templates
 
 
 logger = logging.getLogger(__name__)
-
-templates = Jinja2Templates(directory="app/templates")
-setup_jinja_filters(templates)
 
 
 _VOTING_WIZARD_STEPS = [

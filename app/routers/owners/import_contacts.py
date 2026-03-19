@@ -48,6 +48,7 @@ async def contact_import_upload(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
 ):
+    """Nahrání Excel souboru s kontakty a přesměrování na mapování."""
     if not file.filename:
         return RedirectResponse("/vlastnici/import?chyba_kontakty=format#kontakty", status_code=302)
 
@@ -127,6 +128,8 @@ async def contact_import_mapping_submit(
     """Step 2 -> 3: Mapping -> start background processing."""
     if not is_safe_path(Path(file_path), settings.upload_dir):
         return RedirectResponse("/vlastnici/import#kontakty", status_code=302)
+    if not Path(file_path).exists():
+        return RedirectResponse("/vlastnici/import?chyba_kontakty=soubor_chybi#kontakty", status_code=302)
 
     # Parse mapping
     mapping = None
@@ -134,7 +137,7 @@ async def contact_import_mapping_submit(
         try:
             mapping = json.loads(mapping_json)
         except json.JSONDecodeError:
-            pass
+            logger.debug("Failed to parse contact mapping JSON for preview", exc_info=True)
 
     if mapping:
         err = validate_contact_mapping(mapping)
@@ -317,8 +320,11 @@ async def contact_import_confirm(
     mapping_json: str = Form(""),
     db: Session = Depends(get_db),
 ):
+    """Potvrzení a provedení importu kontaktů pro vybrané vlastníky."""
     if not is_safe_path(Path(file_path), settings.upload_dir):
         return RedirectResponse("/vlastnici/import#kontakty", status_code=302)
+    if not Path(file_path).exists():
+        return RedirectResponse("/vlastnici/import?chyba_kontakty=soubor_chybi#kontakty", status_code=302)
 
     form_data = await request.form()
     selected = [int(v) for v in form_data.getlist("selected_owners")]
@@ -332,7 +338,7 @@ async def contact_import_confirm(
         try:
             mapping = json.loads(mapping_json)
         except json.JSONDecodeError:
-            pass
+            logger.debug("Failed to parse contact mapping JSON for confirm", exc_info=True)
 
     result = execute_contact_import(file_path, db, selected, overwrite_existing=bool(overwrite), mapping=mapping)
 

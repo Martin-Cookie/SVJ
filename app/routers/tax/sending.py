@@ -159,6 +159,7 @@ async def tax_send_preview(
     varovani: str = Query(""),
     db: Session = Depends(get_db),
 ):
+    """Náhled rozesílání s příjemci, emaily a nastavením."""
     session = db.query(TaxSession).get(session_id)
     if not session:
         return RedirectResponse("/dane", status_code=302)
@@ -289,6 +290,7 @@ async def update_recipient_email(
     email: str = Form(""),
     db: Session = Depends(get_db),
 ):
+    """Změna emailové adresy příjemce pro rozesílání."""
     dist = db.query(TaxDistribution).get(dist_id)
     if not dist:
         return RedirectResponse(f"/dane/{session_id}/rozeslat", status_code=302)
@@ -475,6 +477,7 @@ async def send_test_email(
     email_body: str = Form(""),
     db: Session = Depends(get_db),
 ):
+    """Odeslání testovacího emailu s vybraným dokumentem."""
     session = db.query(TaxSession).get(session_id)
     if not session:
         return RedirectResponse("/dane", status_code=302)
@@ -587,6 +590,7 @@ async def save_send_settings(
     test_email_inline: str = Form(""),
     db: Session = Depends(get_db),
 ):
+    """Uložení nastavení rozesílání (předmět, tělo, dávkování)."""
     session = db.query(TaxSession).get(session_id)
     if not session:
         return RedirectResponse("/dane", status_code=302)
@@ -684,7 +688,7 @@ def _send_emails_batch(session_id: int, recipient_data: list, email_subject: str
                             try:
                                 smtp_conn.quit()
                             except Exception:
-                                pass
+                                logger.debug("SMTP quit failed during pause/cancel cleanup", exc_info=True)
                         return
                     time.sleep(0.5)
 
@@ -740,7 +744,7 @@ def _send_emails_batch(session_id: int, recipient_data: list, email_subject: str
                 try:
                     smtp_conn.quit()
                 except Exception:
-                    pass
+                    logger.debug("SMTP quit failed after batch cleanup", exc_info=True)
                 smtp_conn = None
 
             # After batch: wait for confirmation or interval

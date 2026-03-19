@@ -1,7 +1,6 @@
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, Query, Request
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
@@ -9,15 +8,14 @@ from app.database import get_db
 from app.models import ActivityLog, EmailLog, Owner, OwnerUnit, SvjInfo, Unit, Voting
 from app.models.voting import Ballot, BallotStatus, BallotVote
 from app.models.tax import TaxDocument, TaxSession, TaxDistribution, EmailDeliveryStatus
-from app.utils import setup_jinja_filters, strip_diacritics
+from app.utils import strip_diacritics, templates
 
 router = APIRouter()
-templates = Jinja2Templates(directory="app/templates")
-setup_jinja_filters(templates)
 
 
 @router.get("/prehled/rozdil-podilu")
 async def shares_breakdown(request: Request, vse: int = 0, db: Session = Depends(get_db)):
+    """Porovnání podílů dle prohlášení vs. evidence vlastníků."""
     svj_info = db.query(SvjInfo).first()
     declared_shares = svj_info.total_shares if svj_info and svj_info.total_shares else 0
 
@@ -86,6 +84,7 @@ async def home(
     order: str = Query("desc"),
     db: Session = Depends(get_db),
 ):
+    """Hlavní přehledová stránka se statistikami a poslední aktivitou."""
     owners_count = db.query(Owner).filter_by(is_active=True).count()
     units_count = db.query(Unit).count()
     # Voting stats: count per status (lightweight)

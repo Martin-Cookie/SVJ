@@ -5,12 +5,15 @@ Compare CSV export from sousede.cz with Excel owner data.
 Handles format differences: titles, SJM format, comma in company names.
 """
 import csv
+import logging
 import re
 from difflib import SequenceMatcher
 from io import StringIO
 
 from app.models.sync import SyncStatus
 from app.services.owner_matcher import normalize_for_matching
+
+logger = logging.getLogger(__name__)
 
 
 def parse_sousede_csv(csv_content: str) -> list[dict]:
@@ -204,7 +207,7 @@ def compare_owners(
                 else:
                     csv_share = int(float(csv_share_raw))
             except (ValueError, TypeError):
-                pass
+                logger.debug("Cannot parse CSV share value '%s' for unit %s", csv_share_raw, unit)
 
         if unit not in excel_by_unit:
             results.append({

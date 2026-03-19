@@ -187,7 +187,7 @@ def send_email(
         try:
             server.quit()
         except Exception:
-            pass
+            logger.debug("SMTP quit failed during cleanup", exc_info=True)
 
     if errors:
         return {"success": False, "error": "; ".join(errors)}

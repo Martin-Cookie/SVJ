@@ -6,7 +6,6 @@ from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
 from fastapi.responses import FileResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill
 from sqlalchemy import func
@@ -24,11 +23,9 @@ from app.services.owner_exchange import recalculate_unit_votes
 from app.services.share_check_comparator import (
     compare_shares, get_file_headers, get_file_preview, parse_file, suggest_mapping,
 )
-from app.utils import UPLOAD_LIMITS, build_list_url, excel_auto_width, is_htmx_partial, is_safe_path, setup_jinja_filters, strip_diacritics, validate_upload
+from app.utils import UPLOAD_LIMITS, build_list_url, excel_auto_width, is_htmx_partial, is_safe_path, strip_diacritics, templates, validate_upload
 
 router = APIRouter()
-templates = Jinja2Templates(directory="app/templates")
-setup_jinja_filters(templates)
 
 
 SORT_COLUMNS = {
@@ -48,6 +45,7 @@ async def share_check_list(
     back: str = Query("", alias="back"),
     db: Session = Depends(get_db),
 ):
+    """Seznam sessions kontroly podílů s hledáním a řazením."""
     # HTMX partial search — return just tbody rows
     if is_htmx_partial(request):
         sessions = db.query(ShareCheckSession).order_by(ShareCheckSession.created_at.desc()).all()
@@ -90,6 +88,7 @@ async def share_check_upload(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
 ):
+    """Nahrání souboru pro kontrolu podílů."""
     if not file.filename:
         return RedirectResponse("/synchronizace?chyba=soubor#kontrola-podilu", status_code=302)
 
@@ -116,6 +115,7 @@ async def share_check_mapping(
     filename: str = Query(...),
     db: Session = Depends(get_db),
 ):
+    """Stránka mapování sloupců pro kontrolu podílů."""
     if not is_safe_path(Path(file_path), settings.upload_dir):
         return RedirectResponse("/synchronizace?chyba=cesta#kontrola-podilu", status_code=302)
     if not Path(file_path).is_file():
@@ -124,6 +124,7 @@ async def share_check_mapping(
     try:
         headers = get_file_headers(file_path)
     except Exception:
+        logger.warning("Failed to read file headers from %s", file_path, exc_info=True)
         return RedirectResponse("/synchronizace?chyba=hlavicky#kontrola-podilu", status_code=302)
 
     if not headers:
@@ -134,6 +135,7 @@ async def share_check_mapping(
     try:
         preview = get_file_preview(file_path)
     except Exception:
+        logger.debug("Failed to load file preview for %s", file_path, exc_info=True)
         preview = {}
 
     return templates.TemplateResponse("share_check/mapping.html", {
@@ -158,6 +160,7 @@ async def share_check_confirm_mapping(
     col_share: str = Form(...),
     db: Session = Depends(get_db),
 ):
+    """Potvrzení mapování a spuštění porovnání podílů."""
     # Validate file path and existence
     if not is_safe_path(Path(file_path), settings.upload_dir):
         return RedirectResponse("/synchronizace?chyba=cesta#kontrola-podilu", status_code=302)
@@ -233,6 +236,7 @@ async def share_check_detail(
     back: str = Query("", alias="back"),
     db: Session = Depends(get_db),
 ):
+    """Detail kontroly podílů s porovnáním záznamů."""
     session = db.query(ShareCheckSession).get(session_id)
     if not session:
         return RedirectResponse("/synchronizace#kontrola-podilu", status_code=302)
@@ -460,6 +464,7 @@ async def share_check_export(
 
 @router.post("/{session_id}/smazat")
 async def share_check_delete(session_id: int, db: Session = Depends(get_db)):
+    """Smazání session kontroly podílů a nahraného souboru."""
     session = db.query(ShareCheckSession).get(session_id)
     if session:
         try:

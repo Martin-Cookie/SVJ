@@ -6,7 +6,6 @@ from typing import Optional
 from dotenv import set_key
 from fastapi import APIRouter, Depends, Form, Query, Request
 from fastapi.responses import FileResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from sqlalchemy import or_
@@ -14,13 +13,11 @@ from sqlalchemy import or_
 from app.config import settings
 from app.database import get_db
 from app.models import EmailLog, Owner
-from app.utils import build_list_url, is_htmx_partial, is_safe_path, setup_jinja_filters, strip_diacritics
+from app.utils import build_list_url, is_htmx_partial, is_safe_path, strip_diacritics, templates
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-templates = Jinja2Templates(directory="app/templates")
-setup_jinja_filters(templates)
 
 EMAIL_LOG_LIMIT = 100
 
@@ -63,6 +60,7 @@ async def settings_view(
     sort: str = Query("date"),
     order: str = Query("desc"),
 ):
+    """Stránka nastavení s historií odeslaných emailů a SMTP konfigurací."""
     # Build query
     query = db.query(EmailLog)
 
@@ -128,6 +126,7 @@ async def settings_view(
 
 @router.get("/smtp/formular")
 async def smtp_form(request: Request):
+    """Formulář pro editaci SMTP nastavení."""
     return templates.TemplateResponse("partials/smtp_form.html", {
         "request": request,
         "settings": settings,
@@ -136,6 +135,7 @@ async def smtp_form(request: Request):
 
 @router.get("/smtp/info")
 async def smtp_info(request: Request):
+    """Zobrazení aktuálního SMTP nastavení (read-only)."""
     return templates.TemplateResponse("partials/smtp_info.html", {
         "request": request,
         "settings": settings,
@@ -153,6 +153,7 @@ async def save_smtp(
     smtp_from_email: str = Form(""),
     smtp_use_tls: Optional[str] = Form(None),
 ):
+    """Uložení SMTP konfigurace do .env souboru."""
     env_path = str(settings.base_dir / ".env")
     use_tls = smtp_use_tls == "true"
 
