@@ -1,6 +1,5 @@
 """Router pro bankovní výpisy — import CSV, seznam, detail, párování."""
 
-import shutil
 from datetime import datetime
 from pathlib import Path
 
@@ -13,9 +12,9 @@ from app.database import get_db
 from app.config import settings
 from app.models import (
     BankStatement, Payment, PaymentDirection, PaymentMatchStatus,
-    VariableSymbolMapping, Prescription, Unit, Owner,
+    Unit,
 )
-from app.utils import build_list_url, is_htmx_partial, validate_upload, strip_diacritics
+from app.utils import build_list_url, is_htmx_partial, validate_upload, strip_diacritics, UPLOAD_LIMITS
 from ._helpers import templates, logger, compute_nav_stats
 
 router = APIRouter()
@@ -33,22 +32,25 @@ async def vypisy_seznam(request: Request, db: Session = Depends(get_db)):
         .all()
     )
 
-    # Statistiky pro každý výpis
-    for stmt in statements:
-        stats = (
-            db.query(
-                func.count(Payment.id).label("total"),
-                func.count(Payment.id).filter(Payment.match_status == PaymentMatchStatus.AUTO_MATCHED).label("matched"),
-                func.count(Payment.id).filter(Payment.match_status == PaymentMatchStatus.MANUAL).label("manual"),
-                func.count(Payment.id).filter(Payment.match_status == PaymentMatchStatus.UNMATCHED).label("unmatched"),
-            )
-            .filter(Payment.statement_id == stmt.id)
-            .first()
+    # Statistiky pro všechny výpisy jedním dotazem
+    stats_rows = (
+        db.query(
+            Payment.statement_id,
+            func.count(Payment.id).label("total"),
+            func.count(Payment.id).filter(Payment.match_status == PaymentMatchStatus.AUTO_MATCHED).label("matched"),
+            func.count(Payment.id).filter(Payment.match_status == PaymentMatchStatus.MANUAL).label("manual"),
+            func.count(Payment.id).filter(Payment.match_status == PaymentMatchStatus.UNMATCHED).label("unmatched"),
         )
+        .group_by(Payment.statement_id)
+        .all()
+    )
+    stats_map = {r.statement_id: r for r in stats_rows}
+    for stmt in statements:
+        r = stats_map.get(stmt.id)
         stmt._stats = {
-            "total": stats.total,
-            "matched": stats.matched + stats.manual,
-            "unmatched": stats.unmatched,
+            "total": r.total if r else 0,
+            "matched": (r.matched + r.manual) if r else 0,
+            "unmatched": r.unmatched if r else 0,
         }
 
     list_url = build_list_url(request)
@@ -91,7 +93,7 @@ async def vypis_import_upload(
     from app.services.payment_matching import match_payments
 
     # Validace souboru
-    error = await validate_upload(file, max_size_mb=10, allowed_extensions=[".csv"])
+    error = await validate_upload(file, **UPLOAD_LIMITS["csv"])
     if error:
         return templates.TemplateResponse("payments/vypis_import.html", {
             "request": request,

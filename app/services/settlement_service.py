@@ -7,12 +7,11 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models import (
-    Payment, PaymentDirection, PaymentMatchStatus,
+    OwnerUnit, Payment, PaymentDirection, PaymentMatchStatus,
     Prescription, PrescriptionItem, PrescriptionYear,
     Settlement, SettlementItem, SettlementStatus,
     UnitBalance,
 )
-from app.models.owner import OwnerUnit
 
 
 def generate_settlements(db: Session, year: int) -> dict:
@@ -32,8 +31,14 @@ def generate_settlements(db: Session, year: int) -> dict:
     if not py:
         return {"created": 0, "updated": 0, "total": 0}
 
-    # Předpisy pro rok
-    prescriptions = db.query(Prescription).filter_by(prescription_year_id=py.id).all()
+    # Předpisy pro rok (s eager-loaded items)
+    from sqlalchemy.orm import joinedload
+    prescriptions = (
+        db.query(Prescription)
+        .filter_by(prescription_year_id=py.id)
+        .options(joinedload(Prescription.items))
+        .all()
+    )
 
     # Platby příjmové napárované per unit_id
     matched_statuses = [PaymentMatchStatus.AUTO_MATCHED, PaymentMatchStatus.MANUAL]
@@ -116,14 +121,8 @@ def generate_settlements(db: Session, year: int) -> dict:
 
         db.flush()  # aby settlement.id byl k dispozici
 
-        # SettlementItems z PrescriptionItems
-        items = (
-            db.query(PrescriptionItem)
-            .filter_by(prescription_id=presc.id)
-            .order_by(PrescriptionItem.order)
-            .all()
-        )
-        for pi in items:
+        # SettlementItems z PrescriptionItems (eager-loaded)
+        for pi in sorted(presc.items, key=lambda x: x.order or 0):
             item_annual = (pi.amount or 0) * 12
             # Poměrné rozúčtování zaplacené částky podle podílu položky na celku
             if monthly > 0:
@@ -144,7 +143,7 @@ def generate_settlements(db: Session, year: int) -> dict:
             )
             db.add(si)
 
-    db.commit()
+    db.flush()
     total = db.query(Settlement).filter_by(year=year).count()
     return {"created": created, "updated": updated, "total": total}
 
@@ -212,5 +211,5 @@ def update_settlement_status(db: Session, settlement_id: int, new_status: str) -
         return None
 
     settlement.updated_at = datetime.utcnow()
-    db.commit()
+    db.flush()
     return settlement

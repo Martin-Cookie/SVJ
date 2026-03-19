@@ -87,13 +87,27 @@ async def vyuctovani_seznam(
         )
     )
 
+    # Načteme VŠECHNA vyúčtování roku (pro bubliny + souhrnné statistiky)
+    all_settlements = query.all()
+
+    # Statistiky bublin (před filtrováním)
+    bubble_counts = {"": len(all_settlements)}
+    for s_enum in SettlementStatus:
+        bubble_counts[s_enum.value] = sum(1 for s in all_settlements if s.status == s_enum)
+
+    # Souhrnné statistiky
+    total_overpay = sum(abs(s.result_amount) for s in all_settlements if s.result_amount < 0)
+    total_underpay = sum(s.result_amount for s in all_settlements if s.result_amount > 0)
+
+    # Stav filtr (po statistikách, aby bubliny ukazovaly celkové počty)
     if stav and stav in STATUS_LABELS:
         try:
-            query = query.filter(Settlement.status == SettlementStatus(stav))
+            status_filter = SettlementStatus(stav)
+            settlements = [s for s in all_settlements if s.status == status_filter]
         except ValueError:
-            pass
-
-    settlements = query.all()
+            settlements = all_settlements
+    else:
+        settlements = all_settlements
 
     # Hledání
     if q:
@@ -104,16 +118,6 @@ async def vyuctovani_seznam(
             or q_ascii in strip_diacritics(s.owner.display_name if s.owner else "")
             or q_ascii in strip_diacritics(s.variable_symbol or "")
         ]
-
-    # Statistiky bublin (před sort/filter aby čísla odpovídala celému roku)
-    all_year = db.query(Settlement).filter_by(year=rok).all()
-    bubble_counts = {"": len(all_year)}
-    for s_enum in SettlementStatus:
-        bubble_counts[s_enum.value] = sum(1 for s in all_year if s.status == s_enum)
-
-    # Souhrnné statistiky
-    total_overpay = sum(abs(s.result_amount) for s in all_year if s.result_amount < 0)
-    total_underpay = sum(s.result_amount for s in all_year if s.result_amount > 0)
 
     # Řazení
     sort_key = sort if sort in SORT_COLUMNS else "cislo"
@@ -256,6 +260,7 @@ async def vyuctovani_generovat(
     """Generování vyúčtování pro rok."""
     form_data = await request.form()
     result = generate_settlements(db, rok)
+    db.commit()
     return RedirectResponse(
         _vyuctovani_redirect_url(form_data, f"flash=generated&created={result['created']}&updated={result['updated']}"),
         status_code=302,
@@ -277,6 +282,7 @@ async def vyuctovani_zmena_stavu(
     settlement = update_settlement_status(db, settlement_id, novy_stav)
     if not settlement:
         return RedirectResponse("/platby/vyuctovani", status_code=302)
+    db.commit()
 
     stav_label = STATUS_LABELS.get(novy_stav, novy_stav)
     redirect_url = f"/platby/vyuctovani/{settlement_id}?flash=stav_ok&stav_label={stav_label}"

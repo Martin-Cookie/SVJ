@@ -36,9 +36,13 @@ async def symboly_seznam(
 
     # Filtry
     if q:
+        # Escape SQL LIKE speciálních znaků
+        q_escaped = q.replace("%", r"\%").replace("_", r"\_")
+        q_ascii = strip_diacritics(q)
+        q_ascii_escaped = q_ascii.replace("%", r"\%").replace("_", r"\_")
         query = query.filter(
-            VariableSymbolMapping.variable_symbol.like(f"%{q}%")
-            | VariableSymbolMapping.description.ilike(f"%{q}%")
+            VariableSymbolMapping.variable_symbol.like(f"%{q_escaped}%", escape="\\")
+            | VariableSymbolMapping.description.like(f"%{q_ascii_escaped}%", escape="\\")
         )
 
     if zdroj:
@@ -82,6 +86,8 @@ async def symboly_seznam(
         flash_message = "Variabilní symbol smazán."
     elif chyba == "duplicita":
         flash_message = "Variabilní symbol již existuje."
+    elif chyba == "prazdny":
+        flash_message = "Variabilní symbol nesmí být prázdný."
 
     ctx = {
         "request": request,
@@ -133,13 +139,18 @@ async def symbol_pridat(
     """Přidat nové VS mapování."""
     form_data = await request.form()
 
+    # Validace VS — pouze číslice a alfanumerické znaky
+    vs_clean = variable_symbol.strip()
+    if not vs_clean:
+        return RedirectResponse(_symboly_redirect_url(form_data, chyba="prazdny"), status_code=302)
+
     # Kontrola duplicity
-    existing = db.query(VariableSymbolMapping).filter_by(variable_symbol=variable_symbol.strip()).first()
+    existing = db.query(VariableSymbolMapping).filter_by(variable_symbol=vs_clean).first()
     if existing:
         return RedirectResponse(_symboly_redirect_url(form_data, chyba="duplicita"), status_code=302)
 
     db.add(VariableSymbolMapping(
-        variable_symbol=variable_symbol.strip(),
+        variable_symbol=vs_clean,
         unit_id=unit_id,
         source=SymbolSource.MANUAL,
         description=description.strip() or None,

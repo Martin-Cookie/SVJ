@@ -5,8 +5,6 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import cast, Integer
-
 from app.database import get_db
 from app.models import UnitBalance, Unit, BalanceSource
 from app.utils import build_list_url, is_htmx_partial
@@ -105,6 +103,9 @@ async def zustatek_pridat(
     db: Session = Depends(get_db),
 ):
     """Přidat/aktualizovat počáteční zůstatek."""
+    if year < 2020 or year > 2040:
+        return RedirectResponse("/platby/zustatky?flash=chyba_rok", status_code=302)
+
     existing = (
         db.query(UnitBalance)
         .filter_by(unit_id=unit_id, year=year)

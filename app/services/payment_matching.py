@@ -83,22 +83,7 @@ def match_payments(db: Session, statement_id: int, year: int) -> dict:
         if prescription:
             payment.prescription_id = prescription.id
 
-            # Multi-month detekce
-            if prescription.monthly_total > 0:
-                ratio = payment.amount / prescription.monthly_total
-                if 0.95 <= ratio <= 1.05:
-                    # Přesně 1 měsíc
-                    payment.assigned_month = payment.date.month if payment.date else None
-                elif ratio > 1.5:
-                    # Víceměsíční platba — přiřadíme k měsíci platby,
-                    # detailní split se udělá později v UI
-                    payment.assigned_month = payment.date.month if payment.date else None
-                else:
-                    payment.assigned_month = payment.date.month if payment.date else None
-            else:
-                payment.assigned_month = payment.date.month if payment.date else None
-        else:
-            payment.assigned_month = payment.date.month if payment.date else None
+        payment.assigned_month = payment.date.month if payment.date else None
 
         matched += 1
 

@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% set month_names = {1: "Leden", 2: "Únor", 3: "Březen", 4: "Duben", 5: "Květen", 6: "Červen", 7: "Červenec", 8: "Srpen", 9: "Září", 10: "Říjen", 11: "Listopad", 12: "Prosinec"} %}
-{% block title %}Výpis {{ month_names.get(statement.period_from.month, "") }} {{ statement.period_from.year }}{% endblock %}
+{% block title %}Výpis {% if statement.period_from %}{{ month_names.get(statement.period_from.month, "") }} {{ statement.period_from.year }}{% else %}{{ statement.filename }}{% endif %}{% endblock %}
 {% block content %}
 <div class="max-w-7xl mx-auto flex flex-col" style="height: calc(100vh - 4rem);">
     {% if back_url %}
@@ -117,43 +117,5 @@
         </table>
     </div>
 </div>
-<script>
-(function() {
-    var SC_KEY = 'svj_scroll_payment';
-    var sc = document.querySelector('.flex-1.overflow-y-auto');
-    var hash = location.hash;
-
-    // Strip hash immediately to prevent browser auto-scroll to anchor
-    if (hash) {
-        history.replaceState(null, '', location.pathname + location.search);
-    }
-
-    // Save scroll position before any form submit (including dynamically shown forms)
-    document.addEventListener('submit', function(e) {
-        var form = e.target;
-        if (form.getAttribute('hx-boost') === 'false' || form.closest('[hx-boost="false"]')) {
-            if (sc) try { sessionStorage.setItem(SC_KEY, String(Math.round(sc.scrollTop))); } catch(e2) {}
-        }
-    });
-
-    // Restore exact scroll position (or fallback to scrollIntoView)
-    if (hash && sc) {
-        var saved;
-        try { saved = sessionStorage.getItem(SC_KEY); sessionStorage.removeItem(SC_KEY); } catch(e) {}
-        var top = saved !== null ? parseInt(saved, 10) : NaN;
-        if (!isNaN(top) && top > 0) {
-            sc.scrollTop = top;
-        } else {
-            var el = document.getElementById(hash.substring(1));
-            if (el) el.scrollIntoView({block: 'center'});
-        }
-        // Highlight
-        var el = document.getElementById(hash.substring(1));
-        if (el) {
-            el.classList.add('bg-yellow-50', 'dark:bg-yellow-900/20');
-            setTimeout(function() { el.classList.remove('bg-yellow-50', 'dark:bg-yellow-900/20'); }, 2000);
-        }
-    }
-})();
-</script>
+{% include "payments/partials/_scroll_restore.html" %}
 {% endblock %}

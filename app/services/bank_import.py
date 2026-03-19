@@ -178,11 +178,8 @@ def parse_fio_csv(file_content: bytes, filename: str) -> dict:
             direction = "income" if amount_raw >= 0 else "expense"
 
             vs = _get("VS")
-            # Vyčisti VS (odstraň nuly, prázdné)
-            if vs and vs != "0":
-                vs = vs.lstrip("0") or vs  # Ponech alespoň originál
-                vs = _get("VS")  # Použij originální hodnotu
-            else:
+            # Prázdný nebo nulový VS → None
+            if not vs or vs == "0":
                 vs = None
 
             transactions.append({

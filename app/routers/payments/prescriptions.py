@@ -1,6 +1,5 @@
 """Router pro předpisy plateb — seznam, import DOCX, detail."""
 
-import logging
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, Form, Request, UploadFile, File
@@ -70,7 +69,7 @@ async def predpisy_import_upload(
     from app.services.prescription_import import parse_prescription_docx
 
     # Validace souboru
-    error = await validate_upload(file, max_size_mb=50, allowed_extensions=[".docx"])
+    error = await validate_upload(file, **UPLOAD_LIMITS["docx"])
     if error:
         return templates.TemplateResponse("payments/predpisy_import.html", {
             "request": request,

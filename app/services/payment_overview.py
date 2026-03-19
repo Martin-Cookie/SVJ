@@ -6,11 +6,10 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models import (
-    Payment, PaymentDirection, PaymentMatchStatus,
+    OwnerUnit, Payment, PaymentDirection, PaymentMatchStatus,
     Prescription, PrescriptionYear,
     Unit, UnitBalance,
 )
-from app.models.owner import OwnerUnit
 
 
 def compute_payment_matrix(db: Session, year: int, section: str = "", space_type: str = "") -> dict:
