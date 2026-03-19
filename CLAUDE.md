@@ -51,7 +51,9 @@
   var hodnota = new URLSearchParams(window.location.search).get('hodnota');
   if (hodnota) { /* najít a kliknout na řádek s data-hodnota == hodnota */ }
   ```
-- **Obnova scroll pozice při návratu** — viz [UI_GUIDE.md § 13](docs/UI_GUIDE.md). Shrnutí: řádky mají `id`, back URL obsahuje `#hash`, stránka volá `scrollIntoView`
+- **Obnova scroll pozice** — viz [UI_GUIDE.md § 13](docs/UI_GUIDE.md). Dva vzory:
+  - **Back URL (hash)**: řádky mají `id`, back URL obsahuje `#hash`, stránka volá `scrollIntoView`
+  - **POST+redirect (sessionStorage)**: pro inline formuláře na stejné stránce — `sessionStorage` uloží `scrollTop` před submitem, obnoví přesnou pixel pozici po redirectu. Hash se stripne přes `history.replaceState` aby prohlížeč nepřeskočil
 - **Kontrola při přidání `<a href>` na entitu** — VŽDY ověřit 3 věci: (1) odkaz má `?back=`, (2) router předává `list_url` do kontextu, (3) cílová stránka má odpovídající `back_label` větev
 
 ## Tabulky — povinný checklist
@@ -178,9 +180,11 @@
 - Když `db.query(Model).get(id)` vrátí `None`: `RedirectResponse("/seznam", status_code=302)`
 - Nikdy `HTTPException(404)` — uživatel je tiše přesměrován na seznam
 
-### Flash zprávy
-- Předávají se jako `flash_message` + `flash_type` (`"error"`, `"warning"`, nebo default zelená) v kontextu šablony
-- Pro zprávy přes redirect: query parametry (např. `?chyba=prazdna`)
+### Flash zprávy (toast)
+- Zobrazují se jako **toast** — fixní pozice vpravo nahoře, nepřesouvají obsah. Viz [UI_GUIDE.md § 18b](docs/UI_GUIDE.md)
+- Předávají se jako `flash_message` + `flash_type` (`"error"`, `"warning"`, nebo default) v kontextu šablony
+- Pro zprávy přes redirect: POST handler redirectuje s `?flash=ok`, GET handler přeloží na `flash_message` v kontextu
+- **Nikdy nepsat inline flash bloky v šablonách** — vše řeší globální toast v `base.html`
 - Projekt NEPOUŽÍVÁ session-based flash messaging
 
 ### HTMX partial odpovědi
