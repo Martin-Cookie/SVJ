@@ -28,7 +28,7 @@
                 </p>
             </div>
             <div class="flex items-center space-x-2">
-                <form method="post" action="/platby/predpisy/{{ prescription_year.id }}/smazat"
+                <form method="post" action="/platby/predpisy/{{ prescription_year.id }}/smazat" hx-boost="false"
                       data-confirm="Opravdu smazat všechny předpisy pro rok {{ prescription_year.year }}? Tato akce je nevratná.">
                     <button type="submit" class="px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-700">
                         Smazat rok
