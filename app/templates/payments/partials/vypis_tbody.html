@@ -21,10 +21,23 @@
             č. {{ p.unit.unit_number }}
         </a>
         {% elif p.match_status.value == 'unmatched' and p.direction.value == 'income' %}
-        <button onclick="document.getElementById('assign-{{ p.id }}').classList.toggle('hidden')"
-            class="px-2 py-0.5 text-xs bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300 rounded-full hover:bg-yellow-200 cursor-pointer">
-            přiřadit
-        </button>
+        <span id="assign-btn-{{ p.id }}">
+            <button onclick="document.getElementById('assign-btn-{{ p.id }}').classList.add('hidden');document.getElementById('assign-form-{{ p.id }}').classList.remove('hidden');document.getElementById('assign-input-{{ p.id }}').focus()"
+                class="px-2 py-0.5 text-xs bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300 rounded-full hover:bg-yellow-200 cursor-pointer">
+                přiřadit
+            </button>
+        </span>
+        <form id="assign-form-{{ p.id }}" method="post" action="/platby/vypisy/{{ statement.id }}/prirazeni/{{ p.id }}" class="hidden inline-flex items-center gap-1">
+            <input type="hidden" name="q" value="{{ q }}">
+            <input type="hidden" name="sort" value="{{ sort }}">
+            <input type="hidden" name="order" value="{{ order }}">
+            <input type="hidden" name="stav" value="{{ stav }}">
+            <input type="hidden" name="smer" value="{{ smer }}">
+            <input type="hidden" name="back" value="{{ back_url }}">
+            <input id="assign-input-{{ p.id }}" type="number" name="unit_id" placeholder="č." required min="1"
+                class="w-16 px-1.5 py-0.5 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+            <button type="submit" class="px-1.5 py-0.5 bg-green-600 text-white text-xs rounded hover:bg-green-700">OK</button>
+        </form>
         {% else %}
         <span class="text-gray-400">—</span>
         {% endif %}
@@ -33,24 +46,6 @@
         {{ p.message or p.note or "" }}
     </td>
 </tr>
-{% if p.match_status.value == 'unmatched' and p.direction.value == 'income' %}
-<tr id="assign-{{ p.id }}" class="hidden bg-yellow-50 dark:bg-yellow-900/20">
-    <td colspan="7" class="px-2 py-2">
-        <form method="post" action="/platby/vypisy/{{ statement.id }}/prirazeni/{{ p.id }}" class="flex items-center space-x-2">
-            <input type="hidden" name="q" value="{{ q }}">
-            <input type="hidden" name="sort" value="{{ sort }}">
-            <input type="hidden" name="order" value="{{ order }}">
-            <input type="hidden" name="stav" value="{{ stav }}">
-            <input type="hidden" name="smer" value="{{ smer }}">
-            <input type="hidden" name="back" value="{{ back_url }}">
-            <span class="text-xs text-gray-500">Přiřadit k jednotce:</span>
-            <input type="number" name="unit_id" placeholder="č. jednotky" required min="1"
-                class="w-24 px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
-            <button type="submit" class="px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700">Uložit</button>
-        </form>
-    </td>
-</tr>
-{% endif %}
 {% endfor %}
 {% if not payments %}
 <tr>
