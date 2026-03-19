@@ -5,7 +5,7 @@
     <td class="px-3 py-2 font-mono font-medium text-gray-900 dark:text-white">{{ m.variable_symbol }}</td>
     <td class="px-3 py-2">
         {% if m.unit %}
-        <a href="/jednotky/{{ m.unit.id }}" class="text-blue-600 dark:text-blue-400 hover:underline">č. {{ m.unit.unit_number }}</a>
+        <a href="/jednotky/{{ m.unit.id }}?back={{ list_url|urlencode }}" class="text-blue-600 dark:text-blue-400 hover:underline">č. {{ m.unit.unit_number }}</a>
         {% else %}
         <span class="text-red-500">chybí</span>
         {% endif %}

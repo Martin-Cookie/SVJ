@@ -3,7 +3,7 @@
 <tr class="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
     <td class="px-3 py-2">
         {% if b.unit %}
-        <a href="/jednotky/{{ b.unit.id }}" class="text-blue-600 dark:text-blue-400 hover:underline font-medium">č. {{ b.unit.unit_number }}</a>
+        <a href="/jednotky/{{ b.unit.id }}?back={{ list_url|urlencode }}" class="text-blue-600 dark:text-blue-400 hover:underline font-medium">č. {{ b.unit.unit_number }}</a>
         {% else %}
         <span class="text-red-500">chybí</span>
         {% endif %}

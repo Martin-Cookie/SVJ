@@ -628,6 +628,16 @@ async def unit_detail(
         back_label = "Zpět na seznam vlastníků"
     elif "/synchronizace/" in back:
         back_label = "Zpět na porovnání"
+    elif "/platby/predpisy/" in back:
+        back_label = "Zpět na předpisy"
+    elif "/platby/vypisy/" in back:
+        back_label = "Zpět na výpis"
+    elif "/platby/symboly" in back:
+        back_label = "Zpět na symboly"
+    elif "/platby/zustatky" in back:
+        back_label = "Zpět na zůstatky"
+    elif "/platby" in back:
+        back_label = "Zpět na platby"
     elif back:
         back_label = "Zpět"
     else:

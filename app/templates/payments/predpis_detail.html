@@ -32,7 +32,7 @@
             <div>
                 <span class="text-gray-500 dark:text-gray-400">Jednotka:</span>
                 {% if prescription.unit %}
-                <a href="/jednotky/{{ prescription.unit.id }}" class="ml-1 text-blue-600 dark:text-blue-400 hover:underline">č. {{ prescription.unit.unit_number }}</a>
+                <a href="/jednotky/{{ prescription.unit.id }}?back={{ list_url|urlencode }}" class="ml-1 text-blue-600 dark:text-blue-400 hover:underline">č. {{ prescription.unit.unit_number }}</a>
                 {% else %}
                 <span class="ml-1 text-yellow-600 dark:text-yellow-400">nepřiřazeno</span>
                 {% endif %}

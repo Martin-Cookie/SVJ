@@ -303,6 +303,7 @@ async def predpis_jednotka_detail(
         return RedirectResponse(f"/platby/predpisy/{year_id}", status_code=302)
 
     prescription_year = db.query(PrescriptionYear).get(year_id)
+    list_url = build_list_url(request)
     back_url = request.query_params.get("back", "")
 
     return templates.TemplateResponse("payments/predpis_detail.html", {
@@ -310,6 +311,7 @@ async def predpis_jednotka_detail(
         "active_nav": "platby",
         "prescription_year": prescription_year,
         "prescription": prescription,
+        "list_url": list_url,
         "back_url": back_url,
     })
 
