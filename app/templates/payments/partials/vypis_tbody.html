@@ -17,7 +17,7 @@
     </td>
     <td class="px-2 py-1.5">
         {% if p.unit %}
-        <a href="/jednotky/{{ p.unit.id }}?back={{ list_url|urlencode }}" class="px-2 py-0.5 text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full hover:bg-green-200">
+        <a href="/jednotky/{{ p.unit.id }}?back={{ (list_url ~ '#p-' ~ p.id)|urlencode }}" class="px-2 py-0.5 text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full hover:bg-green-200">
             č. {{ p.unit.unit_number }}
         </a>
         {% elif p.match_status.value == 'unmatched' and p.direction.value == 'income' %}

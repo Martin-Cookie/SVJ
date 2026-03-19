@@ -1,7 +1,7 @@
 {% for r in rows %}
 <tr class="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors" id="u-{{ r.unit.id }}">
     <td class="px-2 py-1.5 font-medium text-gray-900 dark:text-white whitespace-nowrap">
-        <a href="/platby/jednotka/{{ r.unit.id }}?rok={{ rok }}&back={{ list_url|urlencode }}"
+        <a href="/platby/jednotka/{{ r.unit.id }}?rok={{ rok }}&back={{ (list_url ~ '#u-' ~ r.unit.id)|urlencode }}"
            class="hover:text-blue-600 dark:hover:text-blue-400 hover:underline">
             {{ r.unit.unit_number }}
         </a>
@@ -9,7 +9,7 @@
     <td class="px-2 py-1.5 text-gray-600 dark:text-gray-400">{{ r.prescription.section or "—" }}</td>
     <td class="px-2 py-1.5 text-gray-900 dark:text-white max-w-[10rem] truncate" title="{{ r.owner.display_name if r.owner else r.prescription.owner_name or '—' }}">
         {% if r.owner %}
-        <a href="/vlastnici/{{ r.owner.id }}?back={{ list_url|urlencode }}" class="hover:text-blue-600 dark:hover:text-blue-400 hover:underline">{{ r.owner.display_name }}</a>
+        <a href="/vlastnici/{{ r.owner.id }}?back={{ (list_url ~ '#u-' ~ r.unit.id)|urlencode }}" class="hover:text-blue-600 dark:hover:text-blue-400 hover:underline">{{ r.owner.display_name }}</a>
         {% else %}
         {{ r.prescription.owner_name or "—" }}
         {% endif %}
