@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.database import get_db
 from app.models import VariableSymbolMapping, Unit, SymbolSource
 from app.utils import build_list_url, is_htmx_partial, strip_diacritics
-from ._helpers import templates, logger
+from ._helpers import templates, logger, compute_nav_stats
 
 router = APIRouter()
 
@@ -98,6 +98,7 @@ async def symboly_seznam(
         "flash_message": flash_message,
         "flash_type": "error" if chyba else "",
         "active_tab": "symboly",
+        **compute_nav_stats(db),
     }
 
     if is_htmx_partial(request):

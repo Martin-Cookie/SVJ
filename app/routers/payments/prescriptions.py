@@ -13,7 +13,7 @@ from app.models import (
     VariableSymbolMapping, SymbolSource,
 )
 from app.utils import build_list_url, is_htmx_partial, validate_upload, UPLOAD_LIMITS
-from ._helpers import templates, logger
+from ._helpers import templates, logger, compute_nav_stats
 
 router = APIRouter()
 
@@ -33,14 +33,16 @@ async def predpisy_seznam(request: Request, db: Session = Depends(get_db)):
     list_url = build_list_url(request)
     back_url = request.query_params.get("back", "")
 
-    return templates.TemplateResponse("payments/predpisy.html", {
+    ctx = {
         "request": request,
         "active_nav": "platby",
         "active_tab": "predpisy",
         "years": years,
         "list_url": list_url,
         "back_url": back_url,
-    })
+        **compute_nav_stats(db),
+    }
+    return templates.TemplateResponse("payments/predpisy.html", ctx)
 
 
 # ── Import předpisů z DOCX ────────────────────────────────────────────

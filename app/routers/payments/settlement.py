@@ -23,7 +23,7 @@ from app.services.settlement_service import (
 )
 from app.utils import build_list_url, excel_auto_width, is_htmx_partial, strip_diacritics
 
-from ._helpers import templates
+from ._helpers import templates, compute_nav_stats
 
 router = APIRouter()
 
@@ -166,6 +166,7 @@ async def vyuctovani_seznam(
         "total_underpay": total_underpay,
         "flash_message": flash_message,
         "active_tab": "vyuctovani",
+        **compute_nav_stats(db),
     }
 
     if is_htmx_partial(request):

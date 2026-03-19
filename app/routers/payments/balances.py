@@ -10,7 +10,7 @@ from sqlalchemy import cast, Integer
 from app.database import get_db
 from app.models import UnitBalance, Unit, BalanceSource
 from app.utils import build_list_url, is_htmx_partial
-from ._helpers import templates, logger
+from ._helpers import templates, logger, compute_nav_stats
 
 router = APIRouter()
 
@@ -77,6 +77,7 @@ async def zustatky_seznam(
         "list_url": list_url,
         "back_url": back_url,
         "active_tab": "zustatky",
+        **compute_nav_stats(db),
     }
 
     if is_htmx_partial(request):

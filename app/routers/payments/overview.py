@@ -15,7 +15,7 @@ from app.services.payment_overview import (
 )
 from app.utils import build_list_url, is_htmx_partial, strip_diacritics
 
-from ._helpers import templates
+from ._helpers import templates, compute_nav_stats
 
 router = APIRouter()
 
@@ -106,6 +106,7 @@ async def platby_prehled(
         "total_paid": matrix["total_paid"],
         "total_units": len(matrix["units"]),
         "active_tab": "prehled",
+        **compute_nav_stats(db),
     }
 
     if is_htmx_partial(request):
@@ -181,6 +182,7 @@ async def platby_dluznici(
         "months_with_data": months_with_data,
         "total_debt": sum(r["debt"] for r in debtors),
         "active_tab": "dluznici",
+        **compute_nav_stats(db),
     }
 
     if is_htmx_partial(request):
