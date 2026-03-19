@@ -4,14 +4,6 @@
 <div class="flex flex-col" style="height: calc(100vh - 4rem);">
     {% include "payments/partials/_platby_nav.html" %}
 
-    {% if flash_message %}
-    <div class="mb-3 px-3 py-2 rounded-lg text-xs
-        {% if flash_type == 'error' %}bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200
-        {% else %}bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 text-green-800 dark:text-green-200{% endif %}" data-auto-dismiss>
-        {{ flash_message }}
-    </div>
-    {% endif %}
-
     <div class="flex-shrink-0">
         <div class="flex items-center justify-between mb-3">
             <h1 class="text-lg font-bold text-gray-900 dark:text-white">Variabilní symboly</h1>
@@ -110,30 +102,34 @@
 (function() {
     var SC_KEY = 'svj_scroll_payment';
     var sc = document.querySelector('.flex-1.overflow-auto');
+    var hash = location.hash;
 
-    document.querySelectorAll('form[hx-boost="false"]').forEach(function(f) {
-        f.addEventListener('submit', function() {
-            if (sc) try { sessionStorage.setItem(SC_KEY, String(Math.round(sc.scrollTop))); } catch(e) {}
-        });
+    if (hash) {
+        history.replaceState(null, '', location.pathname + location.search);
+    }
+
+    document.addEventListener('submit', function(e) {
+        var form = e.target;
+        if (form.getAttribute('hx-boost') === 'false' || form.closest('[hx-boost="false"]')) {
+            if (sc) try { sessionStorage.setItem(SC_KEY, String(Math.round(sc.scrollTop))); } catch(e2) {}
+        }
     });
 
-    if (location.hash && sc) {
+    if (hash && sc) {
         var saved;
         try { saved = sessionStorage.getItem(SC_KEY); sessionStorage.removeItem(SC_KEY); } catch(e) {}
         var top = saved !== null ? parseInt(saved, 10) : NaN;
-        setTimeout(function() {
-            if (!isNaN(top) && top > 0) {
-                sc.scrollTop = top;
-            } else {
-                var el = document.querySelector(location.hash);
-                if (el) el.scrollIntoView({block: 'center'});
-            }
-            var el = document.querySelector(location.hash);
-            if (el) {
-                el.classList.add('bg-yellow-50', 'dark:bg-yellow-900/20');
-                setTimeout(function() { el.classList.remove('bg-yellow-50', 'dark:bg-yellow-900/20'); }, 2000);
-            }
-        }, 50);
+        if (!isNaN(top) && top > 0) {
+            sc.scrollTop = top;
+        } else {
+            var el = document.getElementById(hash.substring(1));
+            if (el) el.scrollIntoView({block: 'center'});
+        }
+        var el = document.getElementById(hash.substring(1));
+        if (el) {
+            el.classList.add('bg-yellow-50', 'dark:bg-yellow-900/20');
+            setTimeout(function() { el.classList.remove('bg-yellow-50', 'dark:bg-yellow-900/20'); }, 2000);
+        }
     }
 })();
 </script>
