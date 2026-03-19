@@ -115,6 +115,7 @@ OWNER_FIELD_DEFS: dict[str, dict] = {
     "building_number": {
         "label": "Číslo prostoru (stavební)",
         "required": False,
+        "description": "Stavební číslo prostoru (nemusí se shodovat s číslem jednotky v KN)",
         "candidates": [
             "cislo prostoru", "stavebni cislo", "cislo prostoru stavebni",
             "building number", "prostor", "c.p.", "cp",
@@ -123,6 +124,7 @@ OWNER_FIELD_DEFS: dict[str, dict] = {
     "podil_scd": {
         "label": "Podíl na SČD",
         "required": False,
+        "description": "Spoluvlastnický podíl na společných částech domu (např. 685/71584)",
         "candidates": [
             "podil", "podil na scd", "podil scd", "scd", "share",
             "podil na spolecnych castech domu",
@@ -177,6 +179,7 @@ OWNER_FIELD_DEFS: dict[str, dict] = {
     "lv_number": {
         "label": "LV číslo",
         "required": False,
+        "description": "Číslo listu vlastnictví z katastru nemovitostí",
         "candidates": [
             "lv", "lv cislo", "list vlastnictvi", "lv number",
         ],
@@ -208,6 +211,7 @@ OWNER_FIELD_DEFS: dict[str, dict] = {
     "birth_or_ic": {
         "label": "Rodné číslo / IČ",
         "required": False,
+        "description": "Rodné číslo fyzické osoby nebo IČO právnické osoby",
         "candidates": [
             "rodne cislo", "rc", "ic", "ico", "rodne cislo / ic",
             "rc/ic", "rc / ic", "birth number", "company id",
@@ -217,6 +221,7 @@ OWNER_FIELD_DEFS: dict[str, dict] = {
     "ownership_type": {
         "label": "Typ vlastnictví",
         "required": False,
+        "description": "Typ vlastnictví: výlučné, SJM (spoluvlastnictví manželů), podílové",
         "candidates": [
             "typ vlastnictvi", "vlastnictvi", "ownership type", "ownership",
             "spoluvlastnictvi", "sjm",
@@ -417,6 +422,7 @@ CONTACT_FIELD_DEFS: dict[str, dict] = {
     "match_birth_number": {
         "label": "RČ/IČ (fallback párování)",
         "required": False,
+        "description": "Rodné číslo nebo IČO — použije se pro párování pokud jméno nestačí",
         "candidates": [
             "rodne cislo", "rc", "ic", "ico", "rc/ic", "rc / ic",
             "rodne cislo / ic", "rodne cislo/ic",

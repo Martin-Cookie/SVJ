@@ -4,13 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}SVJ Správa{% endblock %}</title>
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
     <script>
     (function(){var s=localStorage.getItem('svj-theme');
     if(s==='dark'||(!s&&matchMedia('(prefers-color-scheme:dark)').matches))
     document.documentElement.classList.add('dark')})();
     </script>
-    <script>tailwind.config={darkMode:'class'}</script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>tailwind.config={darkMode:'class'}</script>
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
     <link rel="stylesheet" href="/static/css/custom.css">
     <link rel="stylesheet" href="/static/css/dark-mode.css">

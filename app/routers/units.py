@@ -24,25 +24,42 @@ setup_jinja_filters(templates)
 
 
 def _parse_numeric_fields(floor_area: str, podil_scd: str):
-    """Parse floor_area and podil_scd strings, return (float|None, float|None, list[str])."""
-    warnings = []
-    try:
-        floor_area_float = float(floor_area.strip()) if floor_area.strip() else None
-    except (ValueError, TypeError):
+    """Parse floor_area and podil_scd strings, return (float|None, float|None, list[str]).
+
+    Pokud uživatel zadal neprázdnou hodnotu a nelze ji převést na číslo,
+    vrátí chybu (ne warning). Prázdný vstup = legitimní NULL.
+    """
+    errors = []
+    floor_area_val = floor_area.strip() if floor_area else ""
+    podil_scd_val = podil_scd.strip() if podil_scd else ""
+
+    # Plocha
+    if not floor_area_val:
         floor_area_float = None
-        warnings.append(f"Plocha '{escape(floor_area.strip())}' není platné číslo — ignorováno")
-    if floor_area_float is not None and (floor_area_float < 0 or floor_area_float > 9999):
-        warnings.append(f"Plocha {floor_area_float} mimo rozsah 0–9999 — ignorováno")
-        floor_area_float = None
-    try:
-        podil_scd_float = float(podil_scd.strip()) if podil_scd.strip() else None
-    except (ValueError, TypeError):
+    else:
+        try:
+            floor_area_float = float(floor_area_val)
+        except (ValueError, TypeError):
+            floor_area_float = None
+            errors.append(f"Plocha '{escape(floor_area_val)}' není platné číslo.")
+        if floor_area_float is not None and (floor_area_float < 0 or floor_area_float > 9999):
+            errors.append(f"Plocha {floor_area_float} mimo rozsah 0–9999.")
+            floor_area_float = None
+
+    # Podíl SČD
+    if not podil_scd_val:
         podil_scd_float = None
-        warnings.append(f"Podíl SČD '{escape(podil_scd.strip())}' není platné číslo — ignorováno")
-    if podil_scd_float is not None and (podil_scd_float < 0 or podil_scd_float > 99999999):
-        warnings.append(f"Podíl SČD {podil_scd_float} mimo rozsah — ignorováno")
-        podil_scd_float = None
-    return floor_area_float, podil_scd_float, warnings
+    else:
+        try:
+            podil_scd_float = float(podil_scd_val)
+        except (ValueError, TypeError):
+            podil_scd_float = None
+            errors.append(f"Podíl SČD '{escape(podil_scd_val)}' není platné číslo.")
+        if podil_scd_float is not None and (podil_scd_float < 0 or podil_scd_float > 99999999):
+            errors.append(f"Podíl SČD {podil_scd_float} mimo rozsah 0–99999999.")
+            podil_scd_float = None
+
+    return floor_area_float, podil_scd_float, errors
 
 
 def _build_warn_html(warnings: list) -> str:
@@ -138,7 +155,15 @@ async def unit_create(
         lv_number_int = None
     if lv_number_int is not None and (lv_number_int < 1 or lv_number_int > 99999):
         lv_number_int = None
-    floor_area_float, podil_scd_float, warnings = _parse_numeric_fields(floor_area, podil_scd)
+    floor_area_float, podil_scd_float, parse_errors = _parse_numeric_fields(floor_area, podil_scd)
+
+    # Validace: pokud uživatel zadal neplatné číselné hodnoty, vrátit formulář s chybou
+    if parse_errors:
+        return templates.TemplateResponse("partials/unit_create_form.html", {
+            "request": request,
+            "error": " ".join(parse_errors),
+            "code_lists": get_all_code_lists(db),
+        })
 
     unit = Unit(
         unit_number=unit_number_int,
@@ -155,10 +180,9 @@ async def unit_create(
     db.add(unit)
     db.commit()
 
-    warn_html = _build_warn_html(warnings)
     if request.headers.get("HX-Request"):
         return HTMLResponse(
-            content=f'{warn_html}<p class="text-sm text-green-600 p-4">Jednotka {unit_number_int} vytvořena. <a href="/jednotky/{unit.id}" class="text-blue-600 hover:underline">Zobrazit</a></p>',
+            content=f'<p class="text-sm text-green-600 p-4">Jednotka {unit_number_int} vytvořena. <a href="/jednotky/{unit.id}" class="text-blue-600 hover:underline">Zobrazit</a></p>',
         )
     return RedirectResponse(f"/jednotky/{unit.id}", status_code=302)
 
@@ -337,7 +361,16 @@ async def unit_update(
         lv_number_int = None
     if lv_number_int is not None and (lv_number_int < 1 or lv_number_int > 99999):
         lv_number_int = None
-    floor_area_float, podil_scd_float, warnings = _parse_numeric_fields(floor_area, podil_scd)
+    floor_area_float, podil_scd_float, parse_errors = _parse_numeric_fields(floor_area, podil_scd)
+
+    # Validace: pokud uživatel zadal neplatné číselné hodnoty, vrátit formulář s chybou
+    if parse_errors:
+        return templates.TemplateResponse("partials/unit_edit_form.html", {
+            "request": request,
+            "unit": unit,
+            "error": " ".join(parse_errors),
+            "code_lists": get_all_code_lists(db),
+        })
 
     unit.unit_number = unit_number_int
     unit.building_number = building_number.strip() or None
@@ -357,7 +390,6 @@ async def unit_update(
     if request.headers.get("HX-Request"):
         # Refresh unit + owners (recalculate changed owner votes)
         db.expire(unit, ["owners"])
-        warn_html = _build_warn_html(warnings)
         info_html = templates.TemplateResponse("partials/unit_info.html", {
             "request": request,
             "unit": unit,
@@ -370,7 +402,7 @@ async def unit_update(
         # OOB swap: main target gets unit_info, owners section updates out-of-band
         # unit_owners.html already has <div id="unit-owners">, add hx-swap-oob attribute
         owners_oob = owners_html.replace('<div id="unit-owners">', '<div id="unit-owners" hx-swap-oob="true">', 1)
-        return HTMLResponse(content=warn_html + info_html + owners_oob)
+        return HTMLResponse(content=info_html + owners_oob)
     return RedirectResponse(f"/jednotky/{unit_id}", status_code=302)
 
 

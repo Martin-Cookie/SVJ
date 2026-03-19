@@ -30,7 +30,11 @@ router = APIRouter()
 
 
 def _auto_assign_unmatched_docs(db, session_id, owner_id, email, session, all_docs):
-    """Auto-assign unmatched documents for units owned by this owner. Returns True if any assigned."""
+    """Auto-assign unmatched documents for units owned by this owner. Returns True if any assigned.
+
+    all_docs musí mít eager-loaded distributions (joinedload), jinak se použije
+    batch query pro načtení distribucí jedním dotazem.
+    """
     changed = False
     owner_unit_numbers = {
         str(ou.unit.unit_number)
@@ -39,10 +43,23 @@ def _auto_assign_unmatched_docs(db, session_id, owner_id, email, session, all_do
         .options(joinedload(OwnerUnit.unit))
         .all()
     }
+
+    # Batch query: načíst všechny distribuce pro dokumenty v session jedním dotazem
+    doc_ids = [doc.id for doc in all_docs]
+    all_dists = (
+        db.query(TaxDistribution)
+        .filter(TaxDistribution.document_id.in_(doc_ids))
+        .all()
+    ) if doc_ids else []
+    # Indexovat distribuce podle document_id
+    dists_by_doc = {}
+    for d in all_dists:
+        dists_by_doc.setdefault(d.document_id, []).append(d)
+
     for doc in all_docs:
         if str(doc.unit_number) not in owner_unit_numbers:
             continue
-        doc_dists = doc.distributions
+        doc_dists = dists_by_doc.get(doc.id, [])
         if any(d.owner_id == owner_id for d in doc_dists):
             continue
         if not all(d.match_status == MatchStatus.UNMATCHED for d in doc_dists):

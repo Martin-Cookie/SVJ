@@ -379,7 +379,15 @@ function _restoreTaxChecked() {
     if (!raw) return;
     var saved = JSON.parse(raw);
     if (saved.length === 0) return;
-    var savedSet = new Set(saved);
+    // Validace: pouze obnovit klíče, které stále existují v DOM
+    var pageKeys = new Set();
+    tbody.querySelectorAll('.tax-cb').forEach(function(cb) { pageKeys.add(cb.value); });
+    var validKeys = saved.filter(function(k) { return pageKeys.has(k); });
+    if (validKeys.length !== saved.length) {
+        // Stale klíče detekovány — aktualizovat storage
+        try { sessionStorage.setItem(_TAX_KEY, JSON.stringify(validKeys)); } catch(e) {}
+    }
+    var savedSet = new Set(validKeys);
     tbody.querySelectorAll('.tax-cb').forEach(function(cb) {
         if (savedSet.has(cb.value)) cb.checked = true;
     });

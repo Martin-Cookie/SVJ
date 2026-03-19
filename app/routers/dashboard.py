@@ -3,11 +3,11 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import case, func
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import ActivityLog, EmailLog, Owner, OwnerUnit, SvjInfo, Unit, Voting
-from app.models.voting import Ballot, BallotStatus
+from app.models.voting import Ballot, BallotStatus, BallotVote
 from app.models.tax import TaxDocument, TaxSession, TaxDistribution, EmailDeliveryStatus
 from app.utils import setup_jinja_filters, strip_diacritics
 
@@ -99,26 +99,45 @@ async def home(
     )
     total_votings = sum(c for _, c in voting_counts)
 
-    # Latest voting per status (with eager loading for quorum calc)
+    # Nejnovější hlasování per status — bez eager loadingu ballots+votes
     voting_by_status = {}
     for status, count in voting_counts:
         latest = (
             db.query(Voting)
-            .options(joinedload(Voting.ballots).joinedload(Ballot.votes))
             .filter(Voting.status == status)
             .order_by(Voting.updated_at.desc())
             .first()
         )
         if latest:
-            processed = [b for b in latest.ballots if b.status == BallotStatus.PROCESSED]
-            voted = [b for b in processed if any(bv.vote is not None for bv in b.votes)]
-            processed_votes = sum(b.total_votes for b in voted)
+            # SQL agregace: počet lístků a kvórum (suma hlasů zpracovaných lístků s ≥1 hlasem)
+            total_ballots = db.query(func.count(Ballot.id)).filter(
+                Ballot.voting_id == latest.id
+            ).scalar() or 0
+
+            # Kvórum: suma total_votes z PROCESSED lístků, které mají ≥1 BallotVote.vote IS NOT NULL
+            voted_ballots_subq = (
+                db.query(Ballot.id)
+                .join(BallotVote, BallotVote.ballot_id == Ballot.id)
+                .filter(
+                    Ballot.voting_id == latest.id,
+                    Ballot.status == BallotStatus.PROCESSED,
+                    BallotVote.vote.isnot(None),
+                )
+                .distinct()
+                .subquery()
+            )
+            processed_votes = (
+                db.query(func.coalesce(func.sum(Ballot.total_votes), 0))
+                .filter(Ballot.id.in_(db.query(voted_ballots_subq.c.id)))
+                .scalar()
+            ) or 0
+
             quorum_pct = round(processed_votes / declared_shares * 100, 2) if declared_shares else 0
             voting_by_status[status.value] = {
                 "count": count,
                 "latest": latest,
                 "date": latest.start_date or latest.created_at,
-                "total_ballots": len(latest.ballots),
+                "total_ballots": total_ballots,
                 "quorum_pct": quorum_pct,
             }
 
@@ -176,7 +195,15 @@ async def home(
     recent_activity = db.query(ActivityLog).order_by(ActivityLog.created_at.desc()).limit(30).all()
 
     unified = []
+    # URL mapování pro entity_type → detail stránka
+    _entity_urls = {
+        "voting": "/hlasovani/{id}",
+        "tax_session": "/dane/{id}",
+        "owner": "/vlastnici/{id}",
+    }
+
     for e in recent_emails:
+        url = f"/dane/{e.session_id}" if e.session_id else ""
         unified.append({
             "type": "email",
             "created_at": e.created_at,
@@ -184,9 +211,12 @@ async def home(
             "description": e.subject or "",
             "detail": e.recipient_name or e.recipient_email or "",
             "status": e.status.value if e.status else "",
+            "url": url,
             "entity": e,
         })
     for a in recent_activity:
+        url_tpl = _entity_urls.get(a.entity_type, "")
+        url = url_tpl.format(id=a.entity_id) if url_tpl and a.entity_id else ""
         unified.append({
             "type": "activity",
             "created_at": a.created_at,
@@ -194,6 +224,7 @@ async def home(
             "description": a.entity_name or "",
             "detail": a.description or "",
             "status": a.action.value if a.action else "",
+            "url": url,
             "entity": a,
         })
 

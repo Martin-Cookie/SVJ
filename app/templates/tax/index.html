@@ -121,13 +121,19 @@
     {% endfor %}
 </div>
 {% else %}
-<div class="bg-white rounded-lg shadow p-8 text-center text-gray-500">
+<div class="bg-white rounded-lg shadow p-12 text-center">
+    <svg class="w-10 h-10 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+    </svg>
     {% if current_stav %}
-    <p>Žádné rozesílání v tomto stavu.</p>
-    <a href="/dane" class="mt-4 inline-block text-blue-600 hover:underline">Zobrazit vše</a>
+    <p class="text-gray-500 mb-3">Žádné rozesílání v tomto stavu.</p>
+    <a href="/dane" class="inline-block text-sm text-blue-600 hover:underline">← Zobrazit vše</a>
     {% else %}
-    <p>Zatím nebylo vytvořeno žádné rozesílání.</p>
-    <a href="/dane/nova" class="mt-4 inline-block text-blue-600 hover:underline">Vytvořit první rozesílání</a>
+    <p class="text-gray-500 mb-3">Zatím nebylo vytvořeno žádné rozesílání.</p>
+    <a href="/dane/nova" class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+        Vytvořit první rozesílání
+    </a>
     {% endif %}
 </div>
 {% endif %}
