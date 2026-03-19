@@ -44,11 +44,13 @@ Zpětný odkaz na KAŽDÉ stránce s `back_url` — jednotný styl napříč cel
 ```html
 <div class="flex flex-col" style="height:calc(100vh - 3rem)">
     <div class="shrink-0"><!-- header, bubliny, search --></div>
-    <div class="flex-1 overflow-y-auto min-h-0"><!-- scrollovatelný obsah --></div>
+    <div class="flex-1 overflow-y-auto overflow-x-hidden min-h-0"><!-- scrollovatelný obsah --></div>
 </div>
 ```
 - `3rem` = top+bottom padding z `<main class="p-6">`
-- `min-h-0` je nutné aby flex child mohl být menší než obsah
+- **`min-h-0`** je nutné aby flex child mohl být menší než obsah (bez toho se flex item roztáhne na výšku obsahu a overflow nefunguje)
+- **`overflow-y-auto`** (NE `overflow-auto`) — explicitní osa je nutná pro správnou obnovu scroll pozice při HTMX boost navigaci. S `overflow-auto` HTMX neobnoví scroll pozici vnitřního kontejneru po návratu zpět
+- **`overflow-x-hidden`** pro běžné tabulky. Pro široké tabulky (matice plateb) použít `overflow-x-auto`
 - Bubliny/search se **nescrollují** — musí být vždy viditelné
 
 ---
@@ -668,6 +670,9 @@ if has_documents and max_done < 1:
 1. Řádky mají `id` (např. `id="owner-{{ owner.id }}"`)
 2. Back URL obsahuje `#hash`: `?back={{ (list_url ~ '#owner-' ~ owner.id)|urlencode }}`
 3. JS na stránce: `if (location.hash) { document.querySelector(location.hash)?.scrollIntoView({block:'center'}); }`
+4. **Scroll kontejner MUSÍ mít `overflow-y-auto overflow-x-hidden min-h-0`** (viz § 1 Fixní header)
+
+**Proč `overflow-y-auto` a ne `overflow-auto`:** HTMX boost navigace (klik na odkaz → AJAX swap body) obnoví scroll pozici vnitřního kontejneru POUZE pokud má explicitní `overflow-y-auto`. S `overflow-auto` se scroll pozice ztratí a element skočí na začátek tabulky. `min-h-0` je nutné aby flex-1 child respektoval výšku rodiče a vytvořil interní scrollbar.
 
 ### Obnova scroll pozice — POST+redirect (sessionStorage)
 
