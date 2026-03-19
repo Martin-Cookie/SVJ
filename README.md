@@ -229,7 +229,21 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
   - Odkaz „Rozeslat →" u READY session — přímý přístup k rozesílce ze seznamu
 - Smazání celé relace (session + dokumenty + distribuce + soubory)
 
-### E. Kontroly (`/synchronizace`)
+### E. Evidence plateb (`/platby`)
+
+Modul pro správu předpisů, bankovních výpisů, variabilních symbolů a přehledu plateb.
+
+- **Předpisy** — import z DOCX, automatické párování na jednotky, správa roků předpisů
+- **Variabilní symboly** — mapování VS → jednotka (ruční + automatické z předpisů)
+- **Bankovní výpisy** — import Fio CSV, automatické párování plateb přes VS, ruční přiřazení
+- **Počáteční zůstatky** — evidované zůstatky per jednotka/rok
+- **Matice plateb** — přehled 508 jednotek × 12 měsíců s barevným stavem (zaplaceno/částečně/nezaplaceno), filtry dle typu prostoru, řazení, hledání
+- **Dlužníci** — seznam jednotek s dluhem seřazený dle výše dluhu
+- **Detail plateb jednotky** — měsíční grid + seznam přijatých plateb
+- **Dashboard integrace** — 5. karta na hlavním dashboardu (napárované platby, výpisy)
+- **Badge v detailu jednotky** — "Zaplaceno ✓" (zelený) nebo "Dluh X Kč" (červený/žlutý)
+
+### F. Kontroly (`/synchronizace`)
 
 Sloučená stránka se dvěma sekcemi — Kontrola vlastníků (nahoře) a Kontrola podílů (dole). Každá sekce má upload formulář a historii kontrol s nezávislým vyhledáváním.
 
@@ -272,7 +286,7 @@ Sloučená stránka se dvěma sekcemi — Kontrola vlastníků (nahoře) a Kontr
   - Zachování filtru a scroll pozice při navigaci zpět z výměny (filtr + #sync-{id} anchor)
   - Logování změn do ImportLog
 
-### F. Administrace SVJ (`/sprava`)
+### G. Administrace SVJ (`/sprava`)
 
 - Informace o SVJ (název, typ budovy, celkový počet podílů) — read-only pohled + inline editace
 - Správa adres SVJ — přidání, editace, smazání s řazením abecedně
@@ -365,7 +379,7 @@ Sloučená stránka se dvěma sekcemi — Kontrola vlastníků (nahoře) a Kontr
 - Historie kontrol s vyhledáváním a řazením (soubor, datum, shoda, rozdíly) s HTMX partial
 - Stará URL `/kontrola-podilu` automaticky přesměruje na `/synchronizace#kontrola-podilu`
 
-### G. Nastavení (`/nastaveni`)
+### H. Nastavení (`/nastaveni`)
 
 - SMTP konfigurace — read-only přehled (4-sloupcový grid) + inline editace (HTMX)
 - Historie odeslaných emailů (posledních 100):
@@ -762,6 +776,30 @@ wheels/                        # Offline Python balíčky (gitignored)
 | GET | `/sprava/duplicity` | Přehled duplicitních vlastníků (skupiny dle name_normalized) |
 | POST | `/sprava/duplicity/sloucit` | Sloučení jedné skupiny duplicit do cílového vlastníka |
 | POST | `/sprava/duplicity/sloucit-vse` | Sloučení všech skupin najednou (doporučení cíle) |
+
+### Evidence plateb (`/platby`)
+
+| Metoda | Cesta | Popis |
+|--------|-------|-------|
+| GET | `/platby` | Rozcestník modulu plateb (stat karty + roky předpisů) |
+| GET | `/platby/predpisy` | Import předpisů (upload DOCX) |
+| GET | `/platby/predpisy/{year_id}` | Detail předpisů roku (tabulka s filtry) |
+| POST | `/platby/predpisy/{year_id}/smazat` | Smazání roku předpisů |
+| GET | `/platby/symboly` | Seznam variabilních symbolů |
+| POST | `/platby/symboly/pridat` | Přidání VS mapování |
+| POST | `/platby/symboly/{id}/smazat` | Smazání VS mapování |
+| GET | `/platby/zustatky` | Počáteční zůstatky jednotek |
+| POST | `/platby/zustatky/pridat` | Přidání/úprava zůstatku |
+| POST | `/platby/zustatky/{id}/smazat` | Smazání zůstatku |
+| GET | `/platby/vypisy` | Seznam bankovních výpisů |
+| GET | `/platby/vypisy/import` | Import bankovního výpisu (upload CSV) |
+| GET | `/platby/vypisy/{id}` | Detail výpisu s platbami |
+| POST | `/platby/vypisy/{id}/prirazeni/{payment_id}` | Ruční přiřazení platby |
+| POST | `/platby/vypisy/{id}/preparovat` | Přepárování plateb |
+| POST | `/platby/vypisy/{id}/smazat` | Smazání výpisu |
+| GET | `/platby/prehled` | Matice plateb (jednotky × měsíce) |
+| GET | `/platby/dluznici` | Seznam dlužníků |
+| GET | `/platby/jednotka/{unit_id}` | Platební detail jedné jednotky |
 
 ### Nastavení (`/nastaveni`)
 
