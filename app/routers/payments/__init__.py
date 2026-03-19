@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from sqlalchemy import func
 
-from app.models import PrescriptionYear, Prescription, VariableSymbolMapping, BankStatement, Payment, PaymentMatchStatus, PaymentDirection
+from app.models import PrescriptionYear, Prescription, VariableSymbolMapping, BankStatement, Payment, PaymentMatchStatus, PaymentDirection, Settlement, SettlementStatus
 from ._helpers import templates
 
 from .prescriptions import router as prescriptions_router
@@ -12,6 +12,7 @@ from .symbols import router as symbols_router
 from .balances import router as balances_router
 from .statements import router as statements_router
 from .overview import router as overview_router
+from .settlement import router as settlement_router
 
 router = APIRouter()
 
@@ -48,6 +49,11 @@ async def platby_index(request: Request, db: Session = Depends(get_db)):
         debtors, _ = compute_debtor_list(db, years[0].year)
         debtor_count = len(debtors)
 
+    # Vyúčtování — statistiky
+    settlement_count = db.query(Settlement).count()
+    settlement_generated = db.query(Settlement).filter_by(status=SettlementStatus.GENERATED).count()
+    settlement_year = years[0].year if years else 0
+
     back_url = request.query_params.get("back", "")
 
     return templates.TemplateResponse("payments/index.html", {
@@ -62,6 +68,9 @@ async def platby_index(request: Request, db: Session = Depends(get_db)):
         "matched_income": matched_income,
         "total_income": total_income,
         "debtor_count": debtor_count,
+        "settlement_count": settlement_count,
+        "settlement_generated": settlement_generated,
+        "settlement_year": settlement_year,
         "back_url": back_url,
     })
 
@@ -71,3 +80,4 @@ router.include_router(symbols_router)
 router.include_router(balances_router)
 router.include_router(statements_router)
 router.include_router(overview_router)
+router.include_router(settlement_router)

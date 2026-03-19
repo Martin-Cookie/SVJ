@@ -14,7 +14,7 @@
     </div>
 
     <!-- Stat karty -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
         <!-- Předpisy -->
         <a href="/platby/predpisy?back=/platby" class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 hover:shadow-md transition-shadow">
             <div class="flex items-center">
@@ -91,6 +91,22 @@
                     <p class="text-xs text-gray-500 dark:text-gray-400">Dlužníci</p>
                     <p class="text-lg font-bold {% if debtor_count > 0 %}text-red-600 dark:text-red-400{% else %}text-green-600 dark:text-green-400{% endif %}">{{ debtor_count }}</p>
                     <p class="text-xs text-gray-400">{% if debtor_count > 0 %}jednotek s dluhem{% else %}vše zaplaceno{% endif %}</p>
+                </div>
+            </div>
+        </a>
+
+        <!-- Vyúčtování -->
+        <a href="/platby/vyuctovani?back=/platby" class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 hover:shadow-md transition-shadow">
+            <div class="flex items-center">
+                <div class="flex-shrink-0 p-2 bg-indigo-100 dark:bg-indigo-900 rounded-lg">
+                    <svg class="w-5 h-5 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                    </svg>
+                </div>
+                <div class="ml-3">
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Vyúčtování</p>
+                    <p class="text-lg font-bold text-gray-900 dark:text-white">{{ settlement_count }}</p>
+                    <p class="text-xs text-gray-400">{% if settlement_generated > 0 %}{{ settlement_generated }} vygenerováno{% elif settlement_count > 0 %}vyúčtování{% else %}zatím prázdné{% endif %}</p>
                 </div>
             </div>
         </a>
