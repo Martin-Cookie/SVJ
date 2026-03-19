@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Import bankovního výpisu{% endblock %}
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    {% if back_url %}
+    <a href="{{ back_url }}" class="inline-flex items-center text-xs text-blue-600 dark:text-blue-400 hover:underline mb-3">
+        <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+        Zpět na výpisy
+    </a>
+    {% endif %}
+
+    <h1 class="text-lg font-bold text-gray-900 dark:text-white mb-4">Import bankovního výpisu</h1>
+
+    {% if error %}
+    <div class="mb-4 p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg">
+        <p class="text-sm text-red-700 dark:text-red-400">{{ error }}</p>
+    </div>
+    {% endif %}
+
+    {% if confirm_overwrite %}
+    <div class="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+        <p class="text-sm text-yellow-700 dark:text-yellow-400 font-medium">
+            Výpis za období {{ period_label }} již existuje ({{ existing.transaction_count }} plateb).
+        </p>
+        <p class="text-xs text-yellow-600 dark:text-yellow-500 mt-1">Nový import přepíše všechna existující data pro toto období.</p>
+        <form method="post" action="/platby/vypisy/import" enctype="multipart/form-data" class="mt-3">
+            <input type="hidden" name="force_overwrite" value="1">
+            <div class="mb-3">
+                <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Soubor CSV</label>
+                <input type="file" name="file" accept=".csv" required
+                    class="file-input block w-full text-xs text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                <p class="text-xs text-gray-400 mt-1">Vyberte znovu stejný soubor.</p>
+            </div>
+            <div class="flex space-x-2">
+                <button type="submit" class="px-3 py-1.5 bg-yellow-600 text-white text-xs font-medium rounded-lg hover:bg-yellow-700">Přepsat existující data</button>
+                <a href="/platby/vypisy" class="px-3 py-1.5 bg-gray-200 text-gray-700 text-xs font-medium rounded-lg hover:bg-gray-300">Zrušit</a>
+            </div>
+        </form>
+    </div>
+    {% else %}
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-5">
+        <form method="post" action="/platby/vypisy/import" enctype="multipart/form-data">
+            <div class="mb-4">
+                <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Soubor CSV (Fio banka)</label>
+                <input type="file" name="file" accept=".csv" required
+                    class="file-input block w-full text-xs text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">CSV výpis z Fio banky (max 10 MB, UTF-8)</p>
+            </div>
+            <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 mb-4">
+                <p class="text-xs text-blue-700 dark:text-blue-400">
+                    <strong>Co se stane:</strong> Z CSV se načtou transakce a automaticky napárují na jednotky přes variabilní symboly.
+                    Duplicitní transakce (podle ID operace) se přeskočí.
+                </p>
+            </div>
+            <button type="submit" class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">
+                <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+                Importovat
+            </button>
+        </form>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

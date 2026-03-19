@@ -47,8 +47,8 @@
             </div>
         </a>
 
-        <!-- Bankovní výpisy (placeholder) -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 opacity-50">
+        <!-- Bankovní výpisy -->
+        <a href="/platby/vypisy?back=/platby" class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 hover:shadow-md transition-shadow">
             <div class="flex items-center">
                 <div class="flex-shrink-0 p-2 bg-yellow-100 dark:bg-yellow-900 rounded-lg">
                     <svg class="w-5 h-5 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -57,11 +57,11 @@
                 </div>
                 <div class="ml-3">
                     <p class="text-xs text-gray-500 dark:text-gray-400">Bankovní výpisy</p>
-                    <p class="text-lg font-bold text-gray-900 dark:text-white">—</p>
-                    <p class="text-xs text-gray-400">připravuje se</p>
+                    <p class="text-lg font-bold text-gray-900 dark:text-white">{{ statement_count }}</p>
+                    <p class="text-xs text-gray-400">{{ total_payments }} plateb{% if unmatched_payments %} · <span class="text-yellow-600">{{ unmatched_payments }} nenapárováno</span>{% endif %}</p>
                 </div>
             </div>
-        </div>
+        </a>
 
         <!-- Přehled plateb (placeholder) -->
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 opacity-50">

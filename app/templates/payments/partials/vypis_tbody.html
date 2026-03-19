@@ -1,0 +1,53 @@
+{% set match_labels = {"auto_matched": "Auto", "manual": "Ručně", "unmatched": "—"} %}
+{% set match_colors = {"auto_matched": "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300", "manual": "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300", "unmatched": "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300"} %}
+{% for p in payments %}
+<tr class="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors" id="p-{{ p.id }}">
+    <td class="px-2 py-1.5 text-gray-600 dark:text-gray-400 whitespace-nowrap">{{ p.date.strftime('%d.%m.') if p.date else "—" }}</td>
+    <td class="px-2 py-1.5 font-medium whitespace-nowrap {% if p.direction.value == 'income' %}text-green-700 dark:text-green-400{% else %}text-red-600 dark:text-red-400{% endif %}">
+        {% if p.direction.value == 'income' %}+{% else %}-{% endif %}{{ p.amount|fmt_num }} Kč
+    </td>
+    <td class="px-2 py-1.5 font-mono text-gray-500 dark:text-gray-400">{{ p.vs or "—" }}</td>
+    <td class="px-2 py-1.5 text-gray-700 dark:text-gray-300 max-w-[150px] truncate" title="{{ p.counter_account_name or '' }}">
+        {{ p.counter_account_name or "—" }}
+    </td>
+    <td class="px-2 py-1.5">
+        <span class="px-2 py-0.5 text-xs rounded-full {{ match_colors.get(p.match_status.value, '') }}">
+            {{ match_labels.get(p.match_status.value, p.match_status.value) }}
+        </span>
+    </td>
+    <td class="px-2 py-1.5">
+        {% if p.unit %}
+        <a href="/jednotky/{{ p.unit.id }}" class="px-2 py-0.5 text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full hover:bg-green-200">
+            č. {{ p.unit.unit_number }}
+        </a>
+        {% elif p.match_status.value == 'unmatched' and p.direction.value == 'income' %}
+        <button onclick="document.getElementById('assign-{{ p.id }}').classList.toggle('hidden')"
+            class="px-2 py-0.5 text-xs bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300 rounded-full hover:bg-yellow-200 cursor-pointer">
+            přiřadit
+        </button>
+        {% else %}
+        <span class="text-gray-400">—</span>
+        {% endif %}
+    </td>
+    <td class="px-2 py-1.5 text-gray-400 dark:text-gray-500 max-w-[200px] truncate" title="{{ p.message or p.note or '' }}">
+        {{ p.message or p.note or "" }}
+    </td>
+</tr>
+{% if p.match_status.value == 'unmatched' and p.direction.value == 'income' %}
+<tr id="assign-{{ p.id }}" class="hidden bg-yellow-50 dark:bg-yellow-900/20">
+    <td colspan="7" class="px-2 py-2">
+        <form method="post" action="/platby/vypisy/{{ statement.id }}/prirazeni/{{ p.id }}" class="flex items-center space-x-2">
+            <span class="text-xs text-gray-500">Přiřadit k jednotce:</span>
+            <input type="number" name="unit_id" placeholder="č. jednotky" required min="1"
+                class="w-24 px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+            <button type="submit" class="px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700">Uložit</button>
+        </form>
+    </td>
+</tr>
+{% endif %}
+{% endfor %}
+{% if not payments %}
+<tr>
+    <td colspan="7" class="px-3 py-8 text-center text-xs text-gray-400 dark:text-gray-500">Žádné platby nenalezeny.</td>
+</tr>
+{% endif %}
