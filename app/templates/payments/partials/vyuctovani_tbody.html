@@ -10,7 +10,9 @@
         </a>
     </td>
     <td class="px-3 py-2 text-gray-900 dark:text-white max-w-[14rem] truncate" title="{{ s.owner.display_name if s.owner else '—' }}">
-        {{ s.owner.display_name if s.owner else "—" }}
+        {% if s.owner %}
+        <a href="/vlastnici/{{ s.owner.id }}?back={{ list_url|urlencode }}" class="hover:text-blue-600 dark:hover:text-blue-400 hover:underline">{{ s.owner.display_name }}</a>
+        {% else %}—{% endif %}
     </td>
     {% set annual = (s.result_amount or 0) + (s.items|sum(attribute='paid')) %}
     <td class="px-3 py-2 text-right text-gray-700 dark:text-gray-300 whitespace-nowrap">{{ annual|fmt_num }} Kč</td>
