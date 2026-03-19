@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block title %}Matice plateb {{ rok }}{% endblock %}
+{% block content %}
+<div class="max-w-full mx-auto flex flex-col" style="height: calc(100vh - 4rem);">
+    {% if back_url %}
+    <a href="{{ back_url }}" class="inline-flex items-center text-xs text-blue-600 dark:text-blue-400 hover:underline mb-2">
+        <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+        Zpět na platby
+    </a>
+    {% endif %}
+
+    <div class="flex-shrink-0">
+        <div class="flex items-center justify-between mb-3">
+            <div>
+                <h1 class="text-lg font-bold text-gray-900 dark:text-white">
+                    Matice plateb {{ rok }}
+                </h1>
+                <p class="text-xs text-gray-500 dark:text-gray-400">
+                    {{ rows|length }}{% if typ %} (filtrováno){% endif %} z {{ total_units }} jednotek ·
+                    Předpis: {{ total_prescribed|fmt_num }} Kč/měs ·
+                    {% if months_with_data %}{{ months_with_data|length }} {% if months_with_data|length == 1 %}měsíc{% elif months_with_data|length < 5 %}měsíce{% else %}měsíců{% endif %} s daty{% else %}žádná data{% endif %}
+                </p>
+            </div>
+            {% if years|length > 1 %}
+            <div class="flex items-center gap-2">
+                {% for y in years %}
+                <a href="/platby/prehled?rok={{ y }}{{ '&typ=' ~ typ if typ else '' }}{{ '&back=' ~ (back_url|urlencode) if back_url else '' }}"
+                   class="px-2 py-1 text-xs font-medium rounded-lg {% if y == rok %}bg-blue-600 text-white{% else %}bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200{% endif %}">
+                    {{ y }}
+                </a>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Filtr bubliny — typ prostoru -->
+        {% set _base = "/platby/prehled?rok=" ~ rok ~ "&sort=" ~ sort ~ "&order=" ~ order ~ ("&q=" ~ q if q else "") %}
+        {% set _back = "&back=" ~ (back_url|default('')|urlencode) if back_url else "" %}
+        <div class="flex flex-wrap gap-2 mb-3">
+            <a href="{{ _base }}{{ _back }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
+                {% if not typ %}bg-blue-600 text-white ring-2 ring-blue-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
+                Vše <span class="ml-1 text-xs opacity-75">{{ total_units }}</span>
+            </a>
+            {% for st in space_types %}
+            <a href="{{ _base }}&typ={{ st|urlencode }}{{ _back }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
+                {% if typ == st %}bg-blue-600 text-white ring-2 ring-blue-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
+                {{ st }}
+            </a>
+            {% endfor %}
+        </div>
+
+        <!-- Hledání -->
+        <div class="mb-3">
+            <input type="text" name="q" value="{{ q }}" placeholder="Hledat č. jednotky, vlastníka, VS..."
+                hx-get="/platby/prehled"
+                hx-trigger="keyup changed delay:300ms"
+                hx-target="#prehled-tbody"
+                hx-include="[name='sort'],[name='order'],[name='typ'],[name='rok'],[name='back']"
+                class="w-full sm:w-72 px-3 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500">
+            <input type="hidden" name="sort" value="{{ sort }}">
+            <input type="hidden" name="order" value="{{ order }}">
+            <input type="hidden" name="typ" value="{{ typ }}">
+            <input type="hidden" name="rok" value="{{ rok }}">
+            <input type="hidden" name="back" value="{{ back_url }}">
+        </div>
+    </div>
+
+    <!-- Tabulka (scrollovatelná) -->
+    <div class="flex-1 overflow-auto bg-white dark:bg-gray-800 rounded-lg shadow">
+        <table class="w-full text-xs">
+            <thead class="sticky top-0 z-10 bg-gray-50 dark:bg-gray-700">
+                {% set _sort_base = "/platby/prehled?rok=" ~ rok ~ "&" ~ ("q=" ~ q ~ "&" if q else "") ~ ("typ=" ~ typ ~ "&" if typ else "") %}
+                <tr>
+                    {% for col_key, col_label in [("cislo", "Č."), ("sekce", "Sekce"), ("vlastnik", "Vlastník"), ("predpis", "Předpis")] %}
+                    {% set new_order = "desc" if sort == col_key and order == "asc" else "asc" %}
+                    <th class="px-2 py-2 text-left font-semibold text-gray-600 dark:text-gray-300 cursor-pointer select-none hover:text-gray-900 dark:hover:text-white whitespace-nowrap"
+                        onclick="window.location='{{ _sort_base }}sort={{ col_key }}&order={{ new_order }}{{ _back }}'">
+                        {{ col_label }}
+                        {% if sort == col_key %}
+                        <span class="ml-0.5">{{ "▲" if order == "asc" else "▼" }}</span>
+                        {% endif %}
+                    </th>
+                    {% endfor %}
+                    {% for m in range(1, 13) %}
+                    <th class="px-1 py-2 text-center font-semibold text-gray-600 dark:text-gray-300 whitespace-nowrap {% if m not in months_with_data %}opacity-30{% endif %}">
+                        {{ month_names[m] }}
+                    </th>
+                    {% endfor %}
+                    {% for col_key, col_label in [("celkem", "Celkem"), ("dluh", "Dluh")] %}
+                    {% set new_order = "desc" if sort == col_key and order == "asc" else "asc" %}
+                    <th class="px-2 py-2 text-right font-semibold text-gray-600 dark:text-gray-300 cursor-pointer select-none hover:text-gray-900 dark:hover:text-white whitespace-nowrap"
+                        onclick="window.location='{{ _sort_base }}sort={{ col_key }}&order={{ new_order }}{{ _back }}'">
+                        {{ col_label }}
+                        {% if sort == col_key %}
+                        <span class="ml-0.5">{{ "▲" if order == "asc" else "▼" }}</span>
+                        {% endif %}
+                    </th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody id="prehled-tbody">
+                {% include "payments/partials/prehled_tbody.html" %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Legenda -->
+    <div class="flex-shrink-0 mt-2 flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
+        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-green-100 dark:bg-green-900 border border-green-300 dark:border-green-700"></span> Zaplaceno</span>
+        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-yellow-100 dark:bg-yellow-900 border border-yellow-300 dark:border-yellow-700"></span> Částečně</span>
+        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-red-100 dark:bg-red-900 border border-red-300 dark:border-red-700"></span> Nezaplaceno</span>
+        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-600"></span> Bez dat</span>
+    </div>
+</div>
+{% endblock %}

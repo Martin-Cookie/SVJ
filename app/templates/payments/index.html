@@ -14,7 +14,7 @@
     </div>
 
     <!-- Stat karty -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
         <!-- Předpisy -->
         <a href="/platby/predpisy?back=/platby" class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 hover:shadow-md transition-shadow">
             <div class="flex items-center">
@@ -63,8 +63,8 @@
             </div>
         </a>
 
-        <!-- Přehled plateb (placeholder) -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 opacity-50">
+        <!-- Matice plateb -->
+        <a href="/platby/prehled?back=/platby" class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 hover:shadow-md transition-shadow">
             <div class="flex items-center">
                 <div class="flex-shrink-0 p-2 bg-purple-100 dark:bg-purple-900 rounded-lg">
                     <svg class="w-5 h-5 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -73,11 +73,27 @@
                 </div>
                 <div class="ml-3">
                     <p class="text-xs text-gray-500 dark:text-gray-400">Matice plateb</p>
-                    <p class="text-lg font-bold text-gray-900 dark:text-white">—</p>
-                    <p class="text-xs text-gray-400">připravuje se</p>
+                    <p class="text-lg font-bold text-gray-900 dark:text-white">{{ matched_income }}</p>
+                    <p class="text-xs text-gray-400">napárovaných plateb · {{ total_income|fmt_num }} Kč</p>
                 </div>
             </div>
-        </div>
+        </a>
+
+        <!-- Dlužníci -->
+        <a href="/platby/dluznici?back=/platby" class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 hover:shadow-md transition-shadow">
+            <div class="flex items-center">
+                <div class="flex-shrink-0 p-2 bg-red-100 dark:bg-red-900 rounded-lg">
+                    <svg class="w-5 h-5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+                    </svg>
+                </div>
+                <div class="ml-3">
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Dlužníci</p>
+                    <p class="text-lg font-bold {% if debtor_count > 0 %}text-red-600 dark:text-red-400{% else %}text-green-600 dark:text-green-400{% endif %}">{{ debtor_count }}</p>
+                    <p class="text-xs text-gray-400">{% if debtor_count > 0 %}jednotek s dluhem{% else %}vše zaplaceno{% endif %}</p>
+                </div>
+            </div>
+        </a>
     </div>
 
     <!-- Roky předpisů -->

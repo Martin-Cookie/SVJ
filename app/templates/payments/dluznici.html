@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Dlužníci {{ rok }}{% endblock %}
+{% block content %}
+<div class="max-w-5xl mx-auto flex flex-col" style="height: calc(100vh - 4rem);">
+    {% if back_url %}
+    <a href="{{ back_url }}" class="inline-flex items-center text-xs text-blue-600 dark:text-blue-400 hover:underline mb-2">
+        <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+        Zpět na platby
+    </a>
+    {% endif %}
+
+    <div class="flex-shrink-0">
+        <div class="flex items-center justify-between mb-3">
+            <div>
+                <h1 class="text-lg font-bold text-gray-900 dark:text-white">
+                    Dlužníci {{ rok }}
+                </h1>
+                <p class="text-xs text-gray-500 dark:text-gray-400">
+                    {{ debtors|length }} {% if debtors|length == 1 %}jednotka{% elif debtors|length < 5 %}jednotky{% else %}jednotek{% endif %} s dluhem ·
+                    Celkový dluh: <span class="font-semibold text-red-600 dark:text-red-400">{{ total_debt|fmt_num }} Kč</span>
+                </p>
+            </div>
+            {% if years|length > 1 %}
+            <div class="flex items-center gap-2">
+                {% for y in years %}
+                <a href="/platby/dluznici?rok={{ y }}{{ '&back=' ~ (back_url|urlencode) if back_url else '' }}"
+                   class="px-2 py-1 text-xs font-medium rounded-lg {% if y == rok %}bg-blue-600 text-white{% else %}bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200{% endif %}">
+                    {{ y }}
+                </a>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Hledání -->
+        <div class="mb-3">
+            <input type="text" name="q" value="{{ q }}" placeholder="Hledat č. jednotky, vlastníka..."
+                hx-get="/platby/dluznici"
+                hx-trigger="keyup changed delay:300ms"
+                hx-target="#dluznici-tbody"
+                hx-include="[name='sort'],[name='order'],[name='rok'],[name='back']"
+                class="w-full sm:w-72 px-3 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500">
+            <input type="hidden" name="sort" value="{{ sort }}">
+            <input type="hidden" name="order" value="{{ order }}">
+            <input type="hidden" name="rok" value="{{ rok }}">
+            <input type="hidden" name="back" value="{{ back_url }}">
+        </div>
+    </div>
+
+    <!-- Tabulka -->
+    <div class="flex-1 overflow-auto bg-white dark:bg-gray-800 rounded-lg shadow">
+        <table class="w-full text-xs">
+            <thead class="sticky top-0 z-10 bg-gray-50 dark:bg-gray-700">
+                {% set _sort_base = "/platby/dluznici?rok=" ~ rok ~ "&" ~ ("q=" ~ q ~ "&" if q else "") %}
+                {% set _back = "&back=" ~ (back_url|default('')|urlencode) if back_url else "" %}
+                <tr>
+                    {% for col_key, col_label in [("cislo", "Č. jednotky"), ("vlastnik", "Vlastník"), ("predpis", "Předpis/měs"), ("zaplaceno", "Zaplaceno"), ("dluh", "Dluh")] %}
+                    {% set new_order = "desc" if sort == col_key and order == "asc" else "asc" %}
+                    <th class="px-3 py-2 {% if col_key in ['predpis', 'zaplaceno', 'dluh'] %}text-right{% else %}text-left{% endif %} font-semibold text-gray-600 dark:text-gray-300 cursor-pointer select-none hover:text-gray-900 dark:hover:text-white whitespace-nowrap"
+                        onclick="window.location='{{ _sort_base }}sort={{ col_key }}&order={{ new_order }}{{ _back }}'">
+                        {{ col_label }}
+                        {% if sort == col_key %}
+                        <span class="ml-0.5">{{ "▲" if order == "asc" else "▼" }}</span>
+                        {% endif %}
+                    </th>
+                    {% endfor %}
+                    <th class="px-3 py-2 text-center font-semibold text-gray-600 dark:text-gray-300 whitespace-nowrap">Měsíce</th>
+                    <th class="px-3 py-2"></th>
+                </tr>
+            </thead>
+            <tbody id="dluznici-tbody">
+                {% include "payments/partials/dluznici_tbody.html" %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,42 @@
+{% for r in rows %}
+<tr class="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors" id="u-{{ r.unit.id }}">
+    <td class="px-2 py-1.5 font-medium text-gray-900 dark:text-white whitespace-nowrap">
+        <a href="/platby/jednotka/{{ r.unit.id }}?rok={{ rok }}&back={{ list_url|urlencode }}"
+           class="hover:text-blue-600 dark:hover:text-blue-400 hover:underline">
+            {{ r.unit.unit_number }}
+        </a>
+    </td>
+    <td class="px-2 py-1.5 text-gray-600 dark:text-gray-400">{{ r.prescription.section or "—" }}</td>
+    <td class="px-2 py-1.5 text-gray-900 dark:text-white max-w-[10rem] truncate" title="{{ r.owner.display_name if r.owner else r.prescription.owner_name or '—' }}">
+        {% if r.owner %}
+        {{ r.owner.display_name }}
+        {% else %}
+        {{ r.prescription.owner_name or "—" }}
+        {% endif %}
+    </td>
+    <td class="px-2 py-1.5 text-right text-gray-700 dark:text-gray-300 whitespace-nowrap">{{ r.monthly|fmt_num }}</td>
+    {% for m in range(1, 13) %}
+    {% set cell = r.months[m] %}
+    <td class="px-1 py-1.5 text-center whitespace-nowrap
+        {% if cell.status == 'paid' %}bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400
+        {% elif cell.status == 'partial' %}bg-yellow-50 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400
+        {% elif cell.status == 'unpaid' %}bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400
+        {% else %}text-gray-300 dark:text-gray-600{% endif %}">
+        {% if cell.status == 'paid' %}✓
+        {% elif cell.status == 'partial' %}{{ cell.paid|fmt_num }}
+        {% elif cell.status == 'unpaid' %}✗
+        {% endif %}
+    </td>
+    {% endfor %}
+    <td class="px-2 py-1.5 text-right font-medium text-gray-900 dark:text-white whitespace-nowrap">{{ r.total_paid|fmt_num }}</td>
+    <td class="px-2 py-1.5 text-right font-medium whitespace-nowrap
+        {% if r.debt > 0 %}text-red-600 dark:text-red-400{% else %}text-green-600 dark:text-green-400{% endif %}">
+        {% if r.debt > 0 %}{{ r.debt|fmt_num }}{% else %}0{% endif %}
+    </td>
+</tr>
+{% endfor %}
+{% if not rows %}
+<tr>
+    <td colspan="18" class="px-3 py-8 text-center text-xs text-gray-400 dark:text-gray-500">Žádné předpisy nenalezeny.</td>
+</tr>
+{% endif %}

@@ -12,7 +12,7 @@ from sqlalchemy import cast, func, String
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
-from app.models import Owner, OwnerUnit, SvjInfo, Unit
+from app.models import Owner, OwnerUnit, SvjInfo, Unit, Payment, PaymentDirection, PaymentMatchStatus, Prescription, PrescriptionYear
 from app.services.code_list_service import get_all_code_lists
 from app.services.owner_exchange import recalculate_unit_votes
 from app.utils import build_list_url, excel_auto_width, is_htmx_partial, strip_diacritics, templates
@@ -636,6 +636,12 @@ async def unit_detail(
         back_label = "Zpět na symboly"
     elif "/platby/zustatky" in back:
         back_label = "Zpět na zůstatky"
+    elif "/platby/prehled" in back:
+        back_label = "Zpět na matici plateb"
+    elif "/platby/dluznici" in back:
+        back_label = "Zpět na dlužníky"
+    elif "/platby/jednotka" in back:
+        back_label = "Zpět na platby jednotky"
     elif "/platby" in back:
         back_label = "Zpět na platby"
     elif back:
@@ -643,10 +649,52 @@ async def unit_detail(
     else:
         back_label = "Zpět na seznam jednotek"
 
+    # Platební stav — aktuální rok
+    latest_py = db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).first()
+    payment_status = None
+    payment_debt = 0
+    payment_year = None
+    if latest_py:
+        payment_year = latest_py.year
+        presc = db.query(Prescription).filter_by(
+            prescription_year_id=latest_py.id, unit_id=unit.id
+        ).first()
+        if presc:
+            monthly = presc.monthly_total or 0
+            matched_statuses = [PaymentMatchStatus.AUTO_MATCHED, PaymentMatchStatus.MANUAL]
+            total_paid = db.query(
+                func.coalesce(func.sum(Payment.amount), 0)
+            ).filter(
+                Payment.unit_id == unit.id,
+                Payment.direction == PaymentDirection.INCOME,
+                Payment.match_status.in_(matched_statuses),
+                func.extract("year", Payment.date) == latest_py.year,
+            ).scalar() or 0
+            # Počet měsíců s daty
+            months_count = db.query(
+                func.distinct(func.extract("month", Payment.date))
+            ).filter(
+                Payment.direction == PaymentDirection.INCOME,
+                Payment.match_status.in_(matched_statuses),
+                func.extract("year", Payment.date) == latest_py.year,
+            ).count()
+            expected = monthly * months_count
+            if total_paid >= expected and expected > 0:
+                payment_status = "ok"
+            elif total_paid > 0:
+                payment_status = "partial"
+                payment_debt = expected - total_paid
+            elif months_count > 0:
+                payment_status = "unpaid"
+                payment_debt = expected
+
     return templates.TemplateResponse("units/detail.html", {
         "request": request,
         "active_nav": "units",
         "unit": unit,
         "back_url": back or "/jednotky",
         "back_label": back_label,
+        "payment_status": payment_status,
+        "payment_debt": payment_debt,
+        "payment_year": payment_year,
     })
