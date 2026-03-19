@@ -240,6 +240,7 @@ Modul pro správu předpisů, bankovních výpisů, variabilních symbolů a př
 - **Matice plateb** — přehled 508 jednotek × 12 měsíců s barevným stavem (zaplaceno/částečně/nezaplaceno), filtry dle typu prostoru, řazení, hledání
 - **Dlužníci** — seznam jednotek s dluhem seřazený dle výše dluhu
 - **Detail plateb jednotky** — měsíční grid + seznam přijatých plateb
+- **Vyúčtování** — roční vyúčtování per jednotka (předpis × 12 vs. zaplaceno), rozpad po položkách, změna stavu (vygenerováno → odesláno → zaplaceno / po splatnosti), hledání, řazení, bubliny dle stavu
 - **Dashboard integrace** — 5. karta na hlavním dashboardu (napárované platby, výpisy)
 - **Badge v detailu jednotky** — "Zaplaceno ✓" (zelený) nebo "Dluh X Kč" (červený/žlutý)
 
@@ -800,6 +801,11 @@ wheels/                        # Offline Python balíčky (gitignored)
 | GET | `/platby/prehled` | Matice plateb (jednotky × měsíce) |
 | GET | `/platby/dluznici` | Seznam dlužníků |
 | GET | `/platby/jednotka/{unit_id}` | Platební detail jedné jednotky |
+| GET | `/platby/vyuctovani` | Seznam vyúčtování (rok, filtry, search, sort) |
+| GET | `/platby/vyuctovani/{id}` | Detail vyúčtování (položky, platby, stav) |
+| POST | `/platby/vyuctovani/generovat` | Generování vyúčtování pro rok |
+| POST | `/platby/vyuctovani/{id}/stav` | Změna stavu vyúčtování |
+| POST | `/platby/vyuctovani/smazat-rok` | Smazání všech vyúčtování roku |
 
 ### Nastavení (`/nastaveni`)
 
