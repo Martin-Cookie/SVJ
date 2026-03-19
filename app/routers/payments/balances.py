@@ -62,6 +62,14 @@ async def zustatky_seznam(
     list_url = build_list_url(request)
     back_url = request.query_params.get("back", "")
 
+    # Flash zprávy z query parametru → globální toast
+    flash_param = request.query_params.get("flash", "")
+    flash_message = ""
+    if flash_param == "ok":
+        flash_message = "Zůstatek uložen."
+    elif flash_param == "smazano":
+        flash_message = "Zůstatek smazán."
+
     ctx = {
         "request": request,
         "active_nav": "platby",
@@ -76,6 +84,7 @@ async def zustatky_seznam(
         "total_preplatek": total_preplatek,
         "list_url": list_url,
         "back_url": back_url,
+        "flash_message": flash_message,
         "active_tab": "zustatky",
         **compute_nav_stats(db),
     }

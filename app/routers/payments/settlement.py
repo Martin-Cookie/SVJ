@@ -210,6 +210,13 @@ async def vyuctovani_detail(
     else:
         back_label = "Zpět na vyúčtování"
 
+    # Flash z query parametru → globální toast
+    flash_param = request.query_params.get("flash", "")
+    flash_message = ""
+    if flash_param == "stav_ok":
+        stav_label = request.query_params.get("stav_label", "")
+        flash_message = f"Stav změněn na {stav_label}."
+
     return templates.TemplateResponse("payments/vyuctovani_detail.html", {
         "request": request,
         "active_nav": "platby",
@@ -219,6 +226,7 @@ async def vyuctovani_detail(
         "back_label": back_label,
         "status_labels": STATUS_LABELS,
         "status_colors": STATUS_COLORS,
+        "flash_message": flash_message,
     })
 
 
