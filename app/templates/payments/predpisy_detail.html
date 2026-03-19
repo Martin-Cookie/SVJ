@@ -62,7 +62,7 @@
     </div>
 
     <!-- Tabulka (scrollovatelná) -->
-    <div class="flex-1 overflow-auto bg-white dark:bg-gray-800 rounded-lg shadow">
+    <div class="flex-1 overflow-y-auto overflow-x-hidden min-h-0 bg-white dark:bg-gray-800 rounded-lg shadow">
         <table class="w-full text-xs">
             <thead class="sticky top-0 z-10 bg-gray-50 dark:bg-gray-700">
                 {% set _sort_base = "/platby/predpisy/" ~ prescription_year.id ~ "?" ~ ("q=" ~ q ~ "&" if q else "") ~ ("typ=" ~ typ ~ "&" if typ else "") %}
