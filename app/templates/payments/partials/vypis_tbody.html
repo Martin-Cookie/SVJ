@@ -27,7 +27,7 @@
                 přiřadit
             </button>
         </span>
-        <form id="assign-form-{{ p.id }}" method="post" action="/platby/vypisy/{{ statement.id }}/prirazeni/{{ p.id }}" class="hidden inline-flex items-center gap-1">
+        <form id="assign-form-{{ p.id }}" method="post" action="/platby/vypisy/{{ statement.id }}/prirazeni/{{ p.id }}" hx-boost="false" class="hidden inline-flex items-center gap-1">
             <input type="hidden" name="q" value="{{ q }}">
             <input type="hidden" name="sort" value="{{ sort }}">
             <input type="hidden" name="order" value="{{ order }}">
@@ -37,6 +37,8 @@
             <input id="assign-input-{{ p.id }}" type="number" name="unit_id" placeholder="č." required min="1"
                 class="w-16 px-1.5 py-0.5 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
             <button type="submit" class="px-1.5 py-0.5 bg-green-600 text-white text-xs rounded hover:bg-green-700">OK</button>
+            <button type="button" onclick="document.getElementById('assign-form-{{ p.id }}').classList.add('hidden');document.getElementById('assign-btn-{{ p.id }}').classList.remove('hidden')"
+                class="px-1 py-0.5 text-gray-400 hover:text-gray-600 text-xs" title="Zrušit">✕</button>
         </form>
         {% else %}
         <span class="text-gray-400">—</span>

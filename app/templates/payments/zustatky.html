@@ -105,4 +105,17 @@
         </table>
     </div>
 </div>
+<script>
+(function() {
+    var hash = window.location.hash;
+    if (hash) {
+        var el = document.getElementById(hash.substring(1));
+        if (el) {
+            el.scrollIntoView({block: 'center'});
+            el.classList.add('bg-yellow-50', 'dark:bg-yellow-900/20');
+            setTimeout(function() { el.classList.remove('bg-yellow-50', 'dark:bg-yellow-900/20'); }, 2000);
+        }
+    }
+})();
+</script>
 {% endblock %}

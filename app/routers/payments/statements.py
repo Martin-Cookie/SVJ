@@ -389,7 +389,7 @@ async def vypis_detail(
 # ── Ruční přiřazení platby ─────────────────────────────────────────────
 
 
-def _detail_redirect_url(statement_id: int, form_data, flash: str = "") -> str:
+def _detail_redirect_url(statement_id: int, form_data, flash: str = "", anchor: str = "") -> str:
     """Sestaví redirect URL zpět na detail výpisu se zachováním filtrů."""
     params = []
     if flash:
@@ -399,7 +399,10 @@ def _detail_redirect_url(statement_id: int, form_data, flash: str = "") -> str:
         if val:
             params.append(f"{key}={val}")
     qs = "&".join(params)
-    return f"/platby/vypisy/{statement_id}?{qs}" if qs else f"/platby/vypisy/{statement_id}"
+    url = f"/platby/vypisy/{statement_id}?{qs}" if qs else f"/platby/vypisy/{statement_id}"
+    if anchor:
+        url += f"#{anchor}"
+    return url
 
 
 @router.post("/vypisy/{statement_id}/prirazeni/{payment_id}")
@@ -421,7 +424,7 @@ async def platba_prirazeni(
     unit = db.query(Unit).filter_by(unit_number=unit_id).first()
     if not unit:
         return RedirectResponse(
-            _detail_redirect_url(statement_id, form_data, "match_fail"),
+            _detail_redirect_url(statement_id, form_data, "match_fail", anchor=f"p-{payment_id}"),
             status_code=302,
         )
 
@@ -441,7 +444,10 @@ async def platba_prirazeni(
 
     db.commit()
 
-    return RedirectResponse(_detail_redirect_url(statement_id, form_data, "match_ok"), status_code=302)
+    return RedirectResponse(
+        _detail_redirect_url(statement_id, form_data, "match_ok", anchor=f"p-{payment_id}"),
+        status_code=302,
+    )
 
 
 # ── Přepárování výpisu ─────────────────────────────────────────────────

@@ -1,7 +1,7 @@
 {% set source_labels = {"auto": "Automaticky", "manual": "Ručně", "legacy": "Historicky"} %}
 {% set source_colors = {"auto": "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300", "manual": "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300", "legacy": "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300"} %}
 {% for m in mappings %}
-<tr class="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+<tr class="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors" id="vs-{{ m.id }}">
     <td class="px-3 py-2 font-mono font-medium text-gray-900 dark:text-white">{{ m.variable_symbol }}</td>
     <td class="px-3 py-2">
         {% if m.unit %}
