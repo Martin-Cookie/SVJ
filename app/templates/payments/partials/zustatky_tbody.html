@@ -1,0 +1,31 @@
+{% set source_labels = {"manual": "Ručně", "import": "Import", "carryover": "Převod"} %}
+{% for b in balances %}
+<tr class="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
+    <td class="px-3 py-2">
+        {% if b.unit %}
+        <a href="/jednotky/{{ b.unit.id }}" class="text-blue-600 dark:text-blue-400 hover:underline font-medium">č. {{ b.unit.unit_number }}</a>
+        {% else %}
+        <span class="text-red-500">chybí</span>
+        {% endif %}
+    </td>
+    <td class="px-3 py-2 font-medium {% if b.opening_amount > 0 %}text-red-600 dark:text-red-400{% elif b.opening_amount < 0 %}text-green-600 dark:text-green-400{% else %}text-gray-500{% endif %}">
+        {{ b.opening_amount|fmt_num }} Kč
+        {% if b.opening_amount > 0 %}<span class="text-xs text-gray-400 ml-1">(dluh)</span>{% elif b.opening_amount < 0 %}<span class="text-xs text-gray-400 ml-1">(přeplatek)</span>{% endif %}
+    </td>
+    <td class="px-3 py-2 text-gray-500 dark:text-gray-400">{{ source_labels.get(b.source.value, b.source.value) }}</td>
+    <td class="px-3 py-2 text-gray-500 dark:text-gray-400">{{ b.note or "" }}</td>
+    <td class="px-3 py-2 text-right">
+        <form method="post" action="/platby/zustatky/{{ b.id }}/smazat" class="inline"
+              data-confirm="Smazat zůstatek pro jednotku {{ b.unit.unit_number if b.unit else '?' }}?">
+            <button type="submit" class="text-red-500 hover:text-red-700" title="Smazat">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+            </button>
+        </form>
+    </td>
+</tr>
+{% endfor %}
+{% if not balances %}
+<tr>
+    <td colspan="5" class="px-3 py-8 text-center text-xs text-gray-400 dark:text-gray-500">Žádné počáteční zůstatky pro rok {{ rok }}.</td>
+</tr>
+{% endif %}

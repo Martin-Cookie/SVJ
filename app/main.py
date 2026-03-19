@@ -279,6 +279,28 @@ def _ensure_indexes():
         ("ix_activity_logs_entity_type", "activity_logs", "entity_type"),
         ("ix_activity_logs_module", "activity_logs", "module"),
         ("ix_activity_logs_created_at", "activity_logs", "created_at"),
+        # payment.py
+        ("ix_variable_symbol_mappings_unit_id", "variable_symbol_mappings", "unit_id"),
+        ("ix_variable_symbol_mappings_source", "variable_symbol_mappings", "source"),
+        ("ix_unit_balances_unit_id", "unit_balances", "unit_id"),
+        ("ix_unit_balances_year", "unit_balances", "year"),
+        ("ix_prescription_years_year", "prescription_years", "year"),
+        ("ix_prescriptions_prescription_year_id", "prescriptions", "prescription_year_id"),
+        ("ix_prescriptions_unit_id", "prescriptions", "unit_id"),
+        ("ix_prescriptions_variable_symbol", "prescriptions", "variable_symbol"),
+        ("ix_prescription_items_prescription_id", "prescription_items", "prescription_id"),
+        ("ix_bank_statements_import_status", "bank_statements", "import_status"),
+        ("ix_payments_statement_id", "payments", "statement_id"),
+        ("ix_payments_date", "payments", "date"),
+        ("ix_payments_vs", "payments", "vs"),
+        ("ix_payments_match_status", "payments", "match_status"),
+        ("ix_payments_unit_id", "payments", "unit_id"),
+        ("ix_payments_owner_id", "payments", "owner_id"),
+        ("ix_payments_prescription_id", "payments", "prescription_id"),
+        ("ix_settlements_year", "settlements", "year"),
+        ("ix_settlements_unit_id", "settlements", "unit_id"),
+        ("ix_settlements_status", "settlements", "status"),
+        ("ix_settlement_items_settlement_id", "settlement_items", "settlement_id"),
     ]
     import re
     _SAFE_IDENT = re.compile(r'^"?[a-z_][a-z0-9_]*"?$')
@@ -509,7 +531,7 @@ except (AttributeError, KeyError, TypeError):
 app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
 
 # Register routers
-from app.routers import dashboard, owners, units, voting, tax, sync, share_check, settings_page, administration  # noqa: E402
+from app.routers import dashboard, owners, units, voting, tax, sync, share_check, settings_page, administration, payments  # noqa: E402
 
 app.include_router(dashboard.router)
 app.include_router(owners.router, prefix="/vlastnici", tags=["Vlastníci"])
@@ -520,3 +542,4 @@ app.include_router(sync.router, prefix="/synchronizace", tags=["Synchronizace"])
 app.include_router(share_check.router, prefix="/kontrola-podilu", tags=["Kontrola podílu"])
 app.include_router(administration.router, prefix="/sprava", tags=["Administrace"])
 app.include_router(settings_page.router, prefix="/nastaveni", tags=["Nastavení"])
+app.include_router(payments.router, prefix="/platby", tags=["Platby"])

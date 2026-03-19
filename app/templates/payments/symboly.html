@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}Variabilní symboly{% endblock %}
+{% block content %}
+<div class="max-w-6xl mx-auto flex flex-col" style="height: calc(100vh - 4rem);">
+    {% if back_url %}
+    <a href="{{ back_url }}" class="inline-flex items-center text-xs text-blue-600 dark:text-blue-400 hover:underline mb-2">
+        <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+        Zpět na platby
+    </a>
+    {% endif %}
+
+    {% if request.query_params.get('chyba') == 'duplicita' %}
+    <div class="mb-3 p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg flash-auto-dismiss">
+        <p class="text-sm text-red-700 dark:text-red-400">Variabilní symbol již existuje.</p>
+    </div>
+    {% endif %}
+
+    <div class="flex-shrink-0">
+        <div class="flex items-center justify-between mb-3">
+            <h1 class="text-lg font-bold text-gray-900 dark:text-white">Variabilní symboly</h1>
+            <button onclick="document.getElementById('add-form').classList.toggle('hidden')"
+                class="px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700">
+                + Přidat VS
+            </button>
+        </div>
+
+        <!-- Formulář přidání (skrytý) -->
+        <div id="add-form" class="hidden mb-3 bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <form method="post" action="/platby/symboly/pridat" class="flex items-end space-x-3">
+                <div>
+                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Variabilní symbol</label>
+                    <input type="text" name="variable_symbol" required maxlength="20" placeholder="1109800101"
+                        class="w-40 px-3 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Jednotka</label>
+                    <select name="unit_id" required class="w-32 px-3 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                        {% for unit in units %}
+                        <option value="{{ unit.id }}">{{ unit.unit_number }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="flex-1">
+                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Popis (nepovinné)</label>
+                    <input type="text" name="description" placeholder="Poznámka..."
+                        class="w-full px-3 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                </div>
+                <button type="submit" class="px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded-lg hover:bg-green-700">Uložit</button>
+            </form>
+        </div>
+
+        <!-- Filtr bubliny — zdroj -->
+        {% set _base = "/platby/symboly?sort=" ~ sort ~ "&order=" ~ order ~ ("&q=" ~ q if q else "") %}
+        {% set _back = "&back=" ~ (back_url|default('')|urlencode) if back_url else "" %}
+        <div class="flex flex-wrap gap-2 mb-3">
+            <a href="{{ _base }}{{ _back }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
+                {% if not zdroj %}bg-green-600 text-white ring-2 ring-green-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
+                Vše <span class="ml-1 text-xs opacity-75">{{ mappings|length if not zdroj else '' }}</span>
+            </a>
+            {% set source_labels = {"auto": "Automaticky", "manual": "Ručně", "legacy": "Historicky"} %}
+            {% for src in sources %}
+            <a href="{{ _base }}&zdroj={{ src }}{{ _back }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
+                {% if zdroj == src %}bg-green-600 text-white ring-2 ring-green-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
+                {{ source_labels.get(src, src) }}
+            </a>
+            {% endfor %}
+        </div>
+
+        <!-- Hledání -->
+        <div class="mb-3">
+            <input type="text" name="q" value="{{ q }}" placeholder="Hledat VS, popis..."
+                hx-get="/platby/symboly"
+                hx-trigger="keyup changed delay:300ms"
+                hx-target="#symboly-tbody"
+                hx-include="[name='sort'],[name='order'],[name='zdroj'],[name='back']"
+                class="w-full sm:w-72 px-3 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500">
+            <input type="hidden" name="sort" value="{{ sort }}">
+            <input type="hidden" name="order" value="{{ order }}">
+            <input type="hidden" name="zdroj" value="{{ zdroj }}">
+            <input type="hidden" name="back" value="{{ back_url }}">
+        </div>
+    </div>
+
+    <!-- Tabulka -->
+    <div class="flex-1 overflow-auto bg-white dark:bg-gray-800 rounded-lg shadow">
+        <table class="w-full text-xs">
+            <thead class="sticky top-0 z-10 bg-gray-50 dark:bg-gray-700">
+                {% set _sort_base = "/platby/symboly?" ~ ("q=" ~ q ~ "&" if q else "") ~ ("zdroj=" ~ zdroj ~ "&" if zdroj else "") %}
+                <tr>
+                    {% for col_key, col_label in [("vs", "Variabilní symbol"), ("jednotka", "Jednotka"), ("zdroj", "Zdroj"), ("popis", "Popis")] %}
+                    {% set new_order = "desc" if sort == col_key and order == "asc" else "asc" %}
+                    <th class="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300 cursor-pointer select-none hover:text-gray-900 dark:hover:text-white"
+                        onclick="window.location='{{ _sort_base }}sort={{ col_key }}&order={{ new_order }}{{ _back }}'">
+                        {{ col_label }}
+                        {% if sort == col_key %}<span class="ml-0.5">{{ "▲" if order == "asc" else "▼" }}</span>{% endif %}
+                    </th>
+                    {% endfor %}
+                    <th class="px-3 py-2 text-right font-semibold text-gray-600 dark:text-gray-300">Akce</th>
+                </tr>
+            </thead>
+            <tbody id="symboly-tbody">
+                {% include "payments/partials/symboly_tbody.html" %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,29 @@
+{% for p in prescriptions %}
+<tr class="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors" id="p-{{ p.id }}">
+    <td class="px-3 py-2 font-medium text-gray-900 dark:text-white">{{ p.space_number or "—" }}</td>
+    <td class="px-3 py-2 text-gray-600 dark:text-gray-400">{{ p.section or "—" }}</td>
+    <td class="px-3 py-2 text-gray-600 dark:text-gray-400">{{ p.space_type or "—" }}</td>
+    <td class="px-3 py-2 font-mono text-gray-500 dark:text-gray-400">{{ p.variable_symbol or "—" }}</td>
+    <td class="px-3 py-2 text-gray-700 dark:text-gray-300">
+        <a href="/platby/predpisy/{{ p.prescription_year_id }}/{{ p.id }}?back={{ list_url|urlencode }}"
+           class="hover:text-blue-600 dark:hover:text-blue-400 hover:underline">
+            {{ p.owner_name or "—" }}
+        </a>
+    </td>
+    <td class="px-3 py-2 text-right font-medium text-gray-900 dark:text-white">{{ p.monthly_total|fmt_num }} Kč</td>
+    <td class="px-3 py-2">
+        {% if p.unit %}
+        <a href="/jednotky/{{ p.unit.id }}" class="px-2 py-0.5 text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full hover:bg-green-200">
+            {{ p.unit.unit_number }}
+        </a>
+        {% else %}
+        <span class="px-2 py-0.5 text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 rounded-full">nepřiřazeno</span>
+        {% endif %}
+    </td>
+</tr>
+{% endfor %}
+{% if not prescriptions %}
+<tr>
+    <td colspan="7" class="px-3 py-8 text-center text-xs text-gray-400 dark:text-gray-500">Žádné předpisy nenalezeny.</td>
+</tr>
+{% endif %}
