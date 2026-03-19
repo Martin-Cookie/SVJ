@@ -664,10 +664,64 @@ if has_documents and max_done < 1:
 - `_back` helper v šabloně: `{% set _back = "&back=" ~ (back_url|default('')|urlencode) if back_url else "" %}`
 - Vícenásobné zanoření: `?back={{ ('/url?back=' ~ (back_url|urlencode))|urlencode }}`
 
-### Obnova scroll pozice
+### Obnova scroll pozice — back URL (hash)
 1. Řádky mají `id` (např. `id="owner-{{ owner.id }}"`)
 2. Back URL obsahuje `#hash`: `?back={{ (list_url ~ '#owner-' ~ owner.id)|urlencode }}`
 3. JS na stránce: `if (location.hash) { document.querySelector(location.hash)?.scrollIntoView({block:'center'}); }`
+
+### Obnova scroll pozice — POST+redirect (sessionStorage)
+
+Pro stránky s inline formuláři (POST+redirect na stejnou stránku, např. platební modul), kde se má scroll pozice zachovat **na pixel přesně**:
+
+1. **Redirect obsahuje `#hash`** — router přidá `#element-id` do redirect URL
+2. **JS uloží scrollTop před submitem** do sessionStorage
+3. **JS obnoví přesnou pozici** po načtení stránky (nebo fallback na scrollIntoView)
+4. **Hash se stripne** přes `history.replaceState` — zabrání prohlížeči přeskočit na element
+
+```javascript
+(function() {
+    var SC_KEY = 'svj_scroll_payment';
+    var sc = document.querySelector('.flex-1.overflow-auto');
+    var hash = location.hash;
+
+    // Strip hash → zabrání browser auto-scroll na anchor
+    if (hash) {
+        history.replaceState(null, '', location.pathname + location.search);
+    }
+
+    // Uložit scroll před každým POST (delegovaný listener — chytí i dynamické formuláře)
+    document.addEventListener('submit', function(e) {
+        var form = e.target;
+        if (form.getAttribute('hx-boost') === 'false' || form.closest('[hx-boost="false"]')) {
+            if (sc) try { sessionStorage.setItem(SC_KEY, String(Math.round(sc.scrollTop))); } catch(e2) {}
+        }
+    });
+
+    // Obnovit přesnou pozici (nebo fallback na scrollIntoView)
+    if (hash && sc) {
+        var saved;
+        try { saved = sessionStorage.getItem(SC_KEY); sessionStorage.removeItem(SC_KEY); } catch(e) {}
+        var top = saved !== null ? parseInt(saved, 10) : NaN;
+        if (!isNaN(top) && top > 0) {
+            sc.scrollTop = top;
+        } else {
+            var el = document.getElementById(hash.substring(1));
+            if (el) el.scrollIntoView({block: 'center'});
+        }
+        // Highlight řádku (žluté pozadí na 2s)
+        var el = document.getElementById(hash.substring(1));
+        if (el) {
+            el.classList.add('bg-yellow-50', 'dark:bg-yellow-900/20');
+            setTimeout(function() { el.classList.remove('bg-yellow-50', 'dark:bg-yellow-900/20'); }, 2000);
+        }
+    }
+})();
+```
+
+**Klíčové body:**
+- `history.replaceState` MUSÍ být před čímkoli jiným — jinak prohlížeč provede nativní scroll na anchor
+- Delegovaný `document.addEventListener('submit', ...)` chytí i formuláře přidané dynamicky (toggle hidden)
+- `SC_KEY` sdílený pro celý modul (všechny stránky plateb) — stačí jeden klíč
 
 ---
 
@@ -834,12 +888,39 @@ Pro mazání uzavřených/odeslaných entit se používá custom modal s DELETE 
 
 ---
 
-## 18b. Flash zprávy — auto-dismiss
+## 18b. Flash zprávy — toast notifikace
 
-- Flash message v `base.html` má atribut `data-auto-dismiss`
-- `app.js` automaticky skryje flash po 5 sekundách s fade-out animací
-- Po HTMX swapech (`htmx:afterSwap`) se auto-dismiss znovu aktivuje
-- Implementace: `_autoDismiss()` funkce v `app.js`
+Flash hlášky se zobrazují jako **toast** — fixní pozice vpravo nahoře, nepřesouvají obsah stránky.
+
+### Implementace
+- **Kontejner** v `base.html` (před `</body>`): `fixed top-4 right-4 z-50`, `pointer-events-none` (container) + `pointer-events-auto` (toast)
+- **Animace**: CSS `animate-slide-in` v `custom.css` (slide-in zprava + fade-in, 0.3s)
+- **Auto-dismiss**: `_autoDismiss()` v `app.js` — default 4s, konfigurovatelné přes `data-auto-dismiss="ms"`
+  - `data-auto-dismiss` (bez hodnoty) = 4s auto-dismiss (success/info)
+  - `data-auto-dismiss="0"` = nezanikne automaticky (chyby)
+  - Po HTMX swapech (`htmx:afterSwap`) se auto-dismiss znovu aktivuje
+- **Zavření**: tlačítko `×` na každém toastu s fade-out animací
+
+### Barevné varianty
+| Typ | CSS | Použití |
+|-----|-----|---------|
+| Success (default) | `bg-gray-800 text-white` | Uloženo, smazáno, vygenerováno |
+| Error | `bg-red-600 text-white` | Chyby — nezanikne automaticky |
+| Warning | `bg-yellow-500 text-white` | Varování |
+
+### Jak přidat flash z routeru
+Flash zpráva se předává přes **kontext** (ne query parametr):
+```python
+# V routeru — GET handler
+flash_message = ""
+flash_param = request.query_params.get("flash", "")
+if flash_param == "ok":
+    flash_message = "Zůstatek uložen."
+
+ctx = { ..., "flash_message": flash_message }
+```
+- POST handler redirectuje s `?flash=ok`, GET handler přeloží na `flash_message` v kontextu
+- **Nikdy nepsat inline flash bloky v šablonách** — vše řeší globální toast v `base.html`
 
 ---
 
