@@ -76,6 +76,7 @@ async def zustatky_seznam(
         "total_preplatek": total_preplatek,
         "list_url": list_url,
         "back_url": back_url,
+        "active_tab": "zustatky",
     }
 
     if is_htmx_partial(request):

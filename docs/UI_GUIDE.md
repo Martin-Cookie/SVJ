@@ -9,10 +9,36 @@ Tento soubor je **jediný zdroj pravdy** pro UI/frontend vzory a konvence. Stack
 ## 1. Layout
 
 ### Detail stránka
-1. Šipka zpět: `<a href="{{ back_url }}" class="text-sm text-gray-500 hover:text-gray-700">&larr; {{ back_label }}</a>`
+1. Šipka zpět (viz [Back link](#back-link) níže)
 2. Titulek: `<h1 class="text-2xl font-bold text-gray-800">`
 3. Badge pod titulem: `<div class="mt-1 flex items-center gap-2">` s `rounded-full` badge
 4. Obsah v grid layoutu pod tím
+
+### Back link
+Zpětný odkaz na KAŽDÉ stránce s `back_url` — jednotný styl napříč celým projektem:
+```html
+{% if back_url %}
+<div class="mb-3">
+    <a href="{{ back_url }}" class="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+        &larr; {{ back_label }}
+    </a>
+</div>
+{% endif %}
+```
+- Vždy `text-sm` + `text-blue-600` + `&larr;` entita — nikdy SVG ikona, nikdy `text-xs`, nikdy `text-gray-*`
+- Obaleno v `<div class="mb-3">` — nikdy `inline-flex`, nikdy bez wrapperu
+- Dark mode: `dark:text-blue-400 dark:hover:text-blue-300`
+- Label dynamický z routeru (viz CLAUDE.md § Navigace a back URL)
+
+### Šířky stránek
+| Typ stránky | Max-width | Příklad |
+|-------------|-----------|---------|
+| **Tabulka/seznam** (desítky řádků, řaditelné sloupce) | žádné omezení (full width) | vlastníci, jednotky, matice plateb, dlužníci, vyúčtování, předpisy roku |
+| **Hub/index** (stat karty + přehled) | `max-w-6xl mx-auto` | `/platby`, přehled |
+| **Detail entity** | `max-w-3xl mx-auto` nebo `max-w-4xl mx-auto` | detail předpisu, detail vyúčtování |
+| **Formulář/import** | `max-w-2xl mx-auto` | import předpisů, import výpisů |
+- Tabulkové stránky NIKDY nemají `max-w-*xl` — tabulka potřebuje celou šířku
+- Detail a formuláře mají `mx-auto` pro centrování
 
 ### Fixní header + scrollovatelný obsah
 ```html
@@ -532,7 +558,7 @@ H: Tabulka / obsah                                     Scrollovatelný obsah
 ```
 
 ### Pravidla
-- **Navigace (A):** `<a>` přímo bez `<div>` wrapperu
+- **Navigace (A):** back link v `<div class="mb-3">` (viz [Back link](#back-link) v sekci 1)
 - **Stepper (B):** obalený v `<div class="mt-2">`, vždy PŘED titulkem
 - **Titulek (C):** `<div class="flex items-center justify-between mt-2 mb-4">`
   - Vlevo: `<h1 class="text-2xl font-bold">` + `<p class="text-sm text-gray-500 mt-1">podnázev</p>`
@@ -544,7 +570,7 @@ H: Tabulka / obsah                                     Scrollovatelný obsah
 
 ### Stránky vytvoření (upload, create)
 - Stejné zóny A–C (back, stepper pokud existuje, titulek + podnázev)
-- Formulář v `bg-white rounded-lg shadow p-6 max-w-2xl`
+- Formulář v `bg-white rounded-lg shadow p-6 max-w-2xl` (viz [Šířky stránek](#šířky-stránek) v sekci 1)
 - Submit tlačítko **vedle titulku** (zóna C vpravo), ne uvnitř formuláře — propojení přes `form="id"`
 - U upload formulářů je tlačítko **skryté** dokud není vybrán soubor (viz sekce 3 → Upload formuláře)
 

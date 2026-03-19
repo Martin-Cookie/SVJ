@@ -97,6 +97,7 @@ async def symboly_seznam(
         "back_url": back_url,
         "flash_message": flash_message,
         "flash_type": "error" if chyba else "",
+        "active_tab": "symboly",
     }
 
     if is_htmx_partial(request):

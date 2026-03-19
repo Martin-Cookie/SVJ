@@ -36,6 +36,7 @@ async def predpisy_seznam(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse("payments/predpisy.html", {
         "request": request,
         "active_nav": "platby",
+        "active_tab": "predpisy",
         "years": years,
         "list_url": list_url,
         "back_url": back_url,

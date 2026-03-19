@@ -105,6 +105,7 @@ async def platby_prehled(
         "total_prescribed": matrix["total_prescribed"],
         "total_paid": matrix["total_paid"],
         "total_units": len(matrix["units"]),
+        "active_tab": "prehled",
     }
 
     if is_htmx_partial(request):
@@ -179,6 +180,7 @@ async def platby_dluznici(
         "list_url": list_url,
         "months_with_data": months_with_data,
         "total_debt": sum(r["debt"] for r in debtors),
+        "active_tab": "dluznici",
     }
 
     if is_htmx_partial(request):

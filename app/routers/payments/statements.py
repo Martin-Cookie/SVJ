@@ -57,6 +57,7 @@ async def vypisy_seznam(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse("payments/vypisy.html", {
         "request": request,
         "active_nav": "platby",
+        "active_tab": "vypisy",
         "statements": statements,
         "list_url": list_url,
         "back_url": back_url,
