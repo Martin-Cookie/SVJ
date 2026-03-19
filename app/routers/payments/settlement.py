@@ -225,6 +225,19 @@ async def vyuctovani_detail(
 # ── Generování vyúčtování ────────────────────────────────────────────
 
 
+def _vyuctovani_redirect_url(form_data, flash_params: str = "") -> str:
+    """Sestaví redirect URL zpět na vyúčtování se zachováním filtrů."""
+    params = []
+    if flash_params:
+        params.append(flash_params)
+    for key in ("rok", "q", "stav", "sort", "order", "back"):
+        val = form_data.get(key, "")
+        if val:
+            params.append(f"{key}={val}")
+    qs = "&".join(params)
+    return f"/platby/vyuctovani?{qs}" if qs else "/platby/vyuctovani"
+
+
 @router.post("/vyuctovani/generovat")
 async def vyuctovani_generovat(
     request: Request,
@@ -233,14 +246,12 @@ async def vyuctovani_generovat(
     db: Session = Depends(get_db),
 ):
     """Generování vyúčtování pro rok."""
+    form_data = await request.form()
     result = generate_settlements(db, rok)
-    redirect_url = (
-        f"/platby/vyuctovani?rok={rok}"
-        f"&flash=generated&created={result['created']}&updated={result['updated']}"
+    return RedirectResponse(
+        _vyuctovani_redirect_url(form_data, f"flash=generated&created={result['created']}&updated={result['updated']}"),
+        status_code=302,
     )
-    if back:
-        redirect_url += f"&back={back}"
-    return RedirectResponse(redirect_url, status_code=302)
 
 
 # ── Změna stavu ──────────────────────────────────────────────────────
@@ -277,15 +288,16 @@ async def vyuctovani_smazat_rok(
     db: Session = Depends(get_db),
 ):
     """Smazání všech vyúčtování roku."""
+    form_data = await request.form()
     settlements = db.query(Settlement).filter_by(year=rok).all()
     for s in settlements:
         db.delete(s)
     db.commit()
 
-    redirect_url = f"/platby/vyuctovani?flash=deleted"
-    if back:
-        redirect_url += f"&back={back}"
-    return RedirectResponse(redirect_url, status_code=302)
+    return RedirectResponse(
+        _vyuctovani_redirect_url(form_data, "flash=deleted"),
+        status_code=302,
+    )
 
 
 # ── Hromadná změna stavu ──────────────────────────────────────────
@@ -318,10 +330,10 @@ async def vyuctovani_hromadny_stav(
     db.commit()
 
     stav_label = STATUS_LABELS.get(novy_stav, novy_stav)
-    redirect_url = f"/platby/vyuctovani?rok={rok}&flash=bulk_stav&count={count}&stav_label={stav_label}"
-    if back:
-        redirect_url += f"&back={back}"
-    return RedirectResponse(redirect_url, status_code=302)
+    return RedirectResponse(
+        _vyuctovani_redirect_url(form, f"flash=bulk_stav&count={count}&stav_label={stav_label}"),
+        status_code=302,
+    )
 
 
 # ── Export vyúčtování ─────────────────────────────────────────────

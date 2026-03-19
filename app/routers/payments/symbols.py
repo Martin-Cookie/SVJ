@@ -107,6 +107,21 @@ async def symboly_seznam(
     return templates.TemplateResponse("payments/symboly.html", ctx)
 
 
+def _symboly_redirect_url(form_data, flash: str = "", chyba: str = "") -> str:
+    """Sestaví redirect URL zpět na symboly se zachováním filtrů."""
+    params = []
+    if flash:
+        params.append(f"flash={flash}")
+    if chyba:
+        params.append(f"chyba={chyba}")
+    for key in ("q", "sort", "order", "zdroj", "back"):
+        val = form_data.get(key, "")
+        if val:
+            params.append(f"{key}={val}")
+    qs = "&".join(params)
+    return f"/platby/symboly?{qs}" if qs else "/platby/symboly"
+
+
 @router.post("/symboly/pridat")
 async def symbol_pridat(
     request: Request,
@@ -116,10 +131,12 @@ async def symbol_pridat(
     db: Session = Depends(get_db),
 ):
     """Přidat nové VS mapování."""
+    form_data = await request.form()
+
     # Kontrola duplicity
     existing = db.query(VariableSymbolMapping).filter_by(variable_symbol=variable_symbol.strip()).first()
     if existing:
-        return RedirectResponse("/platby/symboly?chyba=duplicita", status_code=302)
+        return RedirectResponse(_symboly_redirect_url(form_data, chyba="duplicita"), status_code=302)
 
     db.add(VariableSymbolMapping(
         variable_symbol=variable_symbol.strip(),
@@ -128,7 +145,7 @@ async def symbol_pridat(
         description=description.strip() or None,
     ))
     db.commit()
-    return RedirectResponse("/platby/symboly?flash=ok", status_code=302)
+    return RedirectResponse(_symboly_redirect_url(form_data, flash="ok"), status_code=302)
 
 
 @router.post("/symboly/{mapping_id}/smazat")
@@ -138,8 +155,9 @@ async def symbol_smazat(
     db: Session = Depends(get_db),
 ):
     """Smazat VS mapování."""
+    form_data = await request.form()
     mapping = db.query(VariableSymbolMapping).get(mapping_id)
     if mapping:
         db.delete(mapping)
         db.commit()
-    return RedirectResponse("/platby/symboly?flash=smazano", status_code=302)
+    return RedirectResponse(_symboly_redirect_url(form_data, flash="smazano"), status_code=302)

@@ -389,6 +389,19 @@ async def vypis_detail(
 # ── Ruční přiřazení platby ─────────────────────────────────────────────
 
 
+def _detail_redirect_url(statement_id: int, form_data, flash: str = "") -> str:
+    """Sestaví redirect URL zpět na detail výpisu se zachováním filtrů."""
+    params = []
+    if flash:
+        params.append(f"flash={flash}")
+    for key in ("q", "sort", "order", "stav", "smer", "back"):
+        val = form_data.get(key, "")
+        if val:
+            params.append(f"{key}={val}")
+    qs = "&".join(params)
+    return f"/platby/vypisy/{statement_id}?{qs}" if qs else f"/platby/vypisy/{statement_id}"
+
+
 @router.post("/vypisy/{statement_id}/prirazeni/{payment_id}")
 async def platba_prirazeni(
     request: Request,
@@ -398,15 +411,17 @@ async def platba_prirazeni(
     db: Session = Depends(get_db),
 ):
     """Ručně přiřadit platbu k jednotce (unit_id = číslo jednotky)."""
+    form_data = await request.form()
+
     payment = db.query(Payment).filter_by(id=payment_id, statement_id=statement_id).first()
     if not payment:
-        return RedirectResponse(f"/platby/vypisy/{statement_id}", status_code=302)
+        return RedirectResponse(_detail_redirect_url(statement_id, form_data), status_code=302)
 
     # unit_id z formuláře je unit_number
     unit = db.query(Unit).filter_by(unit_number=unit_id).first()
     if not unit:
         return RedirectResponse(
-            f"/platby/vypisy/{statement_id}?flash=match_fail",
+            _detail_redirect_url(statement_id, form_data, "match_fail"),
             status_code=302,
         )
 
@@ -426,7 +441,7 @@ async def platba_prirazeni(
 
     db.commit()
 
-    return RedirectResponse(f"/platby/vypisy/{statement_id}?flash=match_ok", status_code=302)
+    return RedirectResponse(_detail_redirect_url(statement_id, form_data, "match_ok"), status_code=302)
 
 
 # ── Přepárování výpisu ─────────────────────────────────────────────────
@@ -440,6 +455,8 @@ async def vypis_preparovat(
 ):
     """Znovu spustit automatické párování pro výpis."""
     from app.services.payment_matching import match_payments
+
+    form_data = await request.form()
 
     statement = db.query(BankStatement).get(statement_id)
     if not statement:
@@ -462,10 +479,8 @@ async def vypis_preparovat(
     statement.matched_count = result["matched"]
     db.commit()
 
-    return RedirectResponse(
-        f"/platby/vypisy/{statement_id}?flash=rematch_ok&matched={result['matched']}",
-        status_code=302,
-    )
+    url = _detail_redirect_url(statement_id, form_data, f"rematch_ok&matched={result['matched']}")
+    return RedirectResponse(url, status_code=302)
 
 
 # ── Smazání výpisu ─────────────────────────────────────────────────────

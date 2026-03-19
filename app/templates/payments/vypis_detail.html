@@ -32,6 +32,12 @@
             </div>
             <div class="flex items-center space-x-2">
                 <form method="post" action="/platby/vypisy/{{ statement.id }}/preparovat">
+                    <input type="hidden" name="q" value="{{ q }}">
+                    <input type="hidden" name="sort" value="{{ sort }}">
+                    <input type="hidden" name="order" value="{{ order }}">
+                    <input type="hidden" name="stav" value="{{ stav }}">
+                    <input type="hidden" name="smer" value="{{ smer }}">
+                    <input type="hidden" name="back" value="{{ back_url }}">
                     <button type="submit" class="px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded-lg hover:bg-green-700" title="Znovu napárovat nenapárované platby">
                         Přepárovat
                     </button>

@@ -42,6 +42,10 @@
                    title="Export s položkami do Excelu">↓ Excel + položky</a>
                 <form method="post" action="/platby/vyuctovani/generovat" class="inline" hx-boost="false">
                     <input type="hidden" name="rok" value="{{ rok }}">
+                    <input type="hidden" name="q" value="{{ q }}">
+                    <input type="hidden" name="stav" value="{{ stav }}">
+                    <input type="hidden" name="sort" value="{{ sort }}">
+                    <input type="hidden" name="order" value="{{ order }}">
                     <input type="hidden" name="back" value="{{ back_url }}">
                     <button type="submit" data-confirm="Vygenerovat vyúčtování pro rok {{ rok }}? Existující vyúčtování budou přepočítána."
                         class="inline-flex items-center px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition-colors">
@@ -86,6 +90,10 @@
             <!-- Hromadná změna stavu -->
             <form id="bulk-form" method="post" action="/platby/vyuctovani/hromadny-stav" hx-boost="false" class="hidden items-center gap-2">
                 <input type="hidden" name="rok" value="{{ rok }}">
+                <input type="hidden" name="q" value="{{ q }}">
+                <input type="hidden" name="stav" value="{{ stav }}">
+                <input type="hidden" name="sort" value="{{ sort }}">
+                <input type="hidden" name="order" value="{{ order }}">
                 <input type="hidden" name="back" value="{{ back_url }}">
                 <span id="bulk-count" class="text-xs text-gray-500 dark:text-gray-400"></span>
                 <select name="novy_stav" required class="px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
@@ -135,6 +143,10 @@
     <div class="flex-shrink-0 mt-3 text-right">
         <form method="post" action="/platby/vyuctovani/smazat-rok" class="inline" hx-boost="false">
             <input type="hidden" name="rok" value="{{ rok }}">
+            <input type="hidden" name="q" value="{{ q }}">
+            <input type="hidden" name="stav" value="{{ stav }}">
+            <input type="hidden" name="sort" value="{{ sort }}">
+            <input type="hidden" name="order" value="{{ order }}">
             <input type="hidden" name="back" value="{{ back_url }}">
             <button type="submit" data-confirm="Opravdu smazat všech {{ bubble_counts[''] }} vyúčtování roku {{ rok }}? Tato akce je nevratná."
                 class="inline-flex items-center px-2 py-1 text-xs text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 hover:underline">

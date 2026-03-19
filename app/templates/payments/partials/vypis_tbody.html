@@ -37,6 +37,12 @@
 <tr id="assign-{{ p.id }}" class="hidden bg-yellow-50 dark:bg-yellow-900/20">
     <td colspan="7" class="px-2 py-2">
         <form method="post" action="/platby/vypisy/{{ statement.id }}/prirazeni/{{ p.id }}" class="flex items-center space-x-2">
+            <input type="hidden" name="q" value="{{ q }}">
+            <input type="hidden" name="sort" value="{{ sort }}">
+            <input type="hidden" name="order" value="{{ order }}">
+            <input type="hidden" name="stav" value="{{ stav }}">
+            <input type="hidden" name="smer" value="{{ smer }}">
+            <input type="hidden" name="back" value="{{ back_url }}">
             <span class="text-xs text-gray-500">Přiřadit k jednotce:</span>
             <input type="number" name="unit_id" placeholder="č. jednotky" required min="1"
                 class="w-24 px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white">

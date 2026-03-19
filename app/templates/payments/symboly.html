@@ -24,6 +24,11 @@
         <!-- Formulář přidání (skrytý) -->
         <div id="add-form" class="hidden mb-3 bg-white dark:bg-gray-800 rounded-lg shadow p-4">
             <form method="post" action="/platby/symboly/pridat" class="flex items-end space-x-3">
+                <input type="hidden" name="q" value="{{ q }}">
+                <input type="hidden" name="sort" value="{{ sort }}">
+                <input type="hidden" name="order" value="{{ order }}">
+                <input type="hidden" name="zdroj" value="{{ zdroj }}">
+                <input type="hidden" name="back" value="{{ back_url }}">
                 <div>
                     <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Variabilní symbol</label>
                     <input type="text" name="variable_symbol" required maxlength="20" placeholder="1109800101"
