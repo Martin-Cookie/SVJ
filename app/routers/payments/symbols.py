@@ -72,6 +72,17 @@ async def symboly_seznam(
     list_url = build_list_url(request)
     back_url = request.query_params.get("back", "")
 
+    # Flash zprávy
+    flash_message = ""
+    flash_param = request.query_params.get("flash", "")
+    chyba = request.query_params.get("chyba", "")
+    if flash_param == "ok":
+        flash_message = "Variabilní symbol přidán."
+    elif flash_param == "smazano":
+        flash_message = "Variabilní symbol smazán."
+    elif chyba == "duplicita":
+        flash_message = "Variabilní symbol již existuje."
+
     ctx = {
         "request": request,
         "active_nav": "platby",
@@ -84,6 +95,8 @@ async def symboly_seznam(
         "zdroj": zdroj,
         "list_url": list_url,
         "back_url": back_url,
+        "flash_message": flash_message,
+        "flash_type": "error" if chyba else "",
     }
 
     if is_htmx_partial(request):
@@ -113,7 +126,7 @@ async def symbol_pridat(
         description=description.strip() or None,
     ))
     db.commit()
-    return RedirectResponse("/platby/symboly", status_code=302)
+    return RedirectResponse("/platby/symboly?flash=ok", status_code=302)
 
 
 @router.post("/symboly/{mapping_id}/smazat")
@@ -127,4 +140,4 @@ async def symbol_smazat(
     if mapping:
         db.delete(mapping)
         db.commit()
-    return RedirectResponse("/platby/symboly", status_code=302)
+    return RedirectResponse("/platby/symboly?flash=smazano", status_code=302)

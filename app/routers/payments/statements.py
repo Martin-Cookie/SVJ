@@ -130,11 +130,21 @@ async def vypis_import_upload(
         .filter_by(period_from=meta.get("period_from"), period_to=meta.get("period_to"))
         .first()
     )
-    force = (await request.form()).get("force_overwrite")
+    form_data = await request.form()
+    force = form_data.get("force_overwrite")
     if existing and not force:
         period_label = ""
         if meta.get("period_from"):
             period_label = f"{meta['period_from'].strftime('%d.%m.%Y')} – {meta['period_to'].strftime('%d.%m.%Y')}"
+        # Počet ručně přiřazených plateb
+        manual_count = (
+            db.query(Payment)
+            .filter(
+                Payment.statement_id == existing.id,
+                Payment.match_status == PaymentMatchStatus.MANUAL,
+            )
+            .count()
+        )
         return templates.TemplateResponse("payments/vypis_import.html", {
             "request": request,
             "active_nav": "platby",
@@ -143,10 +153,25 @@ async def vypis_import_upload(
             "period_label": period_label,
             "filename": file.filename,
             "transaction_count": len(result["transactions"]),
+            "manual_count": manual_count,
         })
 
-    # Smazat existující pokud přepisujeme
+    # Zachování ručních přiřazení
+    manual_map = {}
     if existing:
+        preserve = form_data.get("preserve_manual")
+        if preserve:
+            manual_payments = (
+                db.query(Payment.operation_id, Payment.unit_id, Payment.match_status)
+                .filter(
+                    Payment.statement_id == existing.id,
+                    Payment.match_status == PaymentMatchStatus.MANUAL,
+                    Payment.unit_id.isnot(None),
+                    Payment.operation_id.isnot(None),
+                )
+                .all()
+            )
+            manual_map = {p.operation_id: p.unit_id for p in manual_payments}
         db.delete(existing)
         db.flush()
 
@@ -212,8 +237,21 @@ async def vypis_import_upload(
     db.flush()
 
     # Automatické párování
-    year = meta.get("period_from").year if meta.get("period_from") else datetime.utcnow().year
+    pf = meta.get("period_from")
+    year = pf.year if pf else datetime.utcnow().year
     match_result = match_payments(db, statement.id, year)
+
+    # Obnovit ruční přiřazení z předchozího importu
+    restored = 0
+    if manual_map:
+        for payment in db.query(Payment).filter(
+            Payment.statement_id == statement.id,
+            Payment.operation_id.in_(list(manual_map.keys())),
+        ).all():
+            payment.unit_id = manual_map[payment.operation_id]
+            payment.match_status = PaymentMatchStatus.MANUAL
+            restored += 1
+        match_result["matched"] += restored
 
     statement.matched_count = match_result["matched"]
     db.commit()
@@ -260,16 +298,7 @@ async def vypis_detail(
         .options(joinedload(Payment.unit), joinedload(Payment.owner))
     )
 
-    # Filtry
-    if q:
-        q_filter = f"%{q}%"
-        query = query.filter(
-            Payment.vs.like(q_filter)
-            | Payment.counter_account_name.ilike(q_filter)
-            | Payment.note.ilike(q_filter)
-            | Payment.message.ilike(q_filter)
-        )
-
+    # Filtry (stav, směr v SQL)
     if stav:
         query = query.filter(Payment.match_status == stav)
 
@@ -287,6 +316,17 @@ async def vypis_detail(
 
     payments = query.all()
 
+    # Hledání Python-side (diakritika-safe)
+    if q:
+        q_ascii = strip_diacritics(q)
+        payments = [
+            p for p in payments
+            if q in (p.vs or "")
+            or q_ascii in strip_diacritics(p.counter_account_name or "")
+            or q_ascii in strip_diacritics(p.note or "")
+            or q_ascii in strip_diacritics(p.message or "")
+        ]
+
     # Statistiky
     total_income = sum(p.amount for p in payments if p.direction == PaymentDirection.INCOME)
     total_expense = sum(p.amount for p in payments if p.direction == PaymentDirection.EXPENSE)
@@ -294,6 +334,7 @@ async def vypis_detail(
 
     # Flash zprávy
     flash_message = ""
+    flash_type = ""
     flash = request.query_params.get("flash", "")
     if flash == "import_ok":
         inserted = request.query_params.get("inserted", "0")
@@ -307,6 +348,9 @@ async def vypis_detail(
         )
     elif flash == "match_ok":
         flash_message = "Ruční přiřazení uloženo."
+    elif flash == "match_fail":
+        flash_message = "Jednotka s tímto číslem nebyla nalezena."
+        flash_type = "error"
     elif flash == "rematch_ok":
         matched = request.query_params.get("matched", "0")
         flash_message = f"Přepárování dokončeno: {matched} plateb napárováno."
@@ -330,6 +374,7 @@ async def vypis_detail(
         "list_url": list_url,
         "back_url": back_url,
         "flash_message": flash_message,
+        "flash_type": flash_type,
     }
 
     if is_htmx_partial(request):
@@ -356,22 +401,27 @@ async def platba_prirazeni(
 
     # unit_id z formuláře je unit_number
     unit = db.query(Unit).filter_by(unit_number=unit_id).first()
-    if unit:
-        payment.unit_id = unit.id
-        payment.match_status = PaymentMatchStatus.MANUAL
-
-        # Najdi vlastníka
-        from app.models import OwnerUnit
-        ou = (
-            db.query(OwnerUnit)
-            .filter_by(unit_id=unit.id)
-            .filter(OwnerUnit.valid_to.is_(None))
-            .first()
+    if not unit:
+        return RedirectResponse(
+            f"/platby/vypisy/{statement_id}?flash=match_fail",
+            status_code=302,
         )
-        if ou:
-            payment.owner_id = ou.owner_id
 
-        db.commit()
+    payment.unit_id = unit.id
+    payment.match_status = PaymentMatchStatus.MANUAL
+
+    # Najdi vlastníka
+    from app.models import OwnerUnit
+    ou = (
+        db.query(OwnerUnit)
+        .filter_by(unit_id=unit.id)
+        .filter(OwnerUnit.valid_to.is_(None))
+        .first()
+    )
+    if ou:
+        payment.owner_id = ou.owner_id
+
+    db.commit()
 
     return RedirectResponse(f"/platby/vypisy/{statement_id}?flash=match_ok", status_code=302)
 

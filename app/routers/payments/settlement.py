@@ -1,7 +1,14 @@
-"""Vyúčtování — seznam, detail, generování, stav, mazání."""
+"""Vyúčtování — seznam, detail, generování, stav, mazání, export."""
+
+import csv
+import io
+from datetime import datetime
+from io import BytesIO
 
 from fastapi import APIRouter, Depends, Form, Query, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, Response
+from openpyxl import Workbook
+from openpyxl.styles import Font
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
@@ -14,7 +21,7 @@ from app.services.settlement_service import (
     get_settlement_detail,
     update_settlement_status,
 )
-from app.utils import build_list_url, is_htmx_partial, strip_diacritics
+from app.utils import build_list_url, excel_auto_width, is_htmx_partial, strip_diacritics
 
 from ._helpers import templates
 
@@ -123,6 +130,23 @@ async def vyuctovani_seznam(
 
     list_url = build_list_url(request)
 
+    # Flash zprávy
+    flash_message = ""
+    flash_param = request.query_params.get("flash", "")
+    if flash_param == "generated":
+        created = request.query_params.get("created", "0")
+        updated = request.query_params.get("updated", "0")
+        flash_message = f"Vygenerováno {created} nových"
+        if int(updated or 0) > 0:
+            flash_message += f", aktualizováno {updated}"
+        flash_message += " vyúčtování."
+    elif flash_param == "deleted":
+        flash_message = "Vyúčtování roku smazána."
+    elif flash_param == "bulk_stav":
+        count = request.query_params.get("count", "0")
+        stav_label = request.query_params.get("stav_label", "")
+        flash_message = f"Stav {count} vyúčtování změněn na \u201E{stav_label}\u201C."
+
     ctx = {
         "request": request,
         "active_nav": "platby",
@@ -140,6 +164,7 @@ async def vyuctovani_seznam(
         "bubble_counts": bubble_counts,
         "total_overpay": total_overpay,
         "total_underpay": total_underpay,
+        "flash_message": flash_message,
     }
 
     if is_htmx_partial(request):
@@ -207,7 +232,10 @@ async def vyuctovani_generovat(
 ):
     """Generování vyúčtování pro rok."""
     result = generate_settlements(db, rok)
-    redirect_url = f"/platby/vyuctovani?rok={rok}"
+    redirect_url = (
+        f"/platby/vyuctovani?rok={rok}"
+        f"&flash=generated&created={result['created']}&updated={result['updated']}"
+    )
     if back:
         redirect_url += f"&back={back}"
     return RedirectResponse(redirect_url, status_code=302)
@@ -229,9 +257,10 @@ async def vyuctovani_zmena_stavu(
     if not settlement:
         return RedirectResponse("/platby/vyuctovani", status_code=302)
 
-    redirect_url = f"/platby/vyuctovani/{settlement_id}"
+    stav_label = STATUS_LABELS.get(novy_stav, novy_stav)
+    redirect_url = f"/platby/vyuctovani/{settlement_id}?flash=stav_ok&stav_label={stav_label}"
     if back:
-        redirect_url += f"?back={back}"
+        redirect_url += f"&back={back}"
     return RedirectResponse(redirect_url, status_code=302)
 
 
@@ -251,7 +280,232 @@ async def vyuctovani_smazat_rok(
         db.delete(s)
     db.commit()
 
-    redirect_url = "/platby/vyuctovani"
+    redirect_url = f"/platby/vyuctovani?flash=deleted"
     if back:
-        redirect_url += f"?back={back}"
+        redirect_url += f"&back={back}"
     return RedirectResponse(redirect_url, status_code=302)
+
+
+# ── Hromadná změna stavu ──────────────────────────────────────────
+
+
+@router.post("/vyuctovani/hromadny-stav")
+async def vyuctovani_hromadny_stav(
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Hromadná změna stavu vybraných vyúčtování."""
+    form = await request.form()
+    ids = form.getlist("settlement_ids")
+    novy_stav = form.get("novy_stav", "")
+    rok = int(form.get("rok", 0))
+    back = form.get("back", "")
+
+    try:
+        status_enum = SettlementStatus(novy_stav)
+    except ValueError:
+        return RedirectResponse(f"/platby/vyuctovani?rok={rok}", status_code=302)
+
+    count = 0
+    for sid in ids:
+        settlement = db.query(Settlement).get(int(sid))
+        if settlement:
+            settlement.status = status_enum
+            settlement.updated_at = datetime.utcnow()
+            count += 1
+    db.commit()
+
+    stav_label = STATUS_LABELS.get(novy_stav, novy_stav)
+    redirect_url = f"/platby/vyuctovani?rok={rok}&flash=bulk_stav&count={count}&stav_label={stav_label}"
+    if back:
+        redirect_url += f"&back={back}"
+    return RedirectResponse(redirect_url, status_code=302)
+
+
+# ── Export vyúčtování ─────────────────────────────────────────────
+
+
+STAV_SUFFIX = {
+    "generated": "vygenerovano",
+    "sent": "odeslano",
+    "paid": "zaplaceno",
+    "overdue": "po_splatnosti",
+}
+
+
+def _get_filtered_settlements(db: Session, rok: int, stav: str, q: str):
+    """Společná filtrace pro seznam i export."""
+    query = (
+        db.query(Settlement)
+        .filter_by(year=rok)
+        .options(
+            joinedload(Settlement.unit),
+            joinedload(Settlement.owner),
+            joinedload(Settlement.items),
+        )
+    )
+    if stav and stav in STATUS_LABELS:
+        try:
+            query = query.filter(Settlement.status == SettlementStatus(stav))
+        except ValueError:
+            pass
+
+    settlements = query.all()
+
+    if q:
+        q_ascii = strip_diacritics(q)
+        settlements = [
+            s for s in settlements
+            if q_ascii in strip_diacritics(str(s.unit.unit_number) if s.unit else "")
+            or q_ascii in strip_diacritics(s.owner.display_name if s.owner else "")
+            or q_ascii in strip_diacritics(s.variable_symbol or "")
+        ]
+
+    settlements.sort(key=lambda s: s.unit.unit_number if s.unit else 0)
+    return settlements
+
+
+@router.get("/vyuctovani/exportovat/{fmt}")
+async def vyuctovani_export(
+    fmt: str,
+    rok: int = Query(0),
+    stav: str = Query(""),
+    q: str = Query(""),
+    detail: str = Query(""),
+    db: Session = Depends(get_db),
+):
+    """Export vyúčtování do Excelu nebo CSV."""
+    if fmt not in ("xlsx", "csv"):
+        return RedirectResponse("/platby/vyuctovani", status_code=302)
+
+    if not rok:
+        latest = db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).first()
+        rok = latest.year if latest else datetime.utcnow().year
+
+    settlements = _get_filtered_settlements(db, rok, stav, q)
+
+    # Suffix pro název souboru
+    suffix = STAV_SUFFIX.get(stav, "vse")
+    if q:
+        suffix = "hledani"
+    timestamp = datetime.now().strftime("%Y%m%d")
+    is_detailed = detail == "1"
+    detail_suffix = "_polozky" if is_detailed else ""
+    filename = f"vyuctovani_{rok}_{suffix}{detail_suffix}_{timestamp}"
+
+    headers_summary = [
+        "Č. jednotky", "Vlastník", "VS", "Předpis měsíční",
+        "Předpis roční", "Zaplaceno", "Výsledek", "Stav",
+    ]
+
+    if fmt == "xlsx":
+        return _export_xlsx(settlements, headers_summary, filename, is_detailed)
+    else:
+        return _export_csv(settlements, headers_summary, filename, is_detailed)
+
+
+def _settlement_row(s: Settlement) -> list:
+    """Jeden řádek souhrnu vyúčtování."""
+    paid = sum(item.paid or 0 for item in s.items)
+    annual = (s.result_amount or 0) + paid
+    monthly = round(annual / 12, 2) if annual else 0
+    result = s.result_amount or 0
+    stav = STATUS_LABELS.get(s.status.value, s.status.value) if s.status else ""
+    return [
+        s.unit.unit_number if s.unit else "",
+        s.owner.display_name if s.owner else "",
+        s.variable_symbol or "",
+        monthly,
+        annual,
+        paid,
+        result,
+        stav,
+    ]
+
+
+def _export_xlsx(settlements, headers, filename, is_detailed):
+    """Generování Excel souboru."""
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Vyúčtování"
+    bold = Font(bold=True)
+
+    if not is_detailed:
+        # Souhrn
+        for col, h in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col, value=h)
+            cell.font = bold
+        for row_idx, s in enumerate(settlements, 2):
+            for col_idx, val in enumerate(_settlement_row(s), 1):
+                ws.cell(row=row_idx, column=col_idx, value=val)
+    else:
+        # Detailní — hlavní řádek + podřádky
+        detail_headers = headers + ["Položka", "Kategorie", "Měsíčně", "Ročně", "Zapl. položky", "Výsl. položky"]
+        for col, h in enumerate(detail_headers, 1):
+            cell = ws.cell(row=1, column=col, value=h)
+            cell.font = bold
+        row_idx = 2
+        for s in settlements:
+            base = _settlement_row(s)
+            if s.items:
+                for item in s.items:
+                    row_data = base + [
+                        item.name or "",
+                        item.distribution_key or "",
+                        item.cost_unit or 0,
+                        item.cost_building or 0,
+                        item.paid or 0,
+                        item.result or 0,
+                    ]
+                    for col_idx, val in enumerate(row_data, 1):
+                        ws.cell(row=row_idx, column=col_idx, value=val)
+                    row_idx += 1
+                    base = [""] * len(headers)  # další položky bez hlavních dat
+            else:
+                for col_idx, val in enumerate(base + ["", "", 0, 0, 0, 0], 1):
+                    ws.cell(row=row_idx, column=col_idx, value=val)
+                row_idx += 1
+
+    excel_auto_width(ws)
+    buf = BytesIO()
+    wb.save(buf)
+    return Response(
+        content=buf.getvalue(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}.xlsx"'},
+    )
+
+
+def _export_csv(settlements, headers, filename, is_detailed):
+    """Generování CSV souboru."""
+    buf = io.StringIO()
+    writer = csv.writer(buf, delimiter=";")
+
+    if not is_detailed:
+        writer.writerow(headers)
+        for s in settlements:
+            writer.writerow(_settlement_row(s))
+    else:
+        detail_headers = headers + ["Položka", "Kategorie", "Měsíčně", "Ročně", "Zapl. položky", "Výsl. položky"]
+        writer.writerow(detail_headers)
+        for s in settlements:
+            base = _settlement_row(s)
+            if s.items:
+                for item in s.items:
+                    writer.writerow(base + [
+                        item.name or "",
+                        item.distribution_key or "",
+                        item.cost_unit or 0,
+                        item.cost_building or 0,
+                        item.paid or 0,
+                        item.result or 0,
+                    ])
+                    base = [""] * len(headers)
+            else:
+                writer.writerow(base + ["", "", 0, 0, 0, 0])
+
+    return Response(
+        content=buf.getvalue().encode("utf-8-sig"),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}.csv"'},
+    )

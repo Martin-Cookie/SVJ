@@ -10,6 +10,11 @@
     {% endif %}
 
     <div class="flex-shrink-0">
+        {% if flash_message %}
+        <div class="mb-3 px-3 py-2 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-lg text-xs text-green-800 dark:text-green-200" data-auto-dismiss>
+            {{ flash_message }}
+        </div>
+        {% endif %}
         <div class="flex items-center justify-between mb-2">
             <div>
                 <h1 class="text-lg font-bold text-gray-900 dark:text-white">
@@ -30,6 +35,16 @@
                 </a>
                 {% endfor %}
                 {% endif %}
+                <!-- Export -->
+                {% set _export_qs = "rok=" ~ rok ~ "&stav=" ~ stav ~ "&q=" ~ q %}
+                <a href="/platby/vyuctovani/exportovat/xlsx?{{ _export_qs }}" hx-boost="false"
+                   onclick="var b=this,t=b.textContent;b.textContent='Generuji…';b.classList.add('opacity-50');setTimeout(function(){b.textContent=t;b.classList.remove('opacity-50')},3000)"
+                   class="px-2.5 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 text-xs font-medium transition-colors border border-gray-200 dark:border-gray-600"
+                   title="Export souhrn do Excelu">↓ Excel</a>
+                <a href="/platby/vyuctovani/exportovat/xlsx?{{ _export_qs }}&detail=1" hx-boost="false"
+                   onclick="var b=this,t=b.textContent;b.textContent='Generuji…';b.classList.add('opacity-50');setTimeout(function(){b.textContent=t;b.classList.remove('opacity-50')},3000)"
+                   class="px-2.5 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 text-xs font-medium transition-colors border border-gray-200 dark:border-gray-600"
+                   title="Export s položkami do Excelu">↓ Excel + položky</a>
                 <form method="post" action="/platby/vyuctovani/generovat" class="inline" hx-boost="false">
                     <input type="hidden" name="rok" value="{{ rok }}">
                     <input type="hidden" name="back" value="{{ back_url }}">
@@ -38,7 +53,7 @@
                         <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
                         </svg>
-                        Generovat vyúčtování
+                        Generovat
                     </button>
                 </form>
             </div>
@@ -58,29 +73,49 @@
             {% endfor %}
         </div>
 
-        <!-- Hledání -->
-        <div class="mb-3">
-            <input type="text" name="q" value="{{ q }}" placeholder="Hledat č. jednotky, vlastníka, VS..."
-                hx-get="/platby/vyuctovani"
-                hx-trigger="keyup changed delay:300ms"
-                hx-target="#vyuctovani-tbody"
-                hx-include="[name='sort'],[name='order'],[name='rok'],[name='stav'],[name='back']"
-                class="w-full sm:w-72 px-3 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500">
-            <input type="hidden" name="sort" value="{{ sort }}">
-            <input type="hidden" name="order" value="{{ order }}">
-            <input type="hidden" name="rok" value="{{ rok }}">
-            <input type="hidden" name="stav" value="{{ stav }}">
-            <input type="hidden" name="back" value="{{ back_url }}">
+        <!-- Hledání + hromadné akce -->
+        <div class="flex items-center justify-between mb-3 gap-3">
+            <div>
+                <input type="text" name="q" value="{{ q }}" placeholder="Hledat č. jednotky, vlastníka, VS..."
+                    hx-get="/platby/vyuctovani"
+                    hx-trigger="keyup changed delay:300ms"
+                    hx-target="#vyuctovani-tbody"
+                    hx-include="[name='sort'],[name='order'],[name='rok'],[name='stav'],[name='back']"
+                    class="w-full sm:w-72 px-3 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500">
+                <input type="hidden" name="sort" value="{{ sort }}">
+                <input type="hidden" name="order" value="{{ order }}">
+                <input type="hidden" name="rok" value="{{ rok }}">
+                <input type="hidden" name="stav" value="{{ stav }}">
+                <input type="hidden" name="back" value="{{ back_url }}">
+            </div>
+            <!-- Hromadná změna stavu -->
+            <form id="bulk-form" method="post" action="/platby/vyuctovani/hromadny-stav" hx-boost="false" class="hidden items-center gap-2">
+                <input type="hidden" name="rok" value="{{ rok }}">
+                <input type="hidden" name="back" value="{{ back_url }}">
+                <span id="bulk-count" class="text-xs text-gray-500 dark:text-gray-400"></span>
+                <select name="novy_stav" required class="px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                    <option value="">Změnit stav na…</option>
+                    <option value="generated">Vygenerováno</option>
+                    <option value="sent">Odesláno</option>
+                    <option value="paid">Zaplaceno</option>
+                    <option value="overdue">Po splatnosti</option>
+                </select>
+                <button type="submit" class="px-2.5 py-1 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700">Změnit</button>
+            </form>
         </div>
     </div>
 
     <!-- Tabulka -->
     <div class="flex-1 overflow-auto bg-white dark:bg-gray-800 rounded-lg shadow">
-        <table class="w-full text-xs">
+        <table class="w-full text-xs" id="vyuctovani-table">
             <thead class="sticky top-0 z-10 bg-gray-50 dark:bg-gray-700">
                 {% set _sort_base = "/platby/vyuctovani?rok=" ~ rok ~ "&" ~ ("stav=" ~ stav ~ "&" if stav else "") ~ ("q=" ~ q ~ "&" if q else "") %}
                 {% set _back = "&back=" ~ (back_url|default('')|urlencode) if back_url else "" %}
                 <tr>
+                    <th class="px-2 py-2 w-8">
+                        <input type="checkbox" id="select-all" title="Vybrat vše"
+                            class="w-3.5 h-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer">
+                    </th>
                     {% for col_key, col_label in [("cislo", "Č. jednotky"), ("vlastnik", "Vlastník"), ("predpis", "Předpis celkem"), ("zaplaceno", "Zaplaceno"), ("vysledek", "Výsledek"), ("stav", "Stav")] %}
                     {% set new_order = "desc" if sort == col_key and order == "asc" else "asc" %}
                     <th class="px-3 py-2 {% if col_key in ['predpis', 'zaplaceno', 'vysledek'] %}text-right{% elif col_key == 'stav' %}text-center{% else %}text-left{% endif %} font-semibold text-gray-600 dark:text-gray-300 cursor-pointer select-none hover:text-gray-900 dark:hover:text-white whitespace-nowrap"
@@ -115,4 +150,66 @@
     </div>
     {% endif %}
 </div>
+
+<script>
+(function() {
+    var selectAll = document.getElementById('select-all');
+    var bulkForm = document.getElementById('bulk-form');
+    var bulkCount = document.getElementById('bulk-count');
+
+    function getChecked() {
+        return document.querySelectorAll('.settlement-cb:checked');
+    }
+
+    function updateBulk() {
+        var checked = getChecked();
+        if (checked.length > 0) {
+            bulkForm.classList.remove('hidden');
+            bulkForm.classList.add('flex');
+            bulkCount.textContent = checked.length + ' vybráno';
+            // Sync hidden inputs
+            bulkForm.querySelectorAll('input[name="settlement_ids"]').forEach(function(el) { el.remove(); });
+            checked.forEach(function(cb) {
+                var inp = document.createElement('input');
+                inp.type = 'hidden';
+                inp.name = 'settlement_ids';
+                inp.value = cb.value;
+                bulkForm.appendChild(inp);
+            });
+        } else {
+            bulkForm.classList.add('hidden');
+            bulkForm.classList.remove('flex');
+        }
+    }
+
+    if (selectAll) {
+        selectAll.addEventListener('change', function() {
+            document.querySelectorAll('.settlement-cb').forEach(function(cb) {
+                cb.checked = selectAll.checked;
+            });
+            updateBulk();
+        });
+    }
+
+    document.addEventListener('change', function(e) {
+        if (e.target.classList.contains('settlement-cb')) {
+            updateBulk();
+            // Update select-all state
+            var all = document.querySelectorAll('.settlement-cb');
+            var checked = getChecked();
+            selectAll.checked = all.length > 0 && all.length === checked.length;
+            selectAll.indeterminate = checked.length > 0 && checked.length < all.length;
+        }
+    });
+
+    // Reset after HTMX swap
+    document.body.addEventListener('htmx:afterSwap', function(e) {
+        if (e.detail.target && e.detail.target.id === 'vyuctovani-tbody') {
+            selectAll.checked = false;
+            selectAll.indeterminate = false;
+            updateBulk();
+        }
+    });
+})();
+</script>
 {% endblock %}

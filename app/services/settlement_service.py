@@ -53,29 +53,6 @@ def generate_settlements(db: Session, year: int) -> dict:
     )
     paid_map = {row.unit_id: row.total or 0 for row in paid_rows}
 
-    # Platby rozpad per unit_id + měsíc (pro pozdější rozúčtování per item)
-    paid_monthly = {}
-    paid_month_rows = (
-        db.query(
-            Payment.unit_id,
-            func.extract("month", Payment.date).label("month"),
-            func.sum(Payment.amount).label("total"),
-        )
-        .filter(
-            Payment.direction == PaymentDirection.INCOME,
-            Payment.match_status.in_(matched_statuses),
-            Payment.unit_id.isnot(None),
-            func.extract("year", Payment.date) == year,
-        )
-        .group_by(Payment.unit_id, func.extract("month", Payment.date))
-        .all()
-    )
-    for row in paid_month_rows:
-        uid = row.unit_id
-        if uid not in paid_monthly:
-            paid_monthly[uid] = 0
-        paid_monthly[uid] += 1  # počet měsíců s platbou
-
     # Zůstatky
     balances = db.query(UnitBalance).filter_by(year=year).all()
     balance_map = {b.unit_id: b.opening_amount for b in balances}

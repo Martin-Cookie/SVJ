@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 
 from app.models import (
     VariableSymbolMapping, Prescription, Payment,
-    PaymentMatchStatus, Unit, OwnerUnit,
+    PaymentDirection, PaymentMatchStatus, Unit, OwnerUnit,
 )
 
 logger = logging.getLogger(__name__)
@@ -56,6 +56,7 @@ def match_payments(db: Session, statement_id: int, year: int) -> dict:
     payments = (
         db.query(Payment)
         .filter_by(statement_id=statement_id, match_status=PaymentMatchStatus.UNMATCHED)
+        .filter(Payment.direction == PaymentDirection.INCOME)
         .all()
     )
 

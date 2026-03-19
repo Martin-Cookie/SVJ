@@ -211,16 +211,6 @@ async def predpisy_detail(
         .options(joinedload(Prescription.items), joinedload(Prescription.unit))
     )
 
-    # Filtry
-    if q:
-        from app.utils import strip_diacritics
-        q_ascii = f"%{strip_diacritics(q)}%"
-        query = query.filter(
-            Prescription.owner_name.ilike(f"%{q}%")
-            | Prescription.variable_symbol.like(f"%{q}%")
-            | Prescription.section.like(f"%{q}%")
-        )
-
     if typ:
         query = query.filter(Prescription.space_type == typ)
 
@@ -232,6 +222,18 @@ async def predpisy_detail(
         query = query.order_by(order_fn(getattr(Prescription, col)).nulls_last())
 
     prescriptions = query.all()
+
+    # Python-side search s diakritikou (Prescription nemá name_normalized)
+    if q:
+        from app.utils import strip_diacritics
+        q_ascii = strip_diacritics(q)
+        prescriptions = [
+            p for p in prescriptions
+            if q_ascii in strip_diacritics(p.owner_name or "")
+            or q.lower() in (p.variable_symbol or "").lower()
+            or q.lower() in (p.section or "").lower()
+            or q in str(p.space_number or "")
+        ]
 
     # Typy pro bubliny
     space_types = (

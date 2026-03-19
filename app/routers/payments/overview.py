@@ -1,6 +1,9 @@
 """Přehled plateb — matice, dlužníci, detail jednotky."""
 
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, Query, Request
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -50,7 +53,7 @@ async def platby_prehled(
     # Výchozí rok = nejnovější PrescriptionYear
     if not rok:
         latest = db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).first()
-        rok = latest.year if latest else 2026
+        rok = latest.year if latest else datetime.utcnow().year
 
     years = [y.year for y in db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).all()]
 
@@ -135,7 +138,7 @@ async def platby_dluznici(
     """Seznam dlužníků."""
     if not rok:
         latest = db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).first()
-        rok = latest.year if latest else 2026
+        rok = latest.year if latest else datetime.utcnow().year
 
     years = [y.year for y in db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).all()]
 
@@ -198,13 +201,11 @@ async def platby_jednotka(
     """Platební detail jedné jednotky."""
     unit = db.query(Unit).get(unit_id)
     if not unit:
-        return templates.TemplateResponse("error.html", {
-            "request": request, "status_code": 404, "detail": "Jednotka nenalezena",
-        }, status_code=404)
+        return RedirectResponse("/platby/prehled", status_code=302)
 
     if not rok:
         latest = db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).first()
-        rok = latest.year if latest else 2026
+        rok = latest.year if latest else datetime.utcnow().year
 
     years = [y.year for y in db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).all()]
 

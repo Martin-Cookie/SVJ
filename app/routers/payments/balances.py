@@ -112,7 +112,7 @@ async def zustatek_pridat(
             note=note.strip() or None,
         ))
     db.commit()
-    return RedirectResponse(f"/platby/zustatky?rok={year}", status_code=302)
+    return RedirectResponse(f"/platby/zustatky?rok={year}&flash=ok", status_code=302)
 
 
 @router.post("/zustatky/{balance_id}/smazat")
@@ -127,4 +127,4 @@ async def zustatek_smazat(
     if balance:
         db.delete(balance)
         db.commit()
-    return RedirectResponse(f"/platby/zustatky?rok={rok}", status_code=302)
+    return RedirectResponse(f"/platby/zustatky?rok={rok}&flash=smazano", status_code=302)
