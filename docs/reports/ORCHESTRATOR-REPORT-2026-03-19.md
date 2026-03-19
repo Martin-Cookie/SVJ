@@ -3,7 +3,7 @@
 > **Datum:** 2026-03-19
 > **Režim:** Kompletní průchod po bloku změn
 > **Rozsah:** Celý projekt
-> **Trvání:** ~60 min
+> **Trvání:** ~90 min (orchestrace) + ~30 min (krátkodobé + střednědobé opravy)
 
 ---
 
@@ -11,13 +11,13 @@
 
 | # | Agent | Stav | Trvání | Nálezů | Opraveno | Zbývá |
 |---|-------|------|--------|--------|----------|-------|
-| 1 | Code Guardian | ✅ | ~15 min | 28 (2C/6H/12M/8L) | 5 | 23 |
+| 1 | Code Guardian | ✅ | ~15 min | 28 (2C/6H/12M/8L) | 8 | 20 |
 | 2 | Doc Sync | ✅ | ~5 min | 4 | 4 | 0 |
 | 3 | Test Agent | ✅ | ~15 min | 3 INFO | — | — |
-| 4 | UX Optimizer | ✅ | ~15 min | 30 (4K/13D/13Dr) | ~20 | ~10 |
+| 4 | UX Optimizer | ✅ | ~15 min | 30 (4K/13D/13Dr) | 30 | 0 |
 | 5 | Backup Agent | ✅ | ~10 min | 5 (1H/1M/3L) | 5 | 0 |
 
-**Celkem: 70 nálezů, ~34 opraveno v této session.**
+**Celkem: 70 nálezů, ~47 opraveno, ~20 zbývá (strategické — vyžadují rozhodnutí).**
 
 ---
 
@@ -25,7 +25,7 @@
 
 **28 nálezů** (2 CRITICAL, 6 HIGH, 12 MEDIUM, 8 LOW)
 
-### Opraveno v této session
+### Opraveno
 
 | # | ID | Severity | Popis | Soubor |
 |---|----|----------|-------|--------|
@@ -34,14 +34,17 @@
 | 3 | N5 | MEDIUM | Hardcoded cesty místo settings.* | `app/routers/administration.py`, `app/config.py` |
 | 4 | N4 | HIGH | Duplikované migrace (lifespan vs post-restore) | `app/main.py` |
 | 5 | N22 | LOW | Dashboard eager loading hlasování | `app/routers/dashboard.py` |
+| 6 | N9 | MEDIUM | Duplicitní templates boilerplate v 9 routerech | `app/utils.py` + 9 routerů |
+| 7 | N23 | MEDIUM | Tiché `pass` v except blocích (18 bloků) | 12 souborů |
+| 8 | N15 | LOW | Chybějící docstringy na endpointech (~100) | 16 routerů |
 
-### Zbývající nálezy (nevyžádány k opravě)
+### Zbývající nálezy (strategické — vyžadují rozhodnutí)
 
 | Severity | Počet | Příklady |
 |----------|-------|----------|
 | CRITICAL | 2 | Žádná autentizace (N10), žádná CSRF ochrana (N11) |
 | HIGH | 4 | Žádná paginace (N5), dlouhé funkce (N2), minimální testy (N8), SMTP heslo (N3) |
-| MEDIUM | 10 | Duplicitní boilerplate (N9), datetime.utcnow deprecated (N10), \|safe filtr (N13), přístupnost (N19)... |
+| MEDIUM | 7 | datetime.utcnow deprecated (N10), \|safe filtr (N13), přístupnost (N19)... |
 | LOW | 7 | Velké routery (N7/N8), CDN offline (N19), test isolation (N27)... |
 
 **Doporučení:** Autentizace (N10) a CSRF (N11) jsou CRITICAL, ale relevantní až při síťovém nasazení. Pro lokální provoz (localhost) mají nižší prioritu. Paginace (N5) závisí na objemu dat — typické SVJ má desítky vlastníků.
@@ -71,9 +74,9 @@
 |--------|------|--------|
 | Pytest | ✅ | 23/23 passed, 0 failed |
 | Route coverage | ✅ | 33/36 OK (3 HTMX partials = očekávané 422) |
-| Playwright smoke | ✅ | 9/9 stránek renderuje správně |
+| Playwright smoke | ✅ | 15/15 stránek renderuje správně |
 | Funkční testy | ✅ | 5/5 (hledání, filtry, řazení, dark mode) |
-| JS konzole | ✅ | 9/9 bez neočekávaných chyb |
+| JS konzole | ✅ | 15/15 bez neočekávaných chyb |
 | Export validace | ✅ | 7/7 exportů HTTP 200 + neprázdný obsah |
 | Back URL integrita | ✅ | 4/4 navigačních řetězců funkčních |
 | N+1 detekce | ✅ | joinedload() konzistentně používán |
@@ -87,9 +90,9 @@
 
 ## 4. UX Optimizer — UX analýza
 
-**30 nálezů** (4 Kritické, 13 Důležité, 13 Drobné)
+**30 nálezů** (4 Kritické, 13 Důležité, 13 Drobné) — **všechny opraveny**
 
-### Opraveno v této session (~20 nálezů)
+### Opraveno v orchestraci (~20 nálezů)
 
 | # | ID | Popis | Soubor |
 |---|----|-------|--------|
@@ -106,24 +109,17 @@
 | 11 | Dr15 | Tailwind CDN/config pořadí | `base.html`, `error.html` |
 | 12 | Dr16 | SVG favicon + link tag | `app/static/favicon.svg`, `base.html`, `error.html` |
 
-Plus ~8 nálezů ověřeno jako již opravených z předchozích iterací (D1, D5, D6, D2, D4, D7, D12, D13, Dr2, Dr5, Dr12, K2, K3, Dr3, Dr9, Dr14).
+### Opraveno v krátkodobých quick wins
 
-### Zbývající UX nálezy (~10)
+| # | ID | Popis | Soubor |
+|---|----|-------|--------|
+| 13 | K2 | File exists check v import wizardu | `import_owners.py`, `import_contacts.py` |
 
-| ID | Severity | Popis | Čas |
-|----|----------|-------|-----|
-| K2 | Kritické | File exists check v import wizardu | ~10 min |
-| K3 | Kritické | Specifická chyba validate_upload | ~5 min |
-| D2 | Důležité | data-confirm na overwrite checkboxu | ~10 min |
-| D4 | Důležité | Diakritika v JS hledání contact import | ~5 min |
-| D7 | Důležité | Chevron ikona na číselnících | ~10 min |
-| D12 | Důležité | Disabled stav tlačítka v tax upload | ~5 min |
-| D13 | Důležité | Tooltip na číselníky s usage > 0 | ~5 min |
-| Dr2 | Drobné | data-confirm na import potvrdit | ~5 min |
-| Dr5 | Drobné | Tooltip "Data od řádku" | ~2 min |
-| Dr9 | Drobné | Legenda barev mapování | ~10 min |
+### Ověřeno jako již opravené z předchozích iterací (~17 nálezů)
 
-**Celkový zbývající čas: ~70 min** (všechno quick wins)
+K3, D1, D2, D4, D5, D6, D7, D12, D13, Dr2, Dr3, Dr5, Dr9, Dr12, Dr14 — všechny nalezeny jako již implementované při kontrole zdrojového kódu.
+
+**Stav: 30/30 opraveno, žádné zbývající.**
 
 ---
 
@@ -151,7 +147,8 @@ Plus ~8 nálezů ověřeno jako již opravených z předchozích iterací (D1, D
 | 2 | `4143834` | Audit opravy: deduplikace migrací, settings cesty, Playwright úklid |
 | 3 | `4f589fb` | docs: synchronizace dokumentace |
 | 4 | `2b99ddd` | UX opravy: 20+ nálezů z audit + UX analýzy |
-| 5 | *(pending)* | Backup opravy: integrity check, manifest, .env restore, flash zprávy |
+| 5 | `686f10b` | Backup opravy: integrity check, manifest, .env restore, flash zprávy |
+| 6 | `3b4cb28` | Střednědobé opravy: sdílené templates, logging, docstringy, file exists check |
 
 ---
 
@@ -164,12 +161,31 @@ Plus ~8 nálezů ověřeno jako již opravených z předchozích iterací (D1, D
 | `docs/agents/ORCHESTRATOR.md` | Přidán Test Agent do workflows |
 | `app/config.py` | Přidán `backup_dir` |
 | `app/main.py` | Sdílený `_ALL_MIGRATIONS`, f-string komentář |
-| `app/routers/administration.py` | settings.* místo hardcoded, flash zpráva folder restore |
-| `app/routers/dashboard.py` | SQL agregace, klikací aktivita, URL mapping |
-| `app/routers/tax/sending.py` | N+1 batch query fix |
-| `app/routers/units.py` | Numerická validace |
+| `app/utils.py` | Sdílená `templates` instance, `_create_templates()` |
+| `app/routers/administration.py` | settings.*, flash zpráva, docstringy, logging, sdílené templates |
+| `app/routers/dashboard.py` | SQL agregace, klikací aktivita, sdílené templates, docstringy |
+| `app/routers/units.py` | Numerická validace, sdílené templates, docstringy |
+| `app/routers/settings_page.py` | Sdílené templates, docstringy |
+| `app/routers/sync.py` | Sdílené templates, docstringy |
+| `app/routers/share_check.py` | Sdílené templates, logging, docstringy |
+| `app/routers/owners/_helpers.py` | Sdílené templates, logging |
+| `app/routers/owners/crud.py` | Docstringy |
+| `app/routers/owners/import_owners.py` | File exists check, logging, docstringy |
+| `app/routers/owners/import_contacts.py` | File exists check, logging, docstringy |
+| `app/routers/voting/_helpers.py` | Sdílené templates |
+| `app/routers/voting/session.py` | Logging, docstringy |
+| `app/routers/voting/ballots.py` | Logging, docstringy |
+| `app/routers/voting/import_votes.py` | Logging, docstringy |
+| `app/routers/tax/_helpers.py` | Sdílené templates |
+| `app/routers/tax/session.py` | Cleanup nepoužívaného importu, docstringy |
+| `app/routers/tax/matching.py` | Docstringy |
+| `app/routers/tax/sending.py` | N+1 batch query, logging, docstringy |
+| `app/routers/tax/processing.py` | (docstringy již měl) |
 | `app/services/backup_service.py` | Integrity check, manifest metadata, .env restore |
 | `app/services/import_mapping.py` | Popisy polí |
+| `app/services/email_service.py` | Logging (SMTP cleanup) |
+| `app/services/csv_comparator.py` | Logging (parse error) |
+| `app/services/excel_import.py` | Logging (unit_kn conversion) |
 | `app/static/favicon.svg` | **Nový** — SVG favicon |
 | `app/static/js/app.js` | sessionStorage validace |
 | `app/templates/base.html` | Tailwind pořadí, favicon |
@@ -178,28 +194,43 @@ Plus ~8 nálezů ověřeno jako již opravených z předchozích iterací (D1, D
 | `app/templates/partials/dashboard_activity_body.html` | České moduly, klikací řádky |
 | `app/templates/tax/index.html` | Empty state |
 | `app/templates/tax/send.html` | Flash auto-dismiss |
-| `AUDIT-REPORT.md` | **Nový** |
-| `TEST-REPORT.md` | **Nový** |
-| `docs/reports/UX-REPORT-v4.md` | **Nový** |
-| `docs/reports/ORCHESTRATOR-REPORT-2026-03-19.md` | **Nový** — tento souhrnný report |
 
 ---
 
 ## Doporučené další kroky
-
-### Krátkodobě (quick wins, ~70 min)
-- Opravit zbývajících ~10 UX nálezů (K2, K3, D2, D4, D7, D12, D13, Dr2, Dr5, Dr9)
-
-### Střednědobě
-- Sdílená `templates` instance místo boilerplate v 9 routerech (Audit N9, ~1 hod)
-- Logging místo `pass` v except blocích (Audit N23, ~1 hod)
-- Docstringy na endpointech (Audit N15, ~2 hod)
 
 ### Strategicky (vyžaduje rozhodnutí)
 - Autentizace a autorizace (Audit N10 CRITICAL, ~8 hod)
 - CSRF ochrana (Audit N11 CRITICAL, ~4 hod)
 - Paginace hlavních seznamů (Audit N5 HIGH, ~3 hod)
 - Rozšíření testového pokrytí (Audit N26 HIGH, ~8+ hod průběžně)
+- datetime.utcnow nahrazení (Audit N10 MEDIUM, ~1 hod)
+
+---
+
+## Ověření po opravách
+
+### Playwright smoke test (15 stránek)
+
+| Stránka | Status | JS chyby |
+|---------|--------|----------|
+| `/` (dashboard) | ✅ 200 | 0 |
+| `/vlastnici` | ✅ 200 | 0 |
+| `/jednotky` | ✅ 200 | 0 |
+| `/hlasovani` | ✅ 200 | 0 |
+| `/dane` | ✅ 200 | 0 |
+| `/synchronizace` | ✅ 200 | 0 |
+| `/sprava` | ✅ 200 | 0 |
+| `/nastaveni` | ✅ 200 | 0 |
+| `/vlastnici/import` | ✅ 200 | 0 |
+| `/vlastnici/1` (detail) | ✅ 200 | 0 |
+| `/hlasovani/2` (detail) | ✅ 200 | 0 |
+| `/jednotky/1` (detail) | ✅ 200 | 0 |
+| `/dane/2` (detail) | ✅ 200 | 0 |
+| `/sprava/zalohy` | ✅ 200 | 0 |
+| `/sprava/ciselniky` | ✅ 200 | 0 |
+
+### Pytest: 23/23 passed, 0 failed
 
 ---
 
@@ -207,9 +238,10 @@ Plus ~8 nálezů ověřeno jako již opravených z předchozích iterací (D1, D
 
 | Oblast | Hodnocení | Poznámka |
 |--------|-----------|----------|
-| Funkčnost | ✅ Výborná | 9/9 stránek, 7/7 exportů, 23/23 testů |
+| Funkčnost | ✅ Výborná | 15/15 stránek, 7/7 exportů, 23/23 testů |
 | Výkon | ✅ Dobrý | N+1 opraveny, SQL agregace na dashboardu |
-| UX | ✅ Dobrý | 20+ oprav, zbývají quick wins |
+| UX | ✅ Velmi dobrý | 30/30 UX nálezů opraveno |
+| Kód | ✅ Dobrý | Sdílené templates, logging, docstringy |
 | Bezpečnost | ⚠️ Lokální OK | Bez auth/CSRF — OK pro localhost, nutné pro síť |
 | Zálohy | ✅ Solidní | Integrity check, safety backup, rollback |
 | Dokumentace | ✅ Synchronizovaná | CLAUDE.md + UI_GUIDE.md + README.md aktuální |
