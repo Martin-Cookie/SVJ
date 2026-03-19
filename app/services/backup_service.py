@@ -102,10 +102,14 @@ def create_backup(
             zf.write(str(env_path), ".env")
 
         # manifest.json with metadata
+        db_size = os.path.getsize(db_path) if os.path.isfile(db_path) else 0
+        table_counts = _get_table_counts(db_path) if os.path.isfile(db_path) else {}
         manifest = {
             "created_at": datetime.now().isoformat(),
             "app_version": "1.0",
             "db_file": "svj.db",
+            "db_size_bytes": db_size,
+            "table_counts": table_counts,
         }
         zf.writestr("manifest.json", json.dumps(manifest, ensure_ascii=False, indent=2))
 
@@ -201,6 +205,9 @@ def restore_backup(
             with zf.open("svj.db") as src, open(db_path, "wb") as dst:
                 shutil.copyfileobj(src, dst)
 
+            # SQLite integrity check after restore
+            _verify_db_integrity(db_path)
+
             # Restore uploads
             _restore_directory_from_zip(zf, "uploads", uploads_dir)
 
@@ -250,6 +257,9 @@ def restore_from_directory(
         # Restore database
         shutil.copy2(str(db_file), db_path)
 
+        # SQLite integrity check after restore
+        _verify_db_integrity(db_path)
+
         # Restore uploads
         src_uploads = src / "uploads"
         if src_uploads.is_dir():
@@ -267,6 +277,12 @@ def restore_from_directory(
             shutil.copytree(str(src_generated), generated_dir)
         else:
             os.makedirs(generated_dir, exist_ok=True)
+
+        # Restore .env if present
+        src_env = src / ".env"
+        if src_env.is_file():
+            env_path = Path(db_path).parent.parent / ".env"
+            shutil.copy2(str(src_env), str(env_path))
     except Exception:
         logger.exception("Restore z adresáře selhalo, provádím rollback ze safety backup")
         _rollback_from_safety(str(safety_path), db_path, uploads_dir, generated_dir)
@@ -291,6 +307,36 @@ def _rollback_from_safety(safety_zip: str, db_path: str, uploads_dir: str, gener
 
 
 # ---- Internal helpers ----
+
+
+def _verify_db_integrity(db_path: str) -> None:
+    """Run SQLite integrity check on restored database. Raises ValueError on failure."""
+    try:
+        conn = sqlite3.connect(db_path)
+        result = conn.execute("PRAGMA integrity_check").fetchone()
+        conn.close()
+        if result[0] != "ok":
+            raise ValueError(f"SQLite integrity check selhal: {result[0]}")
+    except sqlite3.DatabaseError as e:
+        raise ValueError(f"Obnovený soubor není platná SQLite databáze: {e}")
+
+
+def _get_table_counts(db_path: str) -> dict:
+    """Get row counts for key tables (for manifest metadata)."""
+    tables = ["owners", "units", "owner_units", "votings", "tax_sessions", "email_logs"]
+    counts = {}
+    try:
+        conn = sqlite3.connect(db_path)
+        for table in tables:
+            try:
+                row = conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()  # safe: table from hardcoded list
+                counts[table] = row[0]
+            except sqlite3.OperationalError:
+                pass  # table doesn't exist yet
+        conn.close()
+    except sqlite3.DatabaseError:
+        pass
+    return counts
 
 
 def _add_directory_to_zip(

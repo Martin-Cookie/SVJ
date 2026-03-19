@@ -814,7 +814,7 @@ async def backup_restore_folder(files: List[UploadFile] = File(...)):
                 db_found = True
 
         if not db_found:
-            return RedirectResponse("/sprava/zalohy", status_code=302)
+            return RedirectResponse("/sprava/zalohy?chyba=neplatny", status_code=302)
 
         # Use service function with safety backup + rollback on failure
         restore_from_directory(
