@@ -109,38 +109,9 @@
 </div>
 
 <script>
-(function() {
-    var SC_KEY = 'svj_scroll_payment';
-    var sc = document.querySelector('.flex-1.overflow-auto');
-    var hash = location.hash;
-
-    if (hash) {
-        history.replaceState(null, '', location.pathname + location.search);
-    }
-
-    document.addEventListener('submit', function(e) {
-        var form = e.target;
-        if (form.getAttribute('hx-boost') === 'false' || form.closest('[hx-boost="false"]')) {
-            if (sc) try { sessionStorage.setItem(SC_KEY, String(Math.round(sc.scrollTop))); } catch(e2) {}
-        }
-    });
-
-    if (hash && sc) {
-        var saved;
-        try { saved = sessionStorage.getItem(SC_KEY); sessionStorage.removeItem(SC_KEY); } catch(e) {}
-        var top = saved !== null ? parseInt(saved, 10) : NaN;
-        if (!isNaN(top) && top > 0) {
-            sc.scrollTop = top;
-        } else {
-            var el = document.getElementById(hash.substring(1));
-            if (el) el.scrollIntoView({block: 'center'});
-        }
-        var el = document.getElementById(hash.substring(1));
-        if (el) {
-            el.classList.add('bg-yellow-50', 'dark:bg-yellow-900/20');
-            setTimeout(function() { el.classList.remove('bg-yellow-50', 'dark:bg-yellow-900/20'); }, 2000);
-        }
-    }
-})();
+if (location.hash) {
+    var el = document.querySelector(location.hash);
+    if (el) el.scrollIntoView({block: 'center'});
+}
 </script>
 {% endblock %}
