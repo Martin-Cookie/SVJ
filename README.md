@@ -235,12 +235,12 @@ Modul pro správu předpisů, bankovních výpisů, variabilních symbolů a př
 
 - **Předpisy** — import z DOCX, automatické párování na jednotky, správa roků předpisů
 - **Variabilní symboly** — mapování VS → jednotka (ruční + automatické z předpisů)
-- **Bankovní výpisy** — import Fio CSV, automatické párování plateb přes VS, ruční přiřazení
+- **Bankovní výpisy** — import Fio CSV (reimport zachová ruční přiřazení), automatické párování plateb přes VS, ruční přiřazení
 - **Počáteční zůstatky** — evidované zůstatky per jednotka/rok
 - **Matice plateb** — přehled 508 jednotek × 12 měsíců s barevným stavem (zaplaceno/částečně/nezaplaceno), filtry dle typu prostoru, řazení, hledání
 - **Dlužníci** — seznam jednotek s dluhem seřazený dle výše dluhu
 - **Detail plateb jednotky** — měsíční grid + seznam přijatých plateb
-- **Vyúčtování** — roční vyúčtování per jednotka (předpis × 12 vs. zaplaceno), rozpad po položkách, změna stavu (vygenerováno → odesláno → zaplaceno / po splatnosti), hledání, řazení, bubliny dle stavu
+- **Vyúčtování** — roční vyúčtování per jednotka (předpis × 12 vs. zaplaceno), rozpad po položkách, změna stavu (vygenerováno → odesláno → zaplaceno / po splatnosti), hledání, řazení, bubliny dle stavu, hromadná změna stavu, export do Excelu (souhrn / s položkami)
 - **Dashboard integrace** — 5. karta na hlavním dashboardu (napárované platby, výpisy)
 - **Badge v detailu jednotky** — "Zaplaceno ✓" (zelený) nebo "Dluh X Kč" (červený/žlutý)
 
@@ -782,9 +782,12 @@ wheels/                        # Offline Python balíčky (gitignored)
 
 | Metoda | Cesta | Popis |
 |--------|-------|-------|
-| GET | `/platby` | Rozcestník modulu plateb (stat karty + roky předpisů) |
-| GET | `/platby/predpisy` | Import předpisů (upload DOCX) |
+| GET | `/platby` | Redirect na výchozí tab (předpisy) |
+| GET | `/platby/predpisy` | Seznam předpisů podle roku |
+| GET | `/platby/predpisy/import` | Import předpisů — formulář (upload DOCX) |
+| POST | `/platby/predpisy/import` | Import předpisů — zpracování DOCX |
 | GET | `/platby/predpisy/{year_id}` | Detail předpisů roku (tabulka s filtry) |
+| GET | `/platby/predpisy/{year_id}/{prescription_id}` | Detail jednoho předpisu (položky) |
 | POST | `/platby/predpisy/{year_id}/smazat` | Smazání roku předpisů |
 | GET | `/platby/symboly` | Seznam variabilních symbolů |
 | POST | `/platby/symboly/pridat` | Přidání VS mapování |
@@ -793,7 +796,8 @@ wheels/                        # Offline Python balíčky (gitignored)
 | POST | `/platby/zustatky/pridat` | Přidání/úprava zůstatku |
 | POST | `/platby/zustatky/{id}/smazat` | Smazání zůstatku |
 | GET | `/platby/vypisy` | Seznam bankovních výpisů |
-| GET | `/platby/vypisy/import` | Import bankovního výpisu (upload CSV) |
+| GET | `/platby/vypisy/import` | Import bankovního výpisu — formulář (upload CSV) |
+| POST | `/platby/vypisy/import` | Import bankovního výpisu — zpracování CSV |
 | GET | `/platby/vypisy/{id}` | Detail výpisu s platbami |
 | POST | `/platby/vypisy/{id}/prirazeni/{payment_id}` | Ruční přiřazení platby |
 | POST | `/platby/vypisy/{id}/preparovat` | Přepárování plateb |
@@ -805,6 +809,8 @@ wheels/                        # Offline Python balíčky (gitignored)
 | GET | `/platby/vyuctovani/{id}` | Detail vyúčtování (položky, platby, stav) |
 | POST | `/platby/vyuctovani/generovat` | Generování vyúčtování pro rok |
 | POST | `/platby/vyuctovani/{id}/stav` | Změna stavu vyúčtování |
+| POST | `/platby/vyuctovani/hromadny-stav` | Hromadná změna stavu vyúčtování |
+| GET | `/platby/vyuctovani/exportovat/{fmt}` | Export vyúčtování (xlsx souhrn / xlsx s položkami) |
 | POST | `/platby/vyuctovani/smazat-rok` | Smazání všech vyúčtování roku |
 
 ### Nastavení (`/nastaveni`)
@@ -847,6 +853,11 @@ LIBREOFFICE_PATH=/Applications/LibreOffice.app/Contents/MacOS/soffice
 - **CodeListItem** — položky číselníků (category: space_type/section/room_count/ownership_type, value, order); unique index na (category, value)
 - **EmailTemplate** — šablony emailů pro hromadné rozesílání (name, subject_template, body_template, order); placeholder `{rok}` nahrazen při výběru
 - **ActivityLog** — log aktivit (modul, akce, entita, timestamp); **ActivityAction** — enum typů aktivit (CREATED, UPDATED, DELETED, STATUS_CHANGED, IMPORTED, EXPORTED, RESTORED)
+- **PrescriptionYear** → **Prescription** (monthly_total, variable_symbol, space_type) → **PrescriptionItem** (name, amount, category, order); předpisy plateb per rok/jednotka
+- **VariableSymbolMapping** — mapování VS → jednotka (source: manual/auto/import)
+- **BankStatement** — importovaný bankovní výpis (Fio CSV); → **Payment** (amount, date, direction, match_status, unit_id); PaymentMatchStatus (UNMATCHED/AUTO_MATCHED/MANUAL), PaymentDirection (INCOME/EXPENSE)
+- **UnitBalance** — počáteční zůstatek jednotky per rok (opening_amount, source: manual/settlement)
+- **Settlement** → **SettlementItem** — roční vyúčtování per jednotka; SettlementStatus (GENERATED/SENT/PAID/OVERDUE)
 - **EmailLog** (+ `name_normalized` pro diacritics-insensitive vyhledávání), **ImportLog** — systémové logy
 
 ## Bezpečnost a kvalita kódu

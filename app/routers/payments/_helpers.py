@@ -56,6 +56,8 @@ def compute_nav_stats(db: Session) -> dict:
     settlement_count = db.query(Settlement).count()
     settlement_generated = db.query(Settlement).filter_by(status=SettlementStatus.GENERATED).count()
 
+    balance_count = db.query(UnitBalance).count()
+
     return {
         "nav_years": years,
         "nav_total_prescriptions": total_prescriptions,
@@ -68,6 +70,7 @@ def compute_nav_stats(db: Session) -> dict:
         "nav_debtor_count": debtor_count,
         "nav_settlement_count": settlement_count,
         "nav_settlement_generated": settlement_generated,
+        "nav_balance_count": balance_count,
     }
 
 

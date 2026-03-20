@@ -358,6 +358,7 @@
   - `owners/` — `crud.py`, `import_owners.py`, `import_contacts.py`, `_helpers.py`
   - `voting/` — `session.py`, `ballots.py`, `import_votes.py`, `_helpers.py`
   - `tax/` — `session.py`, `processing.py`, `matching.py`, `sending.py`, `_helpers.py`
+  - `payments/` — `prescriptions.py`, `symbols.py`, `statements.py`, `balances.py`, `overview.py`, `settlement.py`, `_helpers.py`
 
 ## Startup (lifespan)
 
@@ -439,6 +440,7 @@
 | Hlasování — online hlas (budoucí) | — | — | — | ano |
 | Hromadné rozesílání — správa | ano | ano | read | jen své dokumenty |
 | Synchronizace — import/výměna | ano | ano | ne | ne |
+| Evidence plateb — správa | ano | ano | read | ne |
 | Kontrola podílu | ano | ano | read | ne |
 | Administrace — info SVJ, výbor | ano | read | read | ne |
 | Administrace — zálohy, smazání dat | ano | ne | ne | ne |

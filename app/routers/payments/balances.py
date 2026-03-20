@@ -31,9 +31,9 @@ async def zustatky_seznam(
     )
     years = [y[0] for y in years]
 
-    # Pokud rok není zadán, použít nejnovější
-    if rok == 0 and years:
-        rok = years[0]
+    # Pokud rok není zadán, použít nejnovější; pokud žádné zůstatky, aktuální rok
+    if rok == 0:
+        rok = years[0] if years else datetime.utcnow().year
 
     query = (
         db.query(UnitBalance)
