@@ -86,8 +86,8 @@ def _extract_space_type(cell_text: str) -> str | None:
 
 
 def _extract_owner_name(cell_text: str) -> str | None:
-    """Extrahuj jméno vlastníka z textu buňky."""
-    match = re.search(r"Údaje o vlastníkovi:\s*\n(.+?)(?:\n|$)", cell_text, re.DOTALL)
+    """Extrahuj jméno/jména vlastníka z textu buňky."""
+    match = re.search(r"Údaje o vlastníkovi:\s*\n(.+)", cell_text, re.DOTALL)
     if match:
         lines = match.group(1).strip().split("\n")
         names = [line.strip() for line in lines if line.strip()]

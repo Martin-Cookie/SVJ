@@ -1,6 +1,9 @@
 """Router pro předpisy plateb — seznam, import DOCX, detail."""
 
+import os
+import shutil
 from datetime import datetime
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, Form, Request, UploadFile, File
 from fastapi.responses import RedirectResponse
@@ -11,6 +14,7 @@ from app.models import (
     PrescriptionYear, Prescription, PrescriptionItem, Unit,
     VariableSymbolMapping, SymbolSource,
 )
+from app.config import settings
 from app.utils import build_list_url, is_htmx_partial, validate_upload, UPLOAD_LIMITS
 from ._helpers import templates, logger, compute_nav_stats
 
@@ -61,44 +65,77 @@ async def predpisy_import_form(request: Request, db: Session = Depends(get_db)):
 @router.post("/predpisy/import")
 async def predpisy_import_upload(
     request: Request,
-    file: UploadFile = File(...),
+    file: UploadFile = File(None),
     year: int = Form(...),
     db: Session = Depends(get_db),
 ):
     """Zpracování importu předpisů z DOCX."""
     from app.services.prescription_import import parse_prescription_docx
 
-    # Validace souboru
-    error = await validate_upload(file, **UPLOAD_LIMITS["docx"])
-    if error:
-        return templates.TemplateResponse("payments/predpisy_import.html", {
-            "request": request,
-            "active_nav": "platby",
-            "error": error,
-            "form_data": {"year": year},
-        })
+    form = await request.form()
+    force = form.get("force_overwrite")
+    saved_path = form.get("saved_path", "")
 
-    # Kontrola duplicity roku
-    existing = db.query(PrescriptionYear).filter_by(year=year).first()
-    force = (await request.form()).get("force_overwrite")
-    if existing and not force:
-        return templates.TemplateResponse("payments/predpisy_import.html", {
-            "request": request,
-            "active_nav": "platby",
-            "confirm_overwrite": True,
-            "existing_year": existing,
-            "form_data": {"year": year},
-            "filename": file.filename,
-        })
+    # Při force_overwrite použít uložený soubor
+    if force and saved_path:
+        saved_file = Path(saved_path)
+        if not saved_file.is_file():
+            return templates.TemplateResponse("payments/predpisy_import.html", {
+                "request": request,
+                "active_nav": "platby",
+                "error": "Uložený soubor expiroval. Nahrajte soubor znovu.",
+                "form_data": {"year": year},
+            })
+        file_content = saved_file.read_bytes()
+        original_filename = saved_file.name.split("_", 2)[-1] if "_" in saved_file.name else saved_file.name
+    else:
+        # Nový upload — validace
+        if not file or not file.filename:
+            return templates.TemplateResponse("payments/predpisy_import.html", {
+                "request": request,
+                "active_nav": "platby",
+                "error": "Vyberte soubor DOCX.",
+                "form_data": {"year": year},
+            })
+        error = await validate_upload(file, **UPLOAD_LIMITS["docx"])
+        if error:
+            return templates.TemplateResponse("payments/predpisy_import.html", {
+                "request": request,
+                "active_nav": "platby",
+                "error": error,
+                "form_data": {"year": year},
+            })
+        file_content = await file.read()
+        original_filename = file.filename
+
+        # Kontrola duplicity roku — uložit soubor a zobrazit confirm
+        existing = db.query(PrescriptionYear).filter_by(year=year).first()
+        if existing and not force:
+            # Uložit soubor na disk pro pozdější použití
+            temp_dir = Path(settings.upload_dir) / "temp"
+            temp_dir.mkdir(parents=True, exist_ok=True)
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            temp_path = temp_dir / f"{timestamp}_{file.filename}"
+            temp_path.write_bytes(file_content)
+
+            return templates.TemplateResponse("payments/predpisy_import.html", {
+                "request": request,
+                "active_nav": "platby",
+                "confirm_overwrite": True,
+                "existing_year": existing,
+                "form_data": {"year": year},
+                "saved_path": str(temp_path),
+                "filename": file.filename,
+            })
 
     # Smazat existující rok pokud přepisujeme
+    existing = db.query(PrescriptionYear).filter_by(year=year).first()
     if existing:
         db.delete(existing)
         db.flush()
 
     # Parsování DOCX
     try:
-        file_content = await file.read()
         result = parse_prescription_docx(file_content, year)
     except Exception as e:
         logger.error("DOCX parse error: %s", e)
@@ -113,8 +150,8 @@ async def predpisy_import_upload(
     prescription_year = PrescriptionYear(
         year=year,
         valid_from=result.get("valid_from"),
-        description=f"Import z {file.filename}",
-        source_filename=file.filename,
+        description=f"Import z {original_filename}",
+        source_filename=original_filename,
         total_units=len(result["prescriptions"]),
         total_monthly=sum(p["monthly_total"] for p in result["prescriptions"]),
     )
@@ -171,6 +208,13 @@ async def predpisy_import_upload(
                 vs_created += 1
 
     db.commit()
+
+    # Cleanup temp souboru
+    if saved_path:
+        try:
+            Path(saved_path).unlink(missing_ok=True)
+        except OSError:
+            pass
 
     return RedirectResponse(
         f"/platby/predpisy/{prescription_year.id}?flash=import_ok&matched={matched_units}"

@@ -107,8 +107,8 @@ def _count_debtors_fast(db: Session, year: int) -> int:
     )
     months_count = len(months_rows)
     if months_count == 0:
-        # Žádné platby → každý s předpisem je dlužník
-        return len(presc_by_unit)
+        # Žádné platby → nelze určit dlužníky
+        return 0
 
     # Zaplaceno per unit_id
     paid_rows = (
