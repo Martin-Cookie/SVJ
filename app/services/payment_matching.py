@@ -84,9 +84,10 @@ def compute_candidates(db: Session, payments: list, year: int,
         )
         already_matched_units = {r[0] for r in matched_allocs}
 
-    # Owner jména per unit (vyčištěná slova)
+    # Owner jména per unit (vyčištěná slova + příjmení)
     active_ous = db.query(OwnerUnit).filter(OwnerUnit.valid_to.is_(None)).all()
-    unit_owner_words: dict[int, list[set]] = {}
+    unit_owner_words: dict[int, list[set]] = {}  # unit_number → [set of words]
+    unit_owner_surnames: dict[int, set] = {}     # unit_number → {příjmení}
     for ou in active_ous:
         owner = db.query(Owner).get(ou.owner_id)
         if owner and owner.name_normalized:
@@ -95,6 +96,10 @@ def compute_candidates(db: Session, payments: list, year: int,
                 words = _clean_name_words(owner.name_normalized)
                 if words:
                     unit_owner_words.setdefault(unit.unit_number, []).append(words)
+                # Příjmení = první slovo v name_normalized (formát příjmení-first)
+                surname = _clean_name_words(owner.name_normalized.split()[0])
+                if surname:
+                    unit_owner_surnames.setdefault(unit.unit_number, set()).update(surname)
 
     result = {}
     for payment in unmatched:
@@ -110,13 +115,18 @@ def compute_candidates(db: Session, payments: list, year: int,
 
             monthly = info["monthly"]
 
-            # Jméno match — vyžadovat 2+ společná slova (příjmení + jméno)
+            # Jméno match — 2+ společná slova NEBO shoda na příjmení vlastníka
             name_match = False
             for word_set in unit_owner_words.get(un, []):
                 common = sender_words & word_set
                 if len(common) >= 2:
                     name_match = True
                     break
+            if not name_match:
+                # Fallback: shoda na příjmení (první slovo jména vlastníka)
+                surnames = unit_owner_surnames.get(un, set())
+                if sender_words & surnames:
+                    name_match = True
 
             if not name_match:
                 continue
