@@ -82,11 +82,19 @@
             č. {{ p.unit.unit_number }}
         </a>
         {% elif p.match_status.value == 'unmatched' and p.direction.value == 'income' %}
-        <span id="assign-btn-{{ p.id }}">
+        {% set cands = candidates_map.get(p.id, []) if candidates_map is defined else [] %}
+        <span id="assign-btn-{{ p.id }}" class="inline-flex items-center gap-1 flex-wrap">
             <button onclick="document.getElementById('assign-btn-{{ p.id }}').classList.add('hidden');document.getElementById('assign-form-{{ p.id }}').classList.remove('hidden');document.getElementById('assign-input-{{ p.id }}').focus()"
                 class="px-2 py-0.5 text-xs bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300 rounded-full hover:bg-yellow-200 cursor-pointer">
                 přiřadit
             </button>
+            {% for c in cands %}
+            <button type="button" title="{{ c.reasons|join(', ') if c.reasons else c.monthly|fmt_num ~ ' Kč/měs' }}"
+                onclick="document.getElementById('assign-btn-{{ p.id }}').classList.add('hidden');document.getElementById('assign-form-{{ p.id }}').classList.remove('hidden');var inp=document.getElementById('assign-input-{{ p.id }}');inp.value='{{ c.unit_number }}';inp.form.submit()"
+                class="px-1.5 py-0.5 text-xs bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 rounded-full hover:bg-yellow-100 hover:text-yellow-800 dark:hover:bg-yellow-900 dark:hover:text-yellow-300 cursor-pointer">
+                {{ c.unit_number }}?
+            </button>
+            {% endfor %}
         </span>
         <form id="assign-form-{{ p.id }}" method="post" action="/platby/vypisy/{{ statement.id }}/prirazeni/{{ p.id }}" hx-boost="false" class="hidden inline-flex items-center gap-1">
             <input type="hidden" name="q" value="{{ q }}">

@@ -441,6 +441,12 @@ async def vypis_detail(
             + "."
         )
 
+    # Kandidáti pro nenapárované platby
+    from app.services.payment_matching import compute_candidates
+    pf = statement.period_from
+    cand_year = pf.year if pf else datetime.utcnow().year
+    candidates_map = compute_candidates(db, payments, cand_year)
+
     list_url = build_list_url(request)
     back_url = request.query_params.get("back", "")
 
@@ -453,6 +459,7 @@ async def vypis_detail(
         "total_income": total_income,
         "total_expense": total_expense,
         "matched_count": matched_count,
+        "candidates_map": candidates_map,
         "sort": sort,
         "order": order,
         "q": q,

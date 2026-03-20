@@ -21,6 +21,101 @@ from app.utils import strip_diacritics
 
 logger = logging.getLogger(__name__)
 
+# Tolerance pro kandidáty (širší než pro matching)
+_CANDIDATE_TOLERANCE = 2.0
+
+
+def compute_candidates(db: Session, payments: list, year: int) -> dict[int, list[dict]]:
+    """Pro UNMATCHED příjmové platby spočítat kandidátní jednotky.
+
+    Vrací dict payment_id → list[{unit_number, monthly, score, reasons}],
+    max 3 kandidáti seřazení dle skóre.
+    """
+    from app.models import PrescriptionYear, Owner
+
+    unmatched = [
+        p for p in payments
+        if p.match_status == PaymentMatchStatus.UNMATCHED
+        and p.direction == PaymentDirection.INCOME
+    ]
+    if not unmatched:
+        return {}
+
+    # Načti předpisy
+    py = db.query(PrescriptionYear).filter_by(year=year).first()
+    if not py:
+        return {}
+
+    prescriptions = db.query(Prescription).filter_by(prescription_year_id=py.id).all()
+    unit_info: dict[int, dict] = {}  # unit_number → {unit_id, monthly, vs, ...}
+    for p in prescriptions:
+        if p.unit_id:
+            unit = db.query(Unit).get(p.unit_id)
+            if unit:
+                unit_info[unit.unit_number] = {
+                    "unit_id": p.unit_id,
+                    "monthly": p.monthly_total or 0,
+                    "vs": p.variable_symbol or "",
+                }
+
+    # Owner jména per unit
+    active_ous = db.query(OwnerUnit).filter(OwnerUnit.valid_to.is_(None)).all()
+    unit_owner_words: dict[int, list[set]] = {}
+    for ou in active_ous:
+        owner = db.query(Owner).get(ou.owner_id)
+        if owner and owner.name_normalized:
+            unit = db.query(Unit).get(ou.unit_id)
+            if unit:
+                unit_owner_words.setdefault(unit.unit_number, []).append(
+                    {w for w in owner.name_normalized.split() if len(w) > 3}
+                )
+
+    result = {}
+    for payment in unmatched:
+        vs = (payment.vs or "").lstrip("0")
+        sender_words = set()
+        if payment.counter_account_name:
+            sender_words = {
+                w for w in strip_diacritics(payment.counter_account_name).split()
+                if len(w) > 3
+            }
+
+        candidates = []
+        for un, info in unit_info.items():
+            score = 0
+            reasons = []
+
+            # Částka match
+            monthly = info["monthly"]
+            if monthly > 0:
+                for n in range(1, 13):
+                    if abs(payment.amount - monthly * n) <= _CANDIDATE_TOLERANCE:
+                        reasons.append(f"{n}×{monthly:.0f}")
+                        score += 3
+                        break
+
+            # Jméno match
+            if sender_words:
+                for word_set in unit_owner_words.get(un, []):
+                    if sender_words & word_set:
+                        score += 2
+                        break
+
+            if score >= 3:
+                candidates.append({
+                    "unit_number": un,
+                    "monthly": monthly,
+                    "score": score,
+                    "reasons": reasons,
+                })
+
+        # Seřadit dle skóre, vzít top 3
+        candidates.sort(key=lambda x: (-x["score"], x["unit_number"]))
+        if candidates:
+            result[payment.id] = candidates[:3]
+
+    return result
+
 
 def _find_name_matches(sender_words: set, name_lookup: list[dict]) -> list[dict]:
     """Najdi všechny shody jména odesílatele proti lookup tabulce.
@@ -107,15 +202,59 @@ def _create_allocation(db: Session, payment: Payment, unit_id: int,
     ))
 
 
+def _extract_unit_from_vs(vs: str, known_vs_map: dict[str, int],
+                          unit_ids: set[int]) -> Optional[int]:
+    """Zkusit dekódovat číslo jednotky z VS přes podobnost s předpisovými VS.
+
+    Formát předpisových VS: prefix(5) + unit_number(3 zero-padded) + suffix(2)
+    Příklad: 1109800501 → 11098 + 005 + 01 → jednotka 5
+
+    Zkouší několik variant extrakce za prefixem '1098'.
+    """
+    vs_stripped = vs.lstrip("0")
+    idx = vs_stripped.find("1098")
+    if idx < 0:
+        return None
+
+    # Za '1098' extrahovat zbytek
+    remainder = vs_stripped[idx + 4:]
+    if len(remainder) < 2:
+        return None
+
+    # Zkusit více variant (od nejdelšího po nejkratší):
+    # 1. remainder bez posledních 2 znaků (suffix): "01038" → "010" → 10
+    # 2. celý remainder: "503" → 503
+    # 3. první 3 znaky: "01038" → "010" → 10
+    # 4. první 2 znaky: "01038" → "01" → 1
+    candidates = []
+    if len(remainder) > 2:
+        part = remainder[:-2]
+        if part.isdigit():
+            candidates.append(int(part))
+    if remainder.isdigit():
+        candidates.append(int(remainder))
+    for width in (3, 2):
+        if len(remainder) >= width:
+            part = remainder[:width]
+            if part.isdigit():
+                candidates.append(int(part))
+
+    # Vrátit první existující jednotku
+    for unit_num in candidates:
+        if unit_num in unit_ids:
+            return unit_num
+    return None
+
+
 def match_payments(db: Session, statement_id: int, year: int,
-                   tolerance: float = 1.0) -> dict:
+                   tolerance: float = 2.0) -> dict:
     """Napáruj platby z výpisu na jednotky přes VS + fallback jméno+částka.
 
     Args:
         db: databázová session
         statement_id: ID bankovního výpisu
         year: rok pro vyhledání předpisů
-        tolerance: tolerance shody částky v Kč (výchozí ±1)
+        tolerance: tolerance shody částky v Kč (výchozí ±2)
 
     Returns:
         dict s počty: matched, suggested, unmatched, total
@@ -138,6 +277,11 @@ def match_payments(db: Session, statement_id: int, year: int,
             if p.unit_id:
                 prescriptions_by_unit[p.unit_id] = p
             all_prescriptions.append(p)
+
+    # Načti jednotky (pro VS-prefix matching)
+    all_units = db.query(Unit).all()
+    unit_by_number = {u.unit_number: u.id for u in all_units}
+    unit_number_by_id = {u.id: u.unit_number for u in all_units}
 
     # Načti aktuální vlastníky jednotek
     owner_by_unit = {}
@@ -294,6 +438,76 @@ def match_payments(db: Session, statement_id: int, year: int,
                         payment.prescription_id, payment.amount,
                     )
                     suggested += 1
+
+        db.flush()
+
+    # 3. fáze: VS-prefix matching + skórovací systém
+    still_unmatched2 = [
+        p for p in payments
+        if p.match_status == PaymentMatchStatus.UNMATCHED and p.vs
+    ]
+
+    if still_unmatched2:
+        # Připrav name lookup pro skóring (owner names per unit_id)
+        unit_owner_words: dict[int, list[set]] = {}
+        from app.models import Owner
+        for ou in active_owner_units:
+            owner = db.query(Owner).get(ou.owner_id)
+            if owner and owner.name_normalized:
+                unit_owner_words.setdefault(ou.unit_id, []).append(
+                    {w for w in owner.name_normalized.split() if len(w) > 3}
+                )
+        for presc in all_prescriptions:
+            if presc.owner_name and presc.unit_id:
+                norm = strip_diacritics(presc.owner_name)
+                unit_owner_words.setdefault(presc.unit_id, []).append(
+                    {w for w in norm.split() if len(w) > 3}
+                )
+
+        # Předpisové VS → set pro prefix matching
+        known_vs_map = {p.variable_symbol: p.unit_id for p in all_prescriptions if p.variable_symbol}
+
+        for payment in still_unmatched2:
+            # Zkusit dekódovat unit z VS
+            decoded_un = _extract_unit_from_vs(payment.vs, known_vs_map, set(unit_by_number.keys()))
+            if not decoded_un:
+                continue
+
+            decoded_uid = unit_by_number[decoded_un]
+            presc = prescriptions_by_unit.get(decoded_uid)
+
+            # Spočítat skóre: VS dekódování (+3) + jméno (+2) + částka (+3)
+            score = 3  # VS dekódování base
+
+            # Jméno odesílatele vs vlastník jednotky
+            if payment.counter_account_name:
+                sender_words = {
+                    w for w in strip_diacritics(payment.counter_account_name).split()
+                    if len(w) > 3
+                }
+                for word_set in unit_owner_words.get(decoded_uid, []):
+                    if sender_words & word_set:
+                        score += 2
+                        break
+
+            # Částka vs předpis
+            if presc and _check_amount_match(payment.amount, presc.monthly_total, tolerance):
+                score += 3
+
+            if score >= 5:
+                # Dostatečná jistota → SUGGESTED
+                payment.unit_id = decoded_uid
+                payment.owner_id = owner_by_unit.get(decoded_uid)
+                payment.match_status = PaymentMatchStatus.SUGGESTED
+                payment.assigned_month = payment.date.month if payment.date else None
+                if presc:
+                    payment.prescription_id = presc.id
+
+                _create_allocation(
+                    db, payment, decoded_uid, payment.owner_id,
+                    payment.prescription_id, payment.amount,
+                )
+                suggested += 1
 
         db.flush()
 
