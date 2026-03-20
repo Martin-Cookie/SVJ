@@ -445,7 +445,7 @@ async def vypis_detail(
     from app.services.payment_matching import compute_candidates
     pf = statement.period_from
     cand_year = pf.year if pf else datetime.utcnow().year
-    candidates_map = compute_candidates(db, payments, cand_year)
+    candidates_map = compute_candidates(db, payments, cand_year, statement_id=statement.id)
 
     list_url = build_list_url(request)
     back_url = request.query_params.get("back", "")

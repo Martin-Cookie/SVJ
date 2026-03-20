@@ -9,6 +9,7 @@ Logika:
 from __future__ import annotations
 
 import logging
+import re
 from typing import Optional
 
 from sqlalchemy.orm import Session
@@ -25,9 +26,18 @@ logger = logging.getLogger(__name__)
 _CANDIDATE_TOLERANCE = 2.0
 
 
-def compute_candidates(db: Session, payments: list, year: int) -> dict[int, list[dict]]:
+def _clean_name_words(text: str) -> set[str]:
+    """Vyčistit jméno — strip diakritiky, interpunkce, vrátit slova > 3 znaky."""
+    clean = re.sub(r'[^\w\s]', ' ', strip_diacritics(text))
+    return {w for w in clean.split() if len(w) > 3}
+
+
+def compute_candidates(db: Session, payments: list, year: int,
+                        statement_id: int | None = None) -> dict[int, list[dict]]:
     """Pro UNMATCHED příjmové platby spočítat kandidátní jednotky.
 
+    Kandidát = jednotka kde jméno vlastníka sedí s odesílatelem (2+ společná slova).
+    Jednotky s již napárovanou platbou v tomto výpisu se vynechají.
     Vrací dict payment_id → list[{unit_number, monthly, score, reasons}],
     max 3 kandidáti seřazení dle skóre.
     """
@@ -58,7 +68,23 @@ def compute_candidates(db: Session, payments: list, year: int) -> dict[int, list
                     "vs": p.variable_symbol or "",
                 }
 
-    # Owner jména per unit
+    # Jednotky již napárované v tomto výpisu → vyloučit z kandidátů
+    matched_statuses = {PaymentMatchStatus.AUTO_MATCHED, PaymentMatchStatus.MANUAL,
+                        PaymentMatchStatus.SUGGESTED}
+    already_matched_units: set[int] = set()
+    if statement_id:
+        matched_allocs = (
+            db.query(PaymentAllocation.unit_id)
+            .join(Payment)
+            .filter(
+                Payment.statement_id == statement_id,
+                Payment.match_status.in_(matched_statuses),
+            )
+            .all()
+        )
+        already_matched_units = {r[0] for r in matched_allocs}
+
+    # Owner jména per unit (vyčištěná slova)
     active_ous = db.query(OwnerUnit).filter(OwnerUnit.valid_to.is_(None)).all()
     unit_owner_words: dict[int, list[set]] = {}
     for ou in active_ous:
@@ -66,27 +92,43 @@ def compute_candidates(db: Session, payments: list, year: int) -> dict[int, list
         if owner and owner.name_normalized:
             unit = db.query(Unit).get(ou.unit_id)
             if unit:
-                unit_owner_words.setdefault(unit.unit_number, []).append(
-                    {w for w in owner.name_normalized.split() if len(w) > 3}
-                )
+                words = _clean_name_words(owner.name_normalized)
+                if words:
+                    unit_owner_words.setdefault(unit.unit_number, []).append(words)
 
     result = {}
     for payment in unmatched:
-        vs = (payment.vs or "").lstrip("0")
-        sender_words = set()
-        if payment.counter_account_name:
-            sender_words = {
-                w for w in strip_diacritics(payment.counter_account_name).split()
-                if len(w) > 3
-            }
+        sender_words = _clean_name_words(payment.counter_account_name or "")
+        if not sender_words:
+            continue
 
         candidates = []
         for un, info in unit_info.items():
-            score = 0
+            # Přeskočit jednotky s již napárovanou platbou
+            if info["unit_id"] in already_matched_units:
+                continue
+
+            monthly = info["monthly"]
+
+            # Jméno match — vyžadovat 2+ společná slova (příjmení + jméno)
+            name_match = False
+            for word_set in unit_owner_words.get(un, []):
+                common = sender_words & word_set
+                if len(common) >= 2:
+                    name_match = True
+                    break
+
+            if not name_match:
+                continue
+
+            # Přeskočit nesmyslné kandidáty (předpis > 10× platba)
+            if monthly and monthly > payment.amount * 10:
+                continue
+
+            score = 2  # base za jmennou shodu
             reasons = []
 
-            # Částka match
-            monthly = info["monthly"]
+            # Bonus za shodu částky
             if monthly > 0:
                 for n in range(1, 13):
                     if abs(payment.amount - monthly * n) <= _CANDIDATE_TOLERANCE:
@@ -94,20 +136,12 @@ def compute_candidates(db: Session, payments: list, year: int) -> dict[int, list
                         score += 3
                         break
 
-            # Jméno match
-            if sender_words:
-                for word_set in unit_owner_words.get(un, []):
-                    if sender_words & word_set:
-                        score += 2
-                        break
-
-            if score >= 3:
-                candidates.append({
-                    "unit_number": un,
-                    "monthly": monthly,
-                    "score": score,
-                    "reasons": reasons,
-                })
+            candidates.append({
+                "unit_number": un,
+                "monthly": monthly,
+                "score": score,
+                "reasons": reasons,
+            })
 
         # Seřadit dle skóre, vzít top 3
         candidates.sort(key=lambda x: (-x["score"], x["unit_number"]))
