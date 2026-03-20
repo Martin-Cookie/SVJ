@@ -137,6 +137,7 @@ def compute_candidates(db: Session, payments: list, year: int,
 
             score = 2  # base za jmennou shodu
             reasons = []
+            amount_match = False
 
             # Bonus za shodu částky
             if monthly > 0:
@@ -144,6 +145,7 @@ def compute_candidates(db: Session, payments: list, year: int,
                     if abs(payment.amount - monthly * n) <= _CANDIDATE_TOLERANCE:
                         reasons.append(f"{n}×{monthly:.0f}")
                         score += 3
+                        amount_match = True
                         break
 
             candidates.append({
@@ -151,6 +153,7 @@ def compute_candidates(db: Session, payments: list, year: int,
                 "monthly": monthly,
                 "score": score,
                 "reasons": reasons,
+                "amount_match": amount_match,
             })
 
         # Seřadit dle skóre, vzít top 3
