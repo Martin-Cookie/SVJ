@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Import bankovního výpisu{% endblock %}
 {% block content %}
+{% include "payments/partials/_platby_nav.html" %}
 <div class="max-w-2xl mx-auto">
     {% if back_url %}
     <div class="mb-3">

@@ -235,4 +235,5 @@ async def platby_jednotka(
         "back_url": back_url,
         "back_label": back_label,
         "month_names": MONTH_NAMES,
+        **compute_nav_stats(db),
     })

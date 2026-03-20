@@ -59,6 +59,7 @@ async def predpisy_import_form(request: Request, db: Session = Depends(get_db)):
         "request": request,
         "active_nav": "platby",
         "back_url": back_url,
+        **compute_nav_stats(db),
     })
 
 
@@ -85,6 +86,7 @@ async def predpisy_import_upload(
                 "active_nav": "platby",
                 "error": "Uložený soubor expiroval. Nahrajte soubor znovu.",
                 "form_data": {"year": year},
+                **compute_nav_stats(db),
             })
         file_content = saved_file.read_bytes()
         original_filename = saved_file.name.split("_", 2)[-1] if "_" in saved_file.name else saved_file.name
@@ -96,6 +98,7 @@ async def predpisy_import_upload(
                 "active_nav": "platby",
                 "error": "Vyberte soubor DOCX.",
                 "form_data": {"year": year},
+                **compute_nav_stats(db),
             })
         error = await validate_upload(file, **UPLOAD_LIMITS["docx"])
         if error:
@@ -104,6 +107,7 @@ async def predpisy_import_upload(
                 "active_nav": "platby",
                 "error": error,
                 "form_data": {"year": year},
+                **compute_nav_stats(db),
             })
         file_content = await file.read()
         original_filename = file.filename
@@ -126,6 +130,7 @@ async def predpisy_import_upload(
                 "form_data": {"year": year},
                 "saved_path": str(temp_path),
                 "filename": file.filename,
+                **compute_nav_stats(db),
             })
 
     # Smazat existující rok pokud přepisujeme
@@ -144,6 +149,7 @@ async def predpisy_import_upload(
             "active_nav": "platby",
             "error": f"Chyba při čtení DOCX: {e}",
             "form_data": {"year": year},
+            **compute_nav_stats(db),
         })
 
     # Uložení do DB
@@ -322,6 +328,7 @@ async def predpisy_detail(
         "back_url": back_url,
         "flash_message": flash_message,
         "flash_type": flash_type,
+        **compute_nav_stats(db),
     }
 
     if is_htmx_partial(request):
@@ -361,6 +368,7 @@ async def predpis_jednotka_detail(
         "prescription": prescription,
         "list_url": list_url,
         "back_url": back_url,
+        **compute_nav_stats(db),
     })
 
 

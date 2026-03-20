@@ -79,6 +79,7 @@ async def vypis_import_form(request: Request, db: Session = Depends(get_db)):
         "request": request,
         "active_nav": "platby",
         "back_url": back_url,
+        **compute_nav_stats(db),
     })
 
 
@@ -99,6 +100,7 @@ async def vypis_import_upload(
             "request": request,
             "active_nav": "platby",
             "error": error,
+            **compute_nav_stats(db),
         })
 
     # Čtení a parsování
@@ -111,6 +113,7 @@ async def vypis_import_upload(
             "request": request,
             "active_nav": "platby",
             "error": f"Chyba při čtení CSV: {e}",
+            **compute_nav_stats(db),
         })
 
     if result["errors"]:
@@ -118,6 +121,7 @@ async def vypis_import_upload(
             "request": request,
             "active_nav": "platby",
             "error": "Chyby při parsování: " + "; ".join(result["errors"][:5]),
+            **compute_nav_stats(db),
         })
 
     if not result["transactions"]:
@@ -125,6 +129,7 @@ async def vypis_import_upload(
             "request": request,
             "active_nav": "platby",
             "error": "CSV neobsahuje žádné transakce.",
+            **compute_nav_stats(db),
         })
 
     meta = result["metadata"]
@@ -159,6 +164,7 @@ async def vypis_import_upload(
             "filename": file.filename,
             "transaction_count": len(result["transactions"]),
             "manual_count": manual_count,
+            **compute_nav_stats(db),
         })
 
     # Zachování ručních přiřazení
@@ -380,6 +386,7 @@ async def vypis_detail(
         "back_url": back_url,
         "flash_message": flash_message,
         "flash_type": flash_type,
+        **compute_nav_stats(db),
     }
 
     if is_htmx_partial(request):

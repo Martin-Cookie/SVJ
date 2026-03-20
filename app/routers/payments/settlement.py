@@ -231,6 +231,7 @@ async def vyuctovani_detail(
         "status_labels": STATUS_LABELS,
         "status_colors": STATUS_COLORS,
         "flash_message": flash_message,
+        **compute_nav_stats(db),
     })
 
 

@@ -2,7 +2,8 @@
 {% set month_names = {1: "Leden", 2: "Únor", 3: "Březen", 4: "Duben", 5: "Květen", 6: "Červen", 7: "Červenec", 8: "Srpen", 9: "Září", 10: "Říjen", 11: "Listopad", 12: "Prosinec"} %}
 {% block title %}Výpis {% if statement.period_from %}{{ month_names.get(statement.period_from.month, "") }} {{ statement.period_from.year }}{% else %}{{ statement.filename }}{% endif %}{% endblock %}
 {% block content %}
-<div class="max-w-7xl mx-auto flex flex-col" style="height: calc(100vh - 4rem);">
+<div class="flex flex-col" style="height: calc(100vh - 4rem);">
+    {% include "payments/partials/_platby_nav.html" %}
     {% if back_url %}
     <div class="mb-3">
         <a href="{{ back_url }}" class="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">&larr; Zpět na výpisy</a>
