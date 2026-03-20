@@ -5,7 +5,7 @@
     {% include "payments/partials/_platby_nav.html" %}
 
     <div class="flex-shrink-0">
-        <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center justify-between mb-2">
             <h1 class="text-lg font-bold text-gray-900 dark:text-white">Variabilní symboly</h1>
             <button onclick="document.getElementById('add-form').classList.toggle('hidden')"
                 class="px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700">
@@ -14,7 +14,7 @@
         </div>
 
         <!-- Formulář přidání (skrytý) -->
-        <div id="add-form" class="hidden mb-3 bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+        <div id="add-form" class="hidden mb-2 bg-white dark:bg-gray-800 rounded-lg shadow p-3">
             <form method="post" action="/platby/symboly/pridat" class="flex items-end space-x-3">
                 <input type="hidden" name="q" value="{{ q }}">
                 <input type="hidden" name="sort" value="{{ sort }}">
@@ -46,7 +46,7 @@
         <!-- Filtr bubliny — zdroj -->
         {% set _base = "/platby/symboly?sort=" ~ sort ~ "&order=" ~ order ~ ("&q=" ~ q if q else "") %}
         {% set _back = "&back=" ~ (back_url|default('')|urlencode) if back_url else "" %}
-        <div class="flex flex-wrap gap-2 mb-3">
+        <div class="flex flex-wrap gap-2 mb-2">
             <a href="{{ _base }}{{ _back }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
                 {% if not zdroj %}bg-green-600 text-white ring-2 ring-green-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
                 Vše <span class="ml-1 text-xs opacity-75">{{ mappings|length if not zdroj else '' }}</span>
@@ -61,7 +61,7 @@
         </div>
 
         <!-- Hledání -->
-        <div class="mb-3">
+        <div class="mb-2">
             <input type="text" name="q" value="{{ q }}" placeholder="Hledat VS, popis..."
                 hx-get="/platby/symboly"
                 hx-trigger="keyup changed delay:300ms"
