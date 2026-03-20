@@ -11,7 +11,7 @@ from sqlalchemy import func
 from app.database import get_db
 from app.config import settings
 from app.models import (
-    BankStatement, Payment, PaymentDirection, PaymentMatchStatus,
+    BankStatement, Payment, PaymentAllocation, PaymentDirection, PaymentMatchStatus,
     Unit,
 )
 from app.utils import build_list_url, is_htmx_partial, validate_upload, strip_diacritics, UPLOAD_LIMITS
@@ -302,6 +302,14 @@ async def vypis_import_upload(
         ).all():
             payment.unit_id = manual_map[payment.operation_id]
             payment.match_status = PaymentMatchStatus.MANUAL
+            # Dual-write: vytvořit alokaci
+            db.add(PaymentAllocation(
+                payment_id=payment.id,
+                unit_id=payment.unit_id,
+                owner_id=payment.owner_id,
+                prescription_id=payment.prescription_id,
+                amount=payment.amount,
+            ))
             restored += 1
         match_result["matched"] += restored
 
@@ -353,10 +361,15 @@ async def vypis_detail(
     if not statement:
         return RedirectResponse("/platby/vypisy", status_code=302)
 
+    from app.models import PaymentAllocation as PA
     query = (
         db.query(Payment)
         .filter_by(statement_id=statement_id)
-        .options(joinedload(Payment.unit), joinedload(Payment.owner))
+        .options(
+            joinedload(Payment.unit),
+            joinedload(Payment.owner),
+            joinedload(Payment.allocations).joinedload(PA.unit),
+        )
     )
 
     # Filtry (stav, směr v SQL)
@@ -482,37 +495,92 @@ async def platba_prirazeni(
     request: Request,
     statement_id: int,
     payment_id: int,
-    unit_id: int = Form(...),
     db: Session = Depends(get_db),
 ):
-    """Ručně přiřadit platbu k jednotce (unit_id = číslo jednotky)."""
+    """Ručně přiřadit platbu k jednotce/jednotkám (čísla oddělená čárkou)."""
     form_data = await request.form()
+    unit_id_raw = form_data.get("unit_id", "").strip()
 
     payment = db.query(Payment).filter_by(id=payment_id, statement_id=statement_id).first()
     if not payment:
         return RedirectResponse(_detail_redirect_url(statement_id, form_data), status_code=302)
 
-    # unit_id z formuláře je unit_number
-    unit = db.query(Unit).filter_by(unit_number=unit_id).first()
-    if not unit:
+    # Parsovat čísla jednotek (může být "5" nebo "5, 425")
+    unit_numbers = []
+    for part in unit_id_raw.replace(",", " ").split():
+        part = part.strip()
+        if part.isdigit():
+            unit_numbers.append(int(part))
+    if not unit_numbers:
         return RedirectResponse(
             _detail_redirect_url(statement_id, form_data, "match_fail", anchor=f"p-{payment_id}"),
             status_code=302,
         )
 
-    payment.unit_id = unit.id
-    payment.match_status = PaymentMatchStatus.MANUAL
+    # Najít jednotky
+    units = db.query(Unit).filter(Unit.unit_number.in_(unit_numbers)).all()
+    if not units or len(units) != len(set(unit_numbers)):
+        return RedirectResponse(
+            _detail_redirect_url(statement_id, form_data, "match_fail", anchor=f"p-{payment_id}"),
+            status_code=302,
+        )
 
-    # Najdi vlastníka
-    from app.models import OwnerUnit
-    ou = (
-        db.query(OwnerUnit)
-        .filter_by(unit_id=unit.id)
-        .filter(OwnerUnit.valid_to.is_(None))
-        .first()
-    )
-    if ou:
-        payment.owner_id = ou.owner_id
+    from app.models import OwnerUnit, Prescription, PrescriptionYear
+
+    # Smazat staré alokace
+    db.query(PaymentAllocation).filter_by(payment_id=payment.id).delete()
+
+    if len(units) == 1:
+        # Single-unit přiřazení
+        unit = units[0]
+        payment.unit_id = unit.id
+        payment.match_status = PaymentMatchStatus.MANUAL
+
+        ou = db.query(OwnerUnit).filter_by(unit_id=unit.id).filter(OwnerUnit.valid_to.is_(None)).first()
+        if ou:
+            payment.owner_id = ou.owner_id
+
+        db.add(PaymentAllocation(
+            payment_id=payment.id,
+            unit_id=unit.id,
+            owner_id=payment.owner_id,
+            prescription_id=payment.prescription_id,
+            amount=payment.amount,
+        ))
+    else:
+        # Multi-unit přiřazení — rozdělit částku podle předpisů
+        payment.unit_id = None
+        payment.match_status = PaymentMatchStatus.MANUAL
+
+        # Najít předpisy pro rozložení částky
+        latest_py = db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).first()
+        prescriptions_map = {}
+        if latest_py:
+            for presc in db.query(Prescription).filter_by(prescription_year_id=latest_py.id).all():
+                if presc.unit_id:
+                    prescriptions_map[presc.unit_id] = presc
+
+        total_monthly = sum(
+            prescriptions_map[u.id].monthly_total
+            for u in units if u.id in prescriptions_map and prescriptions_map[u.id].monthly_total
+        ) or 1.0
+
+        for unit in units:
+            presc = prescriptions_map.get(unit.id)
+            # Rozdělit částku proporcionálně podle předpisů
+            if presc and presc.monthly_total and total_monthly > 0:
+                alloc_amount = round(payment.amount * presc.monthly_total / total_monthly, 2)
+            else:
+                alloc_amount = round(payment.amount / len(units), 2)
+
+            ou = db.query(OwnerUnit).filter_by(unit_id=unit.id).filter(OwnerUnit.valid_to.is_(None)).first()
+            db.add(PaymentAllocation(
+                payment_id=payment.id,
+                unit_id=unit.id,
+                owner_id=ou.owner_id if ou else None,
+                prescription_id=presc.id if presc else None,
+                amount=alloc_amount,
+            ))
 
     db.commit()
 
@@ -562,6 +630,8 @@ async def platba_odmitnout(
         payment.owner_id = None
         payment.prescription_id = None
         payment.match_status = PaymentMatchStatus.UNMATCHED
+        # Smazat alokace
+        db.query(PaymentAllocation).filter_by(payment_id=payment.id).delete()
         db.commit()
 
     return RedirectResponse(
@@ -588,6 +658,21 @@ async def vypis_preparovat(
     if not statement:
         return RedirectResponse("/platby/vypisy", status_code=302)
 
+    tolerance = float(form_data.get("tolerance", 1) or 1)
+    tolerance = max(0.0, min(tolerance, 100.0))
+
+    # Smazat alokace pro auto + suggested platby
+    reset_payment_ids = [
+        pid for (pid,) in db.query(Payment.id).filter(
+            Payment.statement_id == statement_id,
+            Payment.match_status.in_([PaymentMatchStatus.AUTO_MATCHED, PaymentMatchStatus.SUGGESTED]),
+        ).all()
+    ]
+    if reset_payment_ids:
+        db.query(PaymentAllocation).filter(
+            PaymentAllocation.payment_id.in_(reset_payment_ids)
+        ).delete(synchronize_session="fetch")
+
     # Reset auto + suggested (ponech ruční)
     db.query(Payment).filter(
         Payment.statement_id == statement_id,
@@ -601,7 +686,7 @@ async def vypis_preparovat(
     db.flush()
 
     year = statement.period_from.year if statement.period_from else datetime.utcnow().year
-    result = match_payments(db, statement_id, year)
+    result = match_payments(db, statement_id, year, tolerance=tolerance)
     statement.matched_count = result["matched"]
     db.commit()
 

@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.utils import setup_jinja_filters
 from app.models import (
     PrescriptionYear, Prescription, VariableSymbolMapping,
-    BankStatement, Payment, PaymentMatchStatus, PaymentDirection,
+    BankStatement, Payment, PaymentAllocation, PaymentMatchStatus, PaymentDirection,
     Settlement, SettlementStatus,
     Unit, UnitBalance,
 )
@@ -110,19 +110,19 @@ def _count_debtors_fast(db: Session, year: int) -> int:
         # Žádné platby → nelze určit dlužníky
         return 0
 
-    # Zaplaceno per unit_id
+    # Zaplaceno per unit_id (přes alokace)
     paid_rows = (
         db.query(
-            Payment.unit_id,
-            func.sum(Payment.amount).label("total"),
+            PaymentAllocation.unit_id,
+            func.sum(PaymentAllocation.amount).label("total"),
         )
+        .join(Payment)
         .filter(
             Payment.direction == PaymentDirection.INCOME,
             Payment.match_status.in_(matched_statuses),
-            Payment.unit_id.isnot(None),
             func.extract("year", Payment.date) == year,
         )
-        .group_by(Payment.unit_id)
+        .group_by(PaymentAllocation.unit_id)
         .all()
     )
     paid_map = {row.unit_id: row.total or 0 for row in paid_rows}

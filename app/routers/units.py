@@ -12,7 +12,7 @@ from sqlalchemy import cast, func, String
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
-from app.models import Owner, OwnerUnit, SvjInfo, Unit, Payment, PaymentDirection, PaymentMatchStatus, Prescription, PrescriptionYear
+from app.models import Owner, OwnerUnit, SvjInfo, Unit, Payment, PaymentAllocation, PaymentDirection, PaymentMatchStatus, Prescription, PrescriptionYear
 from app.services.code_list_service import get_all_code_lists
 from app.services.owner_exchange import recalculate_unit_votes
 from app.utils import build_list_url, excel_auto_width, is_htmx_partial, strip_diacritics, templates
@@ -663,9 +663,9 @@ async def unit_detail(
             monthly = presc.monthly_total or 0
             matched_statuses = [PaymentMatchStatus.AUTO_MATCHED, PaymentMatchStatus.SUGGESTED, PaymentMatchStatus.MANUAL]
             total_paid = db.query(
-                func.coalesce(func.sum(Payment.amount), 0)
-            ).filter(
-                Payment.unit_id == unit.id,
+                func.coalesce(func.sum(PaymentAllocation.amount), 0)
+            ).join(Payment).filter(
+                PaymentAllocation.unit_id == unit.id,
                 Payment.direction == PaymentDirection.INCOME,
                 Payment.match_status.in_(matched_statuses),
                 func.extract("year", Payment.date) == latest_py.year,

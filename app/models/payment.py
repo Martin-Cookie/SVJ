@@ -205,6 +205,7 @@ class Payment(Base):
     prescription = relationship("Prescription")
     unit = relationship("Unit")
     owner = relationship("Owner")
+    allocations = relationship("PaymentAllocation", back_populates="payment", cascade="all, delete-orphan")
 
 
 # ── Mapování sloupců bankovních výpisů ────────────────────────────────
@@ -217,6 +218,28 @@ class BankStatementColumnMapping(Base):
     mapping_json = Column(Text, nullable=False)
     used_count = Column(Integer, default=1)
     last_used_at = Column(DateTime, default=datetime.utcnow)
+
+
+# ── Vyúčtování (Fáze 4) ──────────────────────────────────────────────
+
+
+# ── Alokace plateb (multi-unit) ──────────────────────────────────────
+
+
+class PaymentAllocation(Base):
+    __tablename__ = "payment_allocations"
+
+    id = Column(Integer, primary_key=True)
+    payment_id = Column(Integer, ForeignKey("payments.id", ondelete="CASCADE"), nullable=False, index=True)
+    unit_id = Column(Integer, ForeignKey("units.id"), nullable=False, index=True)
+    owner_id = Column(Integer, ForeignKey("owners.id"), nullable=True, index=True)
+    prescription_id = Column(Integer, ForeignKey("prescriptions.id"), nullable=True, index=True)
+    amount = Column(Float, nullable=False)
+
+    payment = relationship("Payment", back_populates="allocations")
+    unit = relationship("Unit")
+    owner = relationship("Owner")
+    prescription = relationship("Prescription")
 
 
 # ── Vyúčtování (Fáze 4) ──────────────────────────────────────────────

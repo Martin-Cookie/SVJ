@@ -7,7 +7,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models import (
-    OwnerUnit, Payment, PaymentDirection, PaymentMatchStatus,
+    OwnerUnit, Payment, PaymentAllocation, PaymentDirection, PaymentMatchStatus,
     Prescription, PrescriptionItem, PrescriptionYear,
     Settlement, SettlementItem, SettlementStatus,
     UnitBalance,
@@ -40,20 +40,20 @@ def generate_settlements(db: Session, year: int) -> dict:
         .all()
     )
 
-    # Platby příjmové napárované per unit_id
+    # Platby příjmové napárované per unit_id (přes alokace)
     matched_statuses = [PaymentMatchStatus.AUTO_MATCHED, PaymentMatchStatus.SUGGESTED, PaymentMatchStatus.MANUAL]
     paid_rows = (
         db.query(
-            Payment.unit_id,
-            func.sum(Payment.amount).label("total"),
+            PaymentAllocation.unit_id,
+            func.sum(PaymentAllocation.amount).label("total"),
         )
+        .join(Payment)
         .filter(
             Payment.direction == PaymentDirection.INCOME,
             Payment.match_status.in_(matched_statuses),
-            Payment.unit_id.isnot(None),
             func.extract("year", Payment.date) == year,
         )
-        .group_by(Payment.unit_id)
+        .group_by(PaymentAllocation.unit_id)
         .all()
     )
     paid_map = {row.unit_id: row.total or 0 for row in paid_rows}
@@ -154,12 +154,13 @@ def get_settlement_detail(db: Session, settlement_id: int) -> Optional[dict]:
     if not settlement:
         return None
 
-    # Platby napárované na tuto jednotku v daném roce
+    # Platby napárované na tuto jednotku v daném roce (přes alokace)
     matched_statuses = [PaymentMatchStatus.AUTO_MATCHED, PaymentMatchStatus.SUGGESTED, PaymentMatchStatus.MANUAL]
-    payments = (
-        db.query(Payment)
+    alloc_rows = (
+        db.query(PaymentAllocation, Payment)
+        .join(Payment)
         .filter(
-            Payment.unit_id == settlement.unit_id,
+            PaymentAllocation.unit_id == settlement.unit_id,
             Payment.direction == PaymentDirection.INCOME,
             Payment.match_status.in_(matched_statuses),
             func.extract("year", Payment.date) == settlement.year,
@@ -167,6 +168,10 @@ def get_settlement_detail(db: Session, settlement_id: int) -> Optional[dict]:
         .order_by(Payment.date)
         .all()
     )
+    payments = []
+    for alloc, payment in alloc_rows:
+        payment.alloc_amount = alloc.amount
+        payments.append(payment)
 
     # Předpis
     py = db.query(PrescriptionYear).filter_by(year=settlement.year).first()
@@ -185,7 +190,7 @@ def get_settlement_detail(db: Session, settlement_id: int) -> Optional[dict]:
     ).first()
     opening = balance.opening_amount if balance else 0
 
-    total_paid = sum(p.amount for p in payments)
+    total_paid = sum(p.alloc_amount for p in payments)
 
     return {
         "settlement": settlement,

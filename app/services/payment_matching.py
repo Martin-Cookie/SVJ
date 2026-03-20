@@ -14,7 +14,7 @@ from typing import Optional
 from sqlalchemy.orm import Session
 
 from app.models import (
-    VariableSymbolMapping, Prescription, Payment,
+    VariableSymbolMapping, Prescription, Payment, PaymentAllocation,
     PaymentDirection, PaymentMatchStatus, Unit, OwnerUnit,
 )
 from app.utils import strip_diacritics
@@ -49,25 +49,73 @@ def _find_name_matches(sender_words: set, name_lookup: list[dict]) -> list[dict]
     return [entry for _, entry in matches]
 
 
-def _check_amount_match(amount: float, monthly_total: Optional[float]) -> bool:
-    """True pokud amount je násobek monthly_total (1-12×) s tolerancí ±1 Kč."""
+def _check_amount_match(amount: float, monthly_total: Optional[float], tolerance: float = 1.0) -> bool:
+    """True pokud amount je násobek monthly_total (1-12×) s tolerancí ±tolerance Kč."""
     if not monthly_total or monthly_total <= 0:
         return False
 
     for n in range(1, 13):
         expected = monthly_total * n
-        if abs(amount - expected) <= 1.0:
+        if abs(amount - expected) <= tolerance:
             return True
     return False
 
 
-def match_payments(db: Session, statement_id: int, year: int) -> dict:
+def _find_multi_unit_match(amount: float, candidates: list[dict],
+                           tolerance: float = 1.0) -> Optional[list[dict]]:
+    """Zkusit najít kombinaci jednotek jednoho vlastníka kde součet předpisů = amount.
+
+    Seskupí kandidáty podle owner_id, pro každého vlastníka s 2+ jednotkami
+    zkouší kombinace (2-4) kde sum(monthly * n) = amount ± tolerance.
+    """
+    from itertools import combinations
+
+    # Seskupit podle owner_id
+    by_owner: dict[int, list[dict]] = {}
+    for c in candidates:
+        oid = c.get("owner_id")
+        if not oid or not c.get("monthly") or c["monthly"] <= 0:
+            continue
+        by_owner.setdefault(oid, []).append(c)
+
+    for owner_id, entries in by_owner.items():
+        if len(entries) < 2:
+            continue
+
+        # Zkusit kombinace 2-4 jednotek
+        for size in range(2, min(len(entries) + 1, 5)):
+            for combo in combinations(entries, size):
+                combo_sum = sum(e["monthly"] for e in combo)
+                # Zkusit n-násobek (1-12 měsíců)
+                for n in range(1, 13):
+                    expected = combo_sum * n
+                    if abs(amount - expected) <= tolerance:
+                        return list(combo)
+    return None
+
+
+def _create_allocation(db: Session, payment: Payment, unit_id: int,
+                       owner_id: Optional[int], prescription_id: Optional[int],
+                       amount: float) -> None:
+    """Vytvořit PaymentAllocation záznam (dual-write)."""
+    db.add(PaymentAllocation(
+        payment_id=payment.id,
+        unit_id=unit_id,
+        owner_id=owner_id,
+        prescription_id=prescription_id,
+        amount=amount,
+    ))
+
+
+def match_payments(db: Session, statement_id: int, year: int,
+                   tolerance: float = 1.0) -> dict:
     """Napáruj platby z výpisu na jednotky přes VS + fallback jméno+částka.
 
     Args:
         db: databázová session
         statement_id: ID bankovního výpisu
         year: rok pro vyhledání předpisů
+        tolerance: tolerance shody částky v Kč (výchozí ±1)
 
     Returns:
         dict s počty: matched, suggested, unmatched, total
@@ -126,6 +174,12 @@ def match_payments(db: Session, statement_id: int, year: int) -> dict:
             payment.prescription_id = prescription.id
 
         payment.assigned_month = payment.date.month if payment.date else None
+
+        # Dual-write: vytvořit alokaci
+        _create_allocation(
+            db, payment, unit_id, payment.owner_id,
+            payment.prescription_id, payment.amount,
+        )
         matched += 1
 
     db.flush()
@@ -151,7 +205,9 @@ def match_payments(db: Session, statement_id: int, year: int) -> dict:
                         "name_norm": norm,
                         "words": set(norm.split()),
                         "unit_id": presc.unit_id,
+                        "owner_id": owner_by_unit.get(presc.unit_id),
                         "monthly": presc.monthly_total,
+                        "prescription_id": presc.id,
                     })
 
         from app.models import Owner
@@ -167,7 +223,9 @@ def match_payments(db: Session, statement_id: int, year: int) -> dict:
                     "name_norm": owner.name_normalized,
                     "words": set(owner.name_normalized.split()),
                     "unit_id": ou.unit_id,
+                    "owner_id": ou.owner_id,
                     "monthly": presc.monthly_total if presc else None,
+                    "prescription_id": presc.id if presc else None,
                 })
 
         for payment in still_unmatched:
@@ -181,15 +239,12 @@ def match_payments(db: Session, statement_id: int, year: int) -> dict:
             # Najít kandidáta kde částka odpovídá předpisu
             best = None
             for c in candidates:
-                if _check_amount_match(payment.amount, c["monthly"]):
+                if _check_amount_match(payment.amount, c["monthly"], tolerance):
                     best = c
                     break
 
-            # Pokud jen 1 jmenný kandidát a částka nesedí, přesto navrhnout
-            if not best and len(candidates) == 1:
-                best = candidates[0]
-
             if best:
+                # Single-unit match
                 payment.unit_id = best["unit_id"]
                 payment.owner_id = owner_by_unit.get(best["unit_id"])
                 payment.match_status = PaymentMatchStatus.SUGGESTED
@@ -199,7 +254,46 @@ def match_payments(db: Session, statement_id: int, year: int) -> dict:
                 if presc:
                     payment.prescription_id = presc.id
 
+                _create_allocation(
+                    db, payment, best["unit_id"], payment.owner_id,
+                    payment.prescription_id, payment.amount,
+                )
                 suggested += 1
+            else:
+                # Zkusit multi-unit match (součet předpisů více jednotek)
+                multi = _find_multi_unit_match(payment.amount, candidates, tolerance)
+                if multi:
+                    # Multi-unit → Payment.unit_id = None, N alokací
+                    payment.unit_id = None
+                    payment.owner_id = multi[0].get("owner_id")
+                    payment.match_status = PaymentMatchStatus.SUGGESTED
+                    payment.assigned_month = payment.date.month if payment.date else None
+
+                    for entry in multi:
+                        _create_allocation(
+                            db, payment, entry["unit_id"],
+                            entry.get("owner_id"),
+                            entry.get("prescription_id"),
+                            entry["monthly"],
+                        )
+                    suggested += 1
+                elif len(candidates) == 1:
+                    # Pokud jen 1 jmenný kandidát a částka nesedí, přesto navrhnout
+                    best = candidates[0]
+                    payment.unit_id = best["unit_id"]
+                    payment.owner_id = owner_by_unit.get(best["unit_id"])
+                    payment.match_status = PaymentMatchStatus.SUGGESTED
+                    payment.assigned_month = payment.date.month if payment.date else None
+
+                    presc = prescriptions_by_unit.get(best["unit_id"])
+                    if presc:
+                        payment.prescription_id = presc.id
+
+                    _create_allocation(
+                        db, payment, best["unit_id"], payment.owner_id,
+                        payment.prescription_id, payment.amount,
+                    )
+                    suggested += 1
 
         db.flush()
 

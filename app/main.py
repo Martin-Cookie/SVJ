@@ -297,6 +297,11 @@ def _ensure_indexes():
         ("ix_payments_unit_id", "payments", "unit_id"),
         ("ix_payments_owner_id", "payments", "owner_id"),
         ("ix_payments_prescription_id", "payments", "prescription_id"),
+        # payment_allocations
+        ("ix_payment_allocations_payment_id", "payment_allocations", "payment_id"),
+        ("ix_payment_allocations_unit_id", "payment_allocations", "unit_id"),
+        ("ix_payment_allocations_owner_id", "payment_allocations", "owner_id"),
+        ("ix_payment_allocations_prescription_id", "payment_allocations", "prescription_id"),
         ("ix_settlements_year", "settlements", "year"),
         ("ix_settlements_unit_id", "settlements", "unit_id"),
         ("ix_settlements_status", "settlements", "status"),
@@ -372,6 +377,39 @@ def _seed_email_templates():
         logger.info("Default email template seeded")
 
 
+def _migrate_payment_allocations():
+    """Vytvořit PaymentAllocation záznamy pro existující napárované platby."""
+    from sqlalchemy.orm import Session as _Session
+    from app.models.payment import Payment, PaymentAllocation, PaymentMatchStatus
+
+    with _Session(engine) as session:
+        # Zjistit zda tabulka existuje a má data
+        existing_count = session.query(PaymentAllocation).count()
+        if existing_count > 0:
+            return  # Už migrováno
+
+        # Pro každou napárovanou platbu s unit_id vytvořit alokaci
+        payments = (
+            session.query(Payment)
+            .filter(Payment.unit_id.isnot(None))
+            .filter(Payment.match_status != PaymentMatchStatus.UNMATCHED)
+            .all()
+        )
+        if not payments:
+            return
+
+        for p in payments:
+            session.add(PaymentAllocation(
+                payment_id=p.id,
+                unit_id=p.unit_id,
+                owner_id=p.owner_id,
+                prescription_id=p.prescription_id,
+                amount=p.amount,
+            ))
+        session.commit()
+        logger.info("Migrated %d payments → payment_allocations", len(payments))
+
+
 _ALL_MIGRATIONS = [
     ("units table", _migrate_units_table),
     ("owner_units history", _migrate_owner_units_history),
@@ -381,6 +419,7 @@ _ALL_MIGRATIONS = [
     ("svj_info voting_import_mapping", _migrate_svj_info_voting_mapping),
     ("svj_info import_mappings", _migrate_svj_import_mappings),
     ("email_logs name_normalized", _migrate_email_log_name_normalized),
+    ("payment_allocations migration", _migrate_payment_allocations),
     ("index creation", _ensure_indexes),
     ("code list seeding", _seed_code_lists),
     ("email template seeding", _seed_email_templates),

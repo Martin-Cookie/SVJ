@@ -16,8 +16,35 @@
         </span>
     </td>
     <td class="px-2 py-1.5">
-        {% if p.match_status.value == 'suggested' and p.unit %}
-        {# SUGGESTED — modrý badge s tlačítky potvrdit/odmítnout #}
+        {% if p.match_status.value == 'suggested' and p.allocations|length > 1 %}
+        {# Multi-unit SUGGESTED — více badge + potvrdit/odmítnout #}
+        <span class="inline-flex items-center gap-1 flex-wrap">
+            {% for a in p.allocations %}
+            <span class="px-1.5 py-0.5 text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full" title="{{ a.amount|fmt_num }} Kč">
+                č. {{ a.unit.unit_number }}
+            </span>
+            {% endfor %}
+            <form method="post" action="/platby/vypisy/{{ statement.id }}/potvrdit/{{ p.id }}" hx-boost="false" class="inline">
+                <input type="hidden" name="q" value="{{ q }}">
+                <input type="hidden" name="sort" value="{{ sort }}">
+                <input type="hidden" name="order" value="{{ order }}">
+                <input type="hidden" name="stav" value="{{ stav }}">
+                <input type="hidden" name="smer" value="{{ smer }}">
+                <input type="hidden" name="back" value="{{ back_url }}">
+                <button type="submit" class="px-1 py-0.5 text-xs text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300" title="Potvrdit návrh">✓</button>
+            </form>
+            <form method="post" action="/platby/vypisy/{{ statement.id }}/odmitnout/{{ p.id }}" hx-boost="false" class="inline">
+                <input type="hidden" name="q" value="{{ q }}">
+                <input type="hidden" name="sort" value="{{ sort }}">
+                <input type="hidden" name="order" value="{{ order }}">
+                <input type="hidden" name="stav" value="{{ stav }}">
+                <input type="hidden" name="smer" value="{{ smer }}">
+                <input type="hidden" name="back" value="{{ back_url }}">
+                <button type="submit" class="px-1 py-0.5 text-xs text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300" title="Odmítnout návrh">✕</button>
+            </form>
+        </span>
+        {% elif p.match_status.value == 'suggested' and p.unit %}
+        {# Single-unit SUGGESTED — modrý badge s tlačítky potvrdit/odmítnout #}
         <span class="inline-flex items-center gap-1">
             <span class="px-2 py-0.5 text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full">
                 č. {{ p.unit.unit_number }}
@@ -41,6 +68,15 @@
                 <button type="submit" class="px-1 py-0.5 text-xs text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300" title="Odmítnout návrh">✕</button>
             </form>
         </span>
+        {% elif p.allocations|length > 1 %}
+        {# Multi-unit potvrzené — zelené badge #}
+        <span class="inline-flex items-center gap-1 flex-wrap">
+            {% for a in p.allocations %}
+            <a href="/jednotky/{{ a.unit.id }}?back={{ (list_url ~ '#p-' ~ p.id)|urlencode }}" class="px-1.5 py-0.5 text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full hover:bg-green-200" title="{{ a.amount|fmt_num }} Kč">
+                č. {{ a.unit.unit_number }}
+            </a>
+            {% endfor %}
+        </span>
         {% elif p.unit %}
         <a href="/jednotky/{{ p.unit.id }}?back={{ (list_url ~ '#p-' ~ p.id)|urlencode }}" class="px-2 py-0.5 text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full hover:bg-green-200">
             č. {{ p.unit.unit_number }}
@@ -59,8 +95,9 @@
             <input type="hidden" name="stav" value="{{ stav }}">
             <input type="hidden" name="smer" value="{{ smer }}">
             <input type="hidden" name="back" value="{{ back_url }}">
-            <input id="assign-input-{{ p.id }}" type="number" name="unit_id" placeholder="č." required min="1"
-                class="w-16 px-1.5 py-0.5 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+            <input id="assign-input-{{ p.id }}" type="text" name="unit_id" placeholder="č. (5, 425)" required
+                class="w-24 px-1.5 py-0.5 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                title="Číslo jednotky nebo více oddělených čárkou">
             <button type="submit" class="px-1.5 py-0.5 bg-green-600 text-white text-xs rounded hover:bg-green-700">OK</button>
             <button type="button" onclick="document.getElementById('assign-form-{{ p.id }}').classList.add('hidden');document.getElementById('assign-btn-{{ p.id }}').classList.remove('hidden')"
                 class="px-1 py-0.5 text-gray-400 hover:text-gray-600 text-xs" title="Zrušit">✕</button>

@@ -6,7 +6,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models import (
-    OwnerUnit, Payment, PaymentDirection, PaymentMatchStatus,
+    OwnerUnit, Payment, PaymentAllocation, PaymentDirection, PaymentMatchStatus,
     Prescription, PrescriptionYear,
     Unit, UnitBalance,
 )
@@ -35,21 +35,21 @@ def compute_payment_matrix(db: Session, year: int, section: str = "", space_type
         if p.unit_id:
             presc_by_unit[p.unit_id] = p
 
-    # Platby příjmové, napárované, seskupené per unit_id + měsíc
+    # Platby příjmové, napárované, seskupené per unit_id + měsíc (přes alokace)
     matched_statuses = [PaymentMatchStatus.AUTO_MATCHED, PaymentMatchStatus.SUGGESTED, PaymentMatchStatus.MANUAL]
     payments = (
         db.query(
-            Payment.unit_id,
+            PaymentAllocation.unit_id,
             func.extract("month", Payment.date).label("month"),
-            func.sum(Payment.amount).label("total"),
+            func.sum(PaymentAllocation.amount).label("total"),
         )
+        .join(Payment)
         .filter(
             Payment.direction == PaymentDirection.INCOME,
             Payment.match_status.in_(matched_statuses),
-            Payment.unit_id.isnot(None),
             func.extract("year", Payment.date) == year,
         )
-        .group_by(Payment.unit_id, func.extract("month", Payment.date))
+        .group_by(PaymentAllocation.unit_id, func.extract("month", Payment.date))
         .all()
     )
 
@@ -169,12 +169,13 @@ def compute_unit_payment_detail(db: Session, unit_id: int, year: int) -> dict:
 
     monthly = presc.monthly_total if presc else 0
 
-    # Všechny platby pro tuto jednotku v daném roce
+    # Všechny platby pro tuto jednotku v daném roce (přes alokace)
     matched_statuses = [PaymentMatchStatus.AUTO_MATCHED, PaymentMatchStatus.SUGGESTED, PaymentMatchStatus.MANUAL]
-    payments = (
-        db.query(Payment)
+    alloc_rows = (
+        db.query(PaymentAllocation, Payment)
+        .join(Payment)
         .filter(
-            Payment.unit_id == unit_id,
+            PaymentAllocation.unit_id == unit_id,
             Payment.direction == PaymentDirection.INCOME,
             Payment.match_status.in_(matched_statuses),
             func.extract("year", Payment.date) == year,
@@ -182,12 +183,17 @@ def compute_unit_payment_detail(db: Session, unit_id: int, year: int) -> dict:
         .order_by(Payment.date)
         .all()
     )
+    # Přidat alloc_amount na Payment objekty pro zobrazení
+    payments = []
+    for alloc, payment in alloc_rows:
+        payment.alloc_amount = alloc.amount
+        payments.append(payment)
 
     # Měsíční souhrn
     months = {}
     for m in range(1, 13):
         m_payments = [p for p in payments if p.date.month == m]
-        paid = sum(p.amount for p in m_payments)
+        paid = sum(p.alloc_amount for p in m_payments)
         if m_payments:
             if paid >= monthly and monthly > 0:
                 status = "paid"
@@ -199,7 +205,7 @@ def compute_unit_payment_detail(db: Session, unit_id: int, year: int) -> dict:
             status = "no_data"
         months[m] = {"paid": paid, "status": status, "payments": m_payments}
 
-    total_paid = sum(p.amount for p in payments)
+    total_paid = sum(p.alloc_amount for p in payments)
     balance = db.query(UnitBalance).filter_by(unit_id=unit_id, year=year).first()
     opening = balance.opening_amount if balance else 0
 
