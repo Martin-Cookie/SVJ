@@ -53,6 +53,10 @@
                 {% if stav == 'auto_matched' %}bg-green-600 text-white ring-2 ring-green-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
                 Napárováno
             </a>
+            <a href="{{ _base }}&stav=suggested{{ _back }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
+                {% if stav == 'suggested' %}bg-blue-600 text-white ring-2 ring-blue-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
+                Návrhy
+            </a>
             <a href="{{ _base }}&stav=manual{{ _back }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
                 {% if stav == 'manual' %}bg-purple-600 text-white ring-2 ring-purple-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
                 Ručně

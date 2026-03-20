@@ -661,7 +661,7 @@ async def unit_detail(
         ).first()
         if presc:
             monthly = presc.monthly_total or 0
-            matched_statuses = [PaymentMatchStatus.AUTO_MATCHED, PaymentMatchStatus.MANUAL]
+            matched_statuses = [PaymentMatchStatus.AUTO_MATCHED, PaymentMatchStatus.SUGGESTED, PaymentMatchStatus.MANUAL]
             total_paid = db.query(
                 func.coalesce(func.sum(Payment.amount), 0)
             ).filter(

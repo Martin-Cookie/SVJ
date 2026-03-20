@@ -261,7 +261,7 @@ async def home(
 
     # Payment stats
     statement_count = db.query(BankStatement).count()
-    matched_statuses = [PaymentMatchStatus.AUTO_MATCHED, PaymentMatchStatus.MANUAL]
+    matched_statuses = [PaymentMatchStatus.AUTO_MATCHED, PaymentMatchStatus.SUGGESTED, PaymentMatchStatus.MANUAL]
     matched_payments = db.query(Payment).filter(
         Payment.direction == PaymentDirection.INCOME,
         Payment.match_status.in_(matched_statuses),

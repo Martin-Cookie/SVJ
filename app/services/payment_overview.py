@@ -36,7 +36,7 @@ def compute_payment_matrix(db: Session, year: int, section: str = "", space_type
             presc_by_unit[p.unit_id] = p
 
     # Platby příjmové, napárované, seskupené per unit_id + měsíc
-    matched_statuses = [PaymentMatchStatus.AUTO_MATCHED, PaymentMatchStatus.MANUAL]
+    matched_statuses = [PaymentMatchStatus.AUTO_MATCHED, PaymentMatchStatus.SUGGESTED, PaymentMatchStatus.MANUAL]
     payments = (
         db.query(
             Payment.unit_id,
@@ -170,7 +170,7 @@ def compute_unit_payment_detail(db: Session, unit_id: int, year: int) -> dict:
     monthly = presc.monthly_total if presc else 0
 
     # Všechny platby pro tuto jednotku v daném roce
-    matched_statuses = [PaymentMatchStatus.AUTO_MATCHED, PaymentMatchStatus.MANUAL]
+    matched_statuses = [PaymentMatchStatus.AUTO_MATCHED, PaymentMatchStatus.SUGGESTED, PaymentMatchStatus.MANUAL]
     payments = (
         db.query(Payment)
         .filter(

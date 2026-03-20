@@ -34,7 +34,7 @@ def compute_nav_stats(db: Session) -> dict:
     statement_count = db.query(BankStatement).count()
 
     # Jeden kombinovaný dotaz na Payment statistiky
-    matched_statuses = [PaymentMatchStatus.AUTO_MATCHED, PaymentMatchStatus.MANUAL]
+    matched_statuses = [PaymentMatchStatus.AUTO_MATCHED, PaymentMatchStatus.SUGGESTED, PaymentMatchStatus.MANUAL]
     payment_stats = db.query(
         func.count(Payment.id).label("total"),
         func.count(Payment.id).filter(Payment.match_status == PaymentMatchStatus.UNMATCHED).label("unmatched"),
@@ -94,7 +94,7 @@ def _count_debtors_fast(db: Session, year: int) -> int:
         return 0
 
     # Kolik měsíců má data (alespoň 1 platba)
-    matched_statuses = [PaymentMatchStatus.AUTO_MATCHED, PaymentMatchStatus.MANUAL]
+    matched_statuses = [PaymentMatchStatus.AUTO_MATCHED, PaymentMatchStatus.SUGGESTED, PaymentMatchStatus.MANUAL]
     months_rows = (
         db.query(func.distinct(func.extract("month", Payment.date)))
         .filter(

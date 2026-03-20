@@ -45,6 +45,7 @@ class PaymentDirection(str, enum.Enum):
 
 class PaymentMatchStatus(str, enum.Enum):
     AUTO_MATCHED = "auto_matched"
+    SUGGESTED = "suggested"
     MANUAL = "manual"
     UNMATCHED = "unmatched"
 

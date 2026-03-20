@@ -41,7 +41,7 @@ def generate_settlements(db: Session, year: int) -> dict:
     )
 
     # Platby příjmové napárované per unit_id
-    matched_statuses = [PaymentMatchStatus.AUTO_MATCHED, PaymentMatchStatus.MANUAL]
+    matched_statuses = [PaymentMatchStatus.AUTO_MATCHED, PaymentMatchStatus.SUGGESTED, PaymentMatchStatus.MANUAL]
     paid_rows = (
         db.query(
             Payment.unit_id,
@@ -155,7 +155,7 @@ def get_settlement_detail(db: Session, settlement_id: int) -> Optional[dict]:
         return None
 
     # Platby napárované na tuto jednotku v daném roce
-    matched_statuses = [PaymentMatchStatus.AUTO_MATCHED, PaymentMatchStatus.MANUAL]
+    matched_statuses = [PaymentMatchStatus.AUTO_MATCHED, PaymentMatchStatus.SUGGESTED, PaymentMatchStatus.MANUAL]
     payments = (
         db.query(Payment)
         .filter(

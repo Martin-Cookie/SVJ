@@ -38,6 +38,7 @@ async def vypisy_seznam(request: Request, db: Session = Depends(get_db)):
             Payment.statement_id,
             func.count(Payment.id).label("total"),
             func.count(Payment.id).filter(Payment.match_status == PaymentMatchStatus.AUTO_MATCHED).label("matched"),
+            func.count(Payment.id).filter(Payment.match_status == PaymentMatchStatus.SUGGESTED).label("suggested"),
             func.count(Payment.id).filter(Payment.match_status == PaymentMatchStatus.MANUAL).label("manual"),
             func.count(Payment.id).filter(Payment.match_status == PaymentMatchStatus.UNMATCHED).label("unmatched"),
         )
@@ -50,6 +51,7 @@ async def vypisy_seznam(request: Request, db: Session = Depends(get_db)):
         stmt._stats = {
             "total": r.total if r else 0,
             "matched": (r.matched + r.manual) if r else 0,
+            "suggested": r.suggested if r else 0,
             "unmatched": r.unmatched if r else 0,
         }
 
@@ -316,7 +318,9 @@ async def vypis_import_upload(
     return RedirectResponse(
         f"/platby/vypisy/{statement.id}?flash=import_ok"
         f"&inserted={inserted}&skipped={skipped}"
-        f"&matched={match_result['matched']}&unmatched={match_result['unmatched']}",
+        f"&matched={match_result['matched']}"
+        f"&suggested={match_result.get('suggested', 0)}"
+        f"&unmatched={match_result['unmatched']}",
         status_code=302,
     )
 
@@ -397,20 +401,32 @@ async def vypis_detail(
         inserted = request.query_params.get("inserted", "0")
         skipped = request.query_params.get("skipped", "0")
         matched = request.query_params.get("matched", "0")
+        suggested_count = request.query_params.get("suggested", "0")
         unmatched = request.query_params.get("unmatched", "0")
         flash_message = (
             f"Import dokončen: {inserted} plateb vloženo"
             + (f", {skipped} duplicit přeskočeno" if int(skipped) > 0 else "")
-            + f", {matched} napárováno, {unmatched} nenapárováno."
+            + f", {matched} napárováno"
+            + (f", {suggested_count} návrhů" if int(suggested_count) > 0 else "")
+            + f", {unmatched} nenapárováno."
         )
     elif flash == "match_ok":
         flash_message = "Ruční přiřazení uloženo."
     elif flash == "match_fail":
         flash_message = "Jednotka s tímto číslem nebyla nalezena."
         flash_type = "error"
+    elif flash == "confirmed":
+        flash_message = "Návrh potvrzen."
+    elif flash == "rejected":
+        flash_message = "Návrh odmítnut."
     elif flash == "rematch_ok":
         matched = request.query_params.get("matched", "0")
-        flash_message = f"Přepárování dokončeno: {matched} plateb napárováno."
+        suggested_count = request.query_params.get("suggested", "0")
+        flash_message = (
+            f"Přepárování dokončeno: {matched} plateb napárováno"
+            + (f", {suggested_count} návrhů" if int(suggested_count) > 0 else "")
+            + "."
+        )
 
     list_url = build_list_url(request)
     back_url = request.query_params.get("back", "")
@@ -506,6 +522,54 @@ async def platba_prirazeni(
     )
 
 
+# ── Potvrzení / odmítnutí návrhu ──────────────────────────────────────
+
+
+@router.post("/vypisy/{statement_id}/potvrdit/{payment_id}")
+async def platba_potvrdit(
+    request: Request,
+    statement_id: int,
+    payment_id: int,
+    db: Session = Depends(get_db),
+):
+    """Potvrdit navržené přiřazení (SUGGESTED → MANUAL)."""
+    form_data = await request.form()
+
+    payment = db.query(Payment).filter_by(id=payment_id, statement_id=statement_id).first()
+    if payment and payment.match_status == PaymentMatchStatus.SUGGESTED:
+        payment.match_status = PaymentMatchStatus.MANUAL
+        db.commit()
+
+    return RedirectResponse(
+        _detail_redirect_url(statement_id, form_data, "confirmed", anchor=f"p-{payment_id}"),
+        status_code=302,
+    )
+
+
+@router.post("/vypisy/{statement_id}/odmitnout/{payment_id}")
+async def platba_odmitnout(
+    request: Request,
+    statement_id: int,
+    payment_id: int,
+    db: Session = Depends(get_db),
+):
+    """Odmítnout navržené přiřazení (SUGGESTED → UNMATCHED)."""
+    form_data = await request.form()
+
+    payment = db.query(Payment).filter_by(id=payment_id, statement_id=statement_id).first()
+    if payment and payment.match_status == PaymentMatchStatus.SUGGESTED:
+        payment.unit_id = None
+        payment.owner_id = None
+        payment.prescription_id = None
+        payment.match_status = PaymentMatchStatus.UNMATCHED
+        db.commit()
+
+    return RedirectResponse(
+        _detail_redirect_url(statement_id, form_data, "rejected", anchor=f"p-{payment_id}"),
+        status_code=302,
+    )
+
+
 # ── Přepárování výpisu ─────────────────────────────────────────────────
 
 
@@ -524,16 +588,16 @@ async def vypis_preparovat(
     if not statement:
         return RedirectResponse("/platby/vypisy", status_code=302)
 
-    # Reset nenapárovaných (ponech ruční)
-    db.query(Payment).filter_by(
-        statement_id=statement_id,
-        match_status=PaymentMatchStatus.AUTO_MATCHED,
+    # Reset auto + suggested (ponech ruční)
+    db.query(Payment).filter(
+        Payment.statement_id == statement_id,
+        Payment.match_status.in_([PaymentMatchStatus.AUTO_MATCHED, PaymentMatchStatus.SUGGESTED]),
     ).update({
         Payment.unit_id: None,
         Payment.owner_id: None,
         Payment.prescription_id: None,
         Payment.match_status: PaymentMatchStatus.UNMATCHED,
-    })
+    }, synchronize_session="fetch")
     db.flush()
 
     year = statement.period_from.year if statement.period_from else datetime.utcnow().year
@@ -541,7 +605,10 @@ async def vypis_preparovat(
     statement.matched_count = result["matched"]
     db.commit()
 
-    url = _detail_redirect_url(statement_id, form_data, f"rematch_ok&matched={result['matched']}")
+    url = _detail_redirect_url(
+        statement_id, form_data,
+        f"rematch_ok&matched={result['matched']}&suggested={result.get('suggested', 0)}",
+    )
     return RedirectResponse(url, status_code=302)
 
 

@@ -1,5 +1,5 @@
-{% set match_labels = {"auto_matched": "Auto", "manual": "Ručně", "unmatched": "—"} %}
-{% set match_colors = {"auto_matched": "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300", "manual": "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300", "unmatched": "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300"} %}
+{% set match_labels = {"auto_matched": "Auto", "suggested": "Návrh", "manual": "Ručně", "unmatched": "—"} %}
+{% set match_colors = {"auto_matched": "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300", "suggested": "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300", "manual": "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300", "unmatched": "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300"} %}
 {% for p in payments %}
 <tr class="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors" id="p-{{ p.id }}">
     <td class="px-2 py-1.5 text-gray-600 dark:text-gray-400 whitespace-nowrap">{{ p.date.strftime('%d.%m.') if p.date else "—" }}</td>
@@ -16,7 +16,32 @@
         </span>
     </td>
     <td class="px-2 py-1.5">
-        {% if p.unit %}
+        {% if p.match_status.value == 'suggested' and p.unit %}
+        {# SUGGESTED — modrý badge s tlačítky potvrdit/odmítnout #}
+        <span class="inline-flex items-center gap-1">
+            <span class="px-2 py-0.5 text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full">
+                č. {{ p.unit.unit_number }}
+            </span>
+            <form method="post" action="/platby/vypisy/{{ statement.id }}/potvrdit/{{ p.id }}" hx-boost="false" class="inline">
+                <input type="hidden" name="q" value="{{ q }}">
+                <input type="hidden" name="sort" value="{{ sort }}">
+                <input type="hidden" name="order" value="{{ order }}">
+                <input type="hidden" name="stav" value="{{ stav }}">
+                <input type="hidden" name="smer" value="{{ smer }}">
+                <input type="hidden" name="back" value="{{ back_url }}">
+                <button type="submit" class="px-1 py-0.5 text-xs text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300" title="Potvrdit návrh">✓</button>
+            </form>
+            <form method="post" action="/platby/vypisy/{{ statement.id }}/odmitnout/{{ p.id }}" hx-boost="false" class="inline">
+                <input type="hidden" name="q" value="{{ q }}">
+                <input type="hidden" name="sort" value="{{ sort }}">
+                <input type="hidden" name="order" value="{{ order }}">
+                <input type="hidden" name="stav" value="{{ stav }}">
+                <input type="hidden" name="smer" value="{{ smer }}">
+                <input type="hidden" name="back" value="{{ back_url }}">
+                <button type="submit" class="px-1 py-0.5 text-xs text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300" title="Odmítnout návrh">✕</button>
+            </form>
+        </span>
+        {% elif p.unit %}
         <a href="/jednotky/{{ p.unit.id }}?back={{ (list_url ~ '#p-' ~ p.id)|urlencode }}" class="px-2 py-0.5 text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full hover:bg-green-200">
             č. {{ p.unit.unit_number }}
         </a>
