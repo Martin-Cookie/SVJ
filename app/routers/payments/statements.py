@@ -86,27 +86,52 @@ async def vypis_import_form(request: Request, db: Session = Depends(get_db)):
 @router.post("/vypisy/import")
 async def vypis_import_upload(
     request: Request,
-    file: UploadFile = File(...),
+    file: UploadFile = File(None),
     db: Session = Depends(get_db),
 ):
     """Zpracování importu bankovního výpisu z CSV."""
     from app.services.bank_import import parse_fio_csv
     from app.services.payment_matching import match_payments
 
-    # Validace souboru
-    error = await validate_upload(file, **UPLOAD_LIMITS["csv"])
-    if error:
-        return templates.TemplateResponse("payments/vypis_import.html", {
-            "request": request,
-            "active_nav": "platby",
-            "error": error,
-            **compute_nav_stats(db),
-        })
+    form_data = await request.form()
+    force = form_data.get("force_overwrite")
+    saved_path = form_data.get("saved_path", "")
+
+    # Při force_overwrite použít uložený soubor
+    if force and saved_path:
+        saved_file = Path(saved_path)
+        if not saved_file.is_file():
+            return templates.TemplateResponse("payments/vypis_import.html", {
+                "request": request,
+                "active_nav": "platby",
+                "error": "Uložený soubor expiroval. Nahrajte soubor znovu.",
+                **compute_nav_stats(db),
+            })
+        file_content = saved_file.read_bytes()
+        original_filename = saved_file.name.split("_", 2)[-1] if "_" in saved_file.name else saved_file.name
+    else:
+        # Nový upload — validace
+        if not file or not file.filename:
+            return templates.TemplateResponse("payments/vypis_import.html", {
+                "request": request,
+                "active_nav": "platby",
+                "error": "Vyberte soubor CSV.",
+                **compute_nav_stats(db),
+            })
+        error = await validate_upload(file, **UPLOAD_LIMITS["csv"])
+        if error:
+            return templates.TemplateResponse("payments/vypis_import.html", {
+                "request": request,
+                "active_nav": "platby",
+                "error": error,
+                **compute_nav_stats(db),
+            })
+        file_content = await file.read()
+        original_filename = file.filename
 
     # Čtení a parsování
-    file_content = await file.read()
     try:
-        result = parse_fio_csv(file_content, file.filename)
+        result = parse_fio_csv(file_content, original_filename)
     except Exception as e:
         logger.error("CSV parse error: %s", e)
         return templates.TemplateResponse("payments/vypis_import.html", {
@@ -140,9 +165,14 @@ async def vypis_import_upload(
         .filter_by(period_from=meta.get("period_from"), period_to=meta.get("period_to"))
         .first()
     )
-    form_data = await request.form()
-    force = form_data.get("force_overwrite")
     if existing and not force:
+        # Uložit soubor na disk pro pozdější použití
+        temp_dir = Path(settings.upload_dir) / "temp"
+        temp_dir.mkdir(parents=True, exist_ok=True)
+        timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        temp_path = temp_dir / f"{timestamp}_{original_filename}"
+        temp_path.write_bytes(file_content)
+
         period_label = ""
         if meta.get("period_from"):
             period_label = f"{meta['period_from'].strftime('%d.%m.%Y')} – {meta['period_to'].strftime('%d.%m.%Y')}"
@@ -161,7 +191,8 @@ async def vypis_import_upload(
             "confirm_overwrite": True,
             "existing": existing,
             "period_label": period_label,
-            "filename": file.filename,
+            "filename": original_filename,
+            "saved_path": str(temp_path),
             "transaction_count": len(result["transactions"]),
             "manual_count": manual_count,
             **compute_nav_stats(db),
@@ -190,13 +221,13 @@ async def vypis_import_upload(
     dest_dir = settings.upload_dir / "csv"
     dest_dir.mkdir(parents=True, exist_ok=True)
     ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-    dest_path = dest_dir / f"{ts}_{file.filename}"
+    dest_path = dest_dir / f"{ts}_{original_filename}"
     with open(dest_path, "wb") as f:
         f.write(file_content)
 
     # Vytvořit BankStatement
     statement = BankStatement(
-        filename=file.filename,
+        filename=original_filename,
         file_path=str(dest_path),
         bank_account=meta.get("bank_account"),
         period_from=meta.get("period_from"),
@@ -266,6 +297,13 @@ async def vypis_import_upload(
 
     statement.matched_count = match_result["matched"]
     db.commit()
+
+    # Cleanup temp souboru
+    if saved_path:
+        try:
+            Path(saved_path).unlink(missing_ok=True)
+        except OSError:
+            pass
 
     return RedirectResponse(
         f"/platby/vypisy/{statement.id}?flash=import_ok"
