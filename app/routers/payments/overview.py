@@ -228,6 +228,7 @@ async def platby_jednotka(
     return templates.TemplateResponse("payments/jednotka_platby.html", {
         "request": request,
         "active_nav": "platby",
+        "active_tab": "prehled",
         "unit": unit,
         "detail": detail,
         "rok": rok,

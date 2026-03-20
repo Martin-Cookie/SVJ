@@ -154,6 +154,7 @@ async def vyuctovani_seznam(
     ctx = {
         "request": request,
         "active_nav": "platby",
+        "active_tab": "vyuctovani",
         "settlements": settlements,
         "rok": rok,
         "years": years,
@@ -224,6 +225,7 @@ async def vyuctovani_detail(
     return templates.TemplateResponse("payments/vyuctovani_detail.html", {
         "request": request,
         "active_nav": "platby",
+        "active_tab": "vyuctovani",
         "settlement": settlement,
         "detail": detail,
         "back_url": back_url,

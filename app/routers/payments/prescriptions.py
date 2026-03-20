@@ -58,6 +58,7 @@ async def predpisy_import_form(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse("payments/predpisy_import.html", {
         "request": request,
         "active_nav": "platby",
+        "active_tab": "predpisy",
         "back_url": back_url,
         **compute_nav_stats(db),
     })
@@ -84,6 +85,7 @@ async def predpisy_import_upload(
             return templates.TemplateResponse("payments/predpisy_import.html", {
                 "request": request,
                 "active_nav": "platby",
+        "active_tab": "predpisy",
                 "error": "Uložený soubor expiroval. Nahrajte soubor znovu.",
                 "form_data": {"year": year},
                 **compute_nav_stats(db),
@@ -96,6 +98,7 @@ async def predpisy_import_upload(
             return templates.TemplateResponse("payments/predpisy_import.html", {
                 "request": request,
                 "active_nav": "platby",
+        "active_tab": "predpisy",
                 "error": "Vyberte soubor DOCX.",
                 "form_data": {"year": year},
                 **compute_nav_stats(db),
@@ -105,6 +108,7 @@ async def predpisy_import_upload(
             return templates.TemplateResponse("payments/predpisy_import.html", {
                 "request": request,
                 "active_nav": "platby",
+        "active_tab": "predpisy",
                 "error": error,
                 "form_data": {"year": year},
                 **compute_nav_stats(db),
@@ -125,6 +129,7 @@ async def predpisy_import_upload(
             return templates.TemplateResponse("payments/predpisy_import.html", {
                 "request": request,
                 "active_nav": "platby",
+        "active_tab": "predpisy",
                 "confirm_overwrite": True,
                 "existing_year": existing,
                 "form_data": {"year": year},
@@ -147,6 +152,7 @@ async def predpisy_import_upload(
         return templates.TemplateResponse("payments/predpisy_import.html", {
             "request": request,
             "active_nav": "platby",
+        "active_tab": "predpisy",
             "error": f"Chyba při čtení DOCX: {e}",
             "form_data": {"year": year},
             **compute_nav_stats(db),
@@ -317,6 +323,7 @@ async def predpisy_detail(
     ctx = {
         "request": request,
         "active_nav": "platby",
+        "active_tab": "predpisy",
         "prescription_year": prescription_year,
         "prescriptions": prescriptions,
         "space_types": space_types,
@@ -364,6 +371,7 @@ async def predpis_jednotka_detail(
     return templates.TemplateResponse("payments/predpis_detail.html", {
         "request": request,
         "active_nav": "platby",
+        "active_tab": "predpisy",
         "prescription_year": prescription_year,
         "prescription": prescription,
         "list_url": list_url,

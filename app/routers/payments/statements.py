@@ -78,6 +78,7 @@ async def vypis_import_form(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse("payments/vypis_import.html", {
         "request": request,
         "active_nav": "platby",
+        "active_tab": "vypisy",
         "back_url": back_url,
         **compute_nav_stats(db),
     })
@@ -104,6 +105,7 @@ async def vypis_import_upload(
             return templates.TemplateResponse("payments/vypis_import.html", {
                 "request": request,
                 "active_nav": "platby",
+                "active_tab": "vypisy",
                 "error": "Uložený soubor expiroval. Nahrajte soubor znovu.",
                 **compute_nav_stats(db),
             })
@@ -115,6 +117,7 @@ async def vypis_import_upload(
             return templates.TemplateResponse("payments/vypis_import.html", {
                 "request": request,
                 "active_nav": "platby",
+                "active_tab": "vypisy",
                 "error": "Vyberte soubor CSV.",
                 **compute_nav_stats(db),
             })
@@ -123,6 +126,7 @@ async def vypis_import_upload(
             return templates.TemplateResponse("payments/vypis_import.html", {
                 "request": request,
                 "active_nav": "platby",
+                "active_tab": "vypisy",
                 "error": error,
                 **compute_nav_stats(db),
             })
@@ -137,6 +141,7 @@ async def vypis_import_upload(
         return templates.TemplateResponse("payments/vypis_import.html", {
             "request": request,
             "active_nav": "platby",
+            "active_tab": "vypisy",
             "error": f"Chyba při čtení CSV: {e}",
             **compute_nav_stats(db),
         })
@@ -145,6 +150,7 @@ async def vypis_import_upload(
         return templates.TemplateResponse("payments/vypis_import.html", {
             "request": request,
             "active_nav": "platby",
+            "active_tab": "vypisy",
             "error": "Chyby při parsování: " + "; ".join(result["errors"][:5]),
             **compute_nav_stats(db),
         })
@@ -153,6 +159,7 @@ async def vypis_import_upload(
         return templates.TemplateResponse("payments/vypis_import.html", {
             "request": request,
             "active_nav": "platby",
+            "active_tab": "vypisy",
             "error": "CSV neobsahuje žádné transakce.",
             **compute_nav_stats(db),
         })
@@ -188,6 +195,7 @@ async def vypis_import_upload(
         return templates.TemplateResponse("payments/vypis_import.html", {
             "request": request,
             "active_nav": "platby",
+            "active_tab": "vypisy",
             "confirm_overwrite": True,
             "existing": existing,
             "period_label": period_label,
@@ -410,6 +418,7 @@ async def vypis_detail(
     ctx = {
         "request": request,
         "active_nav": "platby",
+        "active_tab": "vypisy",
         "statement": statement,
         "payments": payments,
         "total_income": total_income,
