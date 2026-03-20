@@ -27,7 +27,7 @@
             <form method="post" action="/platby/zustatky/pridat" class="flex items-end space-x-3 flex-wrap gap-y-2">
                 <div>
                     <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Jednotka</label>
-                    <select name="unit_id" required class="w-32 px-3 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                    <select name="unit_id" required class="h-[30px] w-32 px-3 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
                         {% for unit in units %}
                         <option value="{{ unit.id }}" {% if unit.id in existing_unit_ids %}disabled{% endif %}>
                             {{ unit.unit_number }}{% if unit.id in existing_unit_ids %} (má zůstatek){% endif %}
@@ -38,20 +38,21 @@
                 <div>
                     <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Rok</label>
                     <input type="number" name="year" value="{{ rok or 2026 }}" required min="2020" max="2040"
-                        class="w-24 px-3 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                        class="h-[30px] w-24 px-3 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
                 </div>
                 <div>
-                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Částka</label>
-                    <p class="text-xs text-gray-400 dark:text-gray-500 mb-0.5">kladná = dluh, záporná = přeplatek</p>
+                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Částka
+                        <span class="font-normal text-gray-400 dark:text-gray-500 ml-1">kladná = dluh, záporná = přeplatek</span>
+                    </label>
                     <input type="number" name="opening_amount" step="0.01" required placeholder="0.00"
-                        class="w-36 px-3 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                        class="h-[30px] w-36 px-3 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
                 </div>
                 <div class="flex-1">
                     <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Poznámka</label>
                     <input type="text" name="note" placeholder="Poznámka..."
-                        class="w-full px-3 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                        class="h-[30px] w-full px-3 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
                 </div>
-                <button type="submit" class="px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded-lg hover:bg-green-700">Uložit</button>
+                <button type="submit" class="h-[30px] px-3 bg-green-600 text-white text-xs font-medium rounded-lg hover:bg-green-700">Uložit</button>
             </form>
         </div>
 
