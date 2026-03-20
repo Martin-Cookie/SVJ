@@ -26,6 +26,9 @@ from app.models import (
     TaxSession, TaxDocument, TaxDistribution,
     SyncSession, SyncRecord,
     ShareCheckSession, ShareCheckRecord, ShareCheckColumnMapping,
+    PrescriptionYear, Prescription, PrescriptionItem,
+    VariableSymbolMapping, BankStatement, Payment,
+    UnitBalance, Settlement, SettlementItem,
     EmailLog, ImportLog,
     ActivityLog, ActivityAction, log_activity,
 )
@@ -967,6 +970,16 @@ _PURGE_CATEGORIES = {
         "description": "Kontroly podílů SČD — relace, záznamy, mapování sloupců",
         "models": [ShareCheckRecord, ShareCheckSession, ShareCheckColumnMapping],
     },
+    "payments": {
+        "label": "Evidence plateb",
+        "description": "Předpisy, VS mapování, výpisy, platby, zůstatky, vyúčtování",
+        "models": [
+            SettlementItem, Settlement,
+            Payment, BankStatement,
+            PrescriptionItem, Prescription, PrescriptionYear,
+            VariableSymbolMapping, UnitBalance,
+        ],
+    },
     # Logy — rozpad na 3 podkategorie
     "email_logs": {
         "label": "Email logy",
@@ -1017,7 +1030,7 @@ _PURGE_CATEGORIES = {
 }
 
 _PURGE_ORDER = [
-    "owners", "votings", "tax", "sync", "share_check",
+    "owners", "votings", "tax", "sync", "share_check", "payments",
     "email_logs", "import_logs", "activity_logs",
     "svj_info", "board", "code_lists", "email_templates",
     "backups", "restore_log",
@@ -1030,6 +1043,7 @@ _PURGE_GROUPS = [
     {"cat_keys": ["tax"]},
     {"cat_keys": ["sync"]},
     {"cat_keys": ["share_check"]},
+    {"cat_keys": ["payments"]},
     {"label": "Logy", "cat_keys": ["email_logs", "import_logs", "activity_logs"]},
     {"label": "Administrace SVJ", "cat_keys": ["svj_info", "board", "code_lists", "email_templates"]},
     {"cat_keys": ["backups"]},
@@ -1083,6 +1097,7 @@ async def purge_data(request: Request, db: Session = Depends(get_db)):
         "tax": ["tax_pdfs"],
         "sync": ["csv"],
         "share_check": ["share_check"],
+        "payments": ["csv"],
     }
     for cat_key in categories:
         for subdir in _CATEGORY_UPLOAD_DIRS.get(cat_key, []):
