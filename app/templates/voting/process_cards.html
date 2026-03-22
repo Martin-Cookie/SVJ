@@ -2,7 +2,8 @@
 <div id="ballot-{{ ballot.id }}" class="bg-white rounded-lg shadow p-4">
     <div class="flex items-center gap-3 mb-3">
         <input type="checkbox" class="ballot-cb rounded text-blue-600 focus:ring-blue-500"
-               value="{{ ballot.id }}" onchange="toggleBallot(this)">
+               value="{{ ballot.id }}" onchange="toggleBallot(this)"
+               aria-label="Vybrat lístek {{ ballot.owner.display_name }}">
         <div class="flex-1">
             <h3 class="font-semibold text-gray-800">{{ ballot.owner.display_name }}</h3>
             <p class="text-sm text-gray-500">

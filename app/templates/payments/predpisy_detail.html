@@ -45,6 +45,7 @@
         <!-- Hledání -->
         <div class="mb-3">
             <input type="text" name="q" value="{{ q }}" placeholder="Hledat vlastníka, VS, sekci..."
+                aria-label="Hledat"
                 hx-get="/platby/predpisy/{{ prescription_year.id }}"
                 hx-trigger="keyup changed delay:300ms"
                 hx-target="#predpisy-tbody"

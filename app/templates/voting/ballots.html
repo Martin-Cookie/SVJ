@@ -51,6 +51,7 @@
                 {% if voting.status.value == 'active' %}
                 <th class="px-2 py-3 text-center w-8">
                     <input type="checkbox" id="ballot-select-all" onchange="toggleBallotCheckboxes(this)"
+                           aria-label="Vybrat vše"
                            class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
                 </th>
                 {% endif %}

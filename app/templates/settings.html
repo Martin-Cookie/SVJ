@@ -26,6 +26,7 @@
                 <div class="flex-1">
                     <input type="text" name="q" value="{{ q }}"
                            placeholder="Hledat příjemce, email, předmět, modul..."
+                           aria-label="Hledat"
                            hx-get="/nastaveni"
                            hx-trigger="keyup changed delay:300ms"
                            hx-target="#email-tbody"

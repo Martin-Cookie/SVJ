@@ -38,7 +38,8 @@
             <label class="flex items-start gap-3 border border-gray-200 rounded-lg p-3 cursor-pointer select-none hover:bg-gray-50">
                 <input type="checkbox" name="categories" value="{{ key }}"
                        class="purge-cb w-4 h-4 rounded border-gray-300 text-red-600 focus:ring-red-500 mt-0.5"
-                       onchange="purgeUpdateSelectAll()" data-key="{{ key }}">
+                       onchange="purgeUpdateSelectAll()" data-key="{{ key }}"
+                       aria-label="Vybrat {{ cat.label }}">
                 <div class="flex-1 min-w-0">
                     <div class="flex items-baseline gap-2">
                         <span class="text-sm font-medium text-gray-800">{{ cat.label }}</span>
@@ -65,7 +66,8 @@
                 <label class="flex items-center gap-2 mb-2 cursor-pointer select-none">
                     <input type="checkbox" class="purge-group-cb w-4 h-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
                            data-group-keys="{{ group.cat_keys|join(',') }}"
-                           onchange="purgeToggleGroup(this)">
+                           onchange="purgeToggleGroup(this)"
+                           aria-label="Vybrat skupinu {{ group.label }}">
                     <span class="text-sm font-semibold text-gray-700">{{ group.label }}</span>
                     {% set ns = namespace(total=0) %}
                     {% for key in group.cat_keys %}{% set ns.total = ns.total + purge_counts[key] %}{% endfor %}
@@ -79,7 +81,8 @@
                         <input type="checkbox" name="categories" value="{{ key }}"
                                class="purge-cb w-3.5 h-3.5 rounded border-gray-300 text-red-600 focus:ring-red-500"
                                data-key="{{ key }}" data-group="{{ group.cat_keys|join(',') }}"
-                               onchange="purgeUpdateGroupCb(this); purgeUpdateSelectAll()">
+                               onchange="purgeUpdateGroupCb(this); purgeUpdateSelectAll()"
+                               aria-label="Vybrat {{ cat.label }}">
                         <span class="text-sm text-gray-600">{{ cat.label }}</span>
                         <span class="text-xs text-gray-500">({{ count }})</span>
                     </label>
@@ -94,6 +97,7 @@
             <div>
                 <label class="block text-xs text-gray-500 mb-1">Pro potvrzení napište <strong class="text-red-600">DELETE</strong></label>
                 <input type="text" name="confirmation" id="purge-confirm-input" autocomplete="off"
+                       aria-label="Potvrzení smazání"
                        class="w-48 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500"
                        placeholder="DELETE">
             </div>

@@ -63,6 +63,7 @@
         <!-- Hledání -->
         <div class="mb-2">
             <input type="text" name="q" value="{{ q }}" placeholder="Hledat VS, popis..."
+                aria-label="Hledat"
                 hx-get="/platby/symboly"
                 hx-trigger="keyup changed delay:300ms"
                 hx-target="#symboly-tbody"

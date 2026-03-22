@@ -103,6 +103,7 @@
         <!-- Hledání -->
         <div class="mb-2">
             <input type="text" name="q" value="{{ q }}" placeholder="Hledat VS, protiúčet, poznámku..."
+                aria-label="Hledat"
                 hx-get="/platby/vypisy/{{ statement.id }}"
                 hx-trigger="keyup changed delay:300ms"
                 hx-target="#platby-tbody"

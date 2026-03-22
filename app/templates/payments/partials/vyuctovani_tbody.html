@@ -1,7 +1,7 @@
 {% for s in settlements %}
 <tr class="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors" id="v-{{ s.id }}">
     <td class="px-2 py-2 w-8">
-        <input type="checkbox" class="settlement-cb w-3.5 h-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer" value="{{ s.id }}">
+        <input type="checkbox" class="settlement-cb w-3.5 h-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer" value="{{ s.id }}" aria-label="Vybrat vyúčtování">
     </td>
     <td class="px-3 py-2 font-medium text-gray-900 dark:text-white whitespace-nowrap">
         <a href="/platby/vyuctovani/{{ s.id }}?back={{ (list_url ~ '#v-' ~ s.id)|urlencode }}"

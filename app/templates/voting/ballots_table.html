@@ -10,7 +10,7 @@
     {% if voting.status.value == 'active' %}
     <td class="px-2 py-2 text-center">
         {% if ballot.status.value == 'processed' %}
-        <input type="checkbox" class="ballot-cb rounded border-gray-300 text-blue-600 focus:ring-blue-500" value="{{ ballot.id }}" onchange="updateBulkResetBar()">
+        <input type="checkbox" class="ballot-cb rounded border-gray-300 text-blue-600 focus:ring-blue-500" value="{{ ballot.id }}" onchange="updateBulkResetBar()" aria-label="Vybrat lístek">
         {% endif %}
     </td>
     {% endif %}

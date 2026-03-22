@@ -90,6 +90,7 @@
         <form id="assign-form-{{ p.id }}" method="post" action="/platby/vypisy/{{ statement.id }}/prirazeni/{{ p.id }}" hx-boost="false" class="hidden inline-flex items-center gap-1">
             {{ filter_hidden() }}
             <input id="assign-input-{{ p.id }}" type="text" name="unit_id" placeholder="č. (5, 425)" required
+                aria-label="Číslo jednotky pro přiřazení"
                 class="w-24 px-1.5 py-0.5 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 title="Číslo jednotky nebo více oddělených čárkou">
             <button type="submit" class="px-1.5 py-0.5 bg-green-600 text-white text-xs rounded hover:bg-green-700">OK</button>

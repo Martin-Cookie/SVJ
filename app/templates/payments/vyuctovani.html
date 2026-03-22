@@ -71,6 +71,7 @@
         <div class="flex items-center justify-between mb-3 gap-3">
             <div>
                 <input type="text" name="q" value="{{ q }}" placeholder="Hledat č. jednotky, vlastníka, VS..."
+                    aria-label="Hledat"
                     hx-get="/platby/vyuctovani"
                     hx-trigger="keyup changed delay:300ms"
                     hx-target="#vyuctovani-tbody"
@@ -91,7 +92,7 @@
                 <input type="hidden" name="order" value="{{ order }}">
                 <input type="hidden" name="back" value="{{ back_url }}">
                 <span id="bulk-count" class="text-xs text-gray-500 dark:text-gray-400"></span>
-                <select name="novy_stav" required class="px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                <select name="novy_stav" required aria-label="Nový stav" class="px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
                     <option value="">Změnit stav na…</option>
                     <option value="generated">Vygenerováno</option>
                     <option value="sent">Odesláno</option>
@@ -112,6 +113,7 @@
                 <tr>
                     <th class="px-2 py-2 w-8">
                         <input type="checkbox" id="select-all" title="Vybrat vše"
+                            aria-label="Vybrat vše"
                             class="w-3.5 h-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer">
                     </th>
                     {% for col_key, col_label in [("cislo", "Č. jednotky"), ("vlastnik", "Vlastník"), ("predpis", "Předpis celkem"), ("zaplaceno", "Zaplaceno"), ("vysledek", "Výsledek"), ("stav", "Stav")] %}
