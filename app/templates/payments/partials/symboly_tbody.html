@@ -2,7 +2,7 @@
 {% set source_colors = {"auto": "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300", "manual": "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300", "legacy": "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300"} %}
 {% for m in mappings %}
 {# Zobrazovací řádek #}
-<tr class="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors" id="vs-{{ m.id }}" data-view-row="{{ m.id }}">
+<tr class="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors" id="vs-{{ m.id }}" data-view-row="{{ m.id }}" data-unit-id="{{ m.unit_id or '' }}" data-description="{{ m.description or '' }}">
     <td class="px-3 py-2 font-mono font-medium text-gray-900 dark:text-white">{{ m.variable_symbol }}</td>
     <td class="px-3 py-2">
         {% if m.unit %}
@@ -34,29 +34,7 @@
         </form>
     </td>
 </tr>
-{# Editační řádek (skrytý) #}
-<tr class="border-b border-gray-100 dark:border-gray-700 bg-blue-50 dark:bg-blue-900/20 hidden" data-edit-row="{{ m.id }}">
-    <td class="px-3 py-2 font-mono font-medium text-gray-900 dark:text-white">{{ m.variable_symbol }}</td>
-    <td colspan="3" class="px-3 py-2">
-        <form method="post" action="/platby/symboly/{{ m.id }}/upravit" class="flex items-center gap-2" hx-boost="false">
-            <input type="hidden" name="q" value="{{ q }}">
-            <input type="hidden" name="sort" value="{{ sort }}">
-            <input type="hidden" name="order" value="{{ order }}">
-            <input type="hidden" name="zdroj" value="{{ zdroj }}">
-            <input type="hidden" name="back" value="{{ back_url }}">
-            <select name="unit_id" class="h-[28px] px-2 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white" aria-label="Jednotka">
-                {% for u in units %}
-                <option value="{{ u.id }}" {% if m.unit_id == u.id %}selected{% endif %}>č. {{ u.unit_number }}</option>
-                {% endfor %}
-            </select>
-            <input type="text" name="description" value="{{ m.description or '' }}" placeholder="Poznámka"
-                   class="h-[28px] px-2 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white w-40" aria-label="Poznámka">
-            <button type="submit" class="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700">Uložit</button>
-            <button type="button" class="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300" onclick="toggleEditRow({{ m.id }})">Zrušit</button>
-        </form>
-    </td>
-    <td></td>
-</tr>
+{# Editační řádek — vytvořen dynamicky přes JS (viz toggleEditRow) #}
 {% endfor %}
 {% if not mappings %}
 <tr>
