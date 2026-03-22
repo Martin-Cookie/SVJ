@@ -233,9 +233,16 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
 
 Modul pro správu předpisů, bankovních výpisů, variabilních symbolů a přehledu plateb.
 
-- **Předpisy** — import z DOCX, automatické párování na jednotky, správa roků předpisů
+- **Předpisy** — import z DOCX, automatické párování na jednotky, správa roků předpisů, detekce VS konfliktů při importu (pokud VS z DOCX ukazuje na jinou jednotku než existující mapování — potvrzovací dialog s přehledem konfliktů)
 - **Variabilní symboly** — mapování VS → jednotka (ruční + automatické z předpisů)
-- **Bankovní výpisy** — import Fio CSV (reimport zachová ruční přiřazení), automatické párování plateb přes VS, ruční přiřazení
+- **Bankovní výpisy** — import Fio CSV (reimport zachová ruční přiřazení), 3-fázové automatické párování plateb:
+  - Fáze 1: VS → `VariableSymbolMapping` lookup (výsledek: AUTO_MATCHED)
+  - Fáze 2: Fallback jméno odesílatele + částka vs předpis (výsledek: SUGGESTED); podpora multi-unit plateb — kombinace jednotek jednoho vlastníka kde součet předpisů odpovídá částce
+  - Fáze 3: VS-prefix dekódování + skórovací systém (jméno + částka + VS shoda; výsledek: SUGGESTED při skóre ≥ 5)
+  - Stavy párování: `AUTO_MATCHED`, `SUGGESTED`, `MANUAL`, `UNMATCHED` — jako potvrzené (confirmed) se počítají pouze `AUTO_MATCHED` + `MANUAL`; `SUGGESTED` vyžaduje ruční potvrzení/odmítnutí
+  - Ruční přiřazení: single-unit (celá částka) i multi-unit (čísla oddělená čárkou, částka rozdělena proporcionálně dle předpisů)
+  - PaymentAllocation: dual-write model — každé přiřazení vytváří alokační záznamy (podpora multi-unit plateb kde jedna platba pokrývá více jednotek)
+  - Zamčení/odemčení výpisu (`locked_at`) — zamčený výpis nelze přepárovat, měnit ani mazat
 - **Počáteční zůstatky** — evidované zůstatky per jednotka/rok
 - **Matice plateb** — přehled 508 jednotek × 12 měsíců s barevným stavem (zaplaceno/částečně/nezaplaceno), filtry dle typu prostoru, řazení, hledání
 - **Dlužníci** — seznam jednotek s dluhem seřazený dle výše dluhu
@@ -406,6 +413,7 @@ app/
 │   ├── tax.py                 #   TaxSession, TaxDocument, TaxDistribution
 │   ├── sync.py                #   SyncSession, SyncRecord
 │   ├── share_check.py         #   ShareCheckSession, ShareCheckRecord, ShareCheckColumnMapping
+│   ├── payment.py             #   PrescriptionYear, Prescription, PrescriptionItem, VariableSymbolMapping, BankStatement, Payment, PaymentAllocation, BankStatementColumnMapping, UnitBalance, Settlement, SettlementItem
 │   ├── common.py              #   EmailLog (+ name_normalized), ImportLog, ActivityLog, ActivityAction, log_activity()
 │   └── administration.py      #   SvjInfo (+ owner/contact_import_mapping), SvjAddress, BoardMember, CodeListItem, EmailTemplate
 ├── routers/                   # HTTP endpointy
@@ -430,6 +438,15 @@ app/
 │   │   ├── matching.py        #   Přiřazení, potvrzení
 │   │   ├── sending.py         #   Email rozesílání, progress
 │   │   └── _helpers.py        #   _tax_wizard, _session_stats, _find_coowners
+│   ├── payments/              #   /platby (předpisy, symboly, výpisy, zůstatky, přehled, vyúčtování)
+│   │   ├── __init__.py
+│   │   ├── prescriptions.py   #   Import DOCX, seznam, detail, VS konflikty
+│   │   ├── symbols.py         #   Variabilní symboly CRUD
+│   │   ├── statements.py      #   Import CSV, detail, párování, lock/unlock
+│   │   ├── balances.py        #   Počáteční zůstatky
+│   │   ├── overview.py        #   Matice plateb, dlužníci, detail jednotky
+│   │   ├── settlement.py      #   Vyúčtování CRUD, export
+│   │   └── _helpers.py        #   compute_nav_stats, sdílené funkce
 │   ├── sync.py                #   /synchronizace (sloučená stránka Kontroly)
 │   ├── share_check.py         #   /kontrola-podilu (detail + redirect na /synchronizace)
 │   ├── administration.py      #   /sprava
@@ -451,7 +468,11 @@ app/
 │   ├── data_export.py         #   Export dat do Excel/CSV (7 kategorií)
 │   ├── import_mapping.py      #   Definice polí a auto-detekce mapování pro import vlastníků/kontaktů
 │   ├── email_service.py       #   SMTP odesílání emailů
-│   └── code_list_service.py   #   Sdílený přístup k číselníkům
+│   ├── code_list_service.py   #   Sdílený přístup k číselníkům
+│   ├── prescription_import.py #   Parsování DOCX předpisů
+│   ├── bank_import.py         #   Parsování Fio CSV bankovních výpisů
+│   ├── payment_matching.py    #   3-fázové párování plateb (VS, jméno+částka, VS-prefix)
+│   └── payment_overview.py    #   Matice plateb, dlužníci, detail jednotky
 ├── templates/                 # Jinja2 šablony
 │   ├── base.html              #   Layout se sidebar navigací
 │   ├── dashboard.html         #   Přehled (statistiky vlastníků, jednotek, podílů)
@@ -517,6 +538,21 @@ app/
 │   │   ├── duplicates.html    #     Přehled a sloučení duplicitních vlastníků
 │   │   ├── bulk_edit_values.html #  HTMX: tabulka unikátních hodnot
 │   │   └── bulk_edit_records.html # HTMX: záznamy pro danou hodnotu
+│   ├── payments/              #   Stránky plateb
+│   │   ├── predpisy.html      #     Seznam předpisů (roky)
+│   │   ├── predpisy_import.html #   Import předpisů (DOCX upload, VS konflikt dialog)
+│   │   ├── predpisy_detail.html #   Detail roku předpisů
+│   │   ├── predpis_detail.html #    Detail jednoho předpisu (položky)
+│   │   ├── symboly.html       #     Variabilní symboly
+│   │   ├── zustatky.html      #     Počáteční zůstatky
+│   │   ├── vypisy.html        #     Seznam bankovních výpisů
+│   │   ├── vypis_import.html  #     Import výpisu (CSV upload, confirm overwrite)
+│   │   ├── vypis_detail.html  #     Detail výpisu s platbami (filtry, search, lock)
+│   │   ├── prehled.html       #     Matice plateb (jednotky × měsíce)
+│   │   ├── dluznici.html      #     Seznam dlužníků
+│   │   ├── jednotka_platby.html #   Detail plateb jednotky
+│   │   ├── vyuctovani.html    #     Seznam vyúčtování
+│   │   └── vyuctovani_detail.html # Detail vyúčtování
 │   └── partials/              #   HTMX komponenty
 │       ├── owner_row.html
 │       ├── owner_table_body.html
@@ -798,10 +834,13 @@ wheels/                        # Offline Python balíčky (gitignored)
 | GET | `/platby/vypisy` | Seznam bankovních výpisů |
 | GET | `/platby/vypisy/import` | Import bankovního výpisu — formulář (upload CSV) |
 | POST | `/platby/vypisy/import` | Import bankovního výpisu — zpracování CSV |
-| GET | `/platby/vypisy/{id}` | Detail výpisu s platbami |
-| POST | `/platby/vypisy/{id}/prirazeni/{payment_id}` | Ruční přiřazení platby |
-| POST | `/platby/vypisy/{id}/preparovat` | Přepárování plateb |
-| POST | `/platby/vypisy/{id}/smazat` | Smazání výpisu |
+| GET | `/platby/vypisy/{id}` | Detail výpisu s platbami (filtry: stav, směr, hledání) |
+| POST | `/platby/vypisy/{id}/prirazeni/{payment_id}` | Ruční přiřazení platby (single/multi-unit) |
+| POST | `/platby/vypisy/{id}/potvrdit/{payment_id}` | Potvrzení navrženého přiřazení (SUGGESTED → MANUAL) |
+| POST | `/platby/vypisy/{id}/odmitnout/{payment_id}` | Odmítnutí navrženého přiřazení (SUGGESTED → UNMATCHED) |
+| POST | `/platby/vypisy/{id}/preparovat` | Přepárování plateb (reset AUTO + SUGGESTED, zachová MANUAL) |
+| POST | `/platby/vypisy/{id}/zamknout` | Zamčení/odemčení párování výpisu |
+| POST | `/platby/vypisy/{id}/smazat` | Smazání výpisu (zamčený výpis nelze smazat) |
 | GET | `/platby/prehled` | Matice plateb (jednotky × měsíce) |
 | GET | `/platby/dluznici` | Seznam dlužníků |
 | GET | `/platby/jednotka/{unit_id}` | Platební detail jedné jednotky |
@@ -854,9 +893,9 @@ LIBREOFFICE_PATH=/Applications/LibreOffice.app/Contents/MacOS/soffice
 - **EmailTemplate** — šablony emailů pro hromadné rozesílání (name, subject_template, body_template, order); placeholder `{rok}` nahrazen při výběru
 - **ActivityLog** — log aktivit (modul, akce, entita, timestamp); **ActivityAction** — enum typů aktivit (CREATED, UPDATED, DELETED, STATUS_CHANGED, IMPORTED, EXPORTED, RESTORED)
 - **PrescriptionYear** → **Prescription** (monthly_total, variable_symbol, space_type) → **PrescriptionItem** (name, amount, category, order); předpisy plateb per rok/jednotka
-- **VariableSymbolMapping** — mapování VS → jednotka (source: manual/auto/import)
-- **BankStatement** — importovaný bankovní výpis (Fio CSV); → **Payment** (amount, date, direction, match_status, unit_id); PaymentMatchStatus (UNMATCHED/AUTO_MATCHED/MANUAL), PaymentDirection (INCOME/EXPENSE)
-- **UnitBalance** — počáteční zůstatek jednotky per rok (opening_amount, source: manual/settlement)
+- **VariableSymbolMapping** — mapování VS → jednotka (source: manual/auto/legacy)
+- **BankStatement** (locked_at) — importovaný bankovní výpis (Fio CSV); → **Payment** (amount, date, direction, match_status, unit_id) → **PaymentAllocation** (payment_id, unit_id, owner_id, amount — dual-write pro multi-unit platby); PaymentMatchStatus (UNMATCHED/AUTO_MATCHED/SUGGESTED/MANUAL), PaymentDirection (INCOME/EXPENSE); **BankStatementColumnMapping** (zapamatované mapování sloupců CSV)
+- **UnitBalance** — počáteční zůstatek jednotky per rok (opening_amount, source: manual/import/carryover)
 - **Settlement** → **SettlementItem** — roční vyúčtování per jednotka; SettlementStatus (GENERATED/SENT/PAID/OVERDUE)
 - **EmailLog** (+ `name_normalized` pro diacritics-insensitive vyhledávání), **ImportLog** — systémové logy
 
