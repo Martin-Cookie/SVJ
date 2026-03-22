@@ -20,7 +20,7 @@
         {# Multi-unit SUGGESTED — více badge + potvrdit/odmítnout #}
         <span class="inline-flex items-center gap-1 flex-wrap">
             {% for a in p.allocations %}
-            <span class="px-1.5 py-0.5 text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full" title="{{ a.amount|fmt_num }} Kč">
+            <span class="px-1.5 py-0.5 text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full" title="Předpis: {{ unit_monthly.get(a.unit.id, 0)|fmt_num }} Kč/měs">
                 č. {{ a.unit.unit_number }}
             </span>
             {% endfor %}
@@ -46,7 +46,7 @@
         {% elif p.match_status.value == 'suggested' and p.unit %}
         {# Single-unit SUGGESTED — modrý badge s tlačítky potvrdit/odmítnout #}
         <span class="inline-flex items-center gap-1">
-            <span class="px-2 py-0.5 text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full">
+            <span class="px-2 py-0.5 text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full" title="Předpis: {{ unit_monthly.get(p.unit.id, 0)|fmt_num }} Kč/měs">
                 č. {{ p.unit.unit_number }}
             </span>
             <form method="post" action="/platby/vypisy/{{ statement.id }}/potvrdit/{{ p.id }}" hx-boost="false" class="inline">
@@ -72,13 +72,13 @@
         {# Multi-unit potvrzené — zelené badge #}
         <span class="inline-flex items-center gap-1 flex-wrap">
             {% for a in p.allocations %}
-            <a href="/jednotky/{{ a.unit.id }}?back={{ (list_url ~ '#p-' ~ p.id)|urlencode }}" class="px-1.5 py-0.5 text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full hover:bg-green-200" title="{{ a.amount|fmt_num }} Kč">
+            <a href="/jednotky/{{ a.unit.id }}?back={{ (list_url ~ '#p-' ~ p.id)|urlencode }}" class="px-1.5 py-0.5 text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full hover:bg-green-200" title="Předpis: {{ unit_monthly.get(a.unit.id, 0)|fmt_num }} Kč/měs">
                 č. {{ a.unit.unit_number }}
             </a>
             {% endfor %}
         </span>
         {% elif p.unit %}
-        <a href="/jednotky/{{ p.unit.id }}?back={{ (list_url ~ '#p-' ~ p.id)|urlencode }}" class="px-2 py-0.5 text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full hover:bg-green-200">
+        <a href="/jednotky/{{ p.unit.id }}?back={{ (list_url ~ '#p-' ~ p.id)|urlencode }}" class="px-2 py-0.5 text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full hover:bg-green-200" title="Předpis: {{ unit_monthly.get(p.unit.id, 0)|fmt_num }} Kč/měs">
             č. {{ p.unit.unit_number }}
         </a>
         {% elif p.match_status.value == 'unmatched' and p.direction.value == 'income' %}
@@ -89,7 +89,7 @@
                 přiřadit
             </button>
             {% for c in cands %}
-            <button type="button" title="{{ c.reasons|join(', ') if c.reasons else c.monthly|fmt_num ~ ' Kč/měs' }}"
+            <button type="button" title="Předpis: {{ c.monthly|fmt_num }} Kč/měs{{ ' (' ~ c.reasons|join(', ') ~ ')' if c.reasons else '' }}"
                 onclick="document.getElementById('assign-btn-{{ p.id }}').classList.add('hidden');document.getElementById('assign-form-{{ p.id }}').classList.remove('hidden');var inp=document.getElementById('assign-input-{{ p.id }}');inp.value='{{ c.unit_number }}';inp.form.submit()"
                 class="px-1.5 py-0.5 text-xs rounded-full cursor-pointer
                 {% if c.amount_match %}bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-800
