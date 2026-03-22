@@ -180,7 +180,7 @@ async def matice_export(
         cell.font = bold
 
     for i, r in enumerate(rows, 2):
-        owner_name = r["owner"].display_name if r["owner"] else r["prescription"].owner_name or ""
+        owner_name = ", ".join(o.display_name for o in r["owners"]) if r["owners"] else r["prescription"].owner_name or ""
         ws.cell(row=i, column=1, value=r["unit"].unit_number)
         ws.cell(row=i, column=2, value=r["prescription"].section or "")
         ws.cell(row=i, column=3, value=owner_name)
@@ -347,7 +347,7 @@ async def dluznici_export(
         cell.font = Font(bold=True)
 
     for i, r in enumerate(debtors, 2):
-        owner_name = r["owner"].display_name if r["owner"] else r["prescription"].owner_name or ""
+        owner_name = ", ".join(o.display_name for o in r["owners"]) if r["owners"] else r["prescription"].owner_name or ""
         ws.cell(row=i, column=1, value=r["unit"].unit_number)
         ws.cell(row=i, column=2, value=owner_name)
         ws.cell(row=i, column=3, value=r["monthly"])

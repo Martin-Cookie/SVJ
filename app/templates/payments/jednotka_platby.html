@@ -16,7 +16,7 @@
             </h1>
             {% if detail %}
             <p class="text-xs text-gray-500 dark:text-gray-400">
-                {% if detail.owner %}{{ detail.owner.display_name }} · {% endif %}
+                {% if detail.owners %}{% for o in detail.owners %}{{ o.display_name }}{% if not loop.last %}, {% endif %}{% endfor %} · {% elif detail.owner %}{{ detail.owner.display_name }} · {% endif %}
                 Předpis: {{ detail.monthly|fmt_num }} Kč/měs
                 {% if detail.opening %} · Počáteční zůstatek: {{ detail.opening|fmt_num }} Kč{% endif %}
             </p>

@@ -155,6 +155,10 @@ def get_settlement_detail(db: Session, settlement_id: int) -> Optional[dict]:
     if not settlement:
         return None
 
+    # Eager-load unit owners pro zobrazení spoluvlastníků
+    if settlement.unit:
+        _ = [ou.owner for ou in settlement.unit.owners]
+
     # Platby napárované na tuto jednotku v daném roce (přes alokace)
     confirmed_statuses = [PaymentMatchStatus.AUTO_MATCHED, PaymentMatchStatus.MANUAL]
     alloc_rows = (

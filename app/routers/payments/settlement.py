@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.models import (
-    PrescriptionYear, Settlement, SettlementItem, SettlementStatus,
+    OwnerUnit, PrescriptionYear, Settlement, SettlementItem, SettlementStatus, Unit,
 )
 from app.services.settlement_service import (
     generate_settlements,
@@ -81,7 +81,7 @@ async def vyuctovani_seznam(
         db.query(Settlement)
         .filter_by(year=rok)
         .options(
-            joinedload(Settlement.unit),
+            joinedload(Settlement.unit).joinedload(Unit.owners).joinedload(OwnerUnit.owner),
             joinedload(Settlement.owner),
             joinedload(Settlement.items),
         )
@@ -112,10 +112,14 @@ async def vyuctovani_seznam(
     # Hledání
     if q:
         q_ascii = strip_diacritics(q)
+        def _owners_text(s):
+            if s.unit and s.unit.current_owners:
+                return " ".join(ou.owner.display_name for ou in s.unit.current_owners)
+            return s.owner.display_name if s.owner else ""
         settlements = [
             s for s in settlements
             if q_ascii in strip_diacritics(str(s.unit.unit_number) if s.unit else "")
-            or q_ascii in strip_diacritics(s.owner.display_name if s.owner else "")
+            or q_ascii in strip_diacritics(_owners_text(s))
             or q_ascii in strip_diacritics(s.variable_symbol or "")
         ]
 
@@ -124,7 +128,7 @@ async def vyuctovani_seznam(
     reverse = order == "desc"
     sort_fns = {
         "cislo": lambda s: s.unit.unit_number if s.unit else 0,
-        "vlastnik": lambda s: strip_diacritics(s.owner.display_name if s.owner else ""),
+        "vlastnik": lambda s: strip_diacritics(" ".join(ou.owner.display_name for ou in s.unit.current_owners) if s.unit and s.unit.current_owners else (s.owner.display_name if s.owner else "")),
         "predpis": lambda s: _annual_prescription(s),
         "zaplaceno": lambda s: _total_paid(s),
         "vysledek": lambda s: s.result_amount or 0,
@@ -407,7 +411,7 @@ def _get_filtered_settlements(db: Session, rok: int, stav: str, q: str):
         db.query(Settlement)
         .filter_by(year=rok)
         .options(
-            joinedload(Settlement.unit),
+            joinedload(Settlement.unit).joinedload(Unit.owners).joinedload(OwnerUnit.owner),
             joinedload(Settlement.owner),
             joinedload(Settlement.items),
         )
@@ -422,10 +426,14 @@ def _get_filtered_settlements(db: Session, rok: int, stav: str, q: str):
 
     if q:
         q_ascii = strip_diacritics(q)
+        def _owners_text_export(s):
+            if s.unit and s.unit.current_owners:
+                return " ".join(ou.owner.display_name for ou in s.unit.current_owners)
+            return s.owner.display_name if s.owner else ""
         settlements = [
             s for s in settlements
             if q_ascii in strip_diacritics(str(s.unit.unit_number) if s.unit else "")
-            or q_ascii in strip_diacritics(s.owner.display_name if s.owner else "")
+            or q_ascii in strip_diacritics(_owners_text_export(s))
             or q_ascii in strip_diacritics(s.variable_symbol or "")
         ]
 
@@ -481,7 +489,7 @@ def _settlement_row(s: Settlement) -> list:
     stav = STATUS_LABELS.get(s.status.value, s.status.value) if s.status else ""
     return [
         s.unit.unit_number if s.unit else "",
-        s.owner.display_name if s.owner else "",
+        ", ".join(ou.owner.display_name for ou in s.unit.current_owners) if s.unit and s.unit.current_owners else (s.owner.display_name if s.owner else ""),
         s.variable_symbol or "",
         monthly,
         annual,

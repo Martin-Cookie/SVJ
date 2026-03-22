@@ -77,16 +77,15 @@ def compute_payment_matrix(db: Session, year: int, section: str = "", space_type
     # Jednotky s aktivními vlastníky
     units = db.query(Unit).order_by(Unit.unit_number).all()
 
-    # Aktuální vlastník per unit
+    # Aktuální vlastníci per unit (všichni spoluvlastníci)
     owner_units = (
         db.query(OwnerUnit)
         .filter(OwnerUnit.valid_to.is_(None))
         .all()
     )
-    owner_by_unit = {}
+    owners_by_unit = {}
     for ou in owner_units:
-        if ou.unit_id not in owner_by_unit:
-            owner_by_unit[ou.unit_id] = ou.owner
+        owners_by_unit.setdefault(ou.unit_id, []).append(ou.owner)
 
     # Unikátní typy prostorů z předpisů
     space_types_set = set()
@@ -113,7 +112,7 @@ def compute_payment_matrix(db: Session, year: int, section: str = "", space_type
         monthly = presc.monthly_total or 0
         total_prescribed += monthly
         opening = balance_map.get(unit.id, 0)
-        owner = owner_by_unit.get(unit.id)
+        owners = owners_by_unit.get(unit.id, [])
 
         months = {}
         row_paid = 0.0
@@ -138,7 +137,8 @@ def compute_payment_matrix(db: Session, year: int, section: str = "", space_type
         rows.append({
             "unit": unit,
             "prescription": presc,
-            "owner": owner,
+            "owner": owners[0] if owners else None,
+            "owners": owners,
             "monthly": monthly,
             "opening": opening,
             "months": months,
@@ -216,12 +216,13 @@ def compute_unit_payment_detail(db: Session, unit_id: int, year: int) -> dict:
     balance = db.query(UnitBalance).filter_by(unit_id=unit_id, year=year).first()
     opening = balance.opening_amount if balance else 0
 
-    # Aktuální vlastník
-    owner_unit = (
+    # Aktuální vlastníci (všichni spoluvlastníci)
+    unit_owners = (
         db.query(OwnerUnit)
         .filter(OwnerUnit.unit_id == unit_id, OwnerUnit.valid_to.is_(None))
-        .first()
+        .all()
     )
+    owners = [ou.owner for ou in unit_owners]
 
     return {
         "unit": unit,
@@ -231,5 +232,6 @@ def compute_unit_payment_detail(db: Session, unit_id: int, year: int) -> dict:
         "months": months,
         "payments": payments,
         "total_paid": total_paid,
-        "owner": owner_unit.owner if owner_unit else None,
+        "owner": owners[0] if owners else None,
+        "owners": owners,
     }

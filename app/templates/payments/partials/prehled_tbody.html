@@ -7,9 +7,9 @@
         </a>
     </td>
     <td class="px-2 py-1.5 text-gray-600 dark:text-gray-400">{{ r.prescription.section or "—" }}</td>
-    <td class="px-2 py-1.5 text-gray-900 dark:text-white max-w-[10rem] truncate" title="{{ r.owner.display_name if r.owner else r.prescription.owner_name or '—' }}">
-        {% if r.owner %}
-        <a href="/vlastnici/{{ r.owner.id }}?back={{ (list_url ~ '#u-' ~ r.unit.id)|urlencode }}" class="hover:text-blue-600 dark:hover:text-blue-400 hover:underline">{{ r.owner.display_name }}</a>
+    <td class="px-2 py-1.5 text-gray-900 dark:text-white max-w-[10rem] truncate" title="{% for o in r.owners %}{{ o.display_name }}{% if not loop.last %}, {% endif %}{% endfor %}{% if not r.owners %}{{ r.prescription.owner_name or '—' }}{% endif %}">
+        {% if r.owners %}
+        {% for o in r.owners %}<a href="/vlastnici/{{ o.id }}?back={{ (list_url ~ '#u-' ~ r.unit.id)|urlencode }}" class="hover:text-blue-600 dark:hover:text-blue-400 hover:underline">{{ o.display_name }}</a>{% if not loop.last %}, {% endif %}{% endfor %}
         {% else %}
         {{ r.prescription.owner_name or "—" }}
         {% endif %}

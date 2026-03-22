@@ -20,7 +20,7 @@
                 </p>
             </div>
             <div class="flex items-center space-x-2">
-                {% if bubble_counts.suggested > 0 and not statement.locked_at %}
+                {% if stav == 'suggested' and bubble_counts.suggested > 0 and not statement.locked_at %}
                 <form method="post" action="/platby/vypisy/{{ statement.id }}/potvrdit-vse" class="flex items-center gap-1.5" hx-boost="false"
                       data-confirm="Potvrdit všech {{ bubble_counts.suggested }} navrhovaných přiřazení?">
                     <input type="hidden" name="q" value="{{ q }}">

@@ -20,7 +20,7 @@
                         Vyúčtování — jednotka {{ s.unit.unit_number if s.unit else "—" }}
                     </h1>
                     <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                        {% if s.owner %}{{ s.owner.display_name }} · {% endif %}
+                        {% if s.unit and s.unit.current_owners %}{% for ou in s.unit.current_owners %}{{ ou.owner.display_name }}{% if not loop.last %}, {% endif %}{% endfor %} · {% elif s.owner %}{{ s.owner.display_name }} · {% endif %}
                         Rok {{ s.year }}
                         {% if s.variable_symbol %} · VS {{ s.variable_symbol }}{% endif %}
                         {% if s.unit %} · <a href="/platby/jednotka/{{ s.unit.id }}?back={{ request.url.path|urlencode }}" class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">měsíční přehled →</a>{% endif %}

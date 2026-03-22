@@ -9,8 +9,10 @@
             {{ s.unit.unit_number if s.unit else "—" }}
         </a>
     </td>
-    <td class="px-3 py-2 text-gray-900 dark:text-white max-w-[14rem] truncate" title="{{ s.owner.display_name if s.owner else '—' }}">
-        {% if s.owner %}
+    <td class="px-3 py-2 text-gray-900 dark:text-white max-w-[14rem] truncate" title="{% for ou in s.unit.current_owners %}{{ ou.owner.display_name }}{% if not loop.last %}, {% endif %}{% endfor %}{% if not s.unit.current_owners %}{{ s.owner.display_name if s.owner else '—' }}{% endif %}">
+        {% if s.unit and s.unit.current_owners %}
+        {% for ou in s.unit.current_owners %}<a href="/vlastnici/{{ ou.owner.id }}?back={{ (list_url ~ '#v-' ~ s.id)|urlencode }}" class="hover:text-blue-600 dark:hover:text-blue-400 hover:underline">{{ ou.owner.display_name }}</a>{% if not loop.last %}, {% endif %}{% endfor %}
+        {% elif s.owner %}
         <a href="/vlastnici/{{ s.owner.id }}?back={{ (list_url ~ '#v-' ~ s.id)|urlencode }}" class="hover:text-blue-600 dark:hover:text-blue-400 hover:underline">{{ s.owner.display_name }}</a>
         {% else %}—{% endif %}
     </td>
