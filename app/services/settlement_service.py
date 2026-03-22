@@ -12,6 +12,7 @@ from app.models import (
     Settlement, SettlementItem, SettlementStatus,
     UnitBalance,
 )
+from app.services.payment_overview import PaymentWithAlloc
 
 
 def generate_settlements(db: Session, year: int) -> dict:
@@ -86,12 +87,12 @@ def generate_settlements(db: Session, year: int) -> dict:
 
         unit_id = presc.unit_id
         monthly = presc.monthly_total or 0
-        annual_prescription = monthly * 12
+        annual_prescription = round(monthly * 12, 2)
         total_paid = paid_map.get(unit_id, 0)
         opening = balance_map.get(unit_id, 0)
 
         # result_amount: kladné = nedoplatek, záporné = přeplatek
-        result_amount = annual_prescription + opening - total_paid
+        result_amount = round(annual_prescription + opening - total_paid, 2)
 
         owner_id = owner_by_unit.get(unit_id)
 
@@ -123,7 +124,7 @@ def generate_settlements(db: Session, year: int) -> dict:
 
         # SettlementItems z PrescriptionItems (eager-loaded)
         for pi in sorted(presc.items, key=lambda x: x.order or 0):
-            item_annual = (pi.amount or 0) * 12
+            item_annual = round((pi.amount or 0) * 12, 2)
             # Poměrné rozúčtování zaplacené částky podle podílu položky na celku
             if monthly > 0:
                 ratio = (pi.amount or 0) / monthly
@@ -170,8 +171,7 @@ def get_settlement_detail(db: Session, settlement_id: int) -> Optional[dict]:
     )
     payments = []
     for alloc, payment in alloc_rows:
-        payment.alloc_amount = alloc.amount
-        payments.append(payment)
+        payments.append(PaymentWithAlloc(payment, alloc.amount))
 
     # Předpis
     py = db.query(PrescriptionYear).filter_by(year=settlement.year).first()
@@ -182,7 +182,7 @@ def get_settlement_detail(db: Session, settlement_id: int) -> Optional[dict]:
         ).first()
 
     monthly = prescription.monthly_total if prescription else 0
-    annual = monthly * 12
+    annual = round(monthly * 12, 2)
 
     # Zůstatek
     balance = db.query(UnitBalance).filter_by(

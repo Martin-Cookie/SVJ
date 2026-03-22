@@ -83,36 +83,9 @@
         <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
             <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Přijaté platby ({{ detail.payments|length }})</h2>
         </div>
-        <table class="w-full text-xs">
-            <thead class="bg-gray-50 dark:bg-gray-700">
-                <tr>
-                    <th class="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">Datum</th>
-                    <th class="px-3 py-2 text-right font-semibold text-gray-600 dark:text-gray-300">Částka</th>
-                    <th class="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">VS</th>
-                    <th class="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">Protiúčet</th>
-                    <th class="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">Zpráva</th>
-                    <th class="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">Párování</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
-                {% for p in detail.payments %}
-                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                    <td class="px-3 py-2 text-gray-900 dark:text-white whitespace-nowrap">{{ p.date.strftime('%d.%m.%Y') }}</td>
-                    <td class="px-3 py-2 text-right font-medium text-green-700 dark:text-green-400 whitespace-nowrap">+{{ (p.alloc_amount if p.alloc_amount is defined else p.amount)|fmt_num }} Kč</td>
-                    <td class="px-3 py-2 text-gray-600 dark:text-gray-400">{{ p.vs or "—" }}</td>
-                    <td class="px-3 py-2 text-gray-600 dark:text-gray-400 max-w-[10rem] truncate" title="{{ p.counter_account_name or '' }}">{{ p.counter_account_name or "—" }}</td>
-                    <td class="px-3 py-2 text-gray-500 dark:text-gray-400 max-w-[10rem] truncate" title="{{ p.message or p.note or '' }}">{{ p.message or p.note or "—" }}</td>
-                    <td class="px-3 py-2">
-                        {% if p.match_status.value == 'auto_matched' %}
-                        <span class="px-1.5 py-0.5 text-xs bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-400 rounded-full">Auto</span>
-                        {% elif p.match_status.value == 'manual' %}
-                        <span class="px-1.5 py-0.5 text-xs bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-400 rounded-full">Ruční</span>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        {% with payment_list=detail.payments %}
+        {% include "payments/partials/_payment_list.html" %}
+        {% endwith %}
     </div>
     {% else %}
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 text-center">

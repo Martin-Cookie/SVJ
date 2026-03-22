@@ -16,6 +16,16 @@ from app.models import (
 
 logger = logging.getLogger(__name__)
 
+# České názvy měsíců — centralizované pro routery i šablony
+MONTH_NAMES_SHORT = {
+    1: "Led", 2: "Úno", 3: "Bře", 4: "Dub", 5: "Kvě", 6: "Čvn",
+    7: "Čvc", 8: "Srp", 9: "Zář", 10: "Říj", 11: "Lis", 12: "Pro",
+}
+MONTH_NAMES_LONG = {
+    1: "Leden", 2: "Únor", 3: "Březen", 4: "Duben", 5: "Květen", 6: "Červen",
+    7: "Červenec", 8: "Srpen", 9: "Září", 10: "Říjen", 11: "Listopad", 12: "Prosinec",
+}
+
 templates = Jinja2Templates(directory="app/templates")
 setup_jinja_filters(templates)
 
@@ -133,7 +143,7 @@ def _count_debtors_fast(db: Session, year: int) -> int:
     count = 0
     for unit_id, monthly in presc_by_unit.items():
         opening = balance_map.get(unit_id, 0)
-        expected = monthly * months_count + opening
+        expected = round(monthly * months_count + opening, 2)
         paid = paid_map.get(unit_id, 0)
         if paid < expected:
             count += 1

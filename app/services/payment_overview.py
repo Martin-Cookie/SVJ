@@ -1,6 +1,7 @@
 """Výpočty pro přehled plateb — matice, dlužníci, detail jednotky."""
 
 from collections import defaultdict
+from dataclasses import dataclass
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -10,6 +11,16 @@ from app.models import (
     Prescription, PrescriptionYear,
     Unit, UnitBalance,
 )
+
+
+@dataclass
+class PaymentWithAlloc:
+    """Wrapper kolem Payment s alokovanou částkou (místo dynamického atributu na ORM objektu)."""
+    _payment: object
+    alloc_amount: float
+
+    def __getattr__(self, name):
+        return getattr(self._payment, name)
 
 
 def compute_payment_matrix(db: Session, year: int, section: str = "", space_type: str = "") -> dict:
@@ -121,8 +132,8 @@ def compute_payment_matrix(db: Session, year: int, section: str = "", space_type
             months[m] = {"paid": paid, "status": status}
 
         total_paid_all += row_paid
-        expected = monthly * len(months_with_data) + opening
-        debt = max(0, expected - row_paid)
+        expected = round(monthly * len(months_with_data) + opening, 2)
+        debt = round(max(0, expected - row_paid), 2)
 
         rows.append({
             "unit": unit,
@@ -181,11 +192,9 @@ def compute_unit_payment_detail(db: Session, unit_id: int, year: int) -> dict:
         .order_by(Payment.date)
         .all()
     )
-    # Přidat alloc_amount na Payment objekty pro zobrazení
     payments = []
     for alloc, payment in alloc_rows:
-        payment.alloc_amount = alloc.amount
-        payments.append(payment)
+        payments.append(PaymentWithAlloc(payment, alloc.amount))
 
     # Měsíční souhrn
     months = {}

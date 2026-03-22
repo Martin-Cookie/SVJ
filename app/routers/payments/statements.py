@@ -15,7 +15,7 @@ from app.models import (
     Unit,
 )
 from app.utils import build_list_url, is_htmx_partial, is_safe_path, validate_upload, strip_diacritics, UPLOAD_LIMITS
-from ._helpers import templates, logger, compute_nav_stats
+from ._helpers import templates, logger, compute_nav_stats, MONTH_NAMES_LONG
 
 router = APIRouter()
 
@@ -65,6 +65,7 @@ async def vypisy_seznam(request: Request, db: Session = Depends(get_db)):
         "statements": statements,
         "list_url": list_url,
         "back_url": back_url,
+        "month_names": MONTH_NAMES_LONG,
         **compute_nav_stats(db),
     }
     return templates.TemplateResponse("payments/vypisy.html", ctx)
@@ -527,6 +528,7 @@ async def vypis_detail(
         "back_url": back_url,
         "flash_message": flash_message,
         "flash_type": flash_type,
+        "month_names": MONTH_NAMES_LONG,
         **compute_nav_stats(db),
     }
 

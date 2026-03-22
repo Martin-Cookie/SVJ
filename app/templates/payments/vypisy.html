@@ -15,7 +15,6 @@
     {% if statements %}
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow">
         <div class="divide-y divide-gray-200 dark:divide-gray-700">
-            {% set month_names = {1: "Leden", 2: "Únor", 3: "Březen", 4: "Duben", 5: "Květen", 6: "Červen", 7: "Červenec", 8: "Srpen", 9: "Září", 10: "Říjen", 11: "Listopad", 12: "Prosinec"} %}
             {% for stmt in statements %}
             <a href="/platby/vypisy/{{ stmt.id }}?back={{ list_url|urlencode }}" class="flex items-center justify-between px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                 <div class="flex items-center">

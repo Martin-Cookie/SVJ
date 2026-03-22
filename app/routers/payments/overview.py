@@ -16,14 +16,11 @@ from app.services.payment_overview import (
 )
 from app.utils import build_list_url, excel_auto_width, is_htmx_partial, strip_diacritics
 
-from ._helpers import templates, compute_nav_stats
+from ._helpers import templates, compute_nav_stats, MONTH_NAMES_SHORT
 
 router = APIRouter()
 
-MONTH_NAMES = {
-    1: "Led", 2: "Úno", 3: "Bře", 4: "Dub", 5: "Kvě", 6: "Čvn",
-    7: "Čvc", 8: "Srp", 9: "Zář", 10: "Říj", 11: "Lis", 12: "Pro",
-}
+MONTH_NAMES = MONTH_NAMES_SHORT
 
 
 # ── Matice plateb ────────────────────────────────────────────────────

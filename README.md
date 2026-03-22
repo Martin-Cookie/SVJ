@@ -843,6 +843,7 @@ wheels/                        # Offline Python balíčky (gitignored)
 | POST | `/platby/vypisy/{id}/smazat` | Smazání výpisu (zamčený výpis nelze smazat) |
 | GET | `/platby/prehled` | Matice plateb (jednotky × měsíce) |
 | GET | `/platby/dluznici` | Seznam dlužníků |
+| POST | `/platby/dluznici/exportovat` | Export dlužníků (xlsx) |
 | GET | `/platby/jednotka/{unit_id}` | Platební detail jedné jednotky |
 | GET | `/platby/vyuctovani` | Seznam vyúčtování (rok, filtry, search, sort) |
 | GET | `/platby/vyuctovani/{id}` | Detail vyúčtování (položky, platby, stav) |

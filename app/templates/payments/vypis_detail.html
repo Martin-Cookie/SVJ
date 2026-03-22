@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-{% set month_names = {1: "Leden", 2: "Únor", 3: "Březen", 4: "Duben", 5: "Květen", 6: "Červen", 7: "Červenec", 8: "Srpen", 9: "Září", 10: "Říjen", 11: "Listopad", 12: "Prosinec"} %}
 {% block title %}Výpis {% if statement.period_from %}{{ month_names.get(statement.period_from.month, "") }} {{ statement.period_from.year }}{% else %}{{ statement.filename }}{% endif %}{% endblock %}
 {% block content %}
 <div class="flex flex-col" style="height: calc(100vh - 4rem);">
