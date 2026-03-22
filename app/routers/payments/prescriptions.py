@@ -158,6 +158,59 @@ async def predpisy_import_upload(
             **compute_nav_stats(db),
         })
 
+    # Detekce VS konfliktů — porovnat DOCX vs existující mapování
+    units_by_number = {u.unit_number: u for u in db.query(Unit).all()}
+    vs_conflicts = []
+    for p_data in result["prescriptions"]:
+        vs = p_data.get("variable_symbol")
+        space_num = p_data.get("space_number")
+        if vs and space_num:
+            docx_unit = units_by_number.get(space_num)
+            if docx_unit:
+                existing_vs = db.query(VariableSymbolMapping).filter_by(variable_symbol=vs).first()
+                if existing_vs and existing_vs.unit_id != docx_unit.id:
+                    existing_unit = db.query(Unit).get(existing_vs.unit_id)
+                    vs_conflicts.append({
+                        "vs": vs,
+                        "docx_unit": space_num,
+                        "existing_unit": existing_unit.unit_number if existing_unit else "?",
+                        "source": existing_vs.source.value,
+                        "mapping_id": existing_vs.id,
+                    })
+
+    if vs_conflicts and not form.get("force_vs_conflicts"):
+        # Uložit soubor pokud ještě není uložen
+        if not saved_path:
+            temp_dir = Path(settings.upload_dir) / "temp"
+            temp_dir.mkdir(parents=True, exist_ok=True)
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            temp_path = temp_dir / f"{timestamp}_{original_filename}"
+            temp_path.write_bytes(file_content)
+            saved_path = str(temp_path)
+
+        return templates.TemplateResponse("payments/predpisy_import.html", {
+            "request": request,
+            "active_nav": "platby",
+            "active_tab": "predpisy",
+            "confirm_vs_conflicts": True,
+            "vs_conflicts": vs_conflicts,
+            "form_data": {"year": year},
+            "saved_path": saved_path,
+            "filename": original_filename,
+            **compute_nav_stats(db),
+        })
+
+    # Přepsat konfliktní VS mapování pokud uživatel potvrdil
+    if vs_conflicts and form.get("force_vs_conflicts"):
+        for c in vs_conflicts:
+            mapping = db.query(VariableSymbolMapping).get(c["mapping_id"])
+            if mapping:
+                docx_unit = units_by_number.get(c["docx_unit"])
+                if docx_unit:
+                    mapping.unit_id = docx_unit.id
+                    mapping.source = SymbolSource.AUTO
+                    mapping.description = f"Přepsáno z předpisu {year}"
+
     # Uložení do DB
     prescription_year = PrescriptionYear(
         year=year,
@@ -169,9 +222,6 @@ async def predpisy_import_upload(
     )
     db.add(prescription_year)
     db.flush()
-
-    # Načíst mapování jednotek podle čísla prostoru
-    units_by_number = {u.unit_number: u for u in db.query(Unit).all()}
 
     vs_created = 0
     matched_units = 0
