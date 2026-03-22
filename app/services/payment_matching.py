@@ -22,9 +22,6 @@ from app.utils import strip_diacritics
 
 logger = logging.getLogger(__name__)
 
-# Tolerance pro kandidáty (širší než pro matching)
-_CANDIDATE_TOLERANCE = 2.0
-
 
 def _clean_name_words(text: str) -> set[str]:
     """Vyčistit jméno — strip diakritiky, interpunkce, vrátit slova > 3 znaky."""
@@ -139,10 +136,10 @@ def compute_candidates(db: Session, payments: list, year: int,
             reasons = []
             amount_match = False
 
-            # Bonus za shodu částky
+            # Bonus za přesnou shodu částky
             if monthly > 0:
                 for n in range(1, 13):
-                    if abs(payment.amount - monthly * n) <= _CANDIDATE_TOLERANCE:
+                    if abs(payment.amount - monthly * n) < 0.01:
                         reasons.append(f"{n}×{monthly:.0f}")
                         score += 3
                         amount_match = True
@@ -191,24 +188,23 @@ def _find_name_matches(sender_words: set, name_lookup: list[dict]) -> list[dict]
     return [entry for _, entry in matches]
 
 
-def _check_amount_match(amount: float, monthly_total: Optional[float], tolerance: float = 1.0) -> bool:
-    """True pokud amount je násobek monthly_total (1-12×) s tolerancí ±tolerance Kč."""
+def _check_amount_match(amount: float, monthly_total: Optional[float]) -> bool:
+    """True pokud amount je přesný násobek monthly_total (1-12×)."""
     if not monthly_total or monthly_total <= 0:
         return False
 
     for n in range(1, 13):
         expected = monthly_total * n
-        if abs(amount - expected) <= tolerance:
+        if abs(amount - expected) < 0.01:
             return True
     return False
 
 
-def _find_multi_unit_match(amount: float, candidates: list[dict],
-                           tolerance: float = 1.0) -> Optional[list[dict]]:
+def _find_multi_unit_match(amount: float, candidates: list[dict]) -> Optional[list[dict]]:
     """Zkusit najít kombinaci jednotek jednoho vlastníka kde součet předpisů = amount.
 
     Seskupí kandidáty podle owner_id, pro každého vlastníka s 2+ jednotkami
-    zkouší kombinace (2-4) kde sum(monthly * n) = amount ± tolerance.
+    zkouší kombinace (2-4) kde sum(monthly * n) = amount (přesná shoda).
     """
     from itertools import combinations
 
@@ -231,7 +227,7 @@ def _find_multi_unit_match(amount: float, candidates: list[dict],
                 # Zkusit n-násobek (1-12 měsíců)
                 for n in range(1, 13):
                     expected = combo_sum * n
-                    if abs(amount - expected) <= tolerance:
+                    if abs(amount - expected) < 0.01:
                         return list(combo)
     return None
 
@@ -293,15 +289,13 @@ def _extract_unit_from_vs(vs: str, known_vs_map: dict[str, int],
     return None
 
 
-def match_payments(db: Session, statement_id: int, year: int,
-                   tolerance: float = 2.0) -> dict:
+def match_payments(db: Session, statement_id: int, year: int) -> dict:
     """Napáruj platby z výpisu na jednotky přes VS + fallback jméno+částka.
 
     Args:
         db: databázová session
         statement_id: ID bankovního výpisu
         year: rok pro vyhledání předpisů
-        tolerance: tolerance shody částky v Kč (výchozí ±2)
 
     Returns:
         dict s počty: matched, suggested, unmatched, total
@@ -375,6 +369,12 @@ def match_payments(db: Session, statement_id: int, year: int,
 
     db.flush()
 
+    # Sbírej unit_ids napárované ve fázi 1 — vyloučit z fází 2 a 3
+    auto_matched_unit_ids = set()
+    for p in payments:
+        if p.match_status == PaymentMatchStatus.AUTO_MATCHED and p.unit_id:
+            auto_matched_unit_ids.add(p.unit_id)
+
     # 2. fáze: Fallback — jméno odesílatele + částka
     still_unmatched = [
         p for p in payments
@@ -382,12 +382,14 @@ def match_payments(db: Session, statement_id: int, year: int,
     ]
 
     if still_unmatched:
-        # Připravit name lookup z předpisů + vlastníků
+        # Připravit name lookup z předpisů + vlastníků (bez auto-matched jednotek)
         name_lookup = []
         seen_keys = set()  # deduplikace
 
         for presc in all_prescriptions:
             if presc.owner_name and presc.unit_id:
+                if presc.unit_id in auto_matched_unit_ids:
+                    continue  # Vyloučit auto-matched jednotky
                 norm = strip_diacritics(presc.owner_name)
                 key = (norm, presc.unit_id)
                 if key not in seen_keys:
@@ -403,6 +405,8 @@ def match_payments(db: Session, statement_id: int, year: int,
 
         from app.models import Owner
         for ou in active_owner_units:
+            if ou.unit_id in auto_matched_unit_ids:
+                continue  # Vyloučit auto-matched jednotky
             owner = db.query(Owner).get(ou.owner_id)
             if not owner or not owner.name_normalized:
                 continue
@@ -430,7 +434,7 @@ def match_payments(db: Session, statement_id: int, year: int,
             # Najít kandidáta kde částka odpovídá předpisu
             best = None
             for c in candidates:
-                if _check_amount_match(payment.amount, c["monthly"], tolerance):
+                if _check_amount_match(payment.amount, c["monthly"]):
                     best = c
                     break
 
@@ -452,7 +456,7 @@ def match_payments(db: Session, statement_id: int, year: int,
                 suggested += 1
             else:
                 # Zkusit multi-unit match (součet předpisů více jednotek)
-                multi = _find_multi_unit_match(payment.amount, candidates, tolerance)
+                multi = _find_multi_unit_match(payment.amount, candidates)
                 if multi:
                     # Multi-unit → Payment.unit_id = None, N alokací
                     payment.unit_id = None
@@ -521,6 +525,11 @@ def match_payments(db: Session, statement_id: int, year: int,
                 continue
 
             decoded_uid = unit_by_number[decoded_un]
+
+            # Přeskočit auto-matched jednotky
+            if decoded_uid in auto_matched_unit_ids:
+                continue
+
             presc = prescriptions_by_unit.get(decoded_uid)
 
             # Spočítat skóre: VS dekódování (+3) + jméno (+2) + částka (+3)
@@ -538,7 +547,7 @@ def match_payments(db: Session, statement_id: int, year: int,
                         break
 
             # Částka vs předpis
-            if presc and _check_amount_match(payment.amount, presc.monthly_total, tolerance):
+            if presc and _check_amount_match(payment.amount, presc.monthly_total):
                 score += 3
 
             if score >= 5:

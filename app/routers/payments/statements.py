@@ -665,9 +665,6 @@ async def vypis_preparovat(
     if not statement:
         return RedirectResponse("/platby/vypisy", status_code=302)
 
-    tolerance = float(form_data.get("tolerance", 1) or 1)
-    tolerance = max(0.0, min(tolerance, 100.0))
-
     # Smazat alokace pro auto + suggested platby
     reset_payment_ids = [
         pid for (pid,) in db.query(Payment.id).filter(
@@ -693,7 +690,7 @@ async def vypis_preparovat(
     db.flush()
 
     year = statement.period_from.year if statement.period_from else datetime.utcnow().year
-    result = match_payments(db, statement_id, year, tolerance=tolerance)
+    result = match_payments(db, statement_id, year)
     statement.matched_count = result["matched"]
     db.commit()
 
