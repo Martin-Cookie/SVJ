@@ -47,6 +47,28 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
 - Python 3.9+ (`python3 --version`)
 - LibreOffice (volitelně, jen pro generování PDF lístků)
 
+## Testy a CI
+
+```bash
+python3 -m pytest tests/ -v          # spustit všechny testy
+python3 -m pytest tests/ -q --tb=short  # stručný výstup
+```
+
+**248 testů** (~1.5s, in-memory SQLite) pokrývá:
+
+| Soubor | Testů | Oblast |
+|--------|-------|--------|
+| `test_payment_matching.py` | 33 | matching pipeline, settlement, rounding |
+| `test_voting.py` | 72 | wizard, ballot stats, import, SJM párování |
+| `test_backup.py` | 43 | lock, ZIP create/restore, cleanup, integrity |
+| `test_csv_comparator.py` | 77 | CSV parsing, fuzzy matching, Czech stemming |
+| `test_smoke.py` | 3 | app start, dashboard |
+| ostatní | 20 | email, import mapping, voting aggregation |
+
+**Automatizace:**
+- **Pre-push hook** — testy se spustí automaticky před každým `git push`. Pokud selžou, push se zablokuje
+- **GitHub Actions** — testy běží při push na `main`/`Platby` a při pull requestech (`.github/workflows/tests.yml`)
+
 ## Moduly
 
 ### A. Evidence vlastníků (`/vlastnici`)
