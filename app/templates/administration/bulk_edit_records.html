@@ -12,6 +12,7 @@
                 {% endfor %}
             </select>
         </div>
+        <div class="overflow-x-auto">
         <table class="w-full text-xs bg-gray-50 bulk-sortable">
             <thead>
                 <tr class="bg-gray-50 border-b border-gray-200">
@@ -56,6 +57,7 @@
                 {% endfor %}
             </tbody>
         </table>
+        </div>
     </td>
 </tr>
 {% elif model_type == "owner_unit" %}
@@ -76,6 +78,7 @@
                 {% endfor %}
             </select>
         </div>
+        <div class="overflow-x-auto">
         <table class="w-full text-xs bg-gray-50 bulk-sortable">
             <thead>
                 <tr class="bg-gray-50 border-b border-gray-200">
@@ -111,6 +114,7 @@
                 {% endfor %}
             </tbody>
         </table>
+        </div>
     </td>
 </tr>
 {% endif %}

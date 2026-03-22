@@ -82,6 +82,7 @@
                 </div>
                 {% if sync_sessions or sync_q %}
                 <div class="flex-none px-4">
+                    <div class="overflow-x-auto">
                     <table class="w-full text-sm">
                         <thead class="border-b border-gray-200">
                             <tr>
@@ -105,8 +106,10 @@
                             </tr>
                         </thead>
                     </table>
+                    </div>
                 </div>
                 <div class="flex-1 overflow-y-auto px-4 pb-4 min-h-0">
+                    <div class="overflow-x-auto">
                     <table class="w-full text-sm">
                         <tbody id="sync-history-body" class="divide-y divide-gray-100">
                             {% with sessions=sync_sessions, q=sync_q %}
@@ -114,6 +117,7 @@
                             {% endwith %}
                         </tbody>
                     </table>
+                    </div>
                 </div>
                 {% else %}
                 <div class="px-4 pb-4">
@@ -176,6 +180,7 @@
                 </div>
                 {% if sc_sessions or sc_q %}
                 <div class="flex-none px-4">
+                    <div class="overflow-x-auto">
                     <table class="w-full text-sm">
                         <thead class="border-b border-gray-200">
                             <tr>
@@ -199,8 +204,10 @@
                             </tr>
                         </thead>
                     </table>
+                    </div>
                 </div>
                 <div class="flex-1 overflow-y-auto px-4 pb-4 min-h-0">
+                    <div class="overflow-x-auto">
                     <table class="w-full text-sm">
                         <tbody id="sc-history-body" class="divide-y divide-gray-100">
                             {% with sessions=sc_sessions, q=sc_q %}
@@ -208,6 +215,7 @@
                             {% endwith %}
                         </tbody>
                     </table>
+                    </div>
                 </div>
                 {% else %}
                 <div class="px-4 pb-4">

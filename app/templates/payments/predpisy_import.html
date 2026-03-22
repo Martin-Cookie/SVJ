@@ -47,6 +47,7 @@
                 <p class="text-sm text-red-700 dark:text-red-400 font-medium">
                     {{ vs_conflicts|length }} VS {{ "mapování má" if vs_conflicts|length == 1 else "mapování mají" }} konflikt s existujícími daty:
                 </p>
+                <div class="overflow-x-auto">
                 <table class="w-full mt-2 text-xs">
                     <thead>
                         <tr class="text-left text-red-600 dark:text-red-400">
@@ -71,6 +72,7 @@
                         {% endfor %}
                     </tbody>
                 </table>
+                </div>
                 <p class="text-xs text-red-600 dark:text-red-500 mt-2">Pokračováním se VS mapování přepíší na hodnoty z DOCX.</p>
             </div>
             {% elif confirm_overwrite %}

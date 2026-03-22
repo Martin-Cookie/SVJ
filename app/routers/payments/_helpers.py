@@ -2,11 +2,10 @@
 
 import logging
 
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.utils import setup_jinja_filters
+from app.utils import templates
 from app.models import (
     PrescriptionYear, Prescription, VariableSymbolMapping,
     BankStatement, Payment, PaymentAllocation, PaymentMatchStatus, PaymentDirection,
@@ -25,10 +24,6 @@ MONTH_NAMES_LONG = {
     1: "Leden", 2: "Únor", 3: "Březen", 4: "Duben", 5: "Květen", 6: "Červen",
     7: "Červenec", 8: "Srpen", 9: "Září", 10: "Říjen", 11: "Listopad", 12: "Prosinec",
 }
-
-templates = Jinja2Templates(directory="app/templates")
-setup_jinja_filters(templates)
-
 
 def compute_nav_stats(db: Session) -> dict:
     """Statistiky pro navigační karty platebního modulu.

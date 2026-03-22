@@ -1,7 +1,10 @@
 """Router pro bankovní výpisy — import CSV, seznam, detail, párování."""
 
+import logging
 from datetime import datetime
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, Depends, Form, Request, UploadFile, File
 from fastapi.responses import RedirectResponse
@@ -15,7 +18,7 @@ from app.models import (
     Unit,
 )
 from app.utils import build_list_url, is_htmx_partial, is_safe_path, validate_upload, strip_diacritics, UPLOAD_LIMITS
-from ._helpers import templates, logger, compute_nav_stats, MONTH_NAMES_LONG
+from ._helpers import templates, compute_nav_stats, MONTH_NAMES_LONG
 
 router = APIRouter()
 
@@ -800,8 +803,8 @@ async def vypis_smazat(
         if statement.file_path:
             try:
                 Path(statement.file_path).unlink()
-            except Exception:
-                pass
+            except OSError:
+                logger.debug("Nelze smazat soubor %s", statement.file_path, exc_info=True)
         db.delete(statement)
         db.commit()
     return RedirectResponse("/platby/vypisy", status_code=302)

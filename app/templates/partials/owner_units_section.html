@@ -118,6 +118,7 @@
     <summary class="text-sm font-medium text-gray-500 cursor-pointer hover:text-gray-700">
         Historie vlastnictví ({{ owner.historical_units|length }})
     </summary>
+    <div class="overflow-x-auto">
     <table class="min-w-full divide-y divide-gray-200 text-sm mt-2">
         <thead>
             <tr>
@@ -140,5 +141,6 @@
             {% endfor %}
         </tbody>
     </table>
+    </div>
 </details>
 {% endif %}

@@ -133,6 +133,7 @@
                 {% endif %}
             </div>
             {% if backups %}
+            <div class="overflow-x-auto">
             <table class="w-full text-sm" style="table-layout:fixed">
                 <colgroup>
                     <col style="width:50%">
@@ -224,6 +225,7 @@
                     {% endfor %}
                 </tbody>
             </table>
+            </div>
             {% else %}
             <p class="text-sm text-gray-500">Zatím nejsou vytvořeny žádné zálohy.</p>
             {% endif %}
@@ -233,6 +235,7 @@
         <div>
             <h3 class="text-sm font-medium text-gray-600 mb-2">Historie obnovení</h3>
             {% if restore_log %}
+            <div class="overflow-x-auto">
             <table class="w-full text-sm" style="table-layout:fixed">
                 <colgroup>
                     <col style="width:50%">
@@ -261,6 +264,7 @@
                     {% endfor %}
                 </tbody>
             </table>
+            </div>
             {% else %}
             <p class="text-sm text-gray-500">Zatím nebyla provedena žádná obnova.</p>
             {% endif %}
