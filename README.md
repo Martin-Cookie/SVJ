@@ -428,7 +428,7 @@ app/
 ├── main.py                    # FastAPI aplikace
 ├── config.py                  # Nastavení (Pydantic)
 ├── database.py                # SQLAlchemy engine + session
-├── utils.py                   # Sdílené utility (strip_diacritics, build_list_url, is_htmx_partial, fmt_num, is_safe_path, validate_upload, validate_uploads, setup_jinja_filters, excel_auto_width, compute_eta, build_wizard_steps, build_name_with_titles, UPLOAD_LIMITS, is_valid_email)
+├── utils.py                   # Sdílené utility (utcnow, strip_diacritics, build_list_url, is_htmx_partial, fmt_num, is_safe_path, validate_upload, validate_uploads, setup_jinja_filters, excel_auto_width, compute_eta, build_wizard_steps, build_name_with_titles, UPLOAD_LIMITS, is_valid_email, templates)
 ├── models/                    # Databázové modely
 │   ├── owner.py               #   Owner, Unit, OwnerUnit, Proxy
 │   ├── voting.py              #   Voting, VotingItem, Ballot, BallotVote
@@ -469,9 +469,19 @@ app/
 │   │   ├── overview.py        #   Matice plateb, dlužníci, detail jednotky
 │   │   ├── settlement.py      #   Vyúčtování CRUD, export
 │   │   └── _helpers.py        #   compute_nav_stats, sdílené funkce
-│   ├── sync.py                #   /synchronizace (sloučená stránka Kontroly)
+│   ├── sync/                  #   /synchronizace (sloučená stránka Kontroly)
+│   │   ├── session.py         #   Seznam, vytvoření, smazání, detail, export
+│   │   ├── contacts.py        #   Přijetí/zamítnutí změn, aplikace kontaktů
+│   │   ├── exchange.py        #   Výměna vlastníků preview + potvrzení
+│   │   └── _helpers.py        #   Sdílené konstanty a funkce
 │   ├── share_check.py         #   /kontrola-podilu (detail + redirect na /synchronizace)
-│   ├── administration.py      #   /sprava
+│   ├── administration/        #   /sprava
+│   │   ├── info.py            #   SVJ info CRUD, adresy
+│   │   ├── board.py           #   Členové výboru
+│   │   ├── code_lists.py      #   Číselníky + emailové šablony
+│   │   ├── backups.py         #   Zálohy vytvoření/stažení/mazání/obnova
+│   │   ├── bulk.py            #   Export, purge, hromadné úpravy, duplicity
+│   │   └── _helpers.py        #   DB_PATH, BACKUP_DIR, _PURGE_ORDER
 │   └── settings_page.py       #   /nastaveni
 ├── services/                  # Business logika
 │   ├── excel_import.py        #   Import z 31-sloupcového Excelu
@@ -494,7 +504,8 @@ app/
 │   ├── prescription_import.py #   Parsování DOCX předpisů
 │   ├── bank_import.py         #   Parsování Fio CSV bankovních výpisů
 │   ├── payment_matching.py    #   3-fázové párování plateb (VS, jméno+částka, VS-prefix)
-│   └── payment_overview.py    #   Matice plateb, dlužníci, detail jednotky
+│   ├── payment_overview.py    #   Matice plateb, dlužníci, detail jednotky
+│   └── settlement_service.py  #   Logika vyúčtování (generování, přepočet)
 ├── templates/                 # Jinja2 šablony
 │   ├── base.html              #   Layout se sidebar navigací
 │   ├── dashboard.html         #   Přehled (statistiky vlastníků, jednotek, podílů)

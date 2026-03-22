@@ -152,7 +152,7 @@
 ### Modely — konvence
 
 - Enumy dědí z `(str, enum.Enum)`, členové UPPERCASE, hodnoty lowercase anglicky: `DRAFT = "draft"`
-- Timestamp sloupce: editovatelné entity mají `created_at` + `updated_at` s `onupdate=datetime.utcnow`. Logy mají pouze `created_at`. Vždy `datetime.utcnow`
+- Timestamp sloupce: editovatelné entity mají `created_at` + `updated_at` s `onupdate=utcnow`. Logy mají pouze `created_at`. Column defaults/onupdate používají `utcnow` z `app.utils`, explicitní přiřazení v routerech/services také `utcnow()`
 - Cascade: parent→child relace `cascade="all, delete-orphan"`, child→parent plain `back_populates`
 - Každý nový model/enum přidat do importů i `__all__` v `app/models/__init__.py`. Routery importují z `app.models`, nikdy z `app.models.specific_file`
 
@@ -316,6 +316,8 @@
 - `build_wizard_steps(step_defs, current_step, max_done, sending_step=None)` — společná logika wizard stepperu (voting + tax)
 - `build_name_with_titles(title, first_name, last_name)` — sestaví zobrazovací jméno: titul + příjmení + jméno
 - `setup_jinja_filters(templates)` — registrace custom Jinja2 filtrů (aktuálně `fmt_num`) na Jinja2Templates instanci
+- `utcnow()` — naive UTC datetime, náhrada za deprecated `datetime.utcnow()` (Python 3.12+)
+- `templates` — sdílená `Jinja2Templates` instance s registrovanými filtry (singleton pro celý projekt)
 
 ## JavaScript
 
@@ -355,7 +357,6 @@
 - `__init__.py`: vlastní `APIRouter()` + `include_router(sub_router)` pro každý sub-modul
 - `main.py` import zůstává beze změny (`from app.routers import modul`)
 - Příklady:
-  - `owners/` — `crud.py`, `import_owners.py`, `import_contacts.py`, `_helpers.py`
   - `owners/` — `crud.py`, `import_owners.py`, `import_contacts.py`, `_helpers.py`
   - `voting/` — `session.py`, `ballots.py`, `import_votes.py`, `_helpers.py`
   - `tax/` — `session.py`, `processing.py`, `matching.py`, `sending.py`, `_helpers.py`
