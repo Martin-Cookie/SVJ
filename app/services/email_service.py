@@ -3,6 +3,7 @@ from __future__ import annotations
 """
 Email sending service using smtplib with attachment support.
 """
+import asyncio
 import html as html_module
 import logging
 import smtplib
@@ -208,3 +209,38 @@ def send_to_owner_emails(
         results.append(result)
 
     return results
+
+
+async def async_send_email(
+    to_email: str,
+    to_name: str,
+    subject: str,
+    body_html: str,
+    attachments: list[str] | None = None,
+    module: str = "",
+    reference_id: int | None = None,
+    db: Session | None = None,
+    smtp_server: smtplib.SMTP | None = None,
+) -> dict:
+    """Async wrapper pro send_email — neblokuje request thread."""
+    return await asyncio.to_thread(
+        send_email, to_email, to_name, subject, body_html,
+        attachments, module, reference_id, db, smtp_server,
+    )
+
+
+async def async_send_to_owner_emails(
+    owner_email: str,
+    owner_name: str,
+    subject: str,
+    body_html: str,
+    attachments: list[str] | None = None,
+    module: str = "",
+    reference_id: int | None = None,
+    db: Session | None = None,
+) -> list[dict]:
+    """Async wrapper pro send_to_owner_emails — neblokuje request thread."""
+    return await asyncio.to_thread(
+        send_to_owner_emails, owner_email, owner_name, subject, body_html,
+        attachments, module, reference_id, db,
+    )

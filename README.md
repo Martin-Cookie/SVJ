@@ -719,6 +719,7 @@ wheels/                        # Offline Python balíčky (gitignored)
 | GET | `/hlasovani/{id}/neodevzdane` | Neodevzdané lístky (search, sort) |
 | GET | `/hlasovani/{id}/import` | Stránka importu výsledků z Excelu |
 | POST | `/hlasovani/{id}/import` | Nahrání Excel souboru → mapování sloupců |
+| POST | `/hlasovani/{id}/import/mapovani` | Návrat na mapování z náhledu (back navigace) |
 | POST | `/hlasovani/{id}/import/nahled` | Náhled importu (přiřazení + statistika) |
 | POST | `/hlasovani/{id}/import/potvrdit` | Potvrzení a provedení importu |
 | POST | `/hlasovani/{id}/listek/{ballot_id}/opravit` | Oprava zpracovaného lístku (reset hlasů → znovu zpracovat) |
