@@ -1,13 +1,13 @@
 # SVJ Aplikace — Business Logic Reference
 
-> Technický dokument s odkazy na zdrojový kód (soubor:řádek).
-> Poslední aktualizace: 2026-03-09
+> Technicky dokument s odkazy na zdrojovy kod (soubor:radek).
+> Posledni aktualizace: 2026-03-22
 
 ---
 
-## 1. Datový model — entity a vztahy
+## 1. Datovy model — entity a vztahy
 
-### 1.1 Vlastníci a jednotky
+### 1.1 Vlastnici a jednotky
 
 | Entity | Tabulka | Soubor |
 |--------|---------|--------|
@@ -17,7 +17,7 @@
 | `Proxy` | `proxies` | `app/models/owner.py:150` |
 
 **Klicove vztahy:**
-- Owner ↔ Unit je M:N pres `OwnerUnit` (vlastnik muze vlastnit vice jednotek, jednotka muze mit vice vlastniku)
+- Owner <-> Unit je M:N pres `OwnerUnit` (vlastnik muze vlastnit vice jednotek, jednotka muze mit vice vlastniku)
 - `OwnerUnit.valid_to IS NULL` = aktivni vlastnictvi; `valid_to != NULL` = historicke
 - `Owner.current_units` (property, `owner.py:79`) — filtrovane aktivni vazby, razene dle `unit_number`
 - `Unit.current_owners` (property, `owner.py:121`) — filtrovane aktivni vazby
@@ -29,7 +29,7 @@
 
 **Jmeno vlastnika:**
 - `display_name` (property, `owner.py:64`) — format "titul prijmeni jmeno"
-- `name_with_titles` — DB sloupec pro index, nepoiuzivat v sablonach
+- `name_with_titles` — DB sloupec pro index, nepouzivat v sablonach
 - `name_normalized` — lowercase bez diakritiky, format "prijmeni jmeno" (`excel_import.py:170`)
 - Normalizace diakritiky: `unicodedata.normalize("NFD")` + odstraneni `Mn` kategorie (`utils.py:9-12`)
 
@@ -48,12 +48,12 @@
 | `BallotVote` | `ballot_votes` | `app/models/voting.py:95` |
 
 **Klicove atributy Voting:**
-- `quorum_threshold` — ulozeno jako 0–1 (napr. 0.5 = 50%). Formular posila 0–100, router deli `/100` (`voting.py:291-295`)
+- `quorum_threshold` — ulozeno jako 0-1 (napr. 0.5 = 50%). Formular posila 0-100, router deli `/100` (`voting.py:291-295`)
 - `partial_owner_mode` — `"shared"` (SJM sdileny listek) nebo `"separate"` (kazdy vlastnik zvlast)
-- `total_votes_possible` — celkovy pocet hlasu vsech lystku
+- `total_votes_possible` — celkovy pocet hlasu vsech listku
 - `import_column_mapping` — JSON string, ulozene mapovani sloupcu z posledniho importu
 
-### 1.3 Rozesilaní (Tax/Send)
+### 1.3 Rozesílani (Tax/Send)
 
 | Entity | Tabulka | Soubor |
 |--------|---------|--------|
@@ -102,6 +102,45 @@
 | `ImportLog` | `import_logs` | `app/models/common.py:33` |
 | `ActivityLog` | `activity_logs` | `app/models/common.py:57` |
 
+### 1.8 Evidence plateb
+
+| Entity | Tabulka | Soubor |
+|--------|---------|--------|
+| `VariableSymbolMapping` | `variable_symbol_mappings` | `app/models/payment.py` |
+| `PrescriptionYear` | `prescription_years` | `app/models/payment.py` |
+| `Prescription` | `prescriptions` | `app/models/payment.py` |
+| `PrescriptionItem` | `prescription_items` | `app/models/payment.py` |
+| `BankStatement` | `bank_statements` | `app/models/payment.py` |
+| `Payment` | `payments` | `app/models/payment.py` |
+| `PaymentAllocation` | `payment_allocations` | `app/models/payment.py` |
+| `UnitBalance` | `unit_balances` | `app/models/payment.py` |
+| `Settlement` | `settlements` | `app/models/payment.py` |
+| `SettlementItem` | `settlement_items` | `app/models/payment.py` |
+
+**Hierarchie predpisu:**
+- `PrescriptionYear` (rok) -> `Prescription` (mesicni predpis pro jednotku) -> `PrescriptionItem` (polozka: provozni, fond oprav, sluzby)
+- Kazda `Prescription` je vazana na `unit_id` a ma `variable_symbol` (VS pro platby)
+- `PrescriptionItem.category` — 3 kategorie: `provozni` (provozni naklady), `fond_oprav` (fond oprav/udrzby), `sluzby` (sluzby)
+
+**Bankovni vypisy a platby:**
+- `BankStatement` (vypis) -> `Payment` (jednotliva transakce)
+- `Payment.direction` — `INCOME` (prijem) nebo `EXPENSE` (vydej)
+- `Payment.match_status` — `AUTO_MATCHED`, `SUGGESTED`, `MANUAL`, `UNMATCHED`
+- `Payment.variable_symbol` — variabilni symbol pro parovani s predpisy
+
+**Alokace plateb:**
+- `PaymentAllocation` — M:N vazba `Payment` <-> `Prescription` (jedna platba muze pokryt vice predpisu, jeden predpis muze byt pokryt vice platbami)
+- `amount` na alokaci urcuje castku prirazenou konkretnimu predpisu
+
+**Zustatky a vyuctovani:**
+- `UnitBalance` — zustatek na jednotce pro dany rok (kladny = dluh, zaporny = preplatek)
+- `Settlement` -> `SettlementItem` — rocni vyuctovani s detailnimi polozkami
+- Vzorec vyuctovani: `vysledek = (mesicni_predpis * 12) + pocatecni_zustatek - celkem_zaplaceno`
+
+**Mapovani variabilnich symbolu:**
+- `VariableSymbolMapping` — vazba VS -> jednotka. Jeden VS muze byt sdilen vice vlastniky (SJM), jedna jednotka muze mit vice VS (historicke zmeny)
+- Slouzi pro automaticke parovani plateb s predpisy
+
 ---
 
 ## 2. Stavove automaty
@@ -109,22 +148,22 @@
 ### 2.1 VotingStatus (`voting.py:12`)
 
 ```
-DRAFT ──[generovat listky]──> ACTIVE ──[uzavrit]──> CLOSED
-                                  └──[zrusit]──> CANCELLED
+DRAFT --[generovat listky]--> ACTIVE --[uzavrit]--> CLOSED
+                                  \--[zrusit]--> CANCELLED
 ```
 
-- `DRAFT` → `ACTIVE`: automaticky pri prvnim generovani listku (`voting.py:667-668`)
-- `ACTIVE` → `CLOSED`/`CANCELLED`: manualne pres formular (`voting.py:986+`)
+- `DRAFT` -> `ACTIVE`: automaticky pri prvnim generovani listku (`voting.py:667-668`)
+- `ACTIVE` -> `CLOSED`/`CANCELLED`: manualne pres formular (`voting.py:986+`)
 - Nelze se vratit z CLOSED/CANCELLED zpet
 
 ### 2.2 BallotStatus (`voting.py:26`)
 
 ```
-GENERATED ──[odeslat]──> SENT ──[prijat]──> RECEIVED ──[zpracovat]──> PROCESSED
-                                                                         ↑
-                                                          [resetovat] ───┘
+GENERATED --[odeslat]--> SENT --[prijat]--> RECEIVED --[zpracovat]--> PROCESSED
+                                                                         ^
+                                                          [resetovat] ---+
 
-GENERATED ──[oznacit jako neplatny]──> INVALID
+GENERATED --[oznacit jako neplatny]--> INVALID
 ```
 
 - `GENERATED`: listek vytvoren, ceka na odeslani
@@ -132,41 +171,41 @@ GENERATED ──[oznacit jako neplatny]──> INVALID
 - `RECEIVED`: fyzicky listek prijat zpet
 - `PROCESSED`: hlasy zpracovany a zaznamenany (datum v `processed_at`)
 - `INVALID`: listek oznacen jako neplatny
-- Reset: `PROCESSED` → `GENERATED` (vymaze hlasy, `voting.py:1239+`)
+- Reset: `PROCESSED` -> `GENERATED` (vymaze hlasy, `voting.py:1239+`)
 
-### 2.3 SendStatus (`tax.py:19`) — rozesilaní
+### 2.3 SendStatus (`tax.py:19`) — rozesílani
 
 ```
-DRAFT ──[potvrdit prirazeni]──> READY ──[zahajit rozeslani]──> SENDING
-                                   ↑                              │
-                                   └──[znovu otevrit]─────────────┤
-                                                                  ├──[pozastavit]──> PAUSED
-                                                                  │                    │
-                                                                  │  ┌─[pokracovat]────┘
-                                                                  │  │
-                                                                  └──┴──[dokonceno]──> COMPLETED
+DRAFT --[potvrdit prirazeni]--> READY --[zahajit rozeslani]--> SENDING
+                                   ^                              |
+                                   \--[znovu otevrit]-------------+
+                                                                  +--[pozastavit]--> PAUSED
+                                                                  |                    |
+                                                                  |  +-[pokracovat]----+
+                                                                  |  |
+                                                                  \--+--[dokonceno]--> COMPLETED
 ```
 
-- `DRAFT`: prace na prirazeni PDF → vlastnikum
+- `DRAFT`: prace na prirazeni PDF -> vlastnikum
 - `READY`: prirazeni potvrzeno, pripraveno k odeslani
-- `SENDING`: probihajici rozesilaní v pozadi (background thread)
+- `SENDING`: probihajici rozesílani v pozadi (background thread)
 - `PAUSED`: pozastaveno uzivatelem (nebo po restartu serveru, `tax.py:45-56`)
 - `COMPLETED`: vsechny emaily odeslany
-- Recovery pri restartu: `SENDING` → `PAUSED` automaticky (`tax.py:45-56`)
+- Recovery pri restartu: `SENDING` -> `PAUSED` automaticky (`tax.py:45-56`)
 
 ### 2.4 MatchStatus (`tax.py:12`) — prirazeni PDF
 
 ```
-UNMATCHED ──[auto-match]──> AUTO_MATCHED ──[potvrdit]──> CONFIRMED
-                                              └──[rucne zmenit]──> MANUAL
+UNMATCHED --[auto-match]--> AUTO_MATCHED --[potvrdit]--> CONFIRMED
+                                              \--[rucne zmenit]--> MANUAL
 ```
 
 ### 2.5 EmailDeliveryStatus (`tax.py:27`)
 
 ```
-PENDING ──[zaradit do fronty]──> QUEUED ──[odeslat]──> SENT
-                                            └──[chyba]──> FAILED
-                                                          └──[preskocit]──> SKIPPED
+PENDING --[zaradit do fronty]--> QUEUED --[odeslat]--> SENT
+                                            \--[chyba]--> FAILED
+                                                          \--[preskocit]--> SKIPPED
 ```
 
 ### 2.6 SyncStatus (`sync.py:12`) + SyncResolution (`sync.py:19`)
@@ -179,12 +218,26 @@ PENDING ──[zaradit do fronty]──> QUEUED ──[odeslat]──> SENT
 - `MISSING_EXCEL` — jednotka jen v CSV, ne v DB
 
 **Resolution:**
-- `PENDING` → `ACCEPTED` / `REJECTED` / `MANUAL_EDIT` / `EXCHANGED`
+- `PENDING` -> `ACCEPTED` / `REJECTED` / `MANUAL_EDIT` / `EXCHANGED`
 
 ### 2.7 ShareCheckStatus (`share_check.py:13`) + ShareCheckResolution (`share_check.py:19`)
 
 **Status:** `MATCH`, `DIFFERENCE`, `MISSING_DB`, `MISSING_FILE`
-**Resolution:** `PENDING` → `UPDATED` / `SKIPPED`
+**Resolution:** `PENDING` -> `UPDATED` / `SKIPPED`
+
+### 2.8 PaymentMatchStatus (`payment.py`)
+
+```
+UNMATCHED --[faze 1: VS exact]--> AUTO_MATCHED
+          --[faze 2: jmeno+castka]--> SUGGESTED
+          --[faze 3: VS prefix]--> SUGGESTED
+          --[rucni prirazeni]--> MANUAL
+```
+
+- `AUTO_MATCHED` — VS presne odpovida predpisu (vysoka jistota)
+- `SUGGESTED` — navrzen na zaklade jmena+castky nebo VS prefixu (vyzaduje potvrzeni)
+- `MANUAL` — rucne prirazeno uzivatelem
+- `UNMATCHED` — zadna shoda nenalezena
 
 ---
 
@@ -207,9 +260,9 @@ PENDING ──[zaradit do fronty]──> QUEUED ──[odeslat]──> SENT
 - Pro kazdeho aktivniho vlastnika s alespon 1 jednotkou se vytvori `Ballot` + `BallotVote` pro kazdy bod hlasovani
 
 **SJM rezim "shared"** (`voting.py:508-625`):
-1. Sestavi mapu `unit_id → [vlastnici]` pro jednotky s typem vlastnictvi obsahujicim "SJM"
+1. Sestavi mapu `unit_id -> [vlastnici]` pro jednotky s typem vlastnictvi obsahujicim "SJM"
 2. Paruje SJM spoluvlastniky pres connected components algoritmus — POUZE na jednotkach s PRESNE 2 SJM vlastniky
-3. Neparovane SJM vlastniky (multi-owner jednotky) seskupi dle identicke mnoziny SJM jednotek
+3. Neparovane SJM vlastniky seskupi dle identicke mnoziny SJM jednotek
 4. Pro kazdy SJM par vytvori JEDEN sdileny listek:
    - `owner_id` = primarni vlastnik (dle `name_normalized` abecedne)
    - `total_votes` = SOUCET hlasu VSECH clenu (kazdy vlastnik ma svuj podil)
@@ -238,7 +291,7 @@ PENDING ──[zaradit do fronty]──> QUEUED ──[odeslat]──> SENT
 - Snapshot warning: detekce zda se zmenily hlasy od generovani (`voting.py:386-395`)
 
 #### Krok 5: Uzavreni
-- Status `ACTIVE` → `CLOSED` nebo `CANCELLED` (`voting.py:986+`)
+- Status `ACTIVE` -> `CLOSED` nebo `CANCELLED` (`voting.py:986+`)
 
 ### 3.1.1 Import hlasovani z Excelu
 
@@ -247,11 +300,11 @@ PENDING ──[zaradit do fronty]──> QUEUED ──[odeslat]──> SENT
 **Mapovani sloupcu** (`voting_import.py:10-16`):
 ```json
 {
-  "owner_col": 0,        // index sloupce se jmenem
-  "unit_col": 2,         // index sloupce s cislem jednotky
-  "start_row": 2,        // prvni radek s daty
-  "for_values": "1, ANO, YES, X, PRO",      // co znamena PRO
-  "against_values": "0, NE, NO, PROTI",     // co znamena PROTI
+  "owner_col": 0,
+  "unit_col": 2,
+  "start_row": 2,
+  "for_values": "1, ANO, YES, X, PRO",
+  "against_values": "0, NE, NO, PROTI",
   "item_mappings": [
     {"item_id": 5, "for_col": 3, "against_col": 4}
   ]
@@ -261,17 +314,17 @@ PENDING ──[zaradit do fronty]──> QUEUED ──[odeslat]──> SENT
 **Parsovani hlasu** (`voting_import.py:63-128`):
 - Podpora exaktni shody ("ANO", "1") i porovnani (">0", "<0", ">=1")
 - Primarni sloupec (`for_col`): hodnota se porovna s for_values a against_values
-- Sekundarni sloupec (`against_col`): logika INVERTOVANA (for_values → PROTI)
+- Sekundarni sloupec (`against_col`): logika INVERTOVANA (for_values -> PROTI)
 - Nerozpoznane hodnoty: radek jde do `no_match` kategorie
 
 **Parovani radku na listky** (`voting_import.py:199-363`):
-1. Sestavi lookup `unit_number → [ballot, ...]`
-2. Pro kazdy radek: parsuje cislo jednotky (`"1098/115" → 115`)
+1. Sestavi lookup `unit_number -> [ballot, ...]`
+2. Pro kazdy radek: parsuje cislo jednotky (`"1098/115" -> 115`)
 3. Najde listky pro danou jednotku
 4. Disambiguace pri vice listcich na jednotce:
    - Porovna jmeno z Excelu s jmenem na listku (pomoci `name_normalized`)
    - Pri SJM: pokud je presne 2 SJM vlastniku, prida vyrazeneho partnera zpet
-5. Propagace hlasu: pokud radek ma hlasy → vsem listkum na jednotce (kazdy se svym `total_votes`)
+5. Propagace hlasu: pokud radek ma hlasy -> vsem listkum na jednotce (kazdy se svym `total_votes`)
 6. Merge: pokud se ten samy listek objevi na vice radcich, hlasy se slouci (`seen_ballots`)
 
 **Mody importu** (`voting_import.py:377-447`):
@@ -280,18 +333,18 @@ PENDING ──[zaradit do fronty]──> QUEUED ──[odeslat]──> SENT
 
 **Globalni mapovani:** ulozeno v `SvjInfo.voting_import_mapping` (`administration.py:17`); predvyplni se pri dalsim importu.
 
-### 3.2 Rozesílaní (Tax/Send)
+### 3.2 Rozesílani (Tax/Send)
 
 #### Krok 1: Vytvoreni session + nahrani PDF
 - **Soubor:** `tax.py:432-507`
-- Uzivatel nahrava adresar s PDF soubory (daňová vyúčtování)
+- Uzivatel nahrava adresar s PDF soubory (danove vyuctovani)
 - Pouze `.pdf` soubory se zpracuji; ostatni (`.DS_Store` atd.) se preskoci
 - Soubory se ulozi synchronne, zpracovani bezi na pozadi (background thread)
 
 #### Krok 2: Extrakce textu z PDF a auto-matching
 - **Background thread:** `tax.py:627-864`
 - **PDF extrakce** (`pdf_extractor.py`):
-  - `parse_unit_from_filename()` (`pdf_extractor.py:189-195`): nazev souboru "115A.pdf" → unit_number="115", unit_letter="A"
+  - `parse_unit_from_filename()` (`pdf_extractor.py:189-195`): nazev souboru "115A.pdf" -> unit_number="115", unit_letter="A"
   - `extract_owner_from_tax_pdf()` (`pdf_extractor.py:23-31`): fulltext pres `pdfplumber`
   - `parse_owner_name()` (`pdf_extractor.py:150-186`): vzory "Vlastnik:", "Jmeno:", "Udaje o vlastnikovi:"
   - `parse_owner_names_from_details()` (`pdf_extractor.py:96-147`): parsuje sekci "Udaje o vlastnikovi" — jmena z SP radku (spoluvlastnicky podil)
@@ -305,10 +358,10 @@ PENDING ──[zaradit do fronty]──> QUEUED ──[odeslat]──> SENT
 
 - **Logika matchingu** (`tax.py:700-758`):
   1. Pro kazde jmeno z PDF: pokusi se matchovat lokalne (vlastnici na dane jednotce, threshold 0.6)
-  2. SJM prefix → vsechny shody nad threshold; jinak jen nejlepsi
+  2. SJM prefix -> vsechny shody nad threshold; jinak jen nejlepsi
   3. Non-SJM: tez globalni match (vsichni vlastnici, threshold 0.75, `require_stem_overlap=True`)
   4. Pouzije lepsi z lokalniho/globalniho
-  5. Nenalezeno → `UNMATCHED` distribuce
+  5. Nenalezeno -> `UNMATCHED` distribuce
 
 - **Post-processing** (`tax.py:764-848`):
   - Pro nove nenadrazene dokumenty: zkopiruje prirazeni z existujicich dokumentu se stejnou jednotkou
@@ -317,14 +370,14 @@ PENDING ──[zaradit do fronty]──> QUEUED ──[odeslat]──> SENT
 #### Krok 3: Manualni prirazeni (matching page)
 - **Soubor:** `tax.py:964+`
 - Uzivatel kontroluje a potvrzuje auto-match, rucne priradi nenadrazene
-- Stavy: `AUTO_MATCHED` → `CONFIRMED`, nebo `MANUAL` pro rucni prirazeni
+- Stavy: `AUTO_MATCHED` -> `CONFIRMED`, nebo `MANUAL` pro rucni prirazeni
 - Spoluvlastnici: `_find_coowners()` (`tax.py:139-174`) — hleda spoluvlastniky na stejne jednotce s prekryvajicim se obdobim v danovem roce
 
-#### Krok 4: Rozesílaní emailu
+#### Krok 4: Rozesílani emailu
 - **Background thread:** `tax.py:2085-2214`
 - Davkovy system: `batch_size` emailu, `batch_interval` sekund pauza
 - Sdilene SMTP pripojeni per davka (`email_service.py:21-31`)
-- Podpora pozastaveni/pokracovani/zruseni behem rozesilaní
+- Podpora pozastaveni/pokracovani/zruseni behem rozesílani
 - Retry neuspiesnnych: opetovne odeslani jen `FAILED` prijemcu (`tax.py:2430+`)
 - Deduplikace prijemcu pres `_build_recipients()` (`tax.py:221-300`): jeden prijemce muze mit vice dokumentu
 - Podpora dualnich emailu (primarni + sekundarni)
@@ -332,18 +385,18 @@ PENDING ──[zaradit do fronty]──> QUEUED ──[odeslat]──> SENT
 ### 3.3 Import vlastniku z Excelu
 
 - **Soubory:** `app/services/excel_import.py`, `owners.py`
-- Workflow: Upload → Preview → Confirm
+- Workflow: Upload -> Preview -> Confirm
 
 #### Parsovani Excelu (`excel_import.py:300-349`)
 - Ocekavany format: list "Vlastnici_SVJ", 31 sloupcu (A-AE)
 - Klicove sloupce: A=cislo jednotky, L=jmeno, M=prijmeni, N=titul, O=RC/IC
-- Parsovani cisla jednotky: `"1098/115" → 115` (posledni cast za lomitkem)
-- Detekce typu: IC (8 cifer) → `LEGAL_ENTITY`, RC (format XXXXXX/XXXX) → `PHYSICAL`
+- Parsovani cisla jednotky: `"1098/115" -> 115` (posledni cast za lomitkem)
+- Detekce typu: IC (8 cifer) -> `LEGAL_ENTITY`, RC (format XXXXXX/XXXX) -> `PHYSICAL`
 
 #### Seskupeni vlastniku (`excel_import.py:180-191`)
 - Unikatni vlastnici se identifikuji pres `_owner_group_key()`:
-  - Pokud ma RC/IC → klic `"id:XXXXXXXX"`
-  - Jinak → klic `"name:prijmeni|jmeno"` (normalizovano)
+  - Pokud ma RC/IC -> klic `"id:XXXXXXXX"`
+  - Jinak -> klic `"name:prijmeni|jmeno"` (normalizovano)
 - Jeden vlastnik muze mit vice radku (vice jednotek)
 
 #### Ulozeni (`excel_import.py:352-494`)
@@ -352,12 +405,12 @@ PENDING ──[zaradit do fronty]──> QUEUED ──[odeslat]──> SENT
   - Owner: kontaktni udaje se berou z prvniho radku, email/telefon se hleda pres vsechny radky
   - Unit: cache pro deduplikaci; existujici jednotky se pouziji
   - OwnerUnit: `votes = unit.podil_scd` (cely podil, `share=1.0`)
-- Normalizace vlastnictvi: "ANO" → "SJM"
+- Normalizace vlastnictvi: "ANO" -> "SJM"
 
 ### 3.4 Import kontaktu z Excelu
 
 - **Soubory:** `app/services/contact_import.py`, `owners.py:273+`
-- Workflow: Upload → Background processing → Preview → Confirm
+- Workflow: Upload -> Background processing -> Preview -> Confirm
 
 #### Format (`contact_import.py:6-13`)
 - Sheet "ZU", data od radku 7
@@ -369,57 +422,57 @@ PENDING ──[zaradit do fronty]──> QUEUED ──[odeslat]──> SENT
 3. Deduplikace: kazdy vlastnik se zpracuje jen jednou
 
 #### Inteligentni routing kontaktu (`contact_import.py:218-256`)
-- Pokud primarni kontakt je prazdny → vyplni primarni
-- Pokud Excel odpovida primarnimu NEBO sekundarnimu → preskoci
-- Pokud primarni se lisi, sekundarni je prazdny → presmeruje do sekundarniho
-- Pokud oba obsazeny, ani jeden neodpovida → prepise primarni
+- Pokud primarni kontakt je prazdny -> vyplni primarni
+- Pokud Excel odpovida primarnimu NEBO sekundarnimu -> preskoci
+- Pokud primarni se lisi, sekundarni je prazdny -> presmeruje do sekundarniho
+- Pokud oba obsazeny, ani jeden neodpovida -> prepise primarni
 
 #### Normalizace telefonu (`contact_import.py:52-63`)
 - Odstrani `+420`, `00420`, `420` prefix
-- Pri ukladani: 9 cifer → pridani `+420` prefixu (`contact_import.py:66-75`)
+- Pri ukladani: 9 cifer -> pridani `+420` prefixu (`contact_import.py:66-75`)
 
 ### 3.5 Synchronizace (CSV porovnani)
 
 - **Soubory:** `app/services/csv_comparator.py`, `app/routers/sync.py`
-- Workflow: Upload CSV → Compare → Review → Accept/Reject/Exchange
+- Workflow: Upload CSV -> Compare -> Review -> Accept/Reject/Exchange
 
 #### CSV parsovani (`csv_comparator.py:16-97`)
 - Podporuje `;` i `,` delimiter, auto-detekce
 - Sloupce dle ruznych pojmenovani (sousede.cz, interni export)
-- Format cisla jednotky: `"1098/14" → "14"`
+- Format cisla jednotky: `"1098/14" -> "14"`
 - Merge radku se stejnym cislem jednotky (pro interni export s radky per spoluvlastnik)
-- Podpora kodovaání: UTF-8, CP1250, Latin-1 s automatickym fallbackem
+- Podpora kodovani: UTF-8, CP1250, Latin-1 s automatickym fallbackem
 
 #### Porovnani (`csv_comparator.py:171-362`)
 1. Strukturovane porovnani (`_compare_structured_names`): CSV "prijmeni jmeno" vs DB `first_name` + `last_name`
 2. Fuzzy fallback: `SequenceMatcher` + mnozinove porovnani (Jaccard)
 3. Rozhodovani o statusu:
-   - Strukturalni shoda / Jaccard=1.0 / individualni jmena se shoduji → `MATCH`
-   - Prohozena jmena → `NAME_ORDER`
-   - ratio >= 0.85 → `MATCH` nebo `NAME_ORDER`
-   - jinak → `DIFFERENCE`
+   - Strukturalni shoda / Jaccard=1.0 / individualni jmena se shoduji -> `MATCH`
+   - Prohozena jmena -> `NAME_ORDER`
+   - ratio >= 0.85 -> `MATCH` nebo `NAME_ORDER`
+   - jinak -> `DIFFERENCE`
 4. Detekce zmeny podilu a typu vlastnictvi (v `match_details`)
 
 #### Vymena vlastniku (`owner_exchange.py`)
 - Pro `DIFFERENCE` zaznamy: nahradi vlastniky na jednotce daty z CSV
 - Zpracovani:
   1. Match CSV jmen na existujici vlastniky (pres `match_name`, threshold 0.90)
-  2. "Reuse" (existujici na jednotce) → ponechani `OwnerUnit`, aktualizace `ownership_type`
-  3. "New" (neexistujici) → vytvoreni noveho `Owner` + `OwnerUnit`
+  2. "Reuse" (existujici na jednotce) -> ponechani `OwnerUnit`, aktualizace `ownership_type`
+  3. "New" (neexistujici) -> vytvoreni noveho `Owner` + `OwnerUnit`
   4. Soft-delete neparovanych: `OwnerUnit.valid_to = exchange_date`
   5. Prepocet hlasu: `_split_votes()` rovnomerne rozdeleni podilu (`owner_exchange.py:40-46`)
 
 ### 3.6 Kontrola podilu (Share Check)
 
 - **Soubory:** `app/services/share_check_comparator.py`, `app/routers/share_check.py`
-- Workflow: Upload CSV/XLSX → Mapovani sloupcu → Porovnani → Review → Aktualizace
+- Workflow: Upload CSV/XLSX -> Mapovani sloupcu -> Porovnani -> Review -> Aktualizace
 
 #### Mapovani sloupcu (`share_check_comparator.py:167-207`)
 1. Kontrola ulozenych mapovani (posledni pouzite)
 2. Fallback na auto-detekci (prehledava zname nazvy sloupcu, `_UNIT_CANDIDATES`, `_SHARE_CANDIDATES`)
 
 #### Porovnani (`share_check_comparator.py:352-426`)
-- Parsovani podilu: `"12212/4103391" → 12212` (cislo pred lomitkem)
+- Parsovani podilu: `"12212/4103391" -> 12212` (cislo pred lomitkem)
 - Agregace per jednotka: vice radku spoluvlastniku se scitaji
 - Porovnani s `Unit.podil_scd` v DB
 - Statusy: `MATCH` (hodnoty se shoduji), `DIFFERENCE`, `MISSING_DB`, `MISSING_FILE`
@@ -451,6 +504,112 @@ PENDING ──[zaradit do fronty]──> QUEUED ──[odeslat]──> SENT
 - Prezije obnovu DB (neni v databazi)
 - Zaznamenava: timestamp, zdroj, metoda, bezpecnostni zaloha
 
+### 3.8 Evidence plateb
+
+- **Soubory:** `app/services/payment_matching.py`, `app/services/prescription_import.py`, `app/services/bank_import.py`, `app/services/settlement_service.py`, `app/services/payment_overview.py`, `app/routers/payments/`
+- Workflow: Import predpisu -> Import VS mapovani -> Import bankovnich vypisu -> Automaticky matching -> Rucni korekce -> Prehled -> Vyuctovani
+
+#### 3.8.1 Import predpisu z DOCX (`prescription_import.py`)
+
+**Format:** DOCX soubory ze spravniho systemu DOMSYS
+- Parsuje tabulky s 25 radky (fixni format)
+- Extrahuje: variabilni symbol, cislo jednotky, jmeno vlastnika, polozky predpisu
+- **Auto-kategorizace polozek** — nazev polozky se matchuje proti znamym vzorum:
+  - `provozni`: sprava, pojisteni, uplata, odmena, uklid, elektrina, revize...
+  - `fond_oprav`: fond oprav, fond udrzby, uver, splaceni...
+  - `sluzby`: voda, teplo, TUV, ohrev, vytapeni, odpady, vyucita, komunitni...
+- Fallback: pokud nazev neodpovida zadnemu vzoru -> `provozni`
+
+**Detekce konfliktu VS:**
+- Pri importu se kontroluje, zda existujici VS mapovani na jinou jednotku nekoliduje s novym predpisem
+- Varovani se zobrazi uzivateli (`validate_vs_conflicts()`)
+
+#### 3.8.2 Import VS mapovani (`payments/symbols.py`)
+
+- Variabilni symboly se importuji z predpisu nebo se zadavaji rucne
+- Jeden VS -> jedna jednotka (ale jednotka muze mit vice VS — historicke zmeny, SJM)
+- VS se pouziva jako primarni identifikator pro automaticky matching plateb
+
+#### 3.8.3 Import bankovnich vypisu (`bank_import.py`)
+
+**Format:** Fio banka CSV
+- UTF-8 s BOM, strednik jako oddelovac
+- Radky 1-8: metadata (cislo uctu, obdobi)
+- Radek 10: hlavicky (19 sloupcu, duplicitni "Poznamka")
+- Radky 11+: transakce
+
+**Parsovani:**
+- Detekce duplicit: kontrola podle `bank_transaction_id` (ID pohybu z Fio)
+- Castka: kladna = prijem (`INCOME`), zaporna = vydej (`EXPENSE`)
+- Variabilni symbol: z CSV sloupce, normalizace (odstraneni mezer, nul na zacatku)
+
+#### 3.8.4 Automaticky matching plateb (`payment_matching.py`)
+
+**3-fazovy algoritmus:**
+
+**Faze 1 — VS exact match** (nejvyssi jistota):
+- Pokud VS platby presne odpovida VS v `VariableSymbolMapping` -> `AUTO_MATCHED`
+- Priradi platbu k predpisu dane jednotky pro dany mesic
+
+**Faze 2 — Jmeno + castka** (stredni jistota):
+- Porovna jmeno platce s vlastniky na jednotkach
+- Zaroven porovna castku s mesicnim predpisem
+- Obe podminky musi byt splneny -> `SUGGESTED`
+
+**Faze 3 — VS prefix decode + score** (nejnizsi jistota):
+- VS prefix `VS_PREFIX="1098"` se odstrani, zbytek se interpretuje jako cislo jednotky
+- Bodovy system (`MIN_MATCH_SCORE=5`):
+  - Shoda cisla jednotky z VS: +3 body
+  - Shoda castky s predpisem: +3 body
+  - Shoda jmena vlastnika: +2 body
+  - Castecna shoda jmena: +1 bod
+- Score >= `MIN_MATCH_SCORE` -> `SUGGESTED`
+
+**Klicove konstanty** (`payment_matching.py`):
+- `VS_PREFIX = "1098"` — prefix pro dekodovani cisla jednotky z VS
+- `MIN_WORD_LENGTH = 3` — minimalni delka slova pro matching jmen
+- `MIN_COMMON_WORDS = 2` — minimalni pocet spolecnych slov pro shodu
+- `MAX_PRESCRIPTION_RATIO = 10` — maximalni nasobek predpisu pro validni castku
+- `MIN_MATCH_SCORE = 5` — minimalni skore pro navrh prirazeni
+
+**Lock mechanismus:**
+- Matching se spousti na pozadi; lock (`matching_lock`) zabranuje soubeznemu behu
+- Stav matchingu (progres, chyby) se uklada v pameti a je pristupny pres API
+
+#### 3.8.5 Alokace plateb
+
+- `PaymentAllocation` — vazba platby na konkretni predpis s castkou
+- Jedna platba muze pokryt vice mesicu (napr. platba za ctvrtleti)
+- Vice plateb muze pokryvat jeden predpis (napr. castecne platby)
+- Pri alokaci se aktualizuje `UnitBalance` — bezi zustatek jednotky
+
+#### 3.8.6 Prehled plateb (`payment_overview.py`)
+
+**Platebni matice:**
+- Sloupce = mesice (1-12), radky = jednotky
+- Bunka = zaplacena castka vs predepsana castka (zelena = OK, cervena = dluh, zluta = castecne)
+- `PaymentWithAlloc` dataclass — wrapper pro platbu s alokacemi
+
+**Dluznici:**
+- `_count_debtors_fast()` v `payments/_helpers.py` — rychly SQL dotaz na pocet jednotek se zustatkem > 0
+- Dluznik = jednotka, ktera v danem obdobi zaplatila mene nez bylo predepsano
+
+#### 3.8.7 Vyuctovani (`settlement_service.py`)
+
+**Vzorec:**
+```
+vysledek = (mesicni_predpis * 12) + pocatecni_zustatek - celkem_zaplaceno
+```
+
+- Kladny vysledek = dluh vlastnika, zaporny = preplatek
+- `Settlement` se generuje per jednotka per rok
+- `SettlementItem` — detailni polozky (proporcionalni rozdeleni dle pomeru kategorii)
+- Proporcionalni alokace: kazda kategorie (provozni, fond_oprav, sluzby) ma svuj pomer na celku
+
+**Pocatecni zustatek:**
+- `UnitBalance.opening_balance` pro dany rok
+- Pokud neexistuje -> 0
+
 ---
 
 ## 4. Vypocetni pravidla
@@ -472,7 +631,7 @@ PENDING ──[zaradit do fronty]──> QUEUED ──[odeslat]──> SENT
 - SJM par: oba vlastnici sdileji JEDEN listek
 - `total_votes` sdileneho listku = soucet `ou.votes` VSECH clenu paru
 - Jednotky se deduplikuji (zobrazeni), ale hlasy se scitaji
-- Pri importu hlasovani: radek z Excelu s hlasy → propagace na VSECHNY listky na dane jednotce (kazdy se svym `total_votes`)
+- Pri importu hlasovani: radek z Excelu s hlasy -> propagace na VSECHNY listky na dane jednotce (kazdy se svym `total_votes`)
 
 ### 4.4 Podil na SCD
 - `Unit.podil_scd` — podil na spolecnych castech domu (celociselna hodnota, napr. 12212)
@@ -480,15 +639,35 @@ PENDING ──[zaradit do fronty]──> QUEUED ──[odeslat]──> SENT
 - Pri vice vlastnicich: `votes = split_votes(podil_scd, num_owners)` — rovnomerne rozdeleni se zbytkem
 
 ### 4.5 Konverze procent
-- Formular → DB: `quorum_threshold = form_value / 100` (`voting.py:291-295`)
-- DB → sablona: `{{ (value * 100)|round(1) }}%`
+- Formular -> DB: `quorum_threshold = form_value / 100` (`voting.py:291-295`)
+- DB -> sablona: `{{ (value * 100)|round(1) }}%`
 
 ### 4.6 Normalizace jmen pro vyhledavani
 - Odstraneni diakritiky: `unicodedata.normalize("NFD")` + filtr `Mn` kategorie (`utils.py:9-12`)
 - Lowercase
 - Format: "prijmeni jmeno" (prijmeni first)
 - Vyhledavani: `Owner.name_normalized.like(search_ascii)` — NE `ilike` (je uz lowercase)
-- SQLite `LIKE` nefunguje spravne s ceskou diakritikou → proto normalizovany sloupec
+- SQLite `LIKE` nefunguje spravne s ceskou diakritikou -> proto normalizovany sloupec
+
+### 4.7 Zustatek jednotky (znamenkova konvence)
+- `UnitBalance`: kladna hodnota = dluh vlastnika, zaporna = preplatek
+- Tato konvence se pouziva konzistentne v celm platebnim modulu
+- Pri zobrazeni: kladne hodnoty cervene (vlastnik dluzi), zaporne zelene (preplatek)
+
+### 4.8 Vyuctovani — vzorec
+- `vysledek = (mesicni_predpis * 12) + pocatecni_zustatek - celkem_zaplaceno`
+- Proporcionalni rozdeleni polozek dle pomeru kategorii na celkovem predpisu
+- Kladny vysledek = nedoplatek, zaporny = preplatek
+
+### 4.9 Matching plateb — bodovy system
+- Faze 3 matchingu pouziva bodovy system s prahy:
+  - `MIN_MATCH_SCORE = 5` — minimalni skore pro navrh
+  - Shoda VS -> cislo jednotky: 3 body
+  - Shoda castky: 3 body
+  - Shoda jmena: 2 body
+  - Castecna shoda jmena: 1 bod
+- Faze 1 (VS exact) nepouziva scoring — primo `AUTO_MATCHED`
+- Faze 2 (jmeno+castka) vyzaduje shodu obou kriterii -> `SUGGESTED`
 
 ---
 
@@ -527,7 +706,7 @@ PENDING ──[zaradit do fronty]──> QUEUED ──[odeslat]──> SENT
 - Extrakce metadat: nazev, popis, datumy (ceske formaty)
 - Knihovna: `python-docx`
 
-### 5.7 PDF extrakce (daňové dokumenty)
+### 5.7 PDF extrakce (danove dokumenty)
 - Text-based PDF (ne skenovane)
 - Knihovna: `pdfplumber`
 - Parsovani vlastniku z "Udaje o vlastnikovi" sekce
@@ -536,7 +715,7 @@ PENDING ──[zaradit do fronty]──> QUEUED ──[odeslat]──> SENT
 ### 5.8 Email
 - SMTP pres `smtplib` s TLS
 - Konfigurace v `.env` (`config.py:14-20`)
-- HTML telo (plain text se konvertuje na HTML: `\n` → `<br>`)
+- HTML telo (plain text se konvertuje na HTML: `\n` -> `<br>`)
 - Prilohy: libovolne soubory jako `MIMEApplication`
 - Podpora vice prijemcu (`,` oddeleni) a SJM emailu (`;` oddeleni)
 
@@ -563,6 +742,21 @@ PENDING ──[zaradit do fronty]──> QUEUED ──[odeslat]──> SENT
 - Sloupce: jednotka, vlastnik, podil DB, podil soubor, rozdil, stav
 - Zlute zvyrazneni (`PatternFill`) pro rozdilne zaznamy
 
+### 5.12 DOCX import (predpisy — DOMSYS format)
+- Format: DOCX ze spravniho systemu DOMSYS
+- Tabulky s 25 radky, fixni rozlozeni
+- Parsuje: VS, cislo jednotky, jmeno vlastnika, polozky predpisu s castkami
+- Auto-kategorizace polozek (provozni/fond_oprav/sluzby) dle nazvu
+- Knihovna: `python-docx`
+
+### 5.13 CSV import (bankovni vypisy — Fio banka)
+- Format: Fio banka CSV export
+- Kodovani: UTF-8 s BOM, strednik jako oddelovac
+- Struktura: 8 radku metadata, radek 10 hlavicky (19 sloupcu), radky 11+ data
+- Duplicitni sloupec "Poznamka" (pozice 10 a 17)
+- Parsuje: cislo uctu, VS, castka, datum, nazev protistrany, poznamka
+- Deduplikace pres `bank_transaction_id` (ID pohybu)
+
 ---
 
 ## 6. Hranicni pripady a workaroundy
@@ -571,23 +765,23 @@ PENDING ──[zaradit do fronty]──> QUEUED ──[odeslat]──> SENT
 - **Soubor:** `voting.py:517-564`
 - Jednotky s >2 SJM vlastniky se NE-paruji pres connected components
 - Fallback: seskupeni dle identicke mnoziny SJM jednotek (frozenset)
-- Presne 2 vlastniky se shodnou mnozinou → par; jinak kazdy zvlast
+- Presne 2 vlastniky se shodnou mnozinou -> par; jinak kazdy zvlast
 
 ### 6.2 Import hlasovani — disambiguace
 - **Soubor:** `voting_import.py:309-334`
 - Kdyz vice listku sdili jednotku: zuzeni dle jmena
 - Po zuzeni: re-add SJM partnera (presne 2 SJM na jednotce)
-- Propagace hlasu jen na listky S hlasy; bez hlasu → jen prvni nalezeny
+- Propagace hlasu jen na listky S hlasy; bez hlasu -> jen prvni nalezeny
 
 ### 6.3 Parsovani cisla jednotky
-- **Vsude:** `"1098/115" → 115` (posledni cast za lomitkem)
+- **Vsude:** `"1098/115" -> 115` (posledni cast za lomitkem)
 - `TaxDocument.unit_number` a `SyncRecord.unit_number` jsou `String(20)` (historicky z PDF/CSV)
 - Pri ORDER BY: `cast(col, Integer)` pro spravne ciselne razeni
 
-### 6.4 Recovery zaseknuteho rozesilaní
+### 6.4 Recovery zaseknuteho rozesílani
 - **Soubor:** `tax.py:45-56`
 - Pri startu serveru: vsechny `SENDING` session se automaticky prepnou na `PAUSED`
-- V endpointu: pokud DB rika `SENDING` ale neexistuje progress dict → `PAUSED` (`tax.py:1420-1423`)
+- V endpointu: pokud DB rika `SENDING` ale neexistuje progress dict -> `PAUSED` (`tax.py:1420-1423`)
 
 ### 6.5 Zip Slip ochrana
 - Viz sekce 10.3
@@ -597,12 +791,31 @@ PENDING ──[zaradit do fronty]──> QUEUED ──[odeslat]──> SENT
 
 ### 6.7 Safari unzip — hleda svj.db o uroven hloubeji
 - **Soubor:** `backup_service.py:90-98`
-- Safari rozbaluje ZIP do podadresare → restore hleda `svj.db` rekurzivne
+- Safari rozbaluje ZIP do podadresare -> restore hleda `svj.db` rekurzivne
 
 ### 6.8 Firemni jmena v PDF — fragmenty pres vice radku
 - **Soubor:** `pdf_extractor.py:77-93`
-- Dlouhe nazvy firem se deli pres vice SP radku → `_merge_company_fragments()` je slije zpet
+- Dlouhe nazvy firem se deli pres vice SP radku -> `_merge_company_fragments()` je slije zpet
 - Detekce fragmentu: `_is_company_suffix()` — "s.r.o.", "a.s.", jedno velke slovo
+
+### 6.9 VS kolize pri importu predpisu
+- Pri importu predpisu se kontroluje, zda VS uz neni mapovan na jinou jednotku
+- `validate_vs_conflicts()` v `prescription_import.py` — varovani uzivateli pred importem
+- Uzivatel muze import potvrdit i s konfliktem (neni blokujici)
+
+### 6.10 Fio CSV duplicitni sloupec "Poznamka"
+- **Soubor:** `bank_import.py`
+- Fio CSV ma 2 sloupce s nazvem "Poznamka" (pozice 10 a 17)
+- Parser to resi pres indexy misto nazvu sloupcu pro druhou poznamku
+
+### 6.11 Matching lock — zabrana soubeznemu behu
+- **Soubor:** `payment_matching.py`
+- `matching_lock` zabranuje spusteni matchingu, pokud jiz bezi jiny
+- Stav matchingu (progres %) je ulozen v pameti a pristupny pres polling endpoint
+
+### 6.12 Platba pokryvajici vice mesicu
+- Jedna platba muze byt alokovana na vice predpisu (napr. platba za ctvrtleti)
+- `PaymentAllocation` umoznuje rozdelit castku na vice predpisu s ruznou castkou na kazdem
 
 ---
 
@@ -626,13 +839,13 @@ libreoffice_path                        # Pro PDF generovani z Word
 - `csv/` — CSV soubory pro synchronizaci
 - `share_check/` — soubory pro kontrolu podilu
 
-### 7.3 Ciselníky (`CodeListItem`)
+### 7.3 Ciselniky (`CodeListItem`)
 - Kategorie: `space_type`, `section`, `room_count`, `ownership_type`
 - Seedovane z existujicich dat pri startu (`main.py`)
 
 ### 7.4 Emailove sablony (`EmailTemplate`)
 - Predmet + telo sablony
-- Pouzivane pri tvorbe rozesílaní session
+- Pouzivane pri tvorbe rozesílani session
 
 ---
 
@@ -641,7 +854,7 @@ libreoffice_path                        # Pro PDF generovani z Word
 - **Soubor:** `app/models/common.py:57-77`
 - Akce: `CREATED`, `UPDATED`, `DELETED`, `STATUS_CHANGED`, `IMPORTED`, `EXPORTED`, `RESTORED`
 - Volano pres `log_activity(db, action, entity_type, module, ...)`
-- Loguji se: vytvoreni/zmena hlasovani, importy, zmeny stavu, rozesílaní
+- Loguji se: vytvoreni/zmena hlasovani, importy, zmeny stavu, rozesílani
 
 ---
 
@@ -662,10 +875,10 @@ libreoffice_path                        # Pro PDF generovani z Word
 
 ### 9.3 Validace ciselnych vstupu (jednotky)
 - **Soubor:** `units.py:46-122` (vytvoreni), `units.py:261-377` (editace)
-- Cislo jednotky: cele cislo, rozsah 1–99999, unikatnost
-- Cislo budovy: rozsah 1–99999 (pokud zadano jako cislo; alfanumericke povoleno)
-- Plocha: rozsah 0–9999 m2, neplatna hodnota se ignoruje s varovanim
-- Podil SCD: rozsah 0–99999999, neplatna hodnota se ignoruje s varovanim
+- Cislo jednotky: cele cislo, rozsah 1-99999, unikatnost
+- Cislo budovy: rozsah 1-99999 (pokud zadano jako cislo; alfanumericke povoleno)
+- Plocha: rozsah 0-9999 m2, neplatna hodnota se ignoruje s varovanim
+- Podil SCD: rozsah 0-99999999, neplatna hodnota se ignoruje s varovanim
 - Varovani (warnings) se zobrazuji jako zlute bannery nad vysledkem
 
 ### 9.4 SMTP test pripojeni
@@ -695,11 +908,11 @@ libreoffice_path                        # Pro PDF generovani z Word
 ### 10.2 Path traversal ochrana
 - **Soubor:** `utils.py:42-59`
 - `is_safe_path()` pouziva `Path.relative_to()` misto `startswith()` (prevence prefix utoku)
-- Pouziva se pri: servovani priloh (`settings_page.py:230+`), stahování souborů, kontrola podílů
+- Pouziva se pri: servovani priloh (`settings_page.py:230+`), stahovani souboru, kontrola podilu
 
 ### 10.3 Zip Slip ochrana
 - **Soubor:** `backup_service.py:157`
-- Pred extrakcí ZIP: overeni ze cesta zustava uvnitr ciloveho adresare
+- Pred extrakci ZIP: overeni ze cesta zustava uvnitr ciloveho adresare
 
 ---
 
@@ -740,4 +953,21 @@ libreoffice_path                        # Pro PDF generovani z Word
   1. `GROUP BY voting_id`: pocet zpracovanych listku
   2. Subquery `voted_ids` + `GROUP BY voting_id`: soucet hlasu zpracovanych listku s alespon 1 hlasem
   3. `GROUP BY voting_item_id`: SUM per-item hlasy (FOR/AGAINST/ABSTAIN) pres `case()` vyrazy
-- Vyrazne snizuje pocet SQL dotazu pri desítkach hlasovani
+- Vyrazne snizuje pocet SQL dotazu pri desitkach hlasovani
+
+---
+
+## Priloha: Klicove konstanty
+
+| Konstanta | Hodnota | Soubor | Pouziti |
+|-----------|---------|--------|---------|
+| `VS_PREFIX` | `"1098"` | `payment_matching.py` | Prefix VS pro dekodovani cisla jednotky |
+| `MIN_WORD_LENGTH` | `3` | `payment_matching.py` | Min. delka slova pro matching jmen |
+| `MIN_COMMON_WORDS` | `2` | `payment_matching.py` | Min. pocet spolecnych slov |
+| `MAX_PRESCRIPTION_RATIO` | `10` | `payment_matching.py` | Max. nasobek predpisu pro validni castku |
+| `MIN_MATCH_SCORE` | `5` | `payment_matching.py` | Min. skore pro navrh prirazeni |
+| `_CZECH_SURNAME_SUFFIXES` | `["-ova", "-kova", ...]` | `owner_matcher.py` | Cesky stemming prijmeni |
+| `UPLOAD_LIMITS` | dict | `utils.py` | Limity uploadu (excel:50MB, pdf:100MB...) |
+| `quorum_threshold` | 0-1 | `voting.py` | Kvorum (50% = 0.5) |
+| `send_batch_size` | default 10 | `tax.py` | Emailu v davce |
+| `send_batch_interval` | default 5 | `tax.py` | Pauza mezi davkami (s) |
