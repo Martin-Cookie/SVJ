@@ -1063,6 +1063,7 @@ Zbývající nálezy z druhého auditu: autentizace (plánováno), CSRF ochrana,
 - 248 automatizovaných testů (voting, backup, CSV comparator, payment matching)
 - Pre-push git hook + GitHub Actions CI workflow
 - UX Optimizer: 18/18 nálezů opraveno (compute_nav_stats skip, export matice, VS inline edit, hromadné potvrzení SUGGESTED, hromadná změna stavu filtrovaných, search výpisů, hardcoded rok, confirm dialogy, dashboard dlužníci, empty state CTA, sort měsíců v matici, sidebar badge dlužníků)
+- Zobrazení všech spoluvlastníků v platebním modulu (dlužníci, matice, vyúčtování, exporty)
 - Zbývá: autentizace + CSRF
 
 ## UX vylepšení

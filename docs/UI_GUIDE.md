@@ -612,26 +612,7 @@ Vždy `rounded-full`, nikdy `rounded`.
 
 ## 11. Wizard stepper
 
-### Logika stavů
-- **done** (zelený) — `i <= max_done`
-- **active** (zelený pro full stepper, modrý pro compact stepper) — `i == current_step AND i > max_done`
-- **current+done** (tmavší zelená s ring efektem) — `i == current_step AND i <= max_done`
-- **pending** (šedý) — `i > max_done AND i > current_step`
-- **sending** (oranžová pulzace) — speciální stav pro probíhající odesílání
-
-### Klíčové pravidlo: all green when complete
-Když je workflow plně dokončen (`max_done >= total_steps`), **všechny** kroky musí být zelené:
-```python
-elif i == current_step:
-    step_status = "done" if i <= max_done else "active"
-```
-
-### Override pro dokumenty
-Pokud existují dokumenty (step 1 = Upload PDF), krok 1 je vždy "done":
-```python
-if has_documents and max_done < 1:
-    max_done = 1
-```
+> Logika stavů (done, active, current+done, pending, sending), pravidlo "all green when complete" a override pro dokumenty jsou v [CLAUDE.md § Wizard stepper](../CLAUDE.md).
 
 ### Dvě varianty stepperu
 - **Plný stepper** (`partials/wizard_stepper.html`) — samostatný blok nad obsahem stránky, používá se na detail/workflow stránkách
@@ -659,12 +640,7 @@ if has_documents and max_done < 1:
 
 ## 13. Back URL navigace
 
-- Každý odkaz z dashboardu na modul: `?back=/`
-- Každý odkaz ze seznamu na detail: `?back={{ list_url|urlencode }}`
-- `list_url` se buduje v routeru: `request.url.path + "?" + request.url.query`
-- Parametr `back` se propaguje přes: filtrační bubliny, HTMX hidden inputy, řadící odkazy
-- `_back` helper v šabloně: `{% set _back = "&back=" ~ (back_url|default('')|urlencode) if back_url else "" %}`
-- Vícenásobné zanoření: `?back={{ ('/url?back=' ~ (back_url|urlencode))|urlencode }}`
+> Kompletní logika back parametru (propagace, chaining, `list_url` vs `back_url`, `back_label`) je v [CLAUDE.md § Navigace a back URL](../CLAUDE.md). Zde jsou jen UI/HTML specifika.
 
 ### Obnova scroll pozice — back URL (hash)
 1. Řádky mají `id` (např. `id="owner-{{ owner.id }}"`)
