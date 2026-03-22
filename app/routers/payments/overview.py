@@ -33,6 +33,8 @@ SORT_COLUMNS_MATRIX = {
     "predpis": None,
     "celkem": None,
     "dluh": None,
+    # Měsíční sloupce m1–m12
+    **{f"m{i}": None for i in range(1, 13)},
 }
 
 
@@ -81,6 +83,9 @@ async def platby_prehled(
         "celkem": lambda r: r["total_paid"],
         "dluh": lambda r: r["debt"],
     }
+    # Měsíční sloupce m1–m12
+    for mi in range(1, 13):
+        sort_fns[f"m{mi}"] = (lambda m: lambda r: r["months"].get(m, {}).get("paid", 0))(mi)
     rows.sort(key=sort_fns.get(sort_key, sort_fns["cislo"]), reverse=reverse)
 
     list_url = build_list_url(request)
@@ -280,7 +285,7 @@ async def platby_dluznici(
         "months_with_data": months_with_data,
         "total_debt": sum(r["debt"] for r in debtors),
         "active_tab": "dluznici",
-        **compute_nav_stats(db),
+        **(compute_nav_stats(db) if not is_htmx_partial(request) else {}),
     }
 
     if is_htmx_partial(request):
@@ -415,5 +420,5 @@ async def platby_jednotka(
         "back_label": back_label,
         "hide_nav_back": True,
         "month_names": MONTH_NAMES,
-        **compute_nav_stats(db),
+        **(compute_nav_stats(db) if not is_htmx_partial(request) else {}),
     })

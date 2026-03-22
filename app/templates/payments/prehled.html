@@ -88,8 +88,11 @@
                     </th>
                     {% endfor %}
                     {% for m in range(1, 13) %}
-                    <th class="px-1 py-2 text-center font-semibold text-gray-600 dark:text-gray-300 whitespace-nowrap {% if m not in months_with_data %}opacity-30{% endif %}">
+                    {% set m_new_order = "desc" if sort == "m" ~ m and order == "asc" else "asc" %}
+                    <th class="px-1 py-2 text-center font-semibold text-gray-600 dark:text-gray-300 whitespace-nowrap {% if m not in months_with_data %}opacity-30{% endif %} {% if m in months_with_data %}cursor-pointer select-none hover:text-gray-900 dark:hover:text-white{% endif %}"
+                        {% if m in months_with_data %}onclick="window.location='{{ _sort_base }}sort=m{{ m }}&order={{ m_new_order }}{{ _back }}'"{% endif %}>
                         {{ month_names[m] }}
+                        {% if sort == "m" ~ m %}<span class="ml-0.5">{{ "▲" if order == "asc" else "▼" }}</span>{% endif %}
                     </th>
                     {% endfor %}
                     {% for col_key, col_label in [("celkem", "Celkem"), ("dluh", "Dluh")] %}
