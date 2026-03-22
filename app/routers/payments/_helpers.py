@@ -39,11 +39,11 @@ def compute_nav_stats(db: Session) -> dict:
         func.count(Payment.id).filter(Payment.match_status == PaymentMatchStatus.UNMATCHED).label("unmatched"),
         func.count(Payment.id).filter(
             Payment.direction == PaymentDirection.INCOME,
-            Payment.match_status == PaymentMatchStatus.AUTO_MATCHED,
+            Payment.match_status.in_([PaymentMatchStatus.AUTO_MATCHED, PaymentMatchStatus.MANUAL]),
         ).label("matched_income"),
         func.coalesce(func.sum(Payment.amount).filter(
             Payment.direction == PaymentDirection.INCOME,
-            Payment.match_status == PaymentMatchStatus.AUTO_MATCHED,
+            Payment.match_status.in_([PaymentMatchStatus.AUTO_MATCHED, PaymentMatchStatus.MANUAL]),
         ), 0).label("total_income"),
     ).first()
 
@@ -97,7 +97,7 @@ def _count_debtors_fast(db: Session, year: int) -> int:
         db.query(func.distinct(func.extract("month", Payment.date)))
         .filter(
             Payment.direction == PaymentDirection.INCOME,
-            Payment.match_status == PaymentMatchStatus.AUTO_MATCHED,
+            Payment.match_status.in_([PaymentMatchStatus.AUTO_MATCHED, PaymentMatchStatus.MANUAL]),
             Payment.unit_id.isnot(None),
             func.extract("year", Payment.date) == year,
         )
@@ -117,7 +117,7 @@ def _count_debtors_fast(db: Session, year: int) -> int:
         .join(Payment)
         .filter(
             Payment.direction == PaymentDirection.INCOME,
-            Payment.match_status == PaymentMatchStatus.AUTO_MATCHED,
+            Payment.match_status.in_([PaymentMatchStatus.AUTO_MATCHED, PaymentMatchStatus.MANUAL]),
             func.extract("year", Payment.date) == year,
         )
         .group_by(PaymentAllocation.unit_id)

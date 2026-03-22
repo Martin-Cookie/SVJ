@@ -41,7 +41,7 @@ def generate_settlements(db: Session, year: int) -> dict:
     )
 
     # Platby příjmové napárované per unit_id (přes alokace)
-    matched_statuses = [PaymentMatchStatus.AUTO_MATCHED, PaymentMatchStatus.SUGGESTED, PaymentMatchStatus.MANUAL]
+    confirmed_statuses = [PaymentMatchStatus.AUTO_MATCHED, PaymentMatchStatus.MANUAL]
     paid_rows = (
         db.query(
             PaymentAllocation.unit_id,
@@ -50,7 +50,7 @@ def generate_settlements(db: Session, year: int) -> dict:
         .join(Payment)
         .filter(
             Payment.direction == PaymentDirection.INCOME,
-            Payment.match_status.in_(matched_statuses),
+            Payment.match_status.in_(confirmed_statuses),
             func.extract("year", Payment.date) == year,
         )
         .group_by(PaymentAllocation.unit_id)
@@ -155,14 +155,14 @@ def get_settlement_detail(db: Session, settlement_id: int) -> Optional[dict]:
         return None
 
     # Platby napárované na tuto jednotku v daném roce (přes alokace)
-    matched_statuses = [PaymentMatchStatus.AUTO_MATCHED, PaymentMatchStatus.SUGGESTED, PaymentMatchStatus.MANUAL]
+    confirmed_statuses = [PaymentMatchStatus.AUTO_MATCHED, PaymentMatchStatus.MANUAL]
     alloc_rows = (
         db.query(PaymentAllocation, Payment)
         .join(Payment)
         .filter(
             PaymentAllocation.unit_id == settlement.unit_id,
             Payment.direction == PaymentDirection.INCOME,
-            Payment.match_status.in_(matched_statuses),
+            Payment.match_status.in_(confirmed_statuses),
             func.extract("year", Payment.date) == settlement.year,
         )
         .order_by(Payment.date)

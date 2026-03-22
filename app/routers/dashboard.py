@@ -261,10 +261,10 @@ async def home(
 
     # Payment stats
     statement_count = db.query(BankStatement).count()
-    matched_statuses = [PaymentMatchStatus.AUTO_MATCHED, PaymentMatchStatus.SUGGESTED, PaymentMatchStatus.MANUAL]
+    confirmed_statuses = [PaymentMatchStatus.AUTO_MATCHED, PaymentMatchStatus.MANUAL]
     matched_payments = db.query(Payment).filter(
         Payment.direction == PaymentDirection.INCOME,
-        Payment.match_status.in_(matched_statuses),
+        Payment.match_status.in_(confirmed_statuses),
     ).count()
     unmatched_payments = db.query(Payment).filter_by(
         match_status=PaymentMatchStatus.UNMATCHED,
@@ -274,7 +274,7 @@ async def home(
         func.coalesce(func.sum(Payment.amount), 0)
     ).filter(
         Payment.direction == PaymentDirection.INCOME,
-        Payment.match_status.in_(matched_statuses),
+        Payment.match_status.in_(confirmed_statuses),
     ).scalar() or 0
 
     ctx = {

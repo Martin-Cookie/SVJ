@@ -45,7 +45,7 @@ def compute_payment_matrix(db: Session, year: int, section: str = "", space_type
         .join(Payment)
         .filter(
             Payment.direction == PaymentDirection.INCOME,
-            Payment.match_status == PaymentMatchStatus.AUTO_MATCHED,
+            Payment.match_status.in_([PaymentMatchStatus.AUTO_MATCHED, PaymentMatchStatus.MANUAL]),
             func.extract("year", Payment.date) == year,
         )
         .group_by(PaymentAllocation.unit_id, func.extract("month", Payment.date))
@@ -175,7 +175,7 @@ def compute_unit_payment_detail(db: Session, unit_id: int, year: int) -> dict:
         .filter(
             PaymentAllocation.unit_id == unit_id,
             Payment.direction == PaymentDirection.INCOME,
-            Payment.match_status == PaymentMatchStatus.AUTO_MATCHED,
+            Payment.match_status.in_([PaymentMatchStatus.AUTO_MATCHED, PaymentMatchStatus.MANUAL]),
             func.extract("year", Payment.date) == year,
         )
         .order_by(Payment.date)

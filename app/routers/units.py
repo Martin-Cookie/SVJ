@@ -661,13 +661,13 @@ async def unit_detail(
         ).first()
         if presc:
             monthly = presc.monthly_total or 0
-            matched_statuses = [PaymentMatchStatus.AUTO_MATCHED, PaymentMatchStatus.SUGGESTED, PaymentMatchStatus.MANUAL]
+            confirmed_statuses = [PaymentMatchStatus.AUTO_MATCHED, PaymentMatchStatus.MANUAL]
             total_paid = db.query(
                 func.coalesce(func.sum(PaymentAllocation.amount), 0)
             ).join(Payment).filter(
                 PaymentAllocation.unit_id == unit.id,
                 Payment.direction == PaymentDirection.INCOME,
-                Payment.match_status.in_(matched_statuses),
+                Payment.match_status.in_(confirmed_statuses),
                 func.extract("year", Payment.date) == latest_py.year,
             ).scalar() or 0
             # Počet měsíců s daty
@@ -675,7 +675,7 @@ async def unit_detail(
                 func.distinct(func.extract("month", Payment.date))
             ).filter(
                 Payment.direction == PaymentDirection.INCOME,
-                Payment.match_status.in_(matched_statuses),
+                Payment.match_status.in_(confirmed_statuses),
                 func.extract("year", Payment.date) == latest_py.year,
             ).count()
             expected = monthly * months_count
