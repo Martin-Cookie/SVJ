@@ -4,7 +4,7 @@ import asyncio
 import re
 import threading
 import time
-from datetime import datetime
+
 
 from fastapi import APIRouter, Depends, Form, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -18,7 +18,7 @@ from app.models import (
     ActivityAction, log_activity,
 )
 from app.services.email_service import create_smtp_connection, send_email
-from app.utils import build_list_url, compute_eta, strip_diacritics
+from app.utils import build_list_url, compute_eta, strip_diacritics, utcnow
 
 from ._helpers import (
     logger, templates,
@@ -723,7 +723,7 @@ def _send_emails_batch(session_id: int, recipient_data: list, email_subject: str
                     if result["success"]:
                         dist.email_status = EmailDeliveryStatus.SENT
                         dist.email_sent = True
-                        dist.email_sent_at = datetime.utcnow()
+                        dist.email_sent_at = utcnow()
                         dist.email_address_used = rcpt["email"]
                         dist.email_error = None
                     else:

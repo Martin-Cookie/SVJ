@@ -1,7 +1,5 @@
 """Testy pro hlasovací modul — modely, wizard, ballot stats, import služba."""
 
-from datetime import datetime
-
 import pytest
 from openpyxl import Workbook
 
@@ -10,6 +8,7 @@ from app.models import (
     Voting, VotingItem, VotingStatus, VoteValue,
 )
 from app.routers.voting._helpers import _ballot_stats, _voting_wizard
+from app.utils import utcnow
 from app.services.voting_import import (
     _cell,
     _cell_numeric,
@@ -289,7 +288,7 @@ class TestBallotStats:
 
         # Process ballot 1 with actual votes
         b1.status = BallotStatus.PROCESSED
-        b1.processed_at = datetime.utcnow()
+        b1.processed_at = utcnow()
         for bv in b1.votes:
             bv.vote = VoteValue.FOR
         db.flush()
@@ -312,7 +311,7 @@ class TestBallotStats:
         # Process both ballots → 300 votes out of 300 shares
         for b in seed_voting["ballots"]:
             b.status = BallotStatus.PROCESSED
-            b.processed_at = datetime.utcnow()
+            b.processed_at = utcnow()
             for bv in b.votes:
                 bv.vote = VoteValue.FOR
         db.flush()
@@ -333,7 +332,7 @@ class TestBallotStats:
         # Process only ballot 1 → 100/1000 < 50%
         b1 = seed_voting["ballots"][0]
         b1.status = BallotStatus.PROCESSED
-        b1.processed_at = datetime.utcnow()
+        b1.processed_at = utcnow()
         for bv in b1.votes:
             bv.vote = VoteValue.FOR
         db.flush()
@@ -355,7 +354,7 @@ class TestBallotStats:
         # Process ballot 1 but vote only on 1 of 2 items
         b1 = seed_voting["ballots"][0]
         b1.status = BallotStatus.PROCESSED
-        b1.processed_at = datetime.utcnow()
+        b1.processed_at = utcnow()
         b1.votes[0].vote = VoteValue.FOR  # Only 1st item
         db.flush()
 
@@ -368,7 +367,7 @@ class TestBallotStats:
 
         b1 = seed_voting["ballots"][0]
         b1.status = BallotStatus.PROCESSED
-        b1.processed_at = datetime.utcnow()
+        b1.processed_at = utcnow()
         for bv in b1.votes:
             bv.vote = VoteValue.FOR
         db.flush()
@@ -835,7 +834,7 @@ class TestExecuteVotingImport:
 
         # Pre-process b2
         b2.status = BallotStatus.PROCESSED
-        b2.processed_at = datetime.utcnow()
+        b2.processed_at = utcnow()
         for bv in b2.votes:
             bv.vote = VoteValue.FOR
         db.flush()

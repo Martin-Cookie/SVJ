@@ -17,7 +17,7 @@ from app.models import Owner, OwnerType, OwnerUnit, SvjInfo, Unit
 from app.services.code_list_service import get_all_code_lists
 from app.services.owner_exchange import recalculate_unit_votes
 from app.services.owner_service import merge_owners
-from app.utils import build_list_url, excel_auto_width, is_htmx_partial, is_valid_email, strip_diacritics
+from app.utils import build_list_url, excel_auto_width, is_htmx_partial, is_valid_email, strip_diacritics, utcnow
 
 from ._helpers import (
     SORT_COLUMNS,
@@ -137,7 +137,7 @@ async def owner_create(
         birth_number=bn_clean or None,
         data_source="manual",
         is_active=True,
-        created_at=datetime.utcnow(),
+        created_at=utcnow(),
     )
     db.add(owner)
     db.commit()
@@ -475,7 +475,7 @@ async def owner_identity_update(
         owner.company_id = None
 
     _rebuild_owner_name(owner)
-    owner.updated_at = datetime.utcnow()
+    owner.updated_at = utcnow()
     db.commit()
 
     # Find duplicates by OLD name (before edit)
@@ -656,7 +656,7 @@ async def owner_address_update(
     setattr(owner, f"{prefix}_city", city.strip() or None)
     setattr(owner, f"{prefix}_zip", zip.strip() or None)
     setattr(owner, f"{prefix}_country", country.strip() or None)
-    owner.updated_at = datetime.utcnow()
+    owner.updated_at = utcnow()
     db.commit()
 
     if request.headers.get("HX-Request"):
@@ -688,7 +688,7 @@ async def owner_update(
         owner.phone = phone.strip() or None
         owner.phone_secondary = phone_secondary.strip() or None
         owner.phone_landline = phone_landline.strip() or None
-        owner.updated_at = datetime.utcnow()
+        owner.updated_at = utcnow()
         db.commit()
 
     if request.headers.get("HX-Request"):

@@ -1,13 +1,11 @@
 """Router pro počáteční zůstatky jednotek."""
 
-from datetime import datetime
-
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session, joinedload
 from app.database import get_db
 from app.models import UnitBalance, Unit, BalanceSource
-from app.utils import build_list_url, is_htmx_partial
+from app.utils import build_list_url, is_htmx_partial, utcnow
 from ._helpers import templates, logger, compute_nav_stats
 
 router = APIRouter()
@@ -33,7 +31,7 @@ async def zustatky_seznam(
 
     # Pokud rok není zadán, použít nejnovější; pokud žádné zůstatky, aktuální rok
     if rok == 0:
-        rok = years[0] if years else datetime.utcnow().year
+        rok = years[0] if years else utcnow().year
 
     query = (
         db.query(UnitBalance)

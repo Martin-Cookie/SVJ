@@ -1,11 +1,17 @@
 """Shared utility functions used across routers and services."""
 import re
 import time as _time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional
 from unicodedata import category, normalize
 
 from fastapi import Request, UploadFile
+
+
+def utcnow() -> datetime:
+    """Naive UTC datetime — náhrada za deprecated datetime.utcnow() (Python 3.12+)."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 def strip_diacritics(text: str) -> str:

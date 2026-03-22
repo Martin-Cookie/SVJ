@@ -9,7 +9,6 @@ import smtplib
 import socket
 
 logger = logging.getLogger(__name__)
-from datetime import datetime
 from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -19,7 +18,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.models.common import EmailLog, EmailStatus
-from app.utils import strip_diacritics
+from app.utils import strip_diacritics, utcnow
 
 
 def create_smtp_connection():
@@ -160,7 +159,7 @@ def send_email(
             server.send_message(msg)
             if log:
                 log.status = EmailStatus.SENT
-                log.sent_at = datetime.utcnow()
+                log.sent_at = utcnow()
         except Exception as e:
             errors.append(f"{addr}: {e}")
             if log:

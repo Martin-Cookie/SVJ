@@ -23,7 +23,7 @@ from app.models import (
 from app.services.csv_comparator import compare_owners, parse_sousede_csv
 from app.services.owner_exchange import execute_exchange, prepare_exchange_preview, recalculate_unit_votes
 from app.services.owner_matcher import normalize_for_matching
-from app.utils import UPLOAD_LIMITS, build_list_url, excel_auto_width, is_htmx_partial, strip_diacritics, templates, validate_upload
+from app.utils import UPLOAD_LIMITS, build_list_url, excel_auto_width, is_htmx_partial, strip_diacritics, templates, utcnow, validate_upload
 
 
 router = APIRouter()
@@ -1011,7 +1011,7 @@ async def apply_contacts(session_id: int, db: Session = Depends(get_db)):
                 changed = True
 
             if changed:
-                owner.updated_at = datetime.utcnow()
+                owner.updated_at = utcnow()
                 updated += 1
 
     db.commit()

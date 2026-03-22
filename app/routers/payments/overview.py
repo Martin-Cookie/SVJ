@@ -14,7 +14,7 @@ from app.services.payment_overview import (
     compute_payment_matrix,
     compute_unit_payment_detail,
 )
-from app.utils import build_list_url, excel_auto_width, is_htmx_partial, strip_diacritics
+from app.utils import build_list_url, excel_auto_width, is_htmx_partial, strip_diacritics, utcnow
 
 from ._helpers import templates, compute_nav_stats, MONTH_NAMES_SHORT
 
@@ -51,7 +51,7 @@ async def platby_prehled(
     # Výchozí rok = nejnovější PrescriptionYear
     if not rok:
         latest = db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).first()
-        rok = latest.year if latest else datetime.utcnow().year
+        rok = latest.year if latest else utcnow().year
 
     years = [y.year for y in db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).all()]
 
@@ -139,7 +139,7 @@ async def platby_dluznici(
     """Seznam dlužníků."""
     if not rok:
         latest = db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).first()
-        rok = latest.year if latest else datetime.utcnow().year
+        rok = latest.year if latest else utcnow().year
 
     years = [y.year for y in db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).all()]
 
@@ -209,7 +209,7 @@ async def dluznici_export(
 
     if not rok:
         latest = db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).first()
-        rok = latest.year if latest else datetime.utcnow().year
+        rok = latest.year if latest else utcnow().year
 
     debtors, _ = compute_debtor_list(db, rok)
 
@@ -287,7 +287,7 @@ async def platby_jednotka(
 
     if not rok:
         latest = db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).first()
-        rok = latest.year if latest else datetime.utcnow().year
+        rok = latest.year if latest else utcnow().year
 
     years = [y.year for y in db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).all()]
 

@@ -1,6 +1,5 @@
 """Vyúčtování — generování, detail, správa stavu."""
 
-from datetime import datetime
 from typing import Optional
 
 from sqlalchemy import func
@@ -13,6 +12,7 @@ from app.models import (
     UnitBalance,
 )
 from app.services.payment_overview import PaymentWithAlloc
+from app.utils import utcnow
 
 
 def generate_settlements(db: Session, year: int) -> dict:
@@ -103,7 +103,7 @@ def generate_settlements(db: Session, year: int) -> dict:
             settlement.result_amount = round(result_amount, 2)
             settlement.variable_symbol = presc.variable_symbol
             settlement.status = SettlementStatus.GENERATED
-            settlement.updated_at = datetime.utcnow()
+            settlement.updated_at = utcnow()
             # Smazat staré items
             for item in settlement.items[:]:
                 db.delete(item)
@@ -215,6 +215,6 @@ def update_settlement_status(db: Session, settlement_id: int, new_status: str) -
     except ValueError:
         return None
 
-    settlement.updated_at = datetime.utcnow()
+    settlement.updated_at = utcnow()
     db.flush()
     return settlement

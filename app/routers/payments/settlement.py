@@ -21,7 +21,7 @@ from app.services.settlement_service import (
     get_settlement_detail,
     update_settlement_status,
 )
-from app.utils import build_list_url, excel_auto_width, is_htmx_partial, strip_diacritics
+from app.utils import build_list_url, excel_auto_width, is_htmx_partial, strip_diacritics, utcnow
 
 from ._helpers import templates, compute_nav_stats
 
@@ -342,7 +342,7 @@ async def vyuctovani_hromadny_stav(
         settlement = db.query(Settlement).get(int(sid))
         if settlement:
             settlement.status = status_enum
-            settlement.updated_at = datetime.utcnow()
+            settlement.updated_at = utcnow()
             count += 1
     db.commit()
 
@@ -411,7 +411,7 @@ async def vyuctovani_export(
 
     if not rok:
         latest = db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).first()
-        rok = latest.year if latest else datetime.utcnow().year
+        rok = latest.year if latest else utcnow().year
 
     settlements = _get_filtered_settlements(db, rok, stav, q)
 

@@ -99,7 +99,7 @@ _ROLE_SORT = case(
     else_=2,
 )
 
-from app.utils import UPLOAD_LIMITS, is_safe_path, is_valid_email, templates, validate_upload
+from app.utils import UPLOAD_LIMITS, is_safe_path, is_valid_email, templates, utcnow, validate_upload
 
 router = APIRouter()
 
@@ -287,7 +287,7 @@ async def update_svj_info(
     if total_shares_int is not None and (total_shares_int < 1 or total_shares_int > 99999999):
         total_shares_int = None
     info.total_shares = total_shares_int
-    info.updated_at = datetime.utcnow()
+    info.updated_at = utcnow()
     db.commit()
     return RedirectResponse("/sprava/svj-info", status_code=302)
 

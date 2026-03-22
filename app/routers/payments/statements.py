@@ -1,7 +1,6 @@
 """Router pro bankovní výpisy — import CSV, seznam, detail, párování."""
 
 import logging
-from datetime import datetime
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -17,7 +16,7 @@ from app.models import (
     BankStatement, Payment, PaymentAllocation, PaymentDirection, PaymentMatchStatus,
     Unit,
 )
-from app.utils import build_list_url, is_htmx_partial, is_safe_path, validate_upload, strip_diacritics, UPLOAD_LIMITS
+from app.utils import build_list_url, is_htmx_partial, is_safe_path, validate_upload, strip_diacritics, utcnow, UPLOAD_LIMITS
 from ._helpers import templates, compute_nav_stats, MONTH_NAMES_LONG
 
 router = APIRouter()
@@ -190,7 +189,7 @@ async def vypis_import_upload(
         # Uložit soubor na disk pro pozdější použití
         temp_dir = Path(settings.upload_dir) / "temp"
         temp_dir.mkdir(parents=True, exist_ok=True)
-        timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        timestamp = utcnow().strftime("%Y%m%d_%H%M%S")
         temp_path = temp_dir / f"{timestamp}_{original_filename}"
         temp_path.write_bytes(file_content)
 
@@ -242,7 +241,7 @@ async def vypis_import_upload(
     # Uložit soubor
     dest_dir = settings.upload_dir / "csv"
     dest_dir.mkdir(parents=True, exist_ok=True)
-    ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    ts = utcnow().strftime("%Y%m%d_%H%M%S")
     dest_path = dest_dir / f"{ts}_{original_filename}"
     with open(dest_path, "wb") as f:
         f.write(file_content)
@@ -302,7 +301,7 @@ async def vypis_import_upload(
 
     # Automatické párování
     pf = meta.get("period_from")
-    year = pf.year if pf else datetime.utcnow().year
+    year = pf.year if pf else utcnow().year
     try:
         match_result = match_payments(db, statement.id, year)
     except Exception as e:
@@ -491,7 +490,7 @@ async def vypis_detail(
     from app.services.payment_matching import compute_candidates
     from app.models import Prescription, PrescriptionYear
     pf = statement.period_from
-    cand_year = pf.year if pf else datetime.utcnow().year
+    cand_year = pf.year if pf else utcnow().year
     candidates_map = compute_candidates(db, payments, cand_year, statement_id=statement.id)
 
     # Mapa unit_id → měsíční předpis + VS (pro tooltipy)
@@ -773,7 +772,7 @@ async def vypis_preparovat(
     }, synchronize_session="fetch")
     db.flush()
 
-    year = statement.period_from.year if statement.period_from else datetime.utcnow().year
+    year = statement.period_from.year if statement.period_from else utcnow().year
     result = match_payments(db, statement_id, year)
     statement.matched_count = result["matched"]
     db.commit()
@@ -830,7 +829,7 @@ async def vypis_zamknout(
         statement.locked_at = None
         flash = "unlock_ok"
     else:
-        statement.locked_at = datetime.utcnow()
+        statement.locked_at = utcnow()
         flash = "lock_ok"
     db.commit()
 

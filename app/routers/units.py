@@ -15,7 +15,7 @@ from app.database import get_db
 from app.models import Owner, OwnerUnit, SvjInfo, Unit, Payment, PaymentAllocation, PaymentDirection, PaymentMatchStatus, Prescription, PrescriptionYear
 from app.services.code_list_service import get_all_code_lists
 from app.services.owner_exchange import recalculate_unit_votes
-from app.utils import build_list_url, excel_auto_width, is_htmx_partial, strip_diacritics, templates
+from app.utils import build_list_url, excel_auto_width, is_htmx_partial, strip_diacritics, templates, utcnow
 
 router = APIRouter()
 
@@ -174,7 +174,7 @@ async def unit_create(
         room_count=room_count.strip() or None,
         floor_area=floor_area_float,
         podil_scd=podil_scd_float,
-        created_at=datetime.utcnow(),
+        created_at=utcnow(),
     )
     db.add(unit)
     db.commit()

@@ -19,8 +19,6 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import datetime
-
 from openpyxl import load_workbook
 from sqlalchemy.orm import Session
 
@@ -28,6 +26,7 @@ from app.models.owner import Owner, OwnerUnit, Unit
 from app.models.voting import (
     Ballot, BallotStatus, BallotVote, Voting, VoteValue,
 )
+from app.utils import utcnow
 from app.utils import strip_diacritics as _strip_diacritics
 
 
@@ -460,7 +459,7 @@ def execute_voting_import(file_path: str, mapping: dict, voting: Voting, db: Ses
 
         if has_real_votes:
             ballot.status = BallotStatus.PROCESSED
-            ballot.processed_at = datetime.utcnow()
+            ballot.processed_at = utcnow()
             processed_count += 1
         else:
             skipped_count += 1
