@@ -169,6 +169,7 @@ class BankStatement(Base):
     transaction_count = Column(Integer, default=0)
     matched_count = Column(Integer, default=0)
     import_status = Column(Enum(ImportStatus), default=ImportStatus.IMPORTED, index=True)
+    locked_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     payments = relationship("Payment", back_populates="statement", cascade="all, delete-orphan")

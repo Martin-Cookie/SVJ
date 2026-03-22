@@ -410,6 +410,16 @@ def _migrate_payment_allocations():
         logger.info("Migrated %d payments → payment_allocations", len(payments))
 
 
+def _migrate_bank_statement_locked():
+    """Přidat sloupec locked_at do bank_statements."""
+    with engine.connect() as conn:
+        cols = [r[1] for r in conn.execute(text("PRAGMA table_info('bank_statements')")).fetchall()]
+        if "locked_at" not in cols:
+            conn.execute(text("ALTER TABLE bank_statements ADD COLUMN locked_at DATETIME"))
+            conn.commit()
+            logger.info("Added locked_at column to bank_statements")
+
+
 _ALL_MIGRATIONS = [
     ("units table", _migrate_units_table),
     ("owner_units history", _migrate_owner_units_history),
@@ -420,6 +430,7 @@ _ALL_MIGRATIONS = [
     ("svj_info import_mappings", _migrate_svj_import_mappings),
     ("email_logs name_normalized", _migrate_email_log_name_normalized),
     ("payment_allocations migration", _migrate_payment_allocations),
+    ("bank_statement locked_at", _migrate_bank_statement_locked),
     ("index creation", _ensure_indexes),
     ("code list seeding", _seed_code_lists),
     ("email template seeding", _seed_email_templates),

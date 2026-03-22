@@ -440,6 +440,13 @@ async def vypis_detail(
             + (f", {suggested_count} návrhů" if int(suggested_count) > 0 else "")
             + "."
         )
+    elif flash == "locked":
+        flash_message = "Výpis je zamčený — párování nelze měnit."
+        flash_type = "warning"
+    elif flash == "lock_ok":
+        flash_message = "Párování zamčeno."
+    elif flash == "unlock_ok":
+        flash_message = "Párování odemčeno."
 
     # Kandidáti pro nenapárované platby
     from app.services.payment_matching import compute_candidates
@@ -521,6 +528,12 @@ async def platba_prirazeni(
 ):
     """Ručně přiřadit platbu k jednotce/jednotkám (čísla oddělená čárkou)."""
     form_data = await request.form()
+
+    # Zamčený výpis — nelze měnit
+    statement = db.query(BankStatement).get(statement_id)
+    if statement and statement.locked_at:
+        return RedirectResponse(_detail_redirect_url(statement_id, form_data, "locked"), status_code=302)
+
     unit_id_raw = form_data.get("unit_id", "").strip()
 
     payment = db.query(Payment).filter_by(id=payment_id, statement_id=statement_id).first()
@@ -625,6 +638,11 @@ async def platba_potvrdit(
     """Potvrdit navržené přiřazení (SUGGESTED → MANUAL)."""
     form_data = await request.form()
 
+    # Zamčený výpis — nelze měnit
+    statement = db.query(BankStatement).get(statement_id)
+    if statement and statement.locked_at:
+        return RedirectResponse(_detail_redirect_url(statement_id, form_data, "locked"), status_code=302)
+
     payment = db.query(Payment).filter_by(id=payment_id, statement_id=statement_id).first()
     if payment and payment.match_status == PaymentMatchStatus.SUGGESTED:
         payment.match_status = PaymentMatchStatus.MANUAL
@@ -645,6 +663,11 @@ async def platba_odmitnout(
 ):
     """Odmítnout navržené přiřazení (SUGGESTED → UNMATCHED)."""
     form_data = await request.form()
+
+    # Zamčený výpis — nelze měnit
+    statement = db.query(BankStatement).get(statement_id)
+    if statement and statement.locked_at:
+        return RedirectResponse(_detail_redirect_url(statement_id, form_data, "locked"), status_code=302)
 
     payment = db.query(Payment).filter_by(id=payment_id, statement_id=statement_id).first()
     if payment and payment.match_status == PaymentMatchStatus.SUGGESTED:
@@ -679,6 +702,11 @@ async def vypis_preparovat(
     statement = db.query(BankStatement).get(statement_id)
     if not statement:
         return RedirectResponse("/platby/vypisy", status_code=302)
+
+    # Zamčený výpis — nelze přepárovat
+    if statement.locked_at:
+        url = _detail_redirect_url(statement_id, form_data, "locked")
+        return RedirectResponse(url, status_code=302)
 
     # Smazat alokace pro auto + suggested platby
     reset_payment_ids = [
@@ -727,6 +755,8 @@ async def vypis_smazat(
 ):
     """Smazat bankovní výpis a jeho platby."""
     statement = db.query(BankStatement).get(statement_id)
+    if statement and statement.locked_at:
+        return RedirectResponse(f"/platby/vypisy/{statement_id}", status_code=302)
     if statement:
         # Smazat soubor
         if statement.file_path:
@@ -737,3 +767,31 @@ async def vypis_smazat(
         db.delete(statement)
         db.commit()
     return RedirectResponse("/platby/vypisy", status_code=302)
+
+
+# ── Zamčení / odemčení párování ──────────────────────────────────────
+
+
+@router.post("/vypisy/{statement_id}/zamknout")
+async def vypis_zamknout(
+    request: Request,
+    statement_id: int,
+    db: Session = Depends(get_db),
+):
+    """Zamknout/odemknout párování výpisu."""
+    form_data = await request.form()
+
+    statement = db.query(BankStatement).get(statement_id)
+    if not statement:
+        return RedirectResponse("/platby/vypisy", status_code=302)
+
+    if statement.locked_at:
+        statement.locked_at = None
+        flash = "unlock_ok"
+    else:
+        statement.locked_at = datetime.utcnow()
+        flash = "lock_ok"
+    db.commit()
+
+    url = _detail_redirect_url(statement_id, form_data, flash)
+    return RedirectResponse(url, status_code=302)

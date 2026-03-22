@@ -28,14 +28,38 @@
                     <input type="hidden" name="stav" value="{{ stav }}">
                     <input type="hidden" name="smer" value="{{ smer }}">
                     <input type="hidden" name="back" value="{{ back_url }}">
-                    <button type="submit" class="px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded-lg hover:bg-green-700" title="Znovu napárovat nenapárované platby">
+                    <button type="submit" class="px-3 py-1.5 text-xs font-medium rounded-lg
+                        {% if statement.locked_at %}bg-gray-300 text-gray-500 dark:bg-gray-600 dark:text-gray-400 cursor-not-allowed{% else %}bg-green-600 text-white hover:bg-green-700{% endif %}"
+                        title="{% if statement.locked_at %}Výpis je zamčený{% else %}Znovu napárovat nenapárované platby{% endif %}"
+                        {% if statement.locked_at %}disabled{% endif %}>
                         Přepárovat
                     </button>
                 </form>
                 <form method="post" action="/platby/vypisy/{{ statement.id }}/smazat" hx-boost="false"
-                      data-confirm="Opravdu smazat výpis a všechny jeho platby? Tato akce je nevratná.">
-                    <button type="submit" class="px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-700">
+                      {% if not statement.locked_at %}data-confirm="Opravdu smazat výpis a všechny jeho platby? Tato akce je nevratná."{% endif %}>
+                    <button type="submit" class="px-3 py-1.5 text-xs font-medium rounded-lg
+                        {% if statement.locked_at %}bg-gray-300 text-gray-500 dark:bg-gray-600 dark:text-gray-400 cursor-not-allowed{% else %}bg-red-600 text-white hover:bg-red-700{% endif %}"
+                        {% if statement.locked_at %}disabled{% endif %}>
                         Smazat
+                    </button>
+                </form>
+                <form method="post" action="/platby/vypisy/{{ statement.id }}/zamknout" hx-boost="false" class="flex items-center">
+                    <input type="hidden" name="q" value="{{ q }}">
+                    <input type="hidden" name="sort" value="{{ sort }}">
+                    <input type="hidden" name="order" value="{{ order }}">
+                    <input type="hidden" name="stav" value="{{ stav }}">
+                    <input type="hidden" name="smer" value="{{ smer }}">
+                    <input type="hidden" name="back" value="{{ back_url }}">
+                    <button type="submit" class="px-3 py-1.5 text-xs font-medium rounded-lg inline-flex items-center gap-1
+                        {% if statement.locked_at %}bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 hover:bg-green-200{% else %}bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200{% endif %}"
+                        title="{% if statement.locked_at %}Zamčeno {{ statement.locked_at.strftime('%d.%m.%Y') }} — klikněte pro odemčení{% else %}Zamknout párování{% endif %}">
+                        {% if statement.locked_at %}
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                        {{ statement.locked_at.strftime('%d.%m.%Y') }}
+                        {% else %}
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"/></svg>
+                        Zamknout
+                        {% endif %}
                     </button>
                 </form>
             </div>
