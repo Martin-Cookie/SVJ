@@ -63,10 +63,14 @@ async def zustatky_seznam(
     # Flash zprávy z query parametru → globální toast
     flash_param = request.query_params.get("flash", "")
     flash_message = ""
+    flash_type = ""
     if flash_param == "ok":
         flash_message = "Zůstatek uložen."
     elif flash_param == "smazano":
         flash_message = "Zůstatek smazán."
+    elif flash_param == "chyba_rok":
+        flash_message = "Rok musí být mezi 2020 a 2040."
+        flash_type = "error"
 
     ctx = {
         "request": request,
@@ -83,6 +87,7 @@ async def zustatky_seznam(
         "list_url": list_url,
         "back_url": back_url,
         "flash_message": flash_message,
+        "flash_type": flash_type,
         "active_tab": "zustatky",
         **compute_nav_stats(db),
     }

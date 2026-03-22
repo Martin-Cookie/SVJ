@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
+from sqlalchemy import asc as sa_asc, desc as sa_desc
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
@@ -51,7 +52,6 @@ async def symboly_seznam(
     # Řazení
     col = SORT_COLUMNS.get(sort)
     if col is not None:
-        from sqlalchemy import asc as sa_asc, desc as sa_desc
         order_fn = sa_desc if order == "desc" else sa_asc
         query = query.order_by(order_fn(col).nulls_last())
     else:

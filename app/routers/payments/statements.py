@@ -5,8 +5,8 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, Form, Request, UploadFile, File
 from fastapi.responses import RedirectResponse
+from sqlalchemy import asc as sa_asc, desc as sa_desc, func
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func
 
 from app.database import get_db
 from app.config import settings
@@ -14,7 +14,7 @@ from app.models import (
     BankStatement, Payment, PaymentAllocation, PaymentDirection, PaymentMatchStatus,
     Unit,
 )
-from app.utils import build_list_url, is_htmx_partial, validate_upload, strip_diacritics, UPLOAD_LIMITS
+from app.utils import build_list_url, is_htmx_partial, is_safe_path, validate_upload, strip_diacritics, UPLOAD_LIMITS
 from ._helpers import templates, logger, compute_nav_stats
 
 router = APIRouter()
@@ -103,6 +103,14 @@ async def vypis_import_upload(
     # Při force_overwrite použít uložený soubor
     if force and saved_path:
         saved_file = Path(saved_path)
+        if not is_safe_path(saved_file, Path(settings.upload_dir) / "temp"):
+            return templates.TemplateResponse("payments/vypis_import.html", {
+                "request": request,
+                "active_nav": "platby",
+                "active_tab": "vypisy",
+                "error": "Neplatná cesta k souboru.",
+                **compute_nav_stats(db),
+            })
         if not saved_file.is_file():
             return templates.TemplateResponse("payments/vypis_import.html", {
                 "request": request,
@@ -291,7 +299,11 @@ async def vypis_import_upload(
     # Automatické párování
     pf = meta.get("period_from")
     year = pf.year if pf else datetime.utcnow().year
-    match_result = match_payments(db, statement.id, year)
+    try:
+        match_result = match_payments(db, statement.id, year)
+    except Exception as e:
+        logger.error("Matching failed for statement %d: %s", statement.id, e)
+        match_result = {"matched": 0, "suggested": 0, "unmatched": inserted, "total": inserted}
 
     # Obnovit ruční přiřazení z předchozího importu
     restored = 0
@@ -384,7 +396,6 @@ async def vypis_detail(
     # Řazení
     col = SORT_COLUMNS_PAYMENTS.get(sort, Payment.date)
     if col is not None:
-        from sqlalchemy import asc as sa_asc, desc as sa_desc
         order_fn = sa_desc if order == "desc" else sa_asc
         query = query.order_by(order_fn(col).nulls_last())
 

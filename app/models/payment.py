@@ -221,9 +221,6 @@ class BankStatementColumnMapping(Base):
     last_used_at = Column(DateTime, default=datetime.utcnow)
 
 
-# ── Vyúčtování (Fáze 4) ──────────────────────────────────────────────
-
-
 # ── Alokace plateb (multi-unit) ──────────────────────────────────────
 
 

@@ -17,5 +17,6 @@ data/backups/
 .DS_Store
 wheels/
 *.png
+*.csv
 data/*.xlsx
 .playwright-mcp/

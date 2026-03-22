@@ -214,6 +214,8 @@ async def platby_jednotka(
     years = [y.year for y in db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).all()]
 
     detail = compute_unit_payment_detail(db, unit_id, rok)
+    if not detail:
+        return RedirectResponse("/platby/prehled", status_code=302)
 
     back_url = back or "/platby/prehled"
     if "/platby/prehled" in back_url:

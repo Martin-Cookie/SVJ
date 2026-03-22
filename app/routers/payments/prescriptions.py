@@ -1,12 +1,11 @@
 """Router pro předpisy plateb — seznam, import DOCX, detail."""
 
-import os
-import shutil
 from datetime import datetime
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, Form, Request, UploadFile, File
 from fastapi.responses import RedirectResponse
+from sqlalchemy import asc as sa_asc, desc as sa_desc
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
@@ -15,7 +14,7 @@ from app.models import (
     VariableSymbolMapping, SymbolSource,
 )
 from app.config import settings
-from app.utils import build_list_url, is_htmx_partial, validate_upload, UPLOAD_LIMITS
+from app.utils import build_list_url, is_htmx_partial, is_safe_path, validate_upload, UPLOAD_LIMITS
 from ._helpers import templates, logger, compute_nav_stats
 
 router = APIRouter()
@@ -81,11 +80,20 @@ async def predpisy_import_upload(
     # Při force_overwrite použít uložený soubor
     if force and saved_path:
         saved_file = Path(saved_path)
+        if not is_safe_path(saved_file, Path(settings.upload_dir) / "temp"):
+            return templates.TemplateResponse("payments/predpisy_import.html", {
+                "request": request,
+                "active_nav": "platby",
+                "active_tab": "predpisy",
+                "error": "Neplatná cesta k souboru.",
+                "form_data": {"year": year},
+                **compute_nav_stats(db),
+            })
         if not saved_file.is_file():
             return templates.TemplateResponse("payments/predpisy_import.html", {
                 "request": request,
                 "active_nav": "platby",
-        "active_tab": "predpisy",
+                "active_tab": "predpisy",
                 "error": "Uložený soubor expiroval. Nahrajte soubor znovu.",
                 "form_data": {"year": year},
                 **compute_nav_stats(db),
@@ -325,7 +333,6 @@ async def predpisy_detail(
     # Řazení
     col = SORT_COLUMNS.get(sort, "space_number")
     if col:
-        from sqlalchemy import asc as sa_asc, desc as sa_desc
         order_fn = sa_desc if order == "desc" else sa_asc
         query = query.order_by(order_fn(getattr(Prescription, col)).nulls_last())
 

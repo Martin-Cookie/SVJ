@@ -170,7 +170,6 @@ async def vyuctovani_seznam(
         "total_overpay": total_overpay,
         "total_underpay": total_underpay,
         "flash_message": flash_message,
-        "active_tab": "vyuctovani",
         **compute_nav_stats(db),
     }
 

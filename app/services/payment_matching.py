@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 from app.models import (
     VariableSymbolMapping, Prescription, Payment, PaymentAllocation,
     PaymentDirection, PaymentMatchStatus, Unit, OwnerUnit,
+    PrescriptionYear, Owner,
 )
 from app.utils import strip_diacritics
 
@@ -38,8 +39,6 @@ def compute_candidates(db: Session, payments: list, year: int,
     Vrací dict payment_id → list[{unit_number, monthly, score, reasons}],
     max 3 kandidáti seřazení dle skóre.
     """
-    from app.models import PrescriptionYear, Owner
-
     unmatched = [
         p for p in payments
         if p.match_status == PaymentMatchStatus.UNMATCHED
@@ -53,11 +52,15 @@ def compute_candidates(db: Session, payments: list, year: int,
     if not py:
         return {}
 
+    # Pre-load jednotky a vlastníky (předejít N+1)
+    all_units = {u.id: u for u in db.query(Unit).all()}
+    all_owners = {o.id: o for o in db.query(Owner).all()}
+
     prescriptions = db.query(Prescription).filter_by(prescription_year_id=py.id).all()
     unit_info: dict[int, dict] = {}  # unit_number → {unit_id, monthly, vs, ...}
     for p in prescriptions:
         if p.unit_id:
-            unit = db.query(Unit).get(p.unit_id)
+            unit = all_units.get(p.unit_id)
             if unit:
                 unit_info[unit.unit_number] = {
                     "unit_id": p.unit_id,
@@ -86,9 +89,9 @@ def compute_candidates(db: Session, payments: list, year: int,
     unit_owner_words: dict[int, list[set]] = {}  # unit_number → [set of words]
     unit_owner_surnames: dict[int, set] = {}     # unit_number → {příjmení}
     for ou in active_ous:
-        owner = db.query(Owner).get(ou.owner_id)
+        owner = all_owners.get(ou.owner_id)
         if owner and owner.name_normalized:
-            unit = db.query(Unit).get(ou.unit_id)
+            unit = all_units.get(ou.unit_id)
             if unit:
                 words = _clean_name_words(owner.name_normalized)
                 if words:
@@ -310,7 +313,6 @@ def match_payments(db: Session, statement_id: int, year: int) -> dict:
     prescriptions_by_vs = {}
     prescriptions_by_unit = {}
     all_prescriptions = []
-    from app.models import PrescriptionYear
     py = db.query(PrescriptionYear).filter_by(year=year).first()
     if py:
         for p in db.query(Prescription).filter_by(prescription_year_id=py.id).all():
@@ -326,6 +328,7 @@ def match_payments(db: Session, statement_id: int, year: int) -> dict:
     unit_number_by_id = {u.id: u.unit_number for u in all_units}
 
     # Načti aktuální vlastníky jednotek
+    all_owners = {o.id: o for o in db.query(Owner).all()}
     owner_by_unit = {}
     active_owner_units = db.query(OwnerUnit).filter(OwnerUnit.valid_to.is_(None)).all()
     for ou in active_owner_units:
@@ -404,11 +407,10 @@ def match_payments(db: Session, statement_id: int, year: int) -> dict:
                         "prescription_id": presc.id,
                     })
 
-        from app.models import Owner
         for ou in active_owner_units:
             if ou.unit_id in auto_matched_unit_ids:
                 continue  # Vyloučit auto-matched jednotky
-            owner = db.query(Owner).get(ou.owner_id)
+            owner = all_owners.get(ou.owner_id)
             if not owner or not owner.name_normalized:
                 continue
             key = (owner.name_normalized, ou.unit_id)
@@ -502,9 +504,8 @@ def match_payments(db: Session, statement_id: int, year: int) -> dict:
     if still_unmatched2:
         # Připrav name lookup pro skóring (owner names per unit_id)
         unit_owner_words: dict[int, list[set]] = {}
-        from app.models import Owner
         for ou in active_owner_units:
-            owner = db.query(Owner).get(ou.owner_id)
+            owner = all_owners.get(ou.owner_id)
             if owner and owner.name_normalized:
                 unit_owner_words.setdefault(ou.unit_id, []).append(
                     {w for w in owner.name_normalized.split() if len(w) > 3}
