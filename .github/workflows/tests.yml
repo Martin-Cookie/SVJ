@@ -22,5 +22,10 @@ jobs:
           pip install pytest httpx
           pip install fastapi uvicorn jinja2 python-multipart sqlalchemy pydantic-settings openpyxl python-docx docxtpl pdfplumber pytesseract Pillow python-dotenv
 
+      - name: Příprava prostředí
+        run: |
+          mkdir -p data
+          touch .env
+
       - name: Spuštění testů
         run: python -m pytest tests/ -v --tb=short
