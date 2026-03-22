@@ -356,9 +356,12 @@
 - `main.py` import zůstává beze změny (`from app.routers import modul`)
 - Příklady:
   - `owners/` — `crud.py`, `import_owners.py`, `import_contacts.py`, `_helpers.py`
+  - `owners/` — `crud.py`, `import_owners.py`, `import_contacts.py`, `_helpers.py`
   - `voting/` — `session.py`, `ballots.py`, `import_votes.py`, `_helpers.py`
   - `tax/` — `session.py`, `processing.py`, `matching.py`, `sending.py`, `_helpers.py`
   - `payments/` — `prescriptions.py`, `symbols.py`, `statements.py`, `balances.py`, `overview.py`, `settlement.py`, `_helpers.py`
+  - `administration/` — `info.py`, `board.py`, `code_lists.py`, `backups.py`, `bulk.py`, `_helpers.py`
+  - `sync/` — `session.py`, `contacts.py`, `exchange.py`, `_helpers.py`
 
 ## Startup (lifespan)
 

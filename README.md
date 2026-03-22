@@ -1036,6 +1036,22 @@ Zbývající nálezy z druhého auditu: autentizace (plánováno), CSRF ochrana,
 - Post-restore migrace vrací warnings list pro UI feedback
 - Odstraněn nebezpečný endpoint `obnovit-adresar` (přijímal libovolnou cestu z formuláře)
 
+**Osmý audit — platební modul (2026-03-22) — 28 nálezů, opraveno 20:**
+- Refaktoring `match_payments()` na 3 fázové funkce (VS match, name match, VS-prefix decode)
+- Sdílená `templates` instance z `app.utils` (nahrazeno 9 duplicitních `Jinja2Templates` setupů)
+- `_create_error_log()` helper v email_service (nahrazeny 4 copy-paste bloky)
+- `except Exception: pass` → `logger.debug()` s exc_info ve statements.py
+- `overflow-x-auto` wrapper na tabulkách ve 27 šablonách (mobilní responsivita)
+- `datetime.utcnow()` → helper `utcnow()` v `app/utils.py` (44 výskytů, Python 3.12+ kompatibilita)
+- Lokální kopie Tailwind CSS + HTMX s CDN fallback (offline podpora)
+- `aria-label` na 22 inputech/checkboxech ve 13 šablonách (WCAG AA)
+- Rozdělen `administration.py` (1426 ř.) na package — 6 modulů (info, board, code_lists, backups, bulk)
+- Rozdělen `sync.py` (1171 ř.) na package — 4 moduly (session, contacts, exchange)
+- Refaktoring 4 nejdelších funkcí na menší helpery (20 nových helper funkcí)
+- 248 automatizovaných testů (voting, backup, CSV comparator, payment matching)
+- Pre-push git hook + GitHub Actions CI workflow
+- Zbývá: autentizace + CSRF, async SMTP, docstringy
+
 ## UX vylepšení
 
 Projekt prošel UX analýzou klíčových modulů (6 expertních perspektiv: UX Designer, Information Architect, Accessibility Specialist, Error Prevention, Interaction Designer, Data Integrity Guardian).
