@@ -5,7 +5,7 @@ from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import ActivityLog, EmailLog, Owner, OwnerUnit, SvjInfo, Unit, Voting, BankStatement, Payment, PaymentDirection, PaymentMatchStatus
+from app.models import ActivityLog, EmailLog, Owner, OwnerUnit, PrescriptionYear, SvjInfo, Unit, Voting, BankStatement, Payment, PaymentDirection, PaymentMatchStatus
 from app.models.voting import Ballot, BallotStatus, BallotVote
 from app.models.tax import TaxDocument, TaxSession, TaxDistribution, EmailDeliveryStatus
 from app.utils import strip_diacritics, templates
@@ -277,6 +277,16 @@ async def home(
         Payment.match_status.in_(confirmed_statuses),
     ).scalar() or 0
 
+    # Debtor count (imported from payments helpers if available)
+    debtor_count = 0
+    try:
+        from app.routers.payments._helpers import _count_debtors_fast
+        latest_py = db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).first()
+        if latest_py:
+            debtor_count = _count_debtors_fast(db, latest_py.year)
+    except Exception:
+        pass
+
     ctx = {
         "request": request,
         "active_nav": "dashboard",
@@ -297,6 +307,7 @@ async def home(
         "matched_payments": matched_payments,
         "unmatched_payments": unmatched_payments,
         "total_income": total_income,
+        "debtor_count": debtor_count,
     }
 
     if request.headers.get("HX-Request") and not request.headers.get("HX-Boosted"):

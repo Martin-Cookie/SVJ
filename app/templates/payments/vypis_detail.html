@@ -20,7 +20,8 @@
                 </p>
             </div>
             <div class="flex items-center space-x-2">
-                <form method="post" action="/platby/vypisy/{{ statement.id }}/preparovat" class="flex items-center gap-1.5">
+                <form method="post" action="/platby/vypisy/{{ statement.id }}/preparovat" class="flex items-center gap-1.5"
+                      {% if not statement.locked_at %}data-confirm="Přepárování resetuje automatická a navrhovaná přiřazení. Ruční přiřazení zůstanou. Pokračovat?"{% endif %}>
                     <input type="hidden" name="q" value="{{ q }}">
                     <input type="hidden" name="sort" value="{{ sort }}">
                     <input type="hidden" name="order" value="{{ order }}">

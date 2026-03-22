@@ -87,7 +87,7 @@ async def zustatky_seznam(
         "flash_message": flash_message,
         "flash_type": flash_type,
         "active_tab": "zustatky",
-        **compute_nav_stats(db),
+        **(compute_nav_stats(db) if not is_htmx_partial(request) else {}),
     }
 
     if is_htmx_partial(request):

@@ -121,6 +121,7 @@
         <p class="text-xs mt-1 text-gray-500">
             {{ statement_count }} {% if statement_count == 1 %}výpis{% elif statement_count < 5 %}výpisy{% else %}výpisů{% endif %}
             {% if unmatched_payments %} · <span class="text-yellow-600">{{ unmatched_payments }} nenapárováno</span>{% endif %}
+            {% if debtor_count %} · <a href="/platby/dluznici?back=/" class="text-red-600 hover:text-red-800">{{ debtor_count }} {% if debtor_count == 1 %}dlužník{% elif debtor_count < 5 %}dlužníci{% else %}dlužníků{% endif %}</a>{% endif %}
         </p>
     </a>
 </div>

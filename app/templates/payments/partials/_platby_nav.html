@@ -51,7 +51,8 @@
             </div>
             <div class="ml-2 min-w-0">
                 <p class="text-xs text-gray-500 dark:text-gray-400 truncate">Výpisy</p>
-                <p class="text-sm font-bold text-gray-900 dark:text-white">{{ nav_statement_count }} / {{ nav_total_payments }}</p>
+                <p class="text-sm font-bold text-gray-900 dark:text-white">{{ nav_statement_count }}</p>
+                <p class="text-[10px] text-gray-400 dark:text-gray-500 truncate">{{ nav_total_payments }} plateb</p>
             </div>
         </div>
     </a>
@@ -67,6 +68,7 @@
             <div class="ml-2 min-w-0">
                 <p class="text-xs text-gray-500 dark:text-gray-400 truncate">Matice</p>
                 <p class="text-sm font-bold text-gray-900 dark:text-white">{{ nav_matched_income }}</p>
+                <p class="text-[10px] text-gray-400 dark:text-gray-500 truncate">napárováno</p>
             </div>
         </div>
     </a>
@@ -97,6 +99,7 @@
             <div class="ml-2 min-w-0">
                 <p class="text-xs text-gray-500 dark:text-gray-400 truncate">Vyúčtování</p>
                 <p class="text-sm font-bold text-gray-900 dark:text-white">{{ nav_settlement_count }}</p>
+                {% if nav_settlement_generated %}<p class="text-[10px] text-gray-400 dark:text-gray-500 truncate">{{ nav_settlement_generated }} vygener.</p>{% endif %}
             </div>
         </div>
     </a>

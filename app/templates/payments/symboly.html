@@ -100,4 +100,14 @@
     </div>
 </div>
 {% include "payments/partials/_scroll_restore.html" %}
+<script>
+function toggleEditRow(id) {
+    var view = document.querySelector('[data-view-row="'+id+'"]');
+    var edit = document.querySelector('[data-edit-row="'+id+'"]');
+    if (view && edit) {
+        view.classList.toggle('hidden');
+        edit.classList.toggle('hidden');
+    }
+}
+</script>
 {% endblock %}

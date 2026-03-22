@@ -14,7 +14,7 @@ from app.models import (
     VariableSymbolMapping, SymbolSource,
 )
 from app.config import settings
-from app.utils import build_list_url, is_htmx_partial, is_safe_path, validate_upload, UPLOAD_LIMITS
+from app.utils import build_list_url, is_htmx_partial, is_safe_path, utcnow, validate_upload, UPLOAD_LIMITS
 from ._helpers import templates, logger, compute_nav_stats
 
 router = APIRouter()
@@ -59,6 +59,7 @@ async def predpisy_import_form(request: Request, db: Session = Depends(get_db)):
         "active_nav": "platby",
         "active_tab": "predpisy",
         "back_url": back_url,
+        "current_year": utcnow().year,
         **compute_nav_stats(db),
     })
 
@@ -392,7 +393,7 @@ async def predpisy_detail(
         "back_url": back_url,
         "flash_message": flash_message,
         "flash_type": flash_type,
-        **compute_nav_stats(db),
+        **(compute_nav_stats(db) if not is_htmx_partial(request) else {}),
     }
 
     if is_htmx_partial(request):

@@ -531,7 +531,7 @@ async def vypis_detail(
         "flash_message": flash_message,
         "flash_type": flash_type,
         "month_names": MONTH_NAMES_LONG,
-        **compute_nav_stats(db),
+        **(compute_nav_stats(db) if not is_htmx_partial(request) else {}),
     }
 
     if is_htmx_partial(request):

@@ -16,16 +16,26 @@
                     {% if months_with_data %}{{ months_with_data|length }} {% if months_with_data|length == 1 %}měsíc{% elif months_with_data|length < 5 %}měsíce{% else %}měsíců{% endif %} s daty{% else %}žádná data{% endif %}
                 </p>
             </div>
-            {% if years|length > 1 %}
             <div class="flex items-center gap-2">
+                <form method="post" action="/platby/prehled/exportovat" hx-boost="false" class="inline">
+                    <input type="hidden" name="rok" value="{{ rok }}">
+                    <input type="hidden" name="typ" value="{{ typ }}">
+                    <input type="hidden" name="q" value="{{ q }}">
+                    <input type="hidden" name="sort" value="{{ sort }}">
+                    <input type="hidden" name="order" value="{{ order }}">
+                    <button type="submit" class="px-3 py-1.5 text-xs font-medium rounded-lg bg-green-600 text-white hover:bg-green-700" title="Export do Excelu">
+                        <svg class="w-3.5 h-3.5 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>Excel
+                    </button>
+                </form>
+                {% if years|length > 1 %}
                 {% for y in years %}
                 <a href="/platby/prehled?rok={{ y }}{{ '&typ=' ~ typ if typ else '' }}{{ '&back=' ~ (back_url|urlencode) if back_url else '' }}"
                    class="px-2 py-1 text-xs font-medium rounded-lg {% if y == rok %}bg-blue-600 text-white{% else %}bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200{% endif %}">
                     {{ y }}
                 </a>
                 {% endfor %}
+                {% endif %}
             </div>
-            {% endif %}
         </div>
 
         <!-- Filtr bubliny — typ prostoru -->

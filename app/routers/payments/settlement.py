@@ -72,7 +72,7 @@ async def vyuctovani_seznam(
     # Výchozí rok
     if not rok:
         latest = db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).first()
-        rok = latest.year if latest else 2026
+        rok = latest.year if latest else utcnow().year
 
     years = [y.year for y in db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).all()]
 
@@ -170,7 +170,7 @@ async def vyuctovani_seznam(
         "total_overpay": total_overpay,
         "total_underpay": total_underpay,
         "flash_message": flash_message,
-        **compute_nav_stats(db),
+        **(compute_nav_stats(db) if not is_htmx_partial(request) else {}),
     }
 
     if is_htmx_partial(request):
@@ -510,7 +510,7 @@ def _export_xlsx(settlements, headers, filename, is_detailed):
 def _export_csv(settlements, headers, filename, is_detailed):
     """Generování CSV souboru."""
     buf = io.StringIO()
-    writer = csv.writer(buf, delimiter=";")
+    writer = csv.writer(buf, delimiter=";", quoting=csv.QUOTE_ALL)
 
     if not is_detailed:
         writer.writerow(headers)

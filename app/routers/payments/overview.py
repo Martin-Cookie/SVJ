@@ -104,13 +104,111 @@ async def platby_prehled(
         "total_paid": matrix["total_paid"],
         "total_units": len(matrix["units"]),
         "active_tab": "prehled",
-        **compute_nav_stats(db),
+        **(compute_nav_stats(db) if not is_htmx_partial(request) else {}),
     }
 
     if is_htmx_partial(request):
         return templates.TemplateResponse("payments/partials/prehled_tbody.html", ctx)
 
     return templates.TemplateResponse("payments/prehled.html", ctx)
+
+
+# ── Export matice plateb ──────────────────────────────────────────────
+
+
+@router.post("/prehled/exportovat")
+async def matice_export(
+    request: Request,
+    rok: int = Form(0),
+    typ: str = Form(""),
+    q: str = Form(""),
+    sort: str = Form("cislo"),
+    order: str = Form("asc"),
+    db: Session = Depends(get_db),
+):
+    """Export matice plateb do Excelu."""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill
+
+    if not rok:
+        latest = db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).first()
+        rok = latest.year if latest else utcnow().year
+
+    matrix = compute_payment_matrix(db, rok, space_type=typ)
+    rows = matrix["units"]
+    months_with_data = sorted(matrix["months_with_data"])
+
+    if q:
+        q_ascii = strip_diacritics(q)
+        rows = [
+            r for r in rows
+            if q_ascii in strip_diacritics(str(r["unit"].unit_number))
+            or q_ascii in strip_diacritics(r["owner"].display_name if r["owner"] else "")
+            or q_ascii in strip_diacritics(r["prescription"].owner_name or "")
+        ]
+
+    sort_fns = {
+        "cislo": lambda r: r["unit"].unit_number or 0,
+        "sekce": lambda r: (r["prescription"].section or "").lower(),
+        "vlastnik": lambda r: strip_diacritics(r["owner"].display_name if r["owner"] else r["prescription"].owner_name or ""),
+        "predpis": lambda r: r["monthly"],
+        "celkem": lambda r: r["total_paid"],
+        "dluh": lambda r: r["debt"],
+    }
+    rows.sort(key=sort_fns.get(sort, sort_fns["cislo"]), reverse=(order == "desc"))
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = f"Matice plateb {rok}"
+
+    month_labels = ["Led", "Úno", "Bře", "Dub", "Kvě", "Čer", "Čvc", "Srp", "Zář", "Říj", "Lis", "Pro"]
+    headers = ["Č. jedn.", "Sekce", "Vlastník", "Předpis/měs"]
+    for m in months_with_data:
+        headers.append(month_labels[m - 1])
+    headers += ["Celkem", "Dluh"]
+
+    bold = Font(bold=True)
+    red_fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
+
+    for col, h in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=h)
+        cell.font = bold
+
+    for i, r in enumerate(rows, 2):
+        owner_name = r["owner"].display_name if r["owner"] else r["prescription"].owner_name or ""
+        ws.cell(row=i, column=1, value=r["unit"].unit_number)
+        ws.cell(row=i, column=2, value=r["prescription"].section or "")
+        ws.cell(row=i, column=3, value=owner_name)
+        ws.cell(row=i, column=4, value=r["monthly"])
+        col = 5
+        for m in months_with_data:
+            paid = r["months"].get(m, {}).get("paid", 0)
+            cell = ws.cell(row=i, column=col, value=paid)
+            if paid < r["monthly"] and r["monthly"] > 0:
+                cell.fill = red_fill
+            col += 1
+        ws.cell(row=i, column=col, value=r["total_paid"])
+        debt_cell = ws.cell(row=i, column=col + 1, value=r["debt"])
+        if r["debt"] > 0:
+            debt_cell.fill = red_fill
+
+    excel_auto_width(ws)
+
+    buf = BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+
+    typ_suffix = f"_{strip_diacritics(typ)}" if typ else ""
+    q_suffix = f"_hledani_{q}" if q else ""
+    suffix = typ_suffix or q_suffix or "_vse"
+    date_str = datetime.now().strftime("%Y%m%d")
+    filename = f"matice_plateb_{rok}{suffix}_{date_str}.xlsx"
+
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 # ── Dlužníci ─────────────────────────────────────────────────────────
@@ -258,7 +356,7 @@ async def dluznici_export(
     wb.save(buf)
     buf.seek(0)
 
-    suffix = f"_hledani_{q}" if q else ""
+    suffix = f"_hledani_{q}" if q else "_vsichni"
     date_str = datetime.now().strftime("%Y%m%d")
     filename = f"dluznici_{rok}{suffix}_{date_str}.xlsx"
 

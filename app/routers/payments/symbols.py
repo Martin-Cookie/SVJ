@@ -104,7 +104,7 @@ async def symboly_seznam(
         "flash_message": flash_message,
         "flash_type": "error" if chyba else "",
         "active_tab": "symboly",
-        **compute_nav_stats(db),
+        **(compute_nav_stats(db) if not is_htmx_partial(request) else {}),
     }
 
     if is_htmx_partial(request):
@@ -157,6 +157,26 @@ async def symbol_pridat(
     ))
     db.commit()
     return RedirectResponse(_symboly_redirect_url(form_data, flash="ok"), status_code=302)
+
+
+@router.post("/symboly/{mapping_id}/upravit")
+async def symbol_upravit(
+    request: Request,
+    mapping_id: int,
+    unit_id: int = Form(...),
+    description: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    """Upravit existující VS mapování."""
+    form_data = await request.form()
+    mapping = db.query(VariableSymbolMapping).get(mapping_id)
+    if not mapping:
+        return RedirectResponse(_symboly_redirect_url(form_data, chyba="nenalezeno"), status_code=302)
+
+    mapping.unit_id = unit_id
+    mapping.description = description.strip() or None
+    db.commit()
+    return RedirectResponse(_symboly_redirect_url(form_data, flash="upraveno"), status_code=302)
 
 
 @router.post("/symboly/{mapping_id}/smazat")
