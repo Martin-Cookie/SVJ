@@ -15,8 +15,8 @@
                     {% if statement.period_from %}{{ statement.period_from.strftime('%d.%m.') }} – {{ statement.period_to.strftime('%d.%m.%Y') }} · {% endif %}
                     {{ statement.bank_account or "" }} ·
                     {{ payments|length }} plateb ·
-                    Příjmy: <span class="text-green-600">+{{ total_income|fmt_num }} Kč</span> ·
-                    Výdaje: <span class="text-red-600">-{{ total_expense|fmt_num }} Kč</span> ·
+                    Příjmy: <span class="text-green-600">+{{ total_income|round(0)|int|fmt_num }} Kč</span> ·
+                    Výdaje: <span class="text-red-600">-{{ total_expense|round(0)|int|fmt_num }} Kč</span> ·
                     Napárováno: {{ matched_count }}/{{ payments|length }}
                 </p>
             </div>
@@ -71,33 +71,33 @@
         <div class="flex flex-wrap gap-2 mb-2">
             <a href="{{ _base|replace('&stav=' ~ stav, '') }}{{ _back }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
                 {% if not stav %}bg-blue-600 text-white ring-2 ring-blue-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
-                Vše <span class="ml-1 opacity-75">{{ payments|length }}</span>
+                Vše <span class="ml-1 opacity-75">{{ bubble_counts.vse }}</span>
             </a>
             <a href="{{ _base }}&stav=auto_matched{{ _back }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
                 {% if stav == 'auto_matched' %}bg-green-600 text-white ring-2 ring-green-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
-                Napárováno
+                Napárováno <span class="ml-1 opacity-75">{{ bubble_counts.auto_matched }}</span>
             </a>
             <a href="{{ _base }}&stav=suggested{{ _back }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
                 {% if stav == 'suggested' %}bg-blue-600 text-white ring-2 ring-blue-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
-                Návrhy
+                Návrhy <span class="ml-1 opacity-75">{{ bubble_counts.suggested }}</span>
             </a>
             <a href="{{ _base }}&stav=manual{{ _back }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
                 {% if stav == 'manual' %}bg-purple-600 text-white ring-2 ring-purple-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
-                Ručně
+                Ručně <span class="ml-1 opacity-75">{{ bubble_counts.manual }}</span>
             </a>
             <a href="{{ _base }}&stav=unmatched{{ _back }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
                 {% if stav == 'unmatched' %}bg-yellow-600 text-white ring-2 ring-yellow-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
-                Nenapárováno
+                Nenapárováno <span class="ml-1 opacity-75">{{ bubble_counts.unmatched }}</span>
             </a>
             <span class="text-gray-300 dark:text-gray-600">|</span>
             {% set _base_smer = "/platby/vypisy/" ~ statement.id ~ "?sort=" ~ sort ~ "&order=" ~ order ~ ("&q=" ~ q if q else "") ~ ("&stav=" ~ stav if stav else "") %}
             <a href="{{ _base_smer }}&smer=prijem{{ _back }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
                 {% if smer == 'prijem' %}bg-green-600 text-white ring-2 ring-green-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
-                Příjmy
+                Příjmy <span class="ml-1 opacity-75">{{ bubble_counts.prijem }}</span>
             </a>
             <a href="{{ _base_smer }}&smer=vydej{{ _back }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
                 {% if smer == 'vydej' %}bg-red-600 text-white ring-2 ring-red-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
-                Výdaje
+                Výdaje <span class="ml-1 opacity-75">{{ bubble_counts.vydej }}</span>
             </a>
         </div>
 

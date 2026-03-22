@@ -1,9 +1,10 @@
 """Přehled plateb — matice, dlužníci, detail jednotky."""
 
 from datetime import datetime
+from io import BytesIO
 
-from fastapi import APIRouter, Depends, Query, Request
-from fastapi.responses import RedirectResponse
+from fastapi import APIRouter, Depends, Form, Query, Request
+from fastapi.responses import RedirectResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -13,7 +14,7 @@ from app.services.payment_overview import (
     compute_payment_matrix,
     compute_unit_payment_detail,
 )
-from app.utils import build_list_url, is_htmx_partial, strip_diacritics
+from app.utils import build_list_url, excel_auto_width, is_htmx_partial, strip_diacritics
 
 from ._helpers import templates, compute_nav_stats
 
@@ -124,6 +125,7 @@ SORT_COLUMNS_DEBTORS = {
     "predpis": None,
     "zaplaceno": None,
     "dluh": None,
+    "mesice": None,
 }
 
 
@@ -163,6 +165,7 @@ async def platby_dluznici(
         "predpis": lambda r: r["monthly"],
         "zaplaceno": lambda r: r["total_paid"],
         "dluh": lambda r: r["debt"],
+        "mesice": lambda r: r["months_unpaid"],
     }
     debtors.sort(key=sort_fns.get(sort_key, sort_fns["dluh"]), reverse=reverse)
 
@@ -189,6 +192,84 @@ async def platby_dluznici(
         return templates.TemplateResponse("payments/partials/dluznici_tbody.html", ctx)
 
     return templates.TemplateResponse("payments/dluznici.html", ctx)
+
+
+# ── Export dlužníků ──────────────────────────────────────────────────
+
+
+@router.post("/dluznici/exportovat")
+async def dluznici_export(
+    request: Request,
+    rok: int = Form(0),
+    q: str = Form(""),
+    sort: str = Form("dluh"),
+    order: str = Form("desc"),
+    db: Session = Depends(get_db),
+):
+    """Export dlužníků do Excelu."""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font
+
+    if not rok:
+        latest = db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).first()
+        rok = latest.year if latest else datetime.utcnow().year
+
+    debtors, _ = compute_debtor_list(db, rok)
+
+    if q:
+        q_ascii = strip_diacritics(q)
+        debtors = [
+            r for r in debtors
+            if q_ascii in strip_diacritics(str(r["unit"].unit_number))
+            or q_ascii in strip_diacritics(r["owner"].display_name if r["owner"] else "")
+            or q_ascii in strip_diacritics(r["prescription"].owner_name or "")
+        ]
+
+    sort_key = sort if sort in SORT_COLUMNS_DEBTORS else "dluh"
+    reverse = order == "desc"
+    sort_fns = {
+        "cislo": lambda r: r["unit"].unit_number or 0,
+        "vlastnik": lambda r: strip_diacritics(r["owner"].display_name if r["owner"] else r["prescription"].owner_name or ""),
+        "predpis": lambda r: r["monthly"],
+        "zaplaceno": lambda r: r["total_paid"],
+        "dluh": lambda r: r["debt"],
+        "mesice": lambda r: r["months_unpaid"],
+    }
+    debtors.sort(key=sort_fns.get(sort_key, sort_fns["dluh"]), reverse=reverse)
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = f"Dlužníci {rok}"
+
+    headers = ["Č. jednotky", "Vlastník", "Předpis/měs", "Zaplaceno", "Dluh", "Měsíce"]
+    for col, h in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=h)
+        cell.font = Font(bold=True)
+
+    for i, r in enumerate(debtors, 2):
+        owner_name = r["owner"].display_name if r["owner"] else r["prescription"].owner_name or ""
+        ws.cell(row=i, column=1, value=r["unit"].unit_number)
+        ws.cell(row=i, column=2, value=owner_name)
+        ws.cell(row=i, column=3, value=r["monthly"])
+        ws.cell(row=i, column=4, value=r["total_paid"])
+        ws.cell(row=i, column=5, value=r["debt"])
+        ws.cell(row=i, column=6, value=r["months_unpaid"])
+
+    excel_auto_width(ws)
+
+    buf = BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+
+    suffix = f"_hledani_{q}" if q else ""
+    date_str = datetime.now().strftime("%Y%m%d")
+    filename = f"dluznici_{rok}{suffix}_{date_str}.xlsx"
+
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 # ── Detail plateb jednotky ───────────────────────────────────────────
@@ -237,6 +318,7 @@ async def platby_jednotka(
         "years": years,
         "back_url": back_url,
         "back_label": back_label,
+        "hide_nav_back": True,
         "month_names": MONTH_NAMES,
         **compute_nav_stats(db),
     })

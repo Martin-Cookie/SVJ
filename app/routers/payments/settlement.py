@@ -229,6 +229,7 @@ async def vyuctovani_detail(
         "detail": detail,
         "back_url": back_url,
         "back_label": back_label,
+        "hide_nav_back": True,
         "status_labels": STATUS_LABELS,
         "status_colors": STATUS_COLORS,
         "flash_message": flash_message,

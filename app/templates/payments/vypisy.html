@@ -60,7 +60,7 @@
                     {% endif %}
                     {% endif %}
                     <span class="text-xs text-gray-500 dark:text-gray-400">
-                        +{{ stmt.total_income|fmt_num }} / -{{ stmt.total_expense|fmt_num }} Kč
+                        +{{ stmt.total_income|round(0)|int|fmt_num }} / -{{ stmt.total_expense|round(0)|int|fmt_num }} Kč
                     </span>
                     <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
                 </div>

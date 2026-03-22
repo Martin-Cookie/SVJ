@@ -15,16 +15,26 @@
                     Celkový dluh: <span class="font-semibold text-red-600 dark:text-red-400">{{ total_debt|fmt_num }} Kč</span>
                 </p>
             </div>
-            {% if years|length > 1 %}
             <div class="flex items-center gap-2">
+                <form action="/platby/dluznici/exportovat" method="post" hx-boost="false">
+                    <input type="hidden" name="rok" value="{{ rok }}">
+                    <input type="hidden" name="q" value="{{ q }}">
+                    <input type="hidden" name="sort" value="{{ sort }}">
+                    <input type="hidden" name="order" value="{{ order }}">
+                    <button type="submit" class="px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600">
+                        <svg class="w-3.5 h-3.5 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                        Excel
+                    </button>
+                </form>
+                {% if years|length > 1 %}
                 {% for y in years %}
                 <a href="/platby/dluznici?rok={{ y }}{{ '&back=' ~ (back_url|urlencode) if back_url else '' }}"
                    class="px-2 py-1 text-xs font-medium rounded-lg {% if y == rok %}bg-blue-600 text-white{% else %}bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200{% endif %}">
                     {{ y }}
                 </a>
                 {% endfor %}
+                {% endif %}
             </div>
-            {% endif %}
         </div>
 
         <!-- Hledání -->
@@ -49,9 +59,9 @@
                 {% set _sort_base = "/platby/dluznici?rok=" ~ rok ~ "&" ~ ("q=" ~ q ~ "&" if q else "") %}
                 {% set _back = "&back=" ~ (back_url|default('')|urlencode) if back_url else "" %}
                 <tr>
-                    {% for col_key, col_label in [("cislo", "Č. jednotky"), ("vlastnik", "Vlastník"), ("predpis", "Předpis/měs"), ("zaplaceno", "Zaplaceno"), ("dluh", "Dluh")] %}
+                    {% for col_key, col_label in [("cislo", "Č. jednotky"), ("vlastnik", "Vlastník"), ("predpis", "Předpis/měs"), ("zaplaceno", "Zaplaceno"), ("dluh", "Dluh"), ("mesice", "Měsíce")] %}
                     {% set new_order = "desc" if sort == col_key and order == "asc" else "asc" %}
-                    <th class="px-3 py-2 {% if col_key in ['predpis', 'zaplaceno', 'dluh'] %}text-right{% else %}text-left{% endif %} font-semibold text-gray-600 dark:text-gray-300 cursor-pointer select-none hover:text-gray-900 dark:hover:text-white whitespace-nowrap"
+                    <th class="px-3 py-2 {% if col_key in ['predpis', 'zaplaceno', 'dluh'] %}text-right{% elif col_key == 'mesice' %}text-center{% else %}text-left{% endif %} font-semibold text-gray-600 dark:text-gray-300 cursor-pointer select-none hover:text-gray-900 dark:hover:text-white whitespace-nowrap"
                         onclick="window.location='{{ _sort_base }}sort={{ col_key }}&order={{ new_order }}{{ _back }}'">
                         {{ col_label }}
                         {% if sort == col_key %}
@@ -59,7 +69,6 @@
                         {% endif %}
                     </th>
                     {% endfor %}
-                    <th class="px-3 py-2 text-center font-semibold text-gray-600 dark:text-gray-300 whitespace-nowrap">Měsíce</th>
                     <th class="px-3 py-2"></th>
                 </tr>
             </thead>

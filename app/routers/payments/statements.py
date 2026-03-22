@@ -417,6 +417,30 @@ async def vypis_detail(
     total_expense = sum(p.amount for p in payments if p.direction == PaymentDirection.EXPENSE)
     matched_count = sum(1 for p in payments if p.match_status != PaymentMatchStatus.UNMATCHED)
 
+    # Bubble counts (celkové počty bez filtrů)
+    all_payments_for_counts = (
+        db.query(Payment.match_status, Payment.direction, func.count())
+        .filter_by(statement_id=statement_id)
+        .group_by(Payment.match_status, Payment.direction)
+        .all()
+    )
+    bubble_counts = {
+        "vse": 0,
+        "auto_matched": 0,
+        "suggested": 0,
+        "manual": 0,
+        "unmatched": 0,
+        "prijem": 0,
+        "vydej": 0,
+    }
+    for status, direction, cnt in all_payments_for_counts:
+        bubble_counts["vse"] += cnt
+        bubble_counts[status.value] += cnt
+        if direction == PaymentDirection.INCOME:
+            bubble_counts["prijem"] += cnt
+        else:
+            bubble_counts["vydej"] += cnt
+
     # Flash zprávy
     flash_message = ""
     flash_type = ""
@@ -498,6 +522,7 @@ async def vypis_detail(
         "q": q,
         "stav": stav,
         "smer": smer,
+        "bubble_counts": bubble_counts,
         "list_url": list_url,
         "back_url": back_url,
         "flash_message": flash_message,
