@@ -353,6 +353,43 @@ async def vyuctovani_hromadny_stav(
     )
 
 
+@router.post("/vyuctovani/hromadny-stav-filtrovane")
+async def vyuctovani_hromadny_stav_filtrovane(
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Hromadná změna stavu všech vyúčtování odpovídajících filtru."""
+    form = await request.form()
+    novy_stav = form.get("novy_stav", "")
+    rok = int(form.get("rok", 0))
+    stav_filtr = form.get("stav", "")
+
+    try:
+        status_enum = SettlementStatus(novy_stav)
+    except ValueError:
+        return RedirectResponse(f"/platby/vyuctovani?rok={rok}", status_code=302)
+
+    query = db.query(Settlement).filter_by(year=rok)
+    if stav_filtr:
+        try:
+            query = query.filter_by(status=SettlementStatus(stav_filtr))
+        except ValueError:
+            pass
+
+    count = 0
+    for s in query.all():
+        s.status = status_enum
+        s.updated_at = utcnow()
+        count += 1
+    db.commit()
+
+    stav_label = STATUS_LABELS.get(novy_stav, novy_stav)
+    return RedirectResponse(
+        _vyuctovani_redirect_url(form, f"flash=bulk_stav&count={count}&stav_label={stav_label}"),
+        status_code=302,
+    )
+
+
 # ── Export vyúčtování ─────────────────────────────────────────────
 
 

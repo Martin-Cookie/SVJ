@@ -468,6 +468,9 @@ async def vypis_detail(
         flash_type = "error"
     elif flash == "confirmed":
         flash_message = "Návrh potvrzen."
+    elif flash == "bulk_confirmed":
+        count = request.query_params.get("count", "0")
+        flash_message = f"Potvrzeno {count} návrhů."
     elif flash == "rejected":
         flash_message = "Návrh odmítnut."
     elif flash == "rematch_ok":
@@ -666,6 +669,31 @@ async def platba_prirazeni(
 
 
 # ── Potvrzení / odmítnutí návrhu ──────────────────────────────────────
+
+
+@router.post("/vypisy/{statement_id}/potvrdit-vse")
+async def platba_potvrdit_vse(
+    request: Request,
+    statement_id: int,
+    db: Session = Depends(get_db),
+):
+    """Potvrdit všechny SUGGESTED přiřazení najednou (→ MANUAL)."""
+    form_data = await request.form()
+
+    statement = db.query(BankStatement).get(statement_id)
+    if statement and statement.locked_at:
+        return RedirectResponse(_detail_redirect_url(statement_id, form_data, "locked"), status_code=302)
+
+    count = db.query(Payment).filter(
+        Payment.statement_id == statement_id,
+        Payment.match_status == PaymentMatchStatus.SUGGESTED,
+    ).update({Payment.match_status: PaymentMatchStatus.MANUAL})
+    db.commit()
+
+    return RedirectResponse(
+        _detail_redirect_url(statement_id, form_data, f"bulk_confirmed&count={count}"),
+        status_code=302,
+    )
 
 
 @router.post("/vypisy/{statement_id}/potvrdit/{payment_id}")

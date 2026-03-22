@@ -101,6 +101,26 @@
                 </select>
                 <button type="submit" class="px-2.5 py-1 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700">Změnit</button>
             </form>
+            {% if settlements|length > 0 %}
+            <form method="post" action="/platby/vyuctovani/hromadny-stav-filtrovane" hx-boost="false" class="flex items-center gap-2"
+                  data-confirm="Změnit stav všech {{ settlements|length }} vyfiltrovaných vyúčtování?">
+                <input type="hidden" name="rok" value="{{ rok }}">
+                <input type="hidden" name="stav" value="{{ stav }}">
+                <input type="hidden" name="q" value="{{ q }}">
+                <input type="hidden" name="sort" value="{{ sort }}">
+                <input type="hidden" name="order" value="{{ order }}">
+                <input type="hidden" name="back" value="{{ back_url }}">
+                <span class="text-xs text-gray-400">nebo</span>
+                <select name="novy_stav" required aria-label="Nový stav pro filtrované" class="px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                    <option value="">Změnit všech {{ settlements|length }} na…</option>
+                    <option value="generated">Vygenerováno</option>
+                    <option value="sent">Odesláno</option>
+                    <option value="paid">Zaplaceno</option>
+                    <option value="overdue">Po splatnosti</option>
+                </select>
+                <button type="submit" class="px-2.5 py-1 bg-orange-600 text-white text-xs font-medium rounded-lg hover:bg-orange-700">Vše</button>
+            </form>
+            {% endif %}
         </div>
     </div>
 
