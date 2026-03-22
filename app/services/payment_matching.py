@@ -148,6 +148,7 @@ def compute_candidates(db: Session, payments: list, year: int,
             candidates.append({
                 "unit_number": un,
                 "monthly": monthly,
+                "vs": info["vs"],
                 "score": score,
                 "reasons": reasons,
                 "amount_match": amount_match,

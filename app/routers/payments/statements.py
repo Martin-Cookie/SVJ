@@ -448,13 +448,17 @@ async def vypis_detail(
     cand_year = pf.year if pf else datetime.utcnow().year
     candidates_map = compute_candidates(db, payments, cand_year, statement_id=statement.id)
 
-    # Mapa unit_id → měsíční předpis (pro tooltipy)
+    # Mapa unit_id → měsíční předpis + VS (pro tooltipy)
     unit_monthly = {}
+    unit_vs = {}
     py = db.query(PrescriptionYear).filter_by(year=cand_year).first()
     if py:
         for presc in db.query(Prescription).filter_by(prescription_year_id=py.id).all():
-            if presc.unit_id and presc.monthly_total:
-                unit_monthly[presc.unit_id] = presc.monthly_total
+            if presc.unit_id:
+                if presc.monthly_total:
+                    unit_monthly[presc.unit_id] = presc.monthly_total
+                if presc.variable_symbol:
+                    unit_vs[presc.unit_id] = presc.variable_symbol
 
     list_url = build_list_url(request)
     back_url = request.query_params.get("back", "")
@@ -470,6 +474,7 @@ async def vypis_detail(
         "matched_count": matched_count,
         "candidates_map": candidates_map,
         "unit_monthly": unit_monthly,
+        "unit_vs": unit_vs,
         "sort": sort,
         "order": order,
         "q": q,
