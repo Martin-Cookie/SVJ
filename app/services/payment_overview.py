@@ -36,7 +36,6 @@ def compute_payment_matrix(db: Session, year: int, section: str = "", space_type
             presc_by_unit[p.unit_id] = p
 
     # Platby příjmové, napárované, seskupené per unit_id + měsíc (přes alokace)
-    matched_statuses = [PaymentMatchStatus.AUTO_MATCHED, PaymentMatchStatus.SUGGESTED, PaymentMatchStatus.MANUAL]
     payments = (
         db.query(
             PaymentAllocation.unit_id,
@@ -46,7 +45,7 @@ def compute_payment_matrix(db: Session, year: int, section: str = "", space_type
         .join(Payment)
         .filter(
             Payment.direction == PaymentDirection.INCOME,
-            Payment.match_status.in_(matched_statuses),
+            Payment.match_status == PaymentMatchStatus.AUTO_MATCHED,
             func.extract("year", Payment.date) == year,
         )
         .group_by(PaymentAllocation.unit_id, func.extract("month", Payment.date))
@@ -170,14 +169,13 @@ def compute_unit_payment_detail(db: Session, unit_id: int, year: int) -> dict:
     monthly = presc.monthly_total if presc else 0
 
     # Všechny platby pro tuto jednotku v daném roce (přes alokace)
-    matched_statuses = [PaymentMatchStatus.AUTO_MATCHED, PaymentMatchStatus.SUGGESTED, PaymentMatchStatus.MANUAL]
     alloc_rows = (
         db.query(PaymentAllocation, Payment)
         .join(Payment)
         .filter(
             PaymentAllocation.unit_id == unit_id,
             Payment.direction == PaymentDirection.INCOME,
-            Payment.match_status.in_(matched_statuses),
+            Payment.match_status == PaymentMatchStatus.AUTO_MATCHED,
             func.extract("year", Payment.date) == year,
         )
         .order_by(Payment.date)
