@@ -27,7 +27,7 @@
     <form id="upload-form" action="/synchronizace/nova" method="post" enctype="multipart/form-data" hx-boost="false">
         <div class="mb-4">
             <label class="block text-sm font-medium text-gray-700 mb-2">CSV soubor</label>
-            <input type="file" name="file" accept=".csv" required
+            <input type="file" name="file" accept=".csv" required hx-disable
                    onchange="document.getElementById('submit-btn').classList.toggle('hidden', !this.files.length)"
                    class="file-input block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4
                           file:rounded-lg file:border-0 file:text-sm file:font-medium

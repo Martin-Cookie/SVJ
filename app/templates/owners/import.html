@@ -44,7 +44,7 @@
 
                     <form id="import-form" action="/vlastnici/import" method="post" enctype="multipart/form-data" hx-boost="false"
                           data-confirm="Import smaže {% if owner_count %}všech {{ owner_count }} vlastníků{% else %}všechny vlastníky{% endif %} a nahradí je daty z Excelu. Pokračovat?">
-                        <input type="file" name="file" accept=".xlsx,.xls" required
+                        <input type="file" name="file" accept=".xlsx,.xls" required hx-disable
                                onchange="document.getElementById('submit-btn-owners').classList.toggle('hidden', !this.files.length)"
                                class="file-input block w-full text-xs text-gray-500 file:mr-3 file:py-1 file:px-2.5
                                       file:rounded file:border-0 file:text-xs file:font-medium
@@ -144,7 +144,7 @@
 
                     <form id="contact-import-form" action="/vlastnici/import-kontaktu" method="post" enctype="multipart/form-data" hx-boost="false"
                           onsubmit="document.getElementById('submit-btn-contacts').classList.add('hidden'); document.getElementById('upload-spinner').classList.remove('hidden');">
-                        <input type="file" name="file" accept=".xlsx,.xls" required
+                        <input type="file" name="file" accept=".xlsx,.xls" required hx-disable
                                onchange="document.getElementById('submit-btn-contacts').classList.toggle('hidden', !this.files.length)"
                                class="file-input block w-full text-xs text-gray-500 file:mr-3 file:py-1 file:px-2.5
                                       file:rounded file:border-0 file:text-xs file:font-medium

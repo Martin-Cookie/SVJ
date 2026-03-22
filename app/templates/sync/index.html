@@ -50,7 +50,7 @@
                 </div>
                 <form id="sync-upload-form" action="/synchronizace/nova" method="post" enctype="multipart/form-data" hx-boost="false">
                     <div class="mb-3">
-                        <input type="file" name="file" accept=".csv" required
+                        <input type="file" name="file" accept=".csv" required hx-disable
                                onchange="document.getElementById('sync-submit-btn').classList.toggle('hidden', !this.files.length)"
                                class="file-input block w-full text-sm text-gray-500 file:mr-4 file:py-1.5 file:px-3
                                       file:rounded file:border-0 file:text-sm file:font-medium
@@ -145,7 +145,7 @@
                 </div>
                 <form id="sc-upload-form" action="/kontrola-podilu/nova" method="post" enctype="multipart/form-data" hx-boost="false">
                     <div class="mb-3">
-                        <input type="file" name="file" accept=".csv,.xlsx,.xls" required
+                        <input type="file" name="file" accept=".csv,.xlsx,.xls" required hx-disable
                                onchange="document.getElementById('sc-submit-btn').classList.toggle('hidden', !this.files.length)"
                                class="file-input block w-full text-sm text-gray-500 file:mr-4 file:py-1.5 file:px-3
                                       file:rounded file:border-0 file:text-sm file:font-medium

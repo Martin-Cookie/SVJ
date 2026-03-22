@@ -64,7 +64,7 @@
                     </label>
                     <span id="file-name" class="ml-4 text-sm text-gray-500">není vybrán žádný soubor</span>
                 </div>
-                <input type="file" id="file-input" name="files" accept=".pdf" multiple required
+                <input type="file" id="file-input" name="files" accept=".pdf" multiple required hx-disable
                        onchange="updateFileName(this); document.getElementById('submit-btn').classList.toggle('hidden', !this.files.length)"
                        class="hidden">
                 <p id="file-hint" class="text-xs text-gray-500 mt-1">

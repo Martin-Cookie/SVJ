@@ -39,7 +39,7 @@
         <form id="contact-import-form" action="/vlastnici/import-kontaktu" method="post" enctype="multipart/form-data" hx-boost="false"
               onsubmit="document.getElementById('submit-btn').classList.add('hidden'); document.getElementById('upload-spinner').classList.remove('hidden');">
             <div class="mb-3">
-                <input type="file" name="file" accept=".xlsx,.xls" required
+                <input type="file" name="file" accept=".xlsx,.xls" required hx-disable
                        onchange="document.getElementById('submit-btn').classList.toggle('hidden', !this.files.length)"
                        class="file-input block w-full text-sm text-gray-500 file:mr-4 file:py-1.5 file:px-3
                               file:rounded file:border-0 file:text-sm file:font-medium
