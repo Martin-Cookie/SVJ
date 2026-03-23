@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.models import Owner, OwnerType, OwnerUnit, PrescriptionYear, SvjInfo, Unit, UnitBalance
+from app.routers.payments._helpers import compute_debt_map
 from app.services.code_list_service import get_all_code_lists
 from app.services.owner_exchange import recalculate_unit_votes
 from app.services.owner_service import merge_owners
@@ -163,16 +164,19 @@ async def owner_list(
     """Seznam vlastníků s filtry, hledáním a řazením."""
     owners = _filter_owners(db, q, owner_type, vlastnictvi, kontakt, stav, sekce, sort, order)
 
-    # Debt map — opening balances by owner for latest year
+    # Debt map — platební dluh per owner (přes unit_id → owner)
     debt_map = {}
     latest_py = db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).first()
     if latest_py:
-        bal_rows = db.query(UnitBalance.owner_id, func.sum(UnitBalance.opening_amount)).filter(
-            UnitBalance.year == latest_py.year,
-            UnitBalance.opening_amount > 0,
-            UnitBalance.owner_id.isnot(None),
-        ).group_by(UnitBalance.owner_id).all()
-        debt_map = {oid: amt for oid, amt in bal_rows}
+        unit_debt_map = compute_debt_map(db, latest_py.year)
+        if unit_debt_map:
+            # Mapování unit_id → owner_ids (aktivní vlastníci)
+            ou_rows = db.query(OwnerUnit.unit_id, OwnerUnit.owner_id).filter(
+                OwnerUnit.unit_id.in_(unit_debt_map.keys()),
+                OwnerUnit.valid_to.is_(None),
+            ).all()
+            for unit_id, owner_id in ou_rows:
+                debt_map[owner_id] = debt_map.get(owner_id, 0) + unit_debt_map[unit_id]
 
     # Python-side sort by debt
     if sort == "dluh":
@@ -395,15 +399,13 @@ async def owner_detail(
     svj_info = db.query(SvjInfo).first()
     declared_shares = svj_info.total_shares if svj_info and svj_info.total_shares else 0
 
-    # Opening balance (debt) for owner
+    # Platební dluh vlastníka (přes jeho jednotky)
     owner_debt = 0
     bal_py = db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).first()
     if bal_py:
-        od = db.query(func.sum(UnitBalance.opening_amount)).filter(
-            UnitBalance.owner_id == owner.id,
-            UnitBalance.year == bal_py.year,
-        ).scalar()
-        owner_debt = od or 0
+        unit_debt = compute_debt_map(db, bal_py.year)
+        for ou in owner.current_units:
+            owner_debt += unit_debt.get(ou.unit_id, 0)
 
     ctx = {
         "request": request,

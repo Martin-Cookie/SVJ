@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.models import Owner, OwnerUnit, SvjInfo, Unit, UnitBalance, Payment, PaymentAllocation, PaymentDirection, PaymentMatchStatus, Prescription, PrescriptionYear
+from app.routers.payments._helpers import compute_debt_map
 from app.services.code_list_service import get_all_code_lists
 from app.services.owner_exchange import recalculate_unit_votes
 from app.utils import build_list_url, excel_auto_width, is_htmx_partial, strip_diacritics, templates, utcnow
@@ -472,15 +473,11 @@ async def unit_list(
     """Seznam jednotek s filtry, hledáním a řazením."""
     units = _filter_units(db, q, typ, sekce, sort, order)
 
-    # Debt map — opening balances for latest year
+    # Debt map — platební dluh (předpis × měsíce + zůstatky - zaplaceno)
     debt_map = {}
     latest_py = db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).first()
     if latest_py:
-        balances = db.query(UnitBalance.unit_id, func.sum(UnitBalance.opening_amount)).filter(
-            UnitBalance.year == latest_py.year,
-            UnitBalance.opening_amount > 0,
-        ).group_by(UnitBalance.unit_id).all()
-        debt_map = {uid: amt for uid, amt in balances}
+        debt_map = compute_debt_map(db, latest_py.year)
 
     # Python-side sort by debt
     if sort == "dluh":
