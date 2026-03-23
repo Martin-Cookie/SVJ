@@ -17,7 +17,7 @@ from app.models import (
 from app.services.voting_import import (
     read_excel_headers, preview_voting_import, execute_voting_import, validate_mapping,
 )
-from app.utils import UPLOAD_LIMITS, is_safe_path, utcnow, validate_upload
+from app.utils import UPLOAD_LIMITS, build_import_wizard, is_safe_path, utcnow, validate_upload
 
 from ._helpers import (
     _ballot_stats,
@@ -95,7 +95,7 @@ async def import_upload_page(
         "active_nav": "voting",
         "voting": voting,
         "saved_mapping": saved_mapping,
-        "import_step": 1,
+        **build_import_wizard(1),
         "active_bubble": "",
         "show_close_voting": has_processed,
         **_ballot_stats(voting, db),
@@ -126,7 +126,7 @@ async def import_upload(
             "active_nav": "voting",
             "voting": voting,
             "saved_mapping": None,
-            "import_step": 1,
+            **build_import_wizard(1),
             "active_bubble": "",
             "flash_message": err,
             "flash_type": "error",
@@ -154,8 +154,7 @@ async def import_upload(
         "file_path": str(dest),
         "filename": file.filename,
         "saved_mapping": saved_mapping,
-        "import_step": 2,
-        "import_step_urls": {1: f"/hlasovani/{voting.id}/import"},
+        **build_import_wizard(2),
         "active_bubble": "",
         "show_close_voting": has_processed,
         **_ballot_stats(voting, db),
@@ -193,8 +192,7 @@ async def import_back_to_mapping(
         "file_path": file_path,
         "filename": Path(file_path).name,
         "saved_mapping": saved_mapping,
-        "import_step": 2,
-        "import_step_urls": {1: f"/hlasovani/{voting.id}/import"},
+        **build_import_wizard(2),
         "active_bubble": "",
         "show_close_voting": has_processed,
         **_ballot_stats(voting, db),
@@ -253,8 +251,7 @@ async def import_preview(
         "mapping_json": mapping_json,
         "file_path": file_path,
         "item_lookup": item_lookup,
-        "import_step": 3,
-        "import_step_urls": {1: f"/hlasovani/{voting.id}/import", 2: "#back-to-mapping-form"},
+        **build_import_wizard(3),
         "active_bubble": "",
         "show_close_voting": has_processed,
         **_ballot_stats(voting, db),
@@ -323,7 +320,7 @@ async def import_confirm(
         "active_nav": "voting",
         "voting": voting,
         "result": result,
-        "import_step": 4,
+        **build_import_wizard(4),
         "active_bubble": "",
         "show_close_voting": has_processed,
         **_ballot_stats(voting, db),

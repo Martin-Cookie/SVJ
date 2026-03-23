@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.config import settings
 from app.database import get_db
 from app.models import UnitBalance, Unit, Owner, OwnerUnit, BalanceSource, SvjInfo
-from app.utils import build_list_url, is_htmx_partial, is_safe_path, utcnow, validate_upload, UPLOAD_LIMITS
+from app.utils import build_list_url, build_import_wizard, is_htmx_partial, is_safe_path, utcnow, validate_upload, UPLOAD_LIMITS
 from ._helpers import templates, logger, compute_nav_stats
 
 router = APIRouter()
@@ -272,8 +272,7 @@ async def zustatky_import_upload(
         "request": request,
         "active_nav": "platby",
         "active_tab": "zustatky",
-        "import_step": 1,
-        "import_step_urls": {},
+        **build_import_wizard(1),
         "default_year": utcnow().year,
         **(compute_nav_stats(db) if not is_htmx_partial(request) else {}),
     })
@@ -293,8 +292,7 @@ async def zustatky_import_upload_post(
             "request": request,
             "active_nav": "platby",
             "active_tab": "zustatky",
-            "import_step": 1,
-            "import_step_urls": {},
+            **build_import_wizard(1),
             "default_year": year,
             "error": err,
             **(compute_nav_stats(db) if not is_htmx_partial(request) else {}),
@@ -367,8 +365,7 @@ def _balance_mapping_page(
         "request": request,
         "active_nav": "platby",
         "active_tab": "zustatky",
-        "import_step": 2,
-        "import_step_urls": {1: "/platby/zustatky/import"},
+        **build_import_wizard(2),
         "file_path": file_path,
         "filename": filename,
         "year": year,
@@ -415,8 +412,7 @@ async def zustatky_import_preview(
         "request": request,
         "active_nav": "platby",
         "active_tab": "zustatky",
-        "import_step": 3,
-        "import_step_urls": {1: "/platby/zustatky/import"},
+        **build_import_wizard(3),
         "file_path": file_path,
         "filename": filename,
         "year": year,

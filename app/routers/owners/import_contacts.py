@@ -21,7 +21,7 @@ from app.services.import_mapping import (
     build_mapping_context, read_excel_headers, read_excel_sheet_names,
     validate_contact_mapping,
 )
-from app.utils import UPLOAD_LIMITS, compute_eta, is_safe_path, validate_upload
+from app.utils import UPLOAD_LIMITS, build_import_wizard, compute_eta, is_safe_path, validate_upload
 
 from ._helpers import (
     _load_contact_mapping,
@@ -106,8 +106,7 @@ def _contact_mapping_page(
     return templates.TemplateResponse("owners/contact_import_mapping.html", {
         "request": request,
         "active_nav": "owners",
-        "import_step": 2,
-        "import_step_urls": {1: "/vlastnici/import#kontakty"},
+        **build_import_wizard(2),
         "file_path": file_path,
         "filename": filename or Path(file_path).name,
         "sheets": sheets,
@@ -267,8 +266,7 @@ async def contact_import_preview_page(
     return templates.TemplateResponse("owners/contact_import_preview.html", {
         "request": request,
         "active_nav": "owners",
-        "import_step": 3,
-        "import_step_urls": {1: "/vlastnici/import#kontakty", 2: "#back-to-mapping-form"},
+        **build_import_wizard(3),
         "preview": data["result"],
         "file_path": data["file_path"],
         "filename": data.get("filename", ""),
