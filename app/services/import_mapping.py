@@ -18,7 +18,11 @@ def read_excel_headers(file_path: str, sheet_name: str | None = None, header_row
     """Read headers from a specific row in an Excel file.
 
     Returns list of header strings (empty cells become "Sloupec N").
+    Supports both .xlsx (openpyxl) and .xls (xlrd) formats.
     """
+    if file_path.lower().endswith(".xls") and not file_path.lower().endswith(".xlsx"):
+        return _read_xls_headers(file_path, sheet_name, header_row)
+
     wb = load_workbook(file_path, read_only=True, data_only=True)
     if sheet_name and sheet_name in wb.sheetnames:
         ws = wb[sheet_name]
@@ -34,8 +38,29 @@ def read_excel_headers(file_path: str, sheet_name: str | None = None, header_row
     return headers
 
 
+def _read_xls_headers(file_path: str, sheet_name: str | None, header_row: int) -> list[str]:
+    """Read headers from .xls file using xlrd."""
+    import xlrd
+    wb = xlrd.open_workbook(file_path)
+    if sheet_name and sheet_name in wb.sheet_names():
+        ws = wb.sheet_by_name(sheet_name)
+    else:
+        ws = wb.sheet_by_index(0)
+    row_idx = header_row - 1  # xlrd is 0-based
+    if row_idx >= ws.nrows:
+        return []
+    return [
+        str(ws.cell_value(row_idx, c)).strip() if ws.cell_value(row_idx, c) != "" else f"Sloupec {c + 1}"
+        for c in range(ws.ncols)
+    ]
+
+
 def read_excel_sheet_names(file_path: str) -> list[str]:
     """Return list of sheet names in an Excel file."""
+    if file_path.lower().endswith(".xls") and not file_path.lower().endswith(".xlsx"):
+        import xlrd
+        wb = xlrd.open_workbook(file_path)
+        return wb.sheet_names()
     wb = load_workbook(file_path, read_only=True)
     names = list(wb.sheetnames)
     wb.close()
@@ -641,6 +666,121 @@ def auto_detect_mapping(
             }
 
     return result
+
+
+# ---------------------------------------------------------------------------
+# Balance (zůstatky) field definitions — 9 fields in 2 groups
+# ---------------------------------------------------------------------------
+
+BALANCE_FIELD_GROUPS = [
+    {
+        "key": "required",
+        "label": "Povinná pole",
+        "color": "blue",
+        "fields": ["unit_number", "owner_name", "amount"],
+    },
+    {
+        "key": "optional",
+        "label": "Nepovinná pole",
+        "color": "gray",
+        "fields": [
+            "variable_symbol", "deposits", "settlement",
+            "paid", "paid_date", "status",
+        ],
+    },
+]
+
+BALANCE_FIELD_DEFS: dict[str, dict] = {
+    "unit_number": {
+        "label": "Katastrální číslo / č. jednotky",
+        "required": True,
+        "description": "Číslo jednotky pro párování s evidencí",
+        "candidates": [
+            "katastrální číslo", "katastralni cislo", "číslo jednotky",
+            "cislo jednotky", "č. jednotky", "č jednotky", "jednotka",
+            "byt", "unit", "unit_number", "kn", "č.j.",
+        ],
+    },
+    "owner_name": {
+        "label": "Vlastník",
+        "required": True,
+        "description": "Jméno vlastníka / dlužníka",
+        "candidates": [
+            "vlastník", "vlastnik", "jméno", "jmeno", "name", "owner",
+            "dlužník", "dluznik", "majitel",
+        ],
+    },
+    "amount": {
+        "label": "Nedoplatek / částka",
+        "required": True,
+        "description": "Výše nedoplatku (kladné=dluh, záporné=přeplatek)",
+        "candidates": [
+            "nedoplatek", "nedoplatky", "částka", "castka", "dluh",
+            "zůstatek", "zustatek", "amount", "balance", "saldo",
+        ],
+    },
+    "variable_symbol": {
+        "label": "Variabilní symbol",
+        "required": False,
+        "candidates": [
+            "variabilní symbol", "variabilni symbol", "vs",
+            "variable symbol", "var. symbol",
+        ],
+    },
+    "deposits": {
+        "label": "Zálohy",
+        "required": False,
+        "description": "Nedoplatek na zálohách",
+        "candidates": [
+            "zálohy", "zalohy", "záloha", "zaloha", "deposit", "deposits",
+        ],
+    },
+    "settlement": {
+        "label": "Vyúčtování",
+        "required": False,
+        "description": "Nedoplatek na vyúčtování",
+        "candidates": [
+            "vyúčtování", "vyuctovani", "settlement", "vyúčt",
+        ],
+    },
+    "paid": {
+        "label": "Uhrazeno",
+        "required": False,
+        "candidates": [
+            "uhrazeno", "zaplaceno", "paid", "úhrada", "uhrada",
+        ],
+    },
+    "paid_date": {
+        "label": "Datum platby",
+        "required": False,
+        "candidates": [
+            "datum platby", "datum", "date", "datum úhrady", "datum uhrady",
+        ],
+    },
+    "status": {
+        "label": "Stav",
+        "required": False,
+        "candidates": [
+            "stav", "status", "poznámka", "poznamka", "note",
+        ],
+    },
+}
+
+
+def validate_balance_mapping(mapping: dict) -> str | None:
+    """Validate balance import mapping. Returns error message or None."""
+    if not isinstance(mapping, dict) or "fields" not in mapping:
+        return "Neplatný formát mapování"
+
+    fields = mapping["fields"]
+    if not isinstance(fields, dict):
+        return "Neplatný formát mapování polí"
+
+    for field_key, fdef in BALANCE_FIELD_DEFS.items():
+        if fdef.get("required") and field_key not in fields:
+            return f"Chybí povinné pole: {fdef['label']}"
+
+    return None
 
 
 def validate_owner_mapping(mapping: dict) -> str | None:

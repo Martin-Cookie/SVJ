@@ -86,11 +86,14 @@ class UnitBalance(Base):
     year = Column(Integer, nullable=False, index=True)
     opening_amount = Column(Float, default=0.0)  # kladné=dluh, záporné=přeplatek
     source = Column(Enum(BalanceSource), default=BalanceSource.MANUAL)
+    owner_id = Column(Integer, ForeignKey("owners.id"), nullable=True, index=True)
+    owner_name = Column(String(300), nullable=True)  # jméno z Excelu / ruční zadání
     note = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     unit = relationship("Unit")
+    owner = relationship("Owner")
 
     __table_args__ = (
         UniqueConstraint("unit_id", "year", name="uq_unit_balance_year"),

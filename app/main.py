@@ -284,6 +284,7 @@ def _ensure_indexes():
         ("ix_variable_symbol_mappings_source", "variable_symbol_mappings", "source"),
         ("ix_unit_balances_unit_id", "unit_balances", "unit_id"),
         ("ix_unit_balances_year", "unit_balances", "year"),
+        ("ix_unit_balances_owner_id", "unit_balances", "owner_id"),
         ("ix_prescription_years_year", "prescription_years", "year"),
         ("ix_prescriptions_prescription_year_id", "prescriptions", "prescription_year_id"),
         ("ix_prescriptions_unit_id", "prescriptions", "unit_id"),
@@ -420,6 +421,22 @@ def _migrate_bank_statement_locked():
             logger.info("Added locked_at column to bank_statements")
 
 
+def _migrate_unit_balances_owner():
+    """Přidat sloupce owner_id a owner_name do unit_balances + balance_import_mapping do svj_info."""
+    with engine.connect() as conn:
+        cols = [r[1] for r in conn.execute(text("PRAGMA table_info('unit_balances')")).fetchall()]
+        if "owner_id" not in cols:
+            conn.execute(text("ALTER TABLE unit_balances ADD COLUMN owner_id INTEGER REFERENCES owners(id)"))
+            conn.execute(text("ALTER TABLE unit_balances ADD COLUMN owner_name VARCHAR(300)"))
+            conn.commit()
+            logger.info("Added owner_id, owner_name columns to unit_balances")
+        svj_cols = [r[1] for r in conn.execute(text("PRAGMA table_info('svj_info')")).fetchall()]
+        if "balance_import_mapping" not in svj_cols:
+            conn.execute(text("ALTER TABLE svj_info ADD COLUMN balance_import_mapping TEXT"))
+            conn.commit()
+            logger.info("Added balance_import_mapping column to svj_info")
+
+
 _ALL_MIGRATIONS = [
     ("units table", _migrate_units_table),
     ("owner_units history", _migrate_owner_units_history),
@@ -431,6 +448,7 @@ _ALL_MIGRATIONS = [
     ("email_logs name_normalized", _migrate_email_log_name_normalized),
     ("payment_allocations migration", _migrate_payment_allocations),
     ("bank_statement locked_at", _migrate_bank_statement_locked),
+    ("unit_balances owner columns", _migrate_unit_balances_owner),
     ("index creation", _ensure_indexes),
     ("code list seeding", _seed_code_lists),
     ("email template seeding", _seed_email_templates),

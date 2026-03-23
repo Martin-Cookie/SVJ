@@ -16,10 +16,15 @@
                 </p>
                 {% endif %}
             </div>
-            <button onclick="document.getElementById('add-form').classList.toggle('hidden')"
-                class="px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700">
-                + Přidat zůstatek
-            </button>
+            <div class="flex gap-2">
+                <a href="/platby/zustatky/import" class="px-3 py-1.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-xs font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700">
+                    Import z Excelu
+                </a>
+                <button onclick="document.getElementById('add-form').classList.toggle('hidden')"
+                    class="px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700">
+                    + Přidat zůstatek
+                </button>
+            </div>
         </div>
 
         <!-- Formulář přidání -->
@@ -27,12 +32,22 @@
             <form method="post" action="/platby/zustatky/pridat" class="flex items-end space-x-3 flex-wrap gap-y-2">
                 <div>
                     <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Jednotka</label>
-                    <select name="unit_id" required class="h-[30px] w-32 px-3 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                    <select name="unit_id" id="add-unit-select" required
+                        onchange="loadOwnersForUnit(this.value, 'add-owner-select')"
+                        class="h-[30px] w-32 px-3 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                        <option value="">—</option>
                         {% for unit in units %}
                         <option value="{{ unit.id }}" {% if unit.id in existing_unit_ids %}disabled{% endif %}>
                             {{ unit.unit_number }}{% if unit.id in existing_unit_ids %} (má zůstatek){% endif %}
                         </option>
                         {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Vlastník</label>
+                    <select name="owner_id" id="add-owner-select"
+                        class="h-[30px] w-48 px-3 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                        <option value="">— vyberte jednotku —</option>
                     </select>
                 </div>
                 <div>
@@ -42,7 +57,7 @@
                 </div>
                 <div>
                     <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Částka
-                        <span class="font-normal text-gray-400 dark:text-gray-500 ml-1">kladná = dluh, záporná = přeplatek</span>
+                        <span class="font-normal text-gray-400 dark:text-gray-500 ml-1">kladná = dluh</span>
                     </label>
                     <input type="number" name="opening_amount" step="0.01" required placeholder="0.00"
                         class="h-[30px] w-36 px-3 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
@@ -76,9 +91,9 @@
             <thead class="sticky top-0 z-10 bg-gray-50 dark:bg-gray-700">
                 {% set _sort_base = "/platby/zustatky?" ~ ("rok=" ~ rok ~ "&" if rok else "") %}
                 <tr>
-                    {% for col_key, col_label in [("jednotka", "Jednotka"), ("castka", "Zůstatek")] %}
+                    {% for col_key, col_label in [("jednotka", "Jednotka"), ("vlastnik", "Vlastník"), ("castka", "Zůstatek")] %}
                     {% set new_order = "desc" if sort == col_key and order == "asc" else "asc" %}
-                    <th class="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300 cursor-pointer select-none hover:text-gray-900"
+                    <th class="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300 cursor-pointer select-none hover:text-gray-900 dark:hover:text-white"
                         onclick="window.location='{{ _sort_base }}sort={{ col_key }}&order={{ new_order }}{{ _back }}'">
                         {{ col_label }}
                         {% if sort == col_key %}<span class="ml-0.5">{{ "▲" if order == "asc" else "▼" }}</span>{% endif %}
@@ -96,4 +111,30 @@
     </div>
 </div>
 {% include "payments/partials/_scroll_restore.html" %}
+<script>
+function loadOwnersForUnit(unitId, selectId) {
+    var sel = document.getElementById(selectId);
+    sel.length = 0;
+    var emptyOpt = document.createElement('option');
+    emptyOpt.value = '';
+    emptyOpt.textContent = unitId ? '— načítám —' : '— vyberte jednotku —';
+    sel.appendChild(emptyOpt);
+    if (!unitId) return;
+    fetch('/platby/zustatky/vlastnici/' + unitId)
+        .then(function(r) { return r.json(); })
+        .then(function(owners) {
+            sel.length = 0;
+            var opt0 = document.createElement('option');
+            opt0.value = '';
+            opt0.textContent = '— vyberte —';
+            sel.appendChild(opt0);
+            owners.forEach(function(o) {
+                var opt = document.createElement('option');
+                opt.value = o.id;
+                opt.textContent = o.name;
+                sel.appendChild(opt);
+            });
+        });
+}
+</script>
 {% endblock %}
