@@ -13,7 +13,7 @@ from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
-from app.models import Owner, OwnerType, OwnerUnit, SvjInfo, Unit
+from app.models import Owner, OwnerType, OwnerUnit, PrescriptionYear, SvjInfo, Unit, UnitBalance
 from app.services.code_list_service import get_all_code_lists
 from app.services.owner_exchange import recalculate_unit_votes
 from app.services.owner_service import merge_owners
@@ -163,6 +163,21 @@ async def owner_list(
     """Seznam vlastníků s filtry, hledáním a řazením."""
     owners = _filter_owners(db, q, owner_type, vlastnictvi, kontakt, stav, sekce, sort, order)
 
+    # Debt map — opening balances by owner for latest year
+    debt_map = {}
+    latest_py = db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).first()
+    if latest_py:
+        bal_rows = db.query(UnitBalance.owner_id, func.sum(UnitBalance.opening_amount)).filter(
+            UnitBalance.year == latest_py.year,
+            UnitBalance.opening_amount > 0,
+            UnitBalance.owner_id.isnot(None),
+        ).group_by(UnitBalance.owner_id).all()
+        debt_map = {oid: amt for oid, amt in bal_rows}
+
+    # Python-side sort by debt
+    if sort == "dluh":
+        owners.sort(key=lambda o: debt_map.get(o.id, 0), reverse=(order == "desc"))
+
     # Current list URL for back navigation
     list_url = build_list_url(request)
 
@@ -172,6 +187,7 @@ async def owner_list(
             "request": request,
             "owners": owners,
             "list_url": list_url,
+            "debt_map": debt_map,
         })
 
     # Stats for header
@@ -236,6 +252,7 @@ async def owner_list(
         "sekce": sekce,
         "sort": sort,
         "order": order,
+        "debt_map": debt_map,
         "owner_types": OwnerType,
         "stats": {
             "total_owners": all_owners,
@@ -378,12 +395,23 @@ async def owner_detail(
     svj_info = db.query(SvjInfo).first()
     declared_shares = svj_info.total_shares if svj_info and svj_info.total_shares else 0
 
+    # Opening balance (debt) for owner
+    owner_debt = 0
+    bal_py = db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).first()
+    if bal_py:
+        od = db.query(func.sum(UnitBalance.opening_amount)).filter(
+            UnitBalance.owner_id == owner.id,
+            UnitBalance.year == bal_py.year,
+        ).scalar()
+        owner_debt = od or 0
+
     ctx = {
         "request": request,
         "active_nav": "owners",
         "owner": owner,
         "available_units": available_units,
         "declared_shares": declared_shares,
+        "owner_debt": owner_debt,
         "back_url": back or "/vlastnici",
         "back_label": (
             "Zpět na hromadné úpravy" if "/sprava/hromadne" in back

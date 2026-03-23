@@ -119,15 +119,16 @@
     <table class="w-full text-xs" style="table-layout:fixed">
         <colgroup>
             <col style="width:7%">
-            <col style="width:7%">
+            <col style="width:6%">
             <col style="width:9%">
             <col style="width:5%">
-            <col style="width:14%">
+            <col style="width:13%">
             <col style="width:4%">
             <col style="width:5%">
             <col style="width:6%">
-            <col style="width:8%">
-            <col style="width:35%">
+            <col style="width:7%">
+            <col style="width:7%">
+            <col style="width:31%">
         </colgroup>
         <thead class="bg-gray-50 border-b-2 border-gray-300 sticky top-0 z-10">
             <tr>
@@ -156,6 +157,7 @@
                 {{ sort_th("Místn.", "room_count") }}
                 {{ sort_th("Plocha", "floor_area", "right") }}
                 {{ sort_th("Podíl SČD", "podil", "right", "Spoluvlastnický podíl na společných částech domu") }}
+                {{ sort_th("Dluh", "dluh", "right", "Počáteční zůstatek (nedoplatek)") }}
                 {{ sort_th("Vlastníci", "owners") }}
             </tr>
         </thead>

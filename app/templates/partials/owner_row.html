@@ -39,4 +39,10 @@
         {% set total_votes = owner.current_units | map(attribute='votes') | sum %}
         {{ "{:,}".format(total_votes).replace(",", " ") }}
     </td>
+    <td class="px-2 py-1.5 text-right whitespace-nowrap">
+        {% set _debt = (debt_map or {}).get(owner.id, 0) %}
+        {% if _debt > 0 %}
+        <span class="px-1.5 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700">{{ _debt|fmt_num }} Kč</span>
+        {% endif %}
+    </td>
 </tr>
