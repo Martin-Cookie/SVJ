@@ -11,6 +11,7 @@
 
 <h3 class="text-sm font-medium text-gray-600 mb-3">{{ field_label }} — {{ values|length }} unikátních hodnot</h3>
 
+<div class="overflow-x-auto">
 <table class="w-full text-sm">
     <thead class="bg-gray-50">
         <tr>
@@ -69,6 +70,7 @@
         {% endfor %}
     </tbody>
 </table>
+</div>
 
 <script>
 function _bulkKey(el) {

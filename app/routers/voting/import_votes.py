@@ -1,6 +1,6 @@
 import json
 import shutil
-from datetime import datetime
+
 from pathlib import Path
 from typing import Optional
 
@@ -17,7 +17,7 @@ from app.models import (
 from app.services.voting_import import (
     read_excel_headers, preview_voting_import, execute_voting_import, validate_mapping,
 )
-from app.utils import UPLOAD_LIMITS, is_safe_path, validate_upload
+from app.utils import UPLOAD_LIMITS, is_safe_path, utcnow, validate_upload
 
 from ._helpers import (
     _ballot_stats,
@@ -135,7 +135,7 @@ async def import_upload(
             **_voting_wizard(voting, 3),
         })
 
-    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    timestamp = utcnow().strftime("%Y%m%d_%H%M%S")
     dest = settings.upload_dir / "excel" / f"{timestamp}_{file.filename}"
     dest.parent.mkdir(parents=True, exist_ok=True)
     with open(dest, "wb") as f:

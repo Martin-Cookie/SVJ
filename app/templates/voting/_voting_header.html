@@ -145,6 +145,7 @@
                 {% if needed > 0 %}<span class="text-red-500">Chybí {{ "{:,}".format(needed).replace(",", " ") }}</span>{% endif %}
                 {% endif %}
             </p>
+            <div class="overflow-x-auto">
             <table class="text-xs text-gray-500 mt-1 mx-auto">
                 <tr>
                     <td class="text-left pr-1">Deklarované podíly:</td>
@@ -171,6 +172,7 @@
                 </tr>
                 {% endif %}
             </table>
+            </div>
         </div>
     </div>
 {% endif %}

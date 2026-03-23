@@ -51,7 +51,9 @@
   var hodnota = new URLSearchParams(window.location.search).get('hodnota');
   if (hodnota) { /* najít a kliknout na řádek s data-hodnota == hodnota */ }
   ```
-- **Obnova scroll pozice při návratu** — viz [UI_GUIDE.md § 13](docs/UI_GUIDE.md). Shrnutí: řádky mají `id`, back URL obsahuje `#hash`, stránka volá `scrollIntoView`
+- **Obnova scroll pozice** — viz [UI_GUIDE.md § 13](docs/UI_GUIDE.md). Dva vzory:
+  - **Back URL (hash)**: řádky mají `id`, back URL obsahuje `#hash`, stránka volá `scrollIntoView`. **Scroll kontejner MUSÍ mít `overflow-y-auto overflow-x-hidden min-h-0`** (ne `overflow-auto`) — jinak HTMX boost neobnoví scroll pozici
+  - **POST+redirect (sessionStorage)**: pro inline formuláře na stejné stránce — `sessionStorage` uloží `scrollTop` před submitem, obnoví přesnou pixel pozici po redirectu. Hash se stripne přes `history.replaceState` aby prohlížeč nepřeskočil
 - **Kontrola při přidání `<a href>` na entitu** — VŽDY ověřit 3 věci: (1) odkaz má `?back=`, (2) router předává `list_url` do kontextu, (3) cílová stránka má odpovídající `back_label` větev
 
 ## Tabulky — povinný checklist
@@ -150,7 +152,7 @@
 ### Modely — konvence
 
 - Enumy dědí z `(str, enum.Enum)`, členové UPPERCASE, hodnoty lowercase anglicky: `DRAFT = "draft"`
-- Timestamp sloupce: editovatelné entity mají `created_at` + `updated_at` s `onupdate=datetime.utcnow`. Logy mají pouze `created_at`. Vždy `datetime.utcnow`
+- Timestamp sloupce: editovatelné entity mají `created_at` + `updated_at` s `onupdate=utcnow`. Logy mají pouze `created_at`. Column defaults/onupdate používají `utcnow` z `app.utils`, explicitní přiřazení v routerech/services také `utcnow()`
 - Cascade: parent→child relace `cascade="all, delete-orphan"`, child→parent plain `back_populates`
 - Každý nový model/enum přidat do importů i `__all__` v `app/models/__init__.py`. Routery importují z `app.models`, nikdy z `app.models.specific_file`
 
@@ -178,9 +180,11 @@
 - Když `db.query(Model).get(id)` vrátí `None`: `RedirectResponse("/seznam", status_code=302)`
 - Nikdy `HTTPException(404)` — uživatel je tiše přesměrován na seznam
 
-### Flash zprávy
-- Předávají se jako `flash_message` + `flash_type` (`"error"`, `"warning"`, nebo default zelená) v kontextu šablony
-- Pro zprávy přes redirect: query parametry (např. `?chyba=prazdna`)
+### Flash zprávy (toast)
+- Zobrazují se jako **toast** — fixní pozice vpravo nahoře, nepřesouvají obsah. Viz [UI_GUIDE.md § 18b](docs/UI_GUIDE.md)
+- Předávají se jako `flash_message` + `flash_type` (`"error"`, `"warning"`, nebo default) v kontextu šablony
+- Pro zprávy přes redirect: POST handler redirectuje s `?flash=ok`, GET handler přeloží na `flash_message` v kontextu
+- **Nikdy nepsat inline flash bloky v šablonách** — vše řeší globální toast v `base.html`
 - Projekt NEPOUŽÍVÁ session-based flash messaging
 
 ### HTMX partial odpovědi
@@ -312,6 +316,8 @@
 - `build_wizard_steps(step_defs, current_step, max_done, sending_step=None)` — společná logika wizard stepperu (voting + tax)
 - `build_name_with_titles(title, first_name, last_name)` — sestaví zobrazovací jméno: titul + příjmení + jméno
 - `setup_jinja_filters(templates)` — registrace custom Jinja2 filtrů (aktuálně `fmt_num`) na Jinja2Templates instanci
+- `utcnow()` — naive UTC datetime, náhrada za deprecated `datetime.utcnow()` (Python 3.12+)
+- `templates` — sdílená `Jinja2Templates` instance s registrovanými filtry (singleton pro celý projekt)
 
 ## JavaScript
 
@@ -354,10 +360,13 @@
   - `owners/` — `crud.py`, `import_owners.py`, `import_contacts.py`, `_helpers.py`
   - `voting/` — `session.py`, `ballots.py`, `import_votes.py`, `_helpers.py`
   - `tax/` — `session.py`, `processing.py`, `matching.py`, `sending.py`, `_helpers.py`
+  - `payments/` — `prescriptions.py`, `symbols.py`, `statements.py`, `balances.py`, `overview.py`, `settlement.py`, `_helpers.py`
+  - `administration/` — `info.py`, `board.py`, `code_lists.py`, `backups.py`, `bulk.py`, `_helpers.py`
+  - `sync/` — `session.py`, `contacts.py`, `exchange.py`, `_helpers.py`
 
 ## Startup (lifespan)
 
-- `main.py` lifespan: (1) import modelů, (2) `create_all`, (3) `_ALL_MIGRATIONS` list (8 migračních funkcí + `_ensure_indexes()` + `_seed_code_lists()` + `_seed_email_templates()`), (4) `recover_stuck_sending_sessions()`, (5) vytvoření upload/generated/temp adresářů
+- `main.py` lifespan: (1) import modelů, (2) `create_all`, (3) `_ALL_MIGRATIONS` list (10 migračních funkcí + `_ensure_indexes()` + `_seed_code_lists()` + `_seed_email_templates()`), (4) `recover_stuck_sending_sessions()`, (5) vytvoření upload/generated/temp adresářů
 - `_ALL_MIGRATIONS` se sdílí s `run_post_restore_migrations()` — po obnově zálohy se spustí stejné migrace
 - Nové funkce vyžadující adresáře: přidat do lifespan. Nové indexy: přidat do `_ensure_indexes()`. Nové migrace: přidat do `_ALL_MIGRATIONS`
 
@@ -435,6 +444,7 @@
 | Hlasování — online hlas (budoucí) | — | — | — | ano |
 | Hromadné rozesílání — správa | ano | ano | read | jen své dokumenty |
 | Synchronizace — import/výměna | ano | ano | ne | ne |
+| Evidence plateb — správa | ano | ano | read | ne |
 | Kontrola podílu | ano | ano | read | ne |
 | Administrace — info SVJ, výbor | ano | read | read | ne |
 | Administrace — zálohy, smazání dat | ano | ne | ne | ne |

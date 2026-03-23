@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Předpisy {{ prescription_year.year }}{% endblock %}
+{% block content %}
+<div class="flex flex-col" style="height: calc(100vh - 4rem);">
+    {% include "payments/partials/_platby_nav.html" %}
+
+    <!-- Header (fixed) -->
+    <div class="flex-shrink-0">
+        <div class="flex items-center justify-between mb-3">
+            <div>
+                <h1 class="text-lg font-bold text-gray-900 dark:text-white">
+                    Předpisy {{ prescription_year.year }}
+                </h1>
+                <p class="text-xs text-gray-500 dark:text-gray-400">
+                    {{ prescription_year.total_units }} předpisů · {{ prescription_year.total_monthly|fmt_num }} Kč/měsíc celkem
+                    {% if prescription_year.valid_from %} · platné od {{ prescription_year.valid_from.strftime('%d.%m.%Y') }}{% endif %}
+                </p>
+            </div>
+            <div class="flex items-center space-x-2">
+                <form method="post" action="/platby/predpisy/{{ prescription_year.id }}/smazat" hx-boost="false"
+                      data-confirm="Smazání předpisů pro rok {{ prescription_year.year }} odstraní {{ prescription_year.total_units }} předpisů. Vyúčtování a dlužníci budou nepřesné až do reimportu. Pokračovat?">
+                    <button type="submit" class="px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-700">
+                        Smazat rok
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Filtr bubliny — typ prostoru -->
+        {% set _base = "/platby/predpisy/" ~ prescription_year.id ~ "?sort=" ~ sort ~ "&order=" ~ order ~ ("&q=" ~ q if q else "") %}
+        {% set _back = "&back=" ~ (back_url|default('')|urlencode) if back_url else "" %}
+        <div class="flex flex-wrap gap-2 mb-3">
+            <a href="{{ _base }}{{ _back }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
+                {% if not typ %}bg-blue-600 text-white ring-2 ring-blue-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
+                Vše <span class="ml-1 text-xs opacity-75">{{ prescriptions|length if not typ else prescription_year.total_units }}</span>
+            </a>
+            {% for st in space_types %}
+            <a href="{{ _base }}&typ={{ st|urlencode }}{{ _back }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
+                {% if typ == st %}bg-blue-600 text-white ring-2 ring-blue-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
+                {{ st }}
+            </a>
+            {% endfor %}
+        </div>
+
+        <!-- Hledání -->
+        <div class="mb-3">
+            <input type="text" name="q" value="{{ q }}" placeholder="Hledat vlastníka, VS, sekci..."
+                aria-label="Hledat"
+                hx-get="/platby/predpisy/{{ prescription_year.id }}"
+                hx-trigger="keyup changed delay:300ms"
+                hx-target="#predpisy-tbody"
+                hx-include="[name='sort'],[name='order'],[name='typ'],[name='back']"
+                class="w-full sm:w-72 px-3 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500">
+            <input type="hidden" name="sort" value="{{ sort }}">
+            <input type="hidden" name="order" value="{{ order }}">
+            <input type="hidden" name="typ" value="{{ typ }}">
+            <input type="hidden" name="back" value="{{ back_url }}">
+        </div>
+    </div>
+
+    <!-- Tabulka (scrollovatelná) -->
+    <div class="flex-1 overflow-y-auto overflow-x-hidden min-h-0 bg-white dark:bg-gray-800 rounded-lg shadow">
+        <table class="w-full text-xs">
+            <thead class="sticky top-0 z-10 bg-gray-50 dark:bg-gray-700">
+                {% set _sort_base = "/platby/predpisy/" ~ prescription_year.id ~ "?" ~ ("q=" ~ q ~ "&" if q else "") ~ ("typ=" ~ typ ~ "&" if typ else "") %}
+                <tr>
+                    {% for col_key, col_label in [("prostor", "Prostor"), ("sekce", "Sekce"), ("typ", "Typ"), ("vs", "VS"), ("vlastnik", "Vlastník"), ("castka", "Měsíčně")] %}
+                    {% set new_order = "desc" if sort == col_key and order == "asc" else "asc" %}
+                    <th class="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300 cursor-pointer select-none hover:text-gray-900 dark:hover:text-white"
+                        onclick="window.location='{{ _sort_base }}sort={{ col_key }}&order={{ new_order }}{{ _back }}'">
+                        {{ col_label }}
+                        {% if sort == col_key %}
+                        <span class="ml-0.5">{{ "▲" if order == "asc" else "▼" }}</span>
+                        {% endif %}
+                    </th>
+                    {% endfor %}
+                    <th class="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">Jednotka</th>
+                </tr>
+            </thead>
+            <tbody id="predpisy-tbody">
+                {% include "payments/partials/predpisy_tbody.html" %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+if (location.hash) {
+    var el = document.querySelector(location.hash);
+    if (el) el.scrollIntoView({block: 'center'});
+}
+</script>
+{% endblock %}

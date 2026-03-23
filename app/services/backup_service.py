@@ -323,7 +323,11 @@ def _verify_db_integrity(db_path: str) -> None:
 
 def _get_table_counts(db_path: str) -> dict:
     """Get row counts for key tables (for manifest metadata)."""
-    tables = ["owners", "units", "owner_units", "votings", "tax_sessions", "email_logs"]
+    tables = [
+        "owners", "units", "owner_units", "votings", "tax_sessions", "email_logs",
+        "prescription_years", "prescriptions", "variable_symbol_mappings",
+        "bank_statements", "payments", "settlements", "unit_balances",
+    ]
     counts = {}
     try:
         conn = sqlite3.connect(db_path)

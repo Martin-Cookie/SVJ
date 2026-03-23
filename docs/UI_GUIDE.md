@@ -9,20 +9,48 @@ Tento soubor je **jediný zdroj pravdy** pro UI/frontend vzory a konvence. Stack
 ## 1. Layout
 
 ### Detail stránka
-1. Šipka zpět: `<a href="{{ back_url }}" class="text-sm text-gray-500 hover:text-gray-700">&larr; {{ back_label }}</a>`
+1. Šipka zpět (viz [Back link](#back-link) níže)
 2. Titulek: `<h1 class="text-2xl font-bold text-gray-800">`
 3. Badge pod titulem: `<div class="mt-1 flex items-center gap-2">` s `rounded-full` badge
 4. Obsah v grid layoutu pod tím
+
+### Back link
+Zpětný odkaz na KAŽDÉ stránce s `back_url` — jednotný styl napříč celým projektem:
+```html
+{% if back_url %}
+<div class="mb-3">
+    <a href="{{ back_url }}" class="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+        &larr; {{ back_label }}
+    </a>
+</div>
+{% endif %}
+```
+- Vždy `text-sm` + `text-blue-600` + `&larr;` entita — nikdy SVG ikona, nikdy `text-xs`, nikdy `text-gray-*`
+- Obaleno v `<div class="mb-3">` — nikdy `inline-flex`, nikdy bez wrapperu
+- Dark mode: `dark:text-blue-400 dark:hover:text-blue-300`
+- Label dynamický z routeru (viz CLAUDE.md § Navigace a back URL)
+
+### Šířky stránek
+| Typ stránky | Max-width | Příklad |
+|-------------|-----------|---------|
+| **Tabulka/seznam** (desítky řádků, řaditelné sloupce) | žádné omezení (full width) | vlastníci, jednotky, matice plateb, dlužníci, vyúčtování, předpisy roku |
+| **Hub/index** (stat karty + přehled) | `max-w-6xl mx-auto` | `/platby`, přehled |
+| **Detail entity** | `max-w-3xl mx-auto` nebo `max-w-4xl mx-auto` | detail předpisu, detail vyúčtování |
+| **Formulář/import** | `max-w-2xl mx-auto` | import předpisů, import výpisů |
+- Tabulkové stránky NIKDY nemají `max-w-*xl` — tabulka potřebuje celou šířku
+- Detail a formuláře mají `mx-auto` pro centrování
 
 ### Fixní header + scrollovatelný obsah
 ```html
 <div class="flex flex-col" style="height:calc(100vh - 3rem)">
     <div class="shrink-0"><!-- header, bubliny, search --></div>
-    <div class="flex-1 overflow-y-auto min-h-0"><!-- scrollovatelný obsah --></div>
+    <div class="flex-1 overflow-y-auto overflow-x-hidden min-h-0"><!-- scrollovatelný obsah --></div>
 </div>
 ```
 - `3rem` = top+bottom padding z `<main class="p-6">`
-- `min-h-0` je nutné aby flex child mohl být menší než obsah
+- **`min-h-0`** je nutné aby flex child mohl být menší než obsah (bez toho se flex item roztáhne na výšku obsahu a overflow nefunguje)
+- **`overflow-y-auto`** (NE `overflow-auto`) — explicitní osa je nutná pro správnou obnovu scroll pozice při HTMX boost navigaci. S `overflow-auto` HTMX neobnoví scroll pozici vnitřního kontejneru po návratu zpět
+- **`overflow-x-hidden`** pro běžné tabulky. Pro široké tabulky (matice plateb) použít `overflow-x-auto`
 - Bubliny/search se **nescrollují** — musí být vždy viditelné
 
 ---
@@ -532,7 +560,7 @@ H: Tabulka / obsah                                     Scrollovatelný obsah
 ```
 
 ### Pravidla
-- **Navigace (A):** `<a>` přímo bez `<div>` wrapperu
+- **Navigace (A):** back link v `<div class="mb-3">` (viz [Back link](#back-link) v sekci 1)
 - **Stepper (B):** obalený v `<div class="mt-2">`, vždy PŘED titulkem
 - **Titulek (C):** `<div class="flex items-center justify-between mt-2 mb-4">`
   - Vlevo: `<h1 class="text-2xl font-bold">` + `<p class="text-sm text-gray-500 mt-1">podnázev</p>`
@@ -544,7 +572,7 @@ H: Tabulka / obsah                                     Scrollovatelný obsah
 
 ### Stránky vytvoření (upload, create)
 - Stejné zóny A–C (back, stepper pokud existuje, titulek + podnázev)
-- Formulář v `bg-white rounded-lg shadow p-6 max-w-2xl`
+- Formulář v `bg-white rounded-lg shadow p-6 max-w-2xl` (viz [Šířky stránek](#šířky-stránek) v sekci 1)
 - Submit tlačítko **vedle titulku** (zóna C vpravo), ne uvnitř formuláře — propojení přes `form="id"`
 - U upload formulářů je tlačítko **skryté** dokud není vybrán soubor (viz sekce 3 → Upload formuláře)
 
@@ -584,26 +612,7 @@ Vždy `rounded-full`, nikdy `rounded`.
 
 ## 11. Wizard stepper
 
-### Logika stavů
-- **done** (zelený) — `i <= max_done`
-- **active** (zelený pro full stepper, modrý pro compact stepper) — `i == current_step AND i > max_done`
-- **current+done** (tmavší zelená s ring efektem) — `i == current_step AND i <= max_done`
-- **pending** (šedý) — `i > max_done AND i > current_step`
-- **sending** (oranžová pulzace) — speciální stav pro probíhající odesílání
-
-### Klíčové pravidlo: all green when complete
-Když je workflow plně dokončen (`max_done >= total_steps`), **všechny** kroky musí být zelené:
-```python
-elif i == current_step:
-    step_status = "done" if i <= max_done else "active"
-```
-
-### Override pro dokumenty
-Pokud existují dokumenty (step 1 = Upload PDF), krok 1 je vždy "done":
-```python
-if has_documents and max_done < 1:
-    max_done = 1
-```
+> Logika stavů (done, active, current+done, pending, sending), pravidlo "all green when complete" a override pro dokumenty jsou v [CLAUDE.md § Wizard stepper](../CLAUDE.md).
 
 ### Dvě varianty stepperu
 - **Plný stepper** (`partials/wizard_stepper.html`) — samostatný blok nad obsahem stránky, používá se na detail/workflow stránkách
@@ -631,17 +640,69 @@ if has_documents and max_done < 1:
 
 ## 13. Back URL navigace
 
-- Každý odkaz z dashboardu na modul: `?back=/`
-- Každý odkaz ze seznamu na detail: `?back={{ list_url|urlencode }}`
-- `list_url` se buduje v routeru: `request.url.path + "?" + request.url.query`
-- Parametr `back` se propaguje přes: filtrační bubliny, HTMX hidden inputy, řadící odkazy
-- `_back` helper v šabloně: `{% set _back = "&back=" ~ (back_url|default('')|urlencode) if back_url else "" %}`
-- Vícenásobné zanoření: `?back={{ ('/url?back=' ~ (back_url|urlencode))|urlencode }}`
+> Kompletní logika back parametru (propagace, chaining, `list_url` vs `back_url`, `back_label`) je v [CLAUDE.md § Navigace a back URL](../CLAUDE.md). Zde jsou jen UI/HTML specifika.
 
-### Obnova scroll pozice
+### Obnova scroll pozice — back URL (hash)
 1. Řádky mají `id` (např. `id="owner-{{ owner.id }}"`)
 2. Back URL obsahuje `#hash`: `?back={{ (list_url ~ '#owner-' ~ owner.id)|urlencode }}`
 3. JS na stránce: `if (location.hash) { document.querySelector(location.hash)?.scrollIntoView({block:'center'}); }`
+4. **Scroll kontejner MUSÍ mít `overflow-y-auto overflow-x-hidden min-h-0`** (viz § 1 Fixní header)
+
+**Proč `overflow-y-auto` a ne `overflow-auto`:** HTMX boost navigace (klik na odkaz → AJAX swap body) obnoví scroll pozici vnitřního kontejneru POUZE pokud má explicitní `overflow-y-auto`. S `overflow-auto` se scroll pozice ztratí a element skočí na začátek tabulky. `min-h-0` je nutné aby flex-1 child respektoval výšku rodiče a vytvořil interní scrollbar.
+
+### Obnova scroll pozice — POST+redirect (sessionStorage)
+
+Pro stránky s inline formuláři (POST+redirect na stejnou stránku, např. platební modul), kde se má scroll pozice zachovat **na pixel přesně**:
+
+1. **Redirect obsahuje `#hash`** — router přidá `#element-id` do redirect URL
+2. **JS uloží scrollTop před submitem** do sessionStorage
+3. **JS obnoví přesnou pozici** po načtení stránky (nebo fallback na scrollIntoView)
+4. **Hash se stripne** přes `history.replaceState` — zabrání prohlížeči přeskočit na element
+
+```javascript
+(function() {
+    var SC_KEY = 'svj_scroll_payment';
+    var sc = document.querySelector('.flex-1.overflow-y-auto');
+    var hash = location.hash;
+
+    // Strip hash → zabrání browser auto-scroll na anchor
+    if (hash) {
+        history.replaceState(null, '', location.pathname + location.search);
+    }
+
+    // Uložit scroll před každým POST (delegovaný listener — chytí i dynamické formuláře)
+    document.addEventListener('submit', function(e) {
+        var form = e.target;
+        if (form.getAttribute('hx-boost') === 'false' || form.closest('[hx-boost="false"]')) {
+            if (sc) try { sessionStorage.setItem(SC_KEY, String(Math.round(sc.scrollTop))); } catch(e2) {}
+        }
+    });
+
+    // Obnovit přesnou pozici (nebo fallback na scrollIntoView)
+    if (hash && sc) {
+        var saved;
+        try { saved = sessionStorage.getItem(SC_KEY); sessionStorage.removeItem(SC_KEY); } catch(e) {}
+        var top = saved !== null ? parseInt(saved, 10) : NaN;
+        if (!isNaN(top) && top > 0) {
+            sc.scrollTop = top;
+        } else {
+            var el = document.getElementById(hash.substring(1));
+            if (el) el.scrollIntoView({block: 'center'});
+        }
+        // Highlight řádku (žluté pozadí na 2s)
+        var el = document.getElementById(hash.substring(1));
+        if (el) {
+            el.classList.add('bg-yellow-50', 'dark:bg-yellow-900/20');
+            setTimeout(function() { el.classList.remove('bg-yellow-50', 'dark:bg-yellow-900/20'); }, 2000);
+        }
+    }
+})();
+```
+
+**Klíčové body:**
+- `history.replaceState` MUSÍ být před čímkoli jiným — jinak prohlížeč provede nativní scroll na anchor
+- Delegovaný `document.addEventListener('submit', ...)` chytí i formuláře přidané dynamicky (toggle hidden)
+- `SC_KEY` sdílený pro celý modul (všechny stránky plateb) — stačí jeden klíč
 
 ---
 
@@ -808,12 +869,39 @@ Pro mazání uzavřených/odeslaných entit se používá custom modal s DELETE 
 
 ---
 
-## 18b. Flash zprávy — auto-dismiss
+## 18b. Flash zprávy — toast notifikace
 
-- Flash message v `base.html` má atribut `data-auto-dismiss`
-- `app.js` automaticky skryje flash po 5 sekundách s fade-out animací
-- Po HTMX swapech (`htmx:afterSwap`) se auto-dismiss znovu aktivuje
-- Implementace: `_autoDismiss()` funkce v `app.js`
+Flash hlášky se zobrazují jako **toast** — fixní pozice vpravo nahoře, nepřesouvají obsah stránky.
+
+### Implementace
+- **Kontejner** v `base.html` (před `</body>`): `fixed top-4 right-4 z-50`, `pointer-events-none` (container) + `pointer-events-auto` (toast)
+- **Animace**: CSS `animate-slide-in` v `custom.css` (slide-in zprava + fade-in, 0.3s)
+- **Auto-dismiss**: `_autoDismiss()` v `app.js` — default 4s, konfigurovatelné přes `data-auto-dismiss="ms"`
+  - `data-auto-dismiss` (bez hodnoty) = 4s auto-dismiss (success/info)
+  - `data-auto-dismiss="0"` = nezanikne automaticky (chyby)
+  - Po HTMX swapech (`htmx:afterSwap`) se auto-dismiss znovu aktivuje
+- **Zavření**: tlačítko `×` na každém toastu s fade-out animací
+
+### Barevné varianty
+| Typ | CSS | Použití |
+|-----|-----|---------|
+| Success (default) | `bg-gray-800 text-white` | Uloženo, smazáno, vygenerováno |
+| Error | `bg-red-600 text-white` | Chyby — nezanikne automaticky |
+| Warning | `bg-yellow-500 text-white` | Varování |
+
+### Jak přidat flash z routeru
+Flash zpráva se předává přes **kontext** (ne query parametr):
+```python
+# V routeru — GET handler
+flash_message = ""
+flash_param = request.query_params.get("flash", "")
+if flash_param == "ok":
+    flash_message = "Zůstatek uložen."
+
+ctx = { ..., "flash_message": flash_message }
+```
+- POST handler redirectuje s `?flash=ok`, GET handler přeloží na `flash_message` v kontextu
+- **Nikdy nepsat inline flash bloky v šablonách** — vše řeší globální toast v `base.html`
 
 ---
 

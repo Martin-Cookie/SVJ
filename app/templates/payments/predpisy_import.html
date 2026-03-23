@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block title %}Import předpisů{% endblock %}
+{% block content %}
+{% include "payments/partials/_platby_nav.html" %}
+<div class="max-w-2xl mx-auto">
+    <h1 class="text-lg font-bold text-gray-900 dark:text-white mb-4">Import předpisů z DOCX</h1>
+
+    {% if error %}
+    <div class="mb-4 p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg">
+        <p class="text-sm text-red-700 dark:text-red-400">{{ error }}</p>
+    </div>
+    {% endif %}
+
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-5">
+        <form method="post" action="/platby/predpisy/import" {% if not confirm_overwrite and not confirm_vs_conflicts %}enctype="multipart/form-data"{% endif %} hx-boost="false"
+              onsubmit="document.getElementById('submit-btn').classList.add('hidden'); document.getElementById('upload-spinner').classList.remove('hidden');">
+            {% if confirm_overwrite %}
+            <input type="hidden" name="force_overwrite" value="1">
+            <input type="hidden" name="saved_path" value="{{ saved_path }}">
+            {% elif confirm_vs_conflicts %}
+            <input type="hidden" name="force_overwrite" value="1">
+            <input type="hidden" name="force_vs_conflicts" value="1">
+            <input type="hidden" name="saved_path" value="{{ saved_path }}">
+            {% endif %}
+            <div class="mb-4">
+                <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Rok předpisů</label>
+                <input type="number" name="year" value="{{ form_data.year if form_data else current_year }}" required min="2020" max="2040"
+                    {% if confirm_overwrite or confirm_vs_conflicts %}readonly{% endif %}
+                    class="w-32 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 {% if confirm_overwrite or confirm_vs_conflicts %}opacity-60{% endif %}">
+            </div>
+            <div class="mb-4">
+                <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Soubor DOCX (evidenční listy)</label>
+                {% if confirm_overwrite or confirm_vs_conflicts %}
+                <p class="text-sm text-gray-700 dark:text-gray-300">
+                    <svg class="w-4 h-4 inline mr-1 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    <span class="font-medium">{{ filename }}</span>
+                </p>
+                {% else %}
+                <input type="file" name="file" accept=".docx" required hx-disable
+                    class="file-input block w-full text-xs text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">DOCX s evidenčními listy z DOMSYS (max 50 MB)</p>
+                {% endif %}
+            </div>
+
+            {% if confirm_vs_conflicts %}
+            <div class="mb-4 p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg">
+                <p class="text-sm text-red-700 dark:text-red-400 font-medium">
+                    {{ vs_conflicts|length }} VS {{ "mapování má" if vs_conflicts|length == 1 else "mapování mají" }} konflikt s existujícími daty:
+                </p>
+                <div class="overflow-x-auto">
+                <table class="w-full mt-2 text-xs">
+                    <thead>
+                        <tr class="text-left text-red-600 dark:text-red-400">
+                            <th class="py-1 pr-2">VS</th>
+                            <th class="py-1 pr-2">V DOCX → jednotka</th>
+                            <th class="py-1 pr-2">Aktuálně → jednotka</th>
+                            <th class="py-1">Zdroj</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in vs_conflicts %}
+                        <tr class="border-t border-red-200 dark:border-red-800">
+                            <td class="py-1 pr-2 font-mono">{{ c.vs }}</td>
+                            <td class="py-1 pr-2">č. {{ c.docx_unit }}</td>
+                            <td class="py-1 pr-2">č. {{ c.existing_unit }}</td>
+                            <td class="py-1">
+                                <span class="px-1.5 py-0.5 rounded-full {% if c.source == 'manual' %}bg-purple-100 text-purple-700{% else %}bg-gray-100 text-gray-600{% endif %}">
+                                    {{ "Ručně" if c.source == "manual" else "Auto" }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                </div>
+                <p class="text-xs text-red-600 dark:text-red-500 mt-2">Pokračováním se VS mapování přepíší na hodnoty z DOCX.</p>
+            </div>
+            {% elif confirm_overwrite %}
+            <div class="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                <p class="text-sm text-yellow-700 dark:text-yellow-400 font-medium">
+                    Předpisy pro rok {{ form_data.year }} již existují ({{ existing_year.total_units }} předpisů).
+                </p>
+                <p class="text-xs text-yellow-600 dark:text-yellow-500 mt-1">Nový import přepíše všechna existující data pro tento rok.</p>
+            </div>
+            {% else %}
+            <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 mb-4">
+                <p class="text-xs text-blue-700 dark:text-blue-400">
+                    <strong>Co se stane:</strong> Z DOCX se načtou evidenční listy — předpisy, variabilní symboly, čísla prostorů.
+                    Automaticky se vytvoří mapování VS → jednotka a napárují předpisy na existující jednotky v evidenci.
+                </p>
+            </div>
+            {% endif %}
+
+            <div class="flex items-center gap-2">
+                <button type="submit" id="submit-btn"
+                    class="px-4 py-2 text-white text-sm font-medium rounded-lg {% if confirm_vs_conflicts %}bg-red-600 hover:bg-red-700{% elif confirm_overwrite %}bg-yellow-600 hover:bg-yellow-700{% else %}bg-blue-600 hover:bg-blue-700{% endif %}">
+                    {% if confirm_vs_conflicts %}
+                    <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
+                    Přepsat VS a importovat
+                    {% elif confirm_overwrite %}
+                    <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                    Přepsat a importovat
+                    {% else %}
+                    <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+                    Importovat
+                    {% endif %}
+                </button>
+                {% if confirm_overwrite or confirm_vs_conflicts %}
+                <a href="/platby/predpisy/import" class="px-4 py-2 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500">Zrušit</a>
+                {% endif %}
+                <div id="upload-spinner" class="hidden flex items-center gap-2 text-sm {% if confirm_vs_conflicts %}text-red-600{% elif confirm_overwrite %}text-yellow-600{% else %}text-blue-600{% endif %}">
+                    <svg aria-hidden="true" class="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                    </svg>
+                    Importuji předpisy…
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

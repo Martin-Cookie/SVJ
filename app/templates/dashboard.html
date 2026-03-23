@@ -7,7 +7,7 @@
 <h1 class="text-lg font-bold text-gray-800 mb-2">Přehled</h1>
 
 <!-- Stats cards -->
-<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 mb-3">
     <a href="/vlastnici?back=/" class="block bg-white rounded-lg shadow p-3 hover:shadow-md transition-shadow">
         <div class="flex items-center">
             <div class="p-2 bg-blue-100 rounded-lg">
@@ -106,6 +106,24 @@
         </div>
         {% endif %}
     </div>
+    <a href="/platby?back=/" class="block bg-white rounded-lg shadow p-3 hover:shadow-md transition-shadow">
+        <div class="flex items-center">
+            <div class="p-2 bg-orange-100 rounded-lg">
+                <svg aria-hidden="true" class="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
+                </svg>
+            </div>
+            <div class="ml-3">
+                <p class="text-xs text-gray-500">Platby</p>
+                <p class="text-lg font-bold text-gray-800">{{ matched_payments }}</p>
+            </div>
+        </div>
+        <p class="text-xs mt-1 text-gray-500">
+            {{ statement_count }} {% if statement_count == 1 %}výpis{% elif statement_count < 5 %}výpisy{% else %}výpisů{% endif %}
+            {% if unmatched_payments %} · <span class="text-yellow-600">{{ unmatched_payments }} nenapárováno</span>{% endif %}
+            {% if debtor_count %} · <a href="/platby/dluznici?back=/" class="text-red-600 hover:text-red-800">{{ debtor_count }} {% if debtor_count == 1 %}dlužník{% elif debtor_count < 5 %}dlužníci{% else %}dlužníků{% endif %}</a>{% endif %}
+        </p>
+    </a>
 </div>
 
 <!-- Recent activity -->
@@ -145,7 +163,7 @@
 
 {% if recent_activity or q %}
     <!-- Scrollable activity table -->
-    <div class="flex-1 overflow-y-auto min-h-0 bg-white rounded-lg shadow">
+    <div class="flex-1 overflow-y-auto overflow-x-auto min-h-0 bg-white rounded-lg shadow">
         <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50 border-b-2 border-gray-300 sticky top-0 z-10">
                 {% macro sort_th(label, col) %}

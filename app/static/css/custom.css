@@ -26,6 +26,15 @@ input[type="text"].htmx-request {
     50% { box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3); }
 }
 
+/* Toast slide-in animation */
+@keyframes slide-in {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+.animate-slide-in {
+    animation: slide-in 0.3s ease-out;
+}
+
 /* Smooth transitions for HTMX swaps */
 .htmx-swapping {
     opacity: 0;

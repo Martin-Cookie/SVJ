@@ -3,12 +3,13 @@ Owner service — shared owner operations (merge, duplicate detection).
 """
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from app.models import Owner, OwnerUnit
+from app.utils import utcnow
 
 
 def merge_owners(target: Owner, duplicates: list[Owner], db: Session) -> None:
@@ -56,9 +57,9 @@ def merge_owners(target: Owner, duplicates: list[Owner], db: Session) -> None:
 
         # Deactivate the duplicate
         dup.is_active = False
-        dup.updated_at = datetime.utcnow()
+        dup.updated_at = utcnow()
 
-    target.updated_at = datetime.utcnow()
+    target.updated_at = utcnow()
 
 
 def find_duplicate_groups(db: Session) -> list[dict]:

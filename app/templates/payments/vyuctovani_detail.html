@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% block title %}Vyúčtování — jednotka {{ detail.settlement.unit.unit_number }}{% endblock %}
+{% block content %}
+{% include "payments/partials/_platby_nav.html" %}
+<div class="max-w-4xl mx-auto">
+    {% if back_url %}
+    <div class="mb-3">
+        <a href="{{ back_url }}" class="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">&larr; {{ back_label }}</a>
+    </div>
+    {% endif %}
+
+    {% set s = detail.settlement %}
+
+    <!-- Header -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow mb-4">
+        <div class="px-4 py-4">
+            <div class="flex items-start justify-between">
+                <div>
+                    <h1 class="text-lg font-bold text-gray-900 dark:text-white">
+                        Vyúčtování — jednotka {{ s.unit.unit_number if s.unit else "—" }}
+                    </h1>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                        {% if s.unit and s.unit.current_owners %}{% for ou in s.unit.current_owners %}{{ ou.owner.display_name }}{% if not loop.last %}, {% endif %}{% endfor %} · {% elif s.owner %}{{ s.owner.display_name }} · {% endif %}
+                        Rok {{ s.year }}
+                        {% if s.variable_symbol %} · VS {{ s.variable_symbol }}{% endif %}
+                        {% if s.unit %} · <a href="/platby/jednotka/{{ s.unit.id }}?back={{ request.url.path|urlencode }}" class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">měsíční přehled →</a>{% endif %}
+                    </p>
+                </div>
+                <div class="flex items-center gap-2">
+                    {% set sc = status_colors.get(s.status.value, ("bg-gray-100 text-gray-800", "dark:bg-gray-700 dark:text-gray-200")) %}
+                    <span class="px-2 py-1 text-xs font-medium rounded-full {{ sc[0] }} {{ sc[1] }}">
+                        {{ status_labels.get(s.status.value, s.status.value) }}
+                    </span>
+                </div>
+            </div>
+
+            <!-- Změna stavu -->
+            <div class="mt-3 flex flex-wrap gap-1.5">
+                {% set transitions = {
+                    "generated": [("sent", "Označit jako odesláno", "yellow"), ("paid", "Označit jako zaplaceno", "green")],
+                    "sent": [("paid", "Označit jako zaplaceno", "green"), ("overdue", "Po splatnosti", "red")],
+                    "overdue": [("paid", "Označit jako zaplaceno", "green")],
+                    "paid": []
+                } %}
+                {% for new_status, label, color in transitions.get(s.status.value, []) %}
+                <form method="post" action="/platby/vyuctovani/{{ s.id }}/stav" class="inline" hx-boost="false">
+                    <input type="hidden" name="novy_stav" value="{{ new_status }}">
+                    <input type="hidden" name="back" value="{{ back_url }}">
+                    <button type="submit"
+                        class="inline-flex items-center px-2 py-1 text-xs font-medium rounded-lg transition-colors
+                        {% if color == 'green' %}bg-green-50 text-green-700 hover:bg-green-100 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/50
+                        {% elif color == 'yellow' %}bg-yellow-50 text-yellow-700 hover:bg-yellow-100 dark:bg-yellow-900/30 dark:text-yellow-400 dark:hover:bg-yellow-900/50
+                        {% elif color == 'red' %}bg-red-50 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50
+                        {% endif %}">
+                        {{ label }}
+                    </button>
+                </form>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Souhrn -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-3 text-center">
+            <p class="text-xs text-gray-500 dark:text-gray-400">Roční předpis</p>
+            <p class="text-sm font-bold text-gray-900 dark:text-white mt-1">{{ detail.annual|fmt_num }} Kč</p>
+            <p class="text-xs text-gray-400 mt-0.5">{{ detail.monthly|fmt_num }} Kč/měs</p>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-3 text-center">
+            <p class="text-xs text-gray-500 dark:text-gray-400">Zaplaceno</p>
+            <p class="text-sm font-bold text-gray-900 dark:text-white mt-1">{{ detail.total_paid|fmt_num }} Kč</p>
+            <p class="text-xs text-gray-400 mt-0.5">{{ detail.payments|length }} plateb</p>
+        </div>
+        {% if detail.opening %}
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-3 text-center">
+            <p class="text-xs text-gray-500 dark:text-gray-400">Poč. zůstatek</p>
+            <p class="text-sm font-bold {% if detail.opening > 0 %}text-red-600 dark:text-red-400{% else %}text-green-600 dark:text-green-400{% endif %} mt-1">{{ detail.opening|fmt_num }} Kč</p>
+            <p class="text-xs text-gray-400 mt-0.5">{% if detail.opening > 0 %}dluh{% else %}přeplatek{% endif %}</p>
+        </div>
+        {% endif %}
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-3 text-center">
+            <p class="text-xs text-gray-500 dark:text-gray-400">Výsledek</p>
+            <p class="text-sm font-bold mt-1
+                {% if s.result_amount > 0 %}text-red-600 dark:text-red-400{% elif s.result_amount < 0 %}text-green-600 dark:text-green-400{% else %}text-gray-500 dark:text-gray-400{% endif %}">
+                {% if s.result_amount > 0 %}Nedoplatek {{ s.result_amount|fmt_num }} Kč
+                {% elif s.result_amount < 0 %}Přeplatek {{ (s.result_amount * -1)|fmt_num }} Kč
+                {% else %}Vyrovnáno{% endif %}
+            </p>
+        </div>
+    </div>
+
+    <!-- Položky vyúčtování -->
+    {% if detail.settlement_items %}
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow mb-4">
+        <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+            <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Položky vyúčtování ({{ detail.settlement_items|length }})</h2>
+        </div>
+        <div class="overflow-x-auto">
+        <table class="w-full text-xs">
+            <thead class="bg-gray-50 dark:bg-gray-700">
+                <tr>
+                    <th class="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">Položka</th>
+                    <th class="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">Kategorie</th>
+                    <th class="px-3 py-2 text-right font-semibold text-gray-600 dark:text-gray-300">Měsíčně</th>
+                    <th class="px-3 py-2 text-right font-semibold text-gray-600 dark:text-gray-300">Ročně</th>
+                    <th class="px-3 py-2 text-right font-semibold text-gray-600 dark:text-gray-300">Zaplaceno</th>
+                    <th class="px-3 py-2 text-right font-semibold text-gray-600 dark:text-gray-300">Výsledek</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                {% set cat_labels = {"provozni": "Provozní", "fond_oprav": "Fond oprav", "sluzby": "Služby"} %}
+                {% set cat_colors = {"provozni": "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300", "fond_oprav": "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300", "sluzby": "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"} %}
+                {% for item in detail.settlement_items %}
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                    <td class="px-3 py-2 text-gray-900 dark:text-white">{{ item.name }}</td>
+                    <td class="px-3 py-2">
+                        {% if item.distribution_key %}
+                        <span class="px-1.5 py-0.5 text-xs rounded-full {{ cat_colors.get(item.distribution_key, 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300') }}">
+                            {{ cat_labels.get(item.distribution_key, item.distribution_key) }}
+                        </span>
+                        {% else %}—{% endif %}
+                    </td>
+                    <td class="px-3 py-2 text-right text-gray-700 dark:text-gray-300 whitespace-nowrap">{{ item.cost_unit|fmt_num }} Kč</td>
+                    <td class="px-3 py-2 text-right text-gray-700 dark:text-gray-300 whitespace-nowrap">{{ item.cost_building|fmt_num }} Kč</td>
+                    <td class="px-3 py-2 text-right text-gray-700 dark:text-gray-300 whitespace-nowrap">{{ item.paid|fmt_num }} Kč</td>
+                    <td class="px-3 py-2 text-right font-semibold whitespace-nowrap
+                        {% if item.result > 0 %}text-red-600 dark:text-red-400{% elif item.result < 0 %}text-green-600 dark:text-green-400{% else %}text-gray-500 dark:text-gray-400{% endif %}">
+                        {% if item.result > 0 %}+{{ item.result|fmt_num }}{% elif item.result < 0 %}{{ item.result|fmt_num }}{% else %}0{% endif %} Kč
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot class="bg-gray-50 dark:bg-gray-700 font-semibold">
+                <tr>
+                    <td class="px-3 py-2 text-gray-900 dark:text-white" colspan="2">Celkem</td>
+                    <td class="px-3 py-2 text-right text-gray-900 dark:text-white whitespace-nowrap">{{ detail.monthly|fmt_num }} Kč</td>
+                    <td class="px-3 py-2 text-right text-gray-900 dark:text-white whitespace-nowrap">{{ detail.annual|fmt_num }} Kč</td>
+                    <td class="px-3 py-2 text-right text-gray-900 dark:text-white whitespace-nowrap">{{ detail.total_paid|fmt_num }} Kč</td>
+                    <td class="px-3 py-2 text-right whitespace-nowrap
+                        {% if s.result_amount > 0 %}text-red-600 dark:text-red-400{% elif s.result_amount < 0 %}text-green-600 dark:text-green-400{% else %}text-gray-500 dark:text-gray-400{% endif %}">
+                        {% if s.result_amount > 0 %}+{{ s.result_amount|fmt_num }}{% elif s.result_amount < 0 %}{{ s.result_amount|fmt_num }}{% else %}0{% endif %} Kč
+                    </td>
+                </tr>
+            </tfoot>
+        </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Přijaté platby -->
+    {% if detail.payments %}
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow">
+        <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+            <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Přijaté platby ({{ detail.payments|length }})</h2>
+        </div>
+        {% with payment_list=detail.payments %}
+        {% include "payments/partials/_payment_list.html" %}
+        {% endwith %}
+    </div>
+    {% else %}
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 text-center">
+        <p class="text-xs text-gray-400 dark:text-gray-500">Žádné platby pro tuto jednotku v roce {{ s.year }}.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

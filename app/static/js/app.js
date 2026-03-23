@@ -32,11 +32,14 @@ matchMedia('(prefers-color-scheme:dark)').addEventListener('change', function(e)
     }
 });
 
-// Auto-dismiss flash messages (default 5s, configurable via data-auto-dismiss="3000")
+// Auto-dismiss flash messages (default 4s, configurable via data-auto-dismiss="3000", 0 = no auto-dismiss)
 function _autoDismiss(container) {
     var msgs = (container || document).querySelectorAll('[data-auto-dismiss]');
     msgs.forEach(function(msg) {
-        var delay = parseInt(msg.getAttribute('data-auto-dismiss'), 10) || 5000;
+        var raw = msg.getAttribute('data-auto-dismiss');
+        var delay = raw !== null && raw !== '' ? parseInt(raw, 10) : 4000;
+        if (isNaN(delay)) delay = 4000;
+        if (delay === 0) return; // 0 = keep visible (errors)
         setTimeout(function() {
             msg.style.transition = 'opacity 0.3s';
             msg.style.opacity = '0';

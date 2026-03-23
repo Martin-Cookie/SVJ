@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
 from app.config import settings
-from app.database import Base, engine
+from app.database import Base, engine, SessionLocal
 
 logger = logging.getLogger(__name__)
 
@@ -279,6 +279,33 @@ def _ensure_indexes():
         ("ix_activity_logs_entity_type", "activity_logs", "entity_type"),
         ("ix_activity_logs_module", "activity_logs", "module"),
         ("ix_activity_logs_created_at", "activity_logs", "created_at"),
+        # payment.py
+        ("ix_variable_symbol_mappings_unit_id", "variable_symbol_mappings", "unit_id"),
+        ("ix_variable_symbol_mappings_source", "variable_symbol_mappings", "source"),
+        ("ix_unit_balances_unit_id", "unit_balances", "unit_id"),
+        ("ix_unit_balances_year", "unit_balances", "year"),
+        ("ix_prescription_years_year", "prescription_years", "year"),
+        ("ix_prescriptions_prescription_year_id", "prescriptions", "prescription_year_id"),
+        ("ix_prescriptions_unit_id", "prescriptions", "unit_id"),
+        ("ix_prescriptions_variable_symbol", "prescriptions", "variable_symbol"),
+        ("ix_prescription_items_prescription_id", "prescription_items", "prescription_id"),
+        ("ix_bank_statements_import_status", "bank_statements", "import_status"),
+        ("ix_payments_statement_id", "payments", "statement_id"),
+        ("ix_payments_date", "payments", "date"),
+        ("ix_payments_vs", "payments", "vs"),
+        ("ix_payments_match_status", "payments", "match_status"),
+        ("ix_payments_unit_id", "payments", "unit_id"),
+        ("ix_payments_owner_id", "payments", "owner_id"),
+        ("ix_payments_prescription_id", "payments", "prescription_id"),
+        # payment_allocations
+        ("ix_payment_allocations_payment_id", "payment_allocations", "payment_id"),
+        ("ix_payment_allocations_unit_id", "payment_allocations", "unit_id"),
+        ("ix_payment_allocations_owner_id", "payment_allocations", "owner_id"),
+        ("ix_payment_allocations_prescription_id", "payment_allocations", "prescription_id"),
+        ("ix_settlements_year", "settlements", "year"),
+        ("ix_settlements_unit_id", "settlements", "unit_id"),
+        ("ix_settlements_status", "settlements", "status"),
+        ("ix_settlement_items_settlement_id", "settlement_items", "settlement_id"),
     ]
     import re
     _SAFE_IDENT = re.compile(r'^"?[a-z_][a-z0-9_]*"?$')
@@ -350,6 +377,49 @@ def _seed_email_templates():
         logger.info("Default email template seeded")
 
 
+def _migrate_payment_allocations():
+    """Vytvořit PaymentAllocation záznamy pro existující napárované platby."""
+    from sqlalchemy.orm import Session as _Session
+    from app.models.payment import Payment, PaymentAllocation, PaymentMatchStatus
+
+    with _Session(engine) as session:
+        # Zjistit zda tabulka existuje a má data
+        existing_count = session.query(PaymentAllocation).count()
+        if existing_count > 0:
+            return  # Už migrováno
+
+        # Pro každou napárovanou platbu s unit_id vytvořit alokaci
+        payments = (
+            session.query(Payment)
+            .filter(Payment.unit_id.isnot(None))
+            .filter(Payment.match_status != PaymentMatchStatus.UNMATCHED)
+            .all()
+        )
+        if not payments:
+            return
+
+        for p in payments:
+            session.add(PaymentAllocation(
+                payment_id=p.id,
+                unit_id=p.unit_id,
+                owner_id=p.owner_id,
+                prescription_id=p.prescription_id,
+                amount=p.amount,
+            ))
+        session.commit()
+        logger.info("Migrated %d payments → payment_allocations", len(payments))
+
+
+def _migrate_bank_statement_locked():
+    """Přidat sloupec locked_at do bank_statements."""
+    with engine.connect() as conn:
+        cols = [r[1] for r in conn.execute(text("PRAGMA table_info('bank_statements')")).fetchall()]
+        if "locked_at" not in cols:
+            conn.execute(text("ALTER TABLE bank_statements ADD COLUMN locked_at DATETIME"))
+            conn.commit()
+            logger.info("Added locked_at column to bank_statements")
+
+
 _ALL_MIGRATIONS = [
     ("units table", _migrate_units_table),
     ("owner_units history", _migrate_owner_units_history),
@@ -359,6 +429,8 @@ _ALL_MIGRATIONS = [
     ("svj_info voting_import_mapping", _migrate_svj_info_voting_mapping),
     ("svj_info import_mappings", _migrate_svj_import_mappings),
     ("email_logs name_normalized", _migrate_email_log_name_normalized),
+    ("payment_allocations migration", _migrate_payment_allocations),
+    ("bank_statement locked_at", _migrate_bank_statement_locked),
     ("index creation", _ensure_indexes),
     ("code list seeding", _seed_code_lists),
     ("email template seeding", _seed_email_templates),
@@ -496,6 +568,32 @@ async def add_security_headers(request, call_next):
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     return response
 
+
+# Global debtor count for sidebar badge — runs on full-page HTML requests only
+@app.middleware("http")
+async def inject_debtor_count(request, call_next):
+    path = request.url.path
+    is_htmx_partial = (
+        request.headers.get("hx-request") == "true"
+        and request.headers.get("hx-boosted") != "true"
+    )
+    # Skip static files, HTMX partials, and non-page requests (exports, API)
+    if path.startswith("/static") or is_htmx_partial:
+        return await call_next(request)
+    # Compute debtor count
+    try:
+        from app.routers.payments._helpers import _count_debtors_fast
+        from app.models import PrescriptionYear
+        db = SessionLocal()
+        try:
+            py = db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).first()
+            request.state.nav_debtor_count = _count_debtors_fast(db, py.year) if py else 0
+        finally:
+            db.close()
+    except Exception:
+        request.state.nav_debtor_count = 0
+    return await call_next(request)
+
 # Raise default Starlette multipart limits (default max_files=1000 is too low
 # for large PDF directories uploaded via webkitdirectory)
 try:
@@ -509,7 +607,7 @@ except (AttributeError, KeyError, TypeError):
 app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
 
 # Register routers
-from app.routers import dashboard, owners, units, voting, tax, sync, share_check, settings_page, administration  # noqa: E402
+from app.routers import dashboard, owners, units, voting, tax, sync, share_check, settings_page, administration, payments  # noqa: E402
 
 app.include_router(dashboard.router)
 app.include_router(owners.router, prefix="/vlastnici", tags=["Vlastníci"])
@@ -520,3 +618,4 @@ app.include_router(sync.router, prefix="/synchronizace", tags=["Synchronizace"])
 app.include_router(share_check.router, prefix="/kontrola-podilu", tags=["Kontrola podílu"])
 app.include_router(administration.router, prefix="/sprava", tags=["Administrace"])
 app.include_router(settings_page.router, prefix="/nastaveni", tags=["Nastavení"])
+app.include_router(payments.router, prefix="/platby", tags=["Platby"])

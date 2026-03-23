@@ -12,10 +12,10 @@ from sqlalchemy import cast, func, String
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
-from app.models import Owner, OwnerUnit, SvjInfo, Unit
+from app.models import Owner, OwnerUnit, SvjInfo, Unit, Payment, PaymentAllocation, PaymentDirection, PaymentMatchStatus, Prescription, PrescriptionYear
 from app.services.code_list_service import get_all_code_lists
 from app.services.owner_exchange import recalculate_unit_votes
-from app.utils import build_list_url, excel_auto_width, is_htmx_partial, strip_diacritics, templates
+from app.utils import build_list_url, excel_auto_width, is_htmx_partial, strip_diacritics, templates, utcnow
 
 router = APIRouter()
 
@@ -174,7 +174,7 @@ async def unit_create(
         room_count=room_count.strip() or None,
         floor_area=floor_area_float,
         podil_scd=podil_scd_float,
-        created_at=datetime.utcnow(),
+        created_at=utcnow(),
     )
     db.add(unit)
     db.commit()
@@ -628,10 +628,65 @@ async def unit_detail(
         back_label = "Zpět na seznam vlastníků"
     elif "/synchronizace/" in back:
         back_label = "Zpět na porovnání"
+    elif "/platby/predpisy/" in back:
+        back_label = "Zpět na předpisy"
+    elif "/platby/vypisy/" in back:
+        back_label = "Zpět na výpis"
+    elif "/platby/symboly" in back:
+        back_label = "Zpět na symboly"
+    elif "/platby/zustatky" in back:
+        back_label = "Zpět na zůstatky"
+    elif "/platby/prehled" in back:
+        back_label = "Zpět na matici plateb"
+    elif "/platby/dluznici" in back:
+        back_label = "Zpět na dlužníky"
+    elif "/platby/jednotka" in back:
+        back_label = "Zpět na platby jednotky"
+    elif "/platby" in back:
+        back_label = "Zpět na platby"
     elif back:
         back_label = "Zpět"
     else:
         back_label = "Zpět na seznam jednotek"
+
+    # Platební stav — aktuální rok
+    latest_py = db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).first()
+    payment_status = None
+    payment_debt = 0
+    payment_year = None
+    if latest_py:
+        payment_year = latest_py.year
+        presc = db.query(Prescription).filter_by(
+            prescription_year_id=latest_py.id, unit_id=unit.id
+        ).first()
+        if presc:
+            monthly = presc.monthly_total or 0
+            confirmed_statuses = [PaymentMatchStatus.AUTO_MATCHED, PaymentMatchStatus.MANUAL]
+            total_paid = db.query(
+                func.coalesce(func.sum(PaymentAllocation.amount), 0)
+            ).join(Payment).filter(
+                PaymentAllocation.unit_id == unit.id,
+                Payment.direction == PaymentDirection.INCOME,
+                Payment.match_status.in_(confirmed_statuses),
+                func.extract("year", Payment.date) == latest_py.year,
+            ).scalar() or 0
+            # Počet měsíců s daty
+            months_count = db.query(
+                func.distinct(func.extract("month", Payment.date))
+            ).filter(
+                Payment.direction == PaymentDirection.INCOME,
+                Payment.match_status.in_(confirmed_statuses),
+                func.extract("year", Payment.date) == latest_py.year,
+            ).count()
+            expected = monthly * months_count
+            if total_paid >= expected and expected > 0:
+                payment_status = "ok"
+            elif total_paid > 0:
+                payment_status = "partial"
+                payment_debt = expected - total_paid
+            elif months_count > 0:
+                payment_status = "unpaid"
+                payment_debt = expected
 
     return templates.TemplateResponse("units/detail.html", {
         "request": request,
@@ -639,4 +694,7 @@ async def unit_detail(
         "unit": unit,
         "back_url": back or "/jednotky",
         "back_label": back_label,
+        "payment_status": payment_status,
+        "payment_debt": payment_debt,
+        "payment_year": payment_year,
     })

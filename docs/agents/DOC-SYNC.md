@@ -7,7 +7,13 @@
 
 ## Cíl
 
-Zajistit že CLAUDE.md, docs/UI_GUIDE.md a README.md přesně odpovídají aktuálnímu stavu projektu. Zastaralá dokumentace je horší než žádná — vede k chybným rozhodnutím.
+Zajistit že CLAUDE.md, docs/UI_GUIDE.md a README.md přesně odpovídají aktuálnímu stavu projektu **a vzájemně si neodporují**. Zastaralá nebo duplicitní dokumentace je horší než žádná — vede k chybným rozhodnutím.
+
+Konkrétně:
+1. **Aktualizovat** zastaralé informace (smazané/přejmenované soubory, změněné vzory)
+2. **Doplnit** chybějící dokumentaci nových funkcí
+3. **Pročistit duplikáty** — stejná informace nesmí být ve dvou souborech (jeden odkazuje na druhý)
+4. **Ověřit křížové odkazy** — všechny `§` a `[odkaz]` vedou na existující sekce
 
 ---
 
@@ -86,10 +92,15 @@ Po schválení plánu proveď opravy. Commitni jako: `docs: synchronizace dokume
   - Nové formulářové vzory
   - Nové způsoby zobrazení dat
 
-### 2.3 Konzistence s CLAUDE.md
+### 2.3 Konzistence s CLAUDE.md — deduplikace
 - Pokud CLAUDE.md říká „UI detaily viz UI_GUIDE.md § X" — existuje ta sekce?
 - Pokud oba soubory popisují stejnou věc — říkají totéž?
 - Jsou křížové odkazy obousměrné? (CLAUDE.md → UI_GUIDE.md i zpět)
+- **Aktivně hledej duplikáty**: sekce/odstavce které vysvětlují totéž v obou souborech
+  - Logika (backend, routery, Python) patří do CLAUDE.md
+  - UI detaily (HTML, CSS, Tailwind, HTMX markup) patří do UI_GUIDE.md
+  - Duplicitní obsah **nahradit odkazem** na autoritativní soubor: `> Logika XY je v [CLAUDE.md § Sekce](../CLAUDE.md).`
+  - Typické duplikáty: back URL navigace, wizard stepper logika, formulářová validace, upload workflow
 
 ### 2.4 Příklady HTML/CSS
 - Jsou HTML snippety v UI_GUIDE.md stále platné?

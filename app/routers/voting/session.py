@@ -1,5 +1,5 @@
 import shutil
-from datetime import datetime, date
+from datetime import date
 from io import BytesIO
 from pathlib import Path
 
@@ -18,7 +18,7 @@ from app.models import (
     ActivityAction, log_activity,
 )
 from app.services.word_parser import extract_voting_items, extract_voting_metadata
-from app.utils import UPLOAD_LIMITS, build_list_url, excel_auto_width, is_htmx_partial, strip_diacritics, validate_upload
+from app.utils import UPLOAD_LIMITS, build_list_url, excel_auto_width, is_htmx_partial, strip_diacritics, utcnow, validate_upload
 
 from ._helpers import (
     _VOTING_WIZARD_STEPS,
@@ -193,7 +193,7 @@ async def voting_preview_metadata(
     if err:
         return JSONResponse({"error": err}, status_code=400)
 
-    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    timestamp = utcnow().strftime("%Y%m%d_%H%M%S")
     dest = settings.upload_dir / "word_templates" / f"{timestamp}_{file.filename}"
     dest.parent.mkdir(parents=True, exist_ok=True)
     try:
@@ -251,7 +251,7 @@ async def voting_create(
         if err:
             return RedirectResponse("/hlasovani/nova?chyba=upload", status_code=302)
 
-        timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        timestamp = utcnow().strftime("%Y%m%d_%H%M%S")
         dest = settings.upload_dir / "word_templates" / f"{timestamp}_{file.filename}"
         dest.parent.mkdir(parents=True, exist_ok=True)
         with open(dest, "wb") as f:
@@ -675,7 +675,7 @@ async def update_voting_status(
         if (old, new_status) not in allowed:
             return RedirectResponse(f"/hlasovani/{voting_id}", status_code=302)
         voting.status = new_status
-        voting.updated_at = datetime.utcnow()
+        voting.updated_at = utcnow()
         log_activity(db, ActivityAction.STATUS_CHANGED, "voting", "hlasovani",
                      entity_id=voting.id, entity_name=voting.title,
                      description=f"Stav: {old} → {status}")
@@ -722,7 +722,7 @@ async def voting_export(voting_id: int, stav: str = "", db: Session = Depends(ge
     start_row = 1
     if voting.status != VotingStatus.CLOSED:
         warn_cell = ws.cell(row=1, column=1,
-                            value=f"Průběžné výsledky ke dni {datetime.utcnow().strftime('%d.%m.%Y')} — hlasování stále probíhá")
+                            value=f"Průběžné výsledky ke dni {utcnow().strftime('%d.%m.%Y')} — hlasování stále probíhá")
         warn_cell.font = Font(bold=True, color="FF6600")
         warn_cell.alignment = Alignment(wrap_text=False)
         ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=6)
@@ -776,7 +776,7 @@ async def voting_export(voting_id: int, stav: str = "", db: Session = Depends(ge
 
     buf = BytesIO()
     wb.save(buf)
-    timestamp = datetime.utcnow().strftime("%Y%m%d")
+    timestamp = utcnow().strftime("%Y%m%d")
     stav_labels = {"generated": "nezpracovane", "sent": "odeslane", "processed": "zpracovane"}
     stav_suffix = f"_{stav_labels[stav]}" if stav and stav in stav_labels else "_vsechny"
     filename = f"hlasovani_{voting.id}{stav_suffix}_{timestamp}.xlsx"

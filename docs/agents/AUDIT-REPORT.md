@@ -1,340 +1,385 @@
-# SVJ Audit Report -- 2026-03-18
+# SVJ Audit Report — Modul Platby — 2026-03-22
+
+> Scope: app/routers/payments/, app/services/payment_matching.py, app/services/payment_overview.py, app/services/settlement_service.py, app/models/payment.py, app/templates/payments/
 
 ## Souhrn
 
-- **CRITICAL: 3** (strategicke pretrvavajici -- auth, CSRF, testy)
-- **HIGH: 0**
-- **MEDIUM: 4** (2 nove, 2 pretrvavajici)
-- **LOW: 7** (4 nove, 3 pretrvavajici)
+- **CRITICAL**: 1
+- **HIGH**: 5
+- **MEDIUM**: 11
+- **LOW**: 8
 
-**Celkem: 14 nalezu -- 3 strategicke (auth/CSRF/testy), 11 novych/pretrvavajicich k oprave**
+## Souhrnna tabulka
 
-Z 14 nalezu z predchoziho auditu (2026-03-10) bylo **8 opraveno**, 6 pretrvava.
+| #  | Oblast       | Soubor                                                       | Severity | Problem                                                        | Cas      | Rozhodnuti |
+|----|-------------|--------------------------------------------------------------|----------|----------------------------------------------------------------|----------|------------|
+| 1  | Bezpecnost  | statements.py:104, prescriptions.py:82                       | CRITICAL | `saved_path` z formulare bez path traversal validace           | ~15 min  | :wrench:   |
+| 2  | Vykon       | payment_matching.py:60,89,91,411,507                         | HIGH     | N+1 dotazy: `db.query(Unit).get()` / `db.query(Owner).get()` v cyklu | ~30 min  | :wrench:   |
+| 3  | Vykon       | _helpers.py:76-141                                           | HIGH     | `_count_debtors_fast` nacita vsechny prescriptions + balances do pameti | ~20 min  | :wrench:   |
+| 4  | Kod         | settlement.py:157+173                                        | HIGH     | Duplicitni klic `active_tab` v context dict                    | ~2 min   | :wrench:   |
+| 5  | Kod         | payment_matching.py (587 r.), statements.py (797 r.)         | HIGH     | Dlouhe soubory, match_payments() ma 280+ radku                 | ~1 hod   | :question: |
+| 6  | Bezpecnost  | payment.py (vsechny financni sloupce)                        | HIGH     | `Float` misto `Numeric` pro penezni castky — zaokrouhlovaci chyby | ~2 hod   | :question: |
+| 7  | Kod         | prescriptions.py:3-4                                         | MEDIUM   | Nepouzite importy `os`, `shutil`                               | ~1 min   | :wrench:   |
+| 8  | Kod         | payment.py:224, 246                                          | MEDIUM   | Duplicitni sekce komentare `Vyuctovani (Faze 4)`               | ~1 min   | :wrench:   |
+| 9  | Kod         | prescriptions.py:328, symbols.py:54, statements.py:387       | MEDIUM   | Inline import `from sqlalchemy import asc, desc` uvnitr funkce (3x) | ~5 min   | :wrench:   |
+| 10 | Kod         | payment_matching.py:313, 407, 505                            | MEDIUM   | Inline importy uvnitr funkce (`PrescriptionYear`, `Owner`) — obejiti cirkularniho importu | ~10 min  | :question: |
+| 11 | Vykon       | compute_candidates():56-66                                   | MEDIUM   | N+1: `db.query(Unit).get(p.unit_id)` pro kazdy predpis        | ~15 min  | :wrench:   |
+| 12 | Vykon       | overview.py:58-61                                            | MEDIUM   | `compute_payment_matrix()` vola se dvakrat u dluznici (jednou v service, jednou pres compute_debtor_list) | ~10 min  | :wrench:   |
+| 13 | Vykon       | _helpers.py:23-73                                            | MEDIUM   | `compute_nav_stats()` se vola na kazdem payment endpointu (7+ DB dotazu) | ~30 min  | :question: |
+| 14 | Sablony     | vypis_tbody.html:29-73                                       | MEDIUM   | Duplicitni formulare confirm/reject (14x hidden input bloky)   | ~20 min  | :wrench:   |
+| 15 | Error       | statements.py:292-294                                        | MEDIUM   | Chybejici error handling pri match_payments (muze hodit vyjimku) | ~5 min   | :wrench:   |
+| 16 | Error       | overview.py:157-158                                          | MEDIUM   | `compute_payment_matrix` vraci None — template spadne          | ~5 min   | :wrench:   |
+| 17 | Sablony     | predpisy_import.html, vypis_import.html                      | MEDIUM   | Formulare pri chybe nezachovavaji vsechna vyplnena pole         | ~10 min  | :wrench:   |
+| 18 | Dok         | payment_matching.py:249-290                                  | LOW      | `_extract_unit_from_vs` — hardcoded "1098" bez vysvetleni      | ~5 min   | :wrench:   |
+| 19 | Kod         | overview.py:22-25                                            | LOW      | `MONTH_NAMES` dict definovany duplicitne (overview.py + sablony) | ~5 min   | :wrench:   |
+| 20 | Kod         | payment_overview.py:188                                      | LOW      | `payment.alloc_amount` dynamicky pridavany atribut na ORM objekt | ~15 min  | :question: |
+| 21 | Sablony     | jednotka_platby.html, vyuctovani_detail.html                 | LOW      | Duplicitni payment list sablona (radky 86-113 a 154-183)       | ~15 min  | :wrench:   |
+| 22 | Git         | test_vypis.csv (110 KB)                                      | LOW      | Testovaci CSV soubor v koreni projektu (netrackovan)           | ~1 min   | :wrench:   |
+| 23 | Testy       | (zadny soubor)                                               | LOW      | Nulove pokryti testy — zadny test_payment*.py                  | ~4 hod   | :question: |
+| 24 | Error       | balances.py:106-107                                          | LOW      | Rok validace (2020-2040) bez flash zpravy uzivateli            | ~5 min   | :wrench:   |
+| 25 | Dok         | payment_matching.py: _find_name_matches, _find_multi_unit_match | LOW      | Chybejici komentare u magickych hodnot (score 5, slova > 3 znaky) | ~10 min  | :wrench:   |
 
----
-
-## Stav predchoziho auditu (2026-03-10, 14 nalezu)
-
-| # | Puvodni nalez | Stav |
-|---|---------------|------|
-| 1 | Zadna autentizace | **Pretrvava** -- plan v CLAUDE.md |
-| 2 | Zadna CSRF ochrana | **Pretrvava** -- plan v CLAUDE.md |
-| 3 | Zadne testy | **Pretrvava** |
-| 4 | XSS v units.py warning HTML | **Opraveno** (commit 05b75ce -- `_parse_numeric_fields` pouziva `escape()`, extrahovano do helperu) |
-| 5 | Python-side iterace na voting detail (nekonzistence) | **Pretrvava** -- stale O(I*B*V) v Pythonu na detail strance |
-| 7 | `from pathlib import Path` inline 3x v owners.py | **Opraveno** (commit 6beb757 -- Path je na radku 12 top-level, zadne inline importy) |
-| 8 | Zastarala CLAUDE-zaloha.md | **Opraveno** (soubor smazan) |
-| 9 | Zbyvajicich 11 inline importu | **Castecne opraveno** -- smtplib, sqlite3 presunute na top-level; `_sa_func` zustava inline:91 v administration.py; `app.main` inline legitimni |
-| 10 | `force_create` cten nesystemove | **Opraveno** (commit 6beb757 -- `force_create: str = Form("")` na radku 115) |
-| 11 | Diacritics fallback search v settings (500 rows) | **Pretrvava** -- beze zmeny |
-| 12 | Exception detail v JSON odpovedi | **Opraveno** (commit 6beb757 -- genericka zprava "Nelze zpracovat nahranou sablonu." na radku 208) |
-| 13 | SMTP exception zobrazena uzivateli | **Opraveno** (commit 6beb757 -- genericka zprava "Pripojeni k SMTP serveru selhalo." na radku 229, detail logovan) |
-| 14 | Duplicitni warn_html kod v units.py | **Opraveno** (commit 05b75ce -- extrahovano do `_parse_numeric_fields()` a `_build_warn_html()`) |
-
----
-
-## Souhrnna tabulka novych + pretrvavajicich nalezu
-
-| # | Oblast | Soubor | Severity | Problem | Cas | Rozhodnuti |
-|---|--------|--------|----------|---------|-----|------------|
-| 1 | Bezpecnost | cely projekt | CRITICAL | Zadna autentizace | vice dni | Znamy, plan v CLAUDE.md |
-| 2 | Bezpecnost | cely projekt | CRITICAL | Zadna CSRF ochrana | vice dni | Znamy, resit s auth |
-| 3 | Testy | cely projekt | CRITICAL | Zadne testy | vice dni | Znamy |
-| 4 | Vykon | voting/session.py:347-361 | MEDIUM | Python-side iterace na voting detail (nekonzistence se seznamem) | ~20 min | Pretrvava |
-| 5 | Kod | import_mapping.py:6-7 | MEDIUM | Duplicitni `from __future__ import annotations` | ~1 min | 🔧 |
-| 6 | Kod | import_mapping.py:9 | MEDIUM | Nepouzity import `json` | ~1 min | 🔧 |
-| 7 | Kod | owner_import_mapping.html + contact_import_mapping.html | MEDIUM | Duplicitni JS funkce (collectMapping, updateStats, submitMapping, reloadMapping) | ~20 min | 🔧/❓ |
-| 8 | Vykon | contact_import.py:150 | LOW | `load_workbook` bez `read_only=True` -- nacte cely workbook do pameti | ~2 min | 🔧 |
-| 9 | Bezpecnost | contact_import.py:161 | LOW | Exception detail `str(e)` v error dict -- potencialni info leakage | ~5 min | 🔧 |
-| 10 | Kod | administration.py:91 | LOW | `from sqlalchemy import func as _sa_func` inline misto top-level | ~5 min | 🔧/❓ |
-| 11 | Vykon | settings_page.py:89-97 | LOW | Diacritics fallback search nacte 500 EmailLog zaznamu do Pythonu | ~15 min | Pretrvava |
-| 12 | Kod | owners.py (1604 radku) | LOW | Router presahuje 1500 radku -- kandidat na rozdeleni do package | ~1 hod | ❓ |
-| 13 | Kod | owners.py:681 | LOW | `str(e)` v contact import error ukladan do progress dict | ~5 min | 🔧 |
-| 14 | Dokumentace | README.md | LOW | Chybi popis novych import mapping endpointu a import_mapping service | ~10 min | 🔧 |
-
-Legenda: 🔧 = jen opravit, ❓ = potreba rozhodnuti uzivatele (vice variant)
+Legenda: :wrench: = jen opravit, :question: = potreba rozhodnuti uzivatele (vice variant)
 
 ---
 
 ## Detailni nalezy
 
-### 1. Bezpecnost
+### 1. Kodova kvalita
 
-#### #1 Zadna autentizace (CRITICAL) -- pretrvava
+#### N1 — CRITICAL: `saved_path` bez validace path traversal
+- **Co a kde**: `statements.py:104` a `prescriptions.py:82` — uzivatel posle `saved_path` jako hidden field z formulare. Server pouzije tuto cestu primo k `Path(saved_path).read_bytes()` bez volani `is_safe_path()`.
+- **Reseni**: Pred ctenim souboru pridat validaci `is_safe_path(saved_path, [settings.upload_dir / "temp"])`. Pokud selze, vratit error.
+- **Narocnost + cas**: nizka, ~15 min
+- **Zavislosti**: zadne
+- **Regrese riziko**: nizke — pridava validaci, nemeni logiku
+- **Jak otestovat**: (1) Nahrat soubor do importu predpisu/vypisu. (2) V prohlizeci upravit hidden input `saved_path` na `../../data/svj.db`. (3) Odeslat formular. (4) Overit ze server odmitne s chybou misto nacteni DB souboru.
 
-- **Co a kde**: Vsechny endpointy jsou pristupne bez prihlaseni. Kazdy na siti muze mazat data, menit vlastniky, odesilat emaily.
-- **Reseni**: Implementovat dle planu v CLAUDE.md § Uzivatelske role
-- **Narocnost**: Vysoka (~2-3 dny)
-- **Regrese riziko**: Stredni (nova vrstva autorizace muze rozbit existujici flow)
-- **Jak otestovat**: Zkusit pristoupit na `/vlastnici` bez prihlaseni -- melo by presmerovat na login
+#### N4 — HIGH: Duplicitni klic `active_tab` v context dict
+- **Co a kde**: `settlement.py:157` a `settlement.py:173` — v `vyuctovani_seznam()` je `"active_tab": "vyuctovani"` v ctx dict dvakrat. Python to nehlasi, druhy prepise prvni, ale je to zbytecny kod.
+- **Reseni**: Smazat radek 173 (`"active_tab": "vyuctovani",`).
+- **Narocnost + cas**: nizka, ~2 min
+- **Zavislosti**: zadne
+- **Regrese riziko**: nulove — druhy klic uz prepisuje ten samy hodnotou
+- **Jak otestovat**: Overit ze navigacni karta vyuctovani je stale zvyraznena na `/platby/vyuctovani`.
 
-#### #2 Zadna CSRF ochrana (CRITICAL) -- pretrvava
+#### N5 — HIGH: Dlouhe soubory a funkce
+- **Co a kde**: `statements.py` (797 radku), `payment_matching.py` (587 radku), `settlement.py` (542 radku). Funkce `match_payments()` ma 280+ radku — tezko testovatelna a citelna.
+- **Reseni**: Varianty: (A) Rozdelit `match_payments` na 3 samostatne funkce pro kazdy fazi (`_phase1_vs_match`, `_phase2_name_match`, `_phase3_vs_prefix_match`). (B) Rozdelit `statements.py` na `statements_import.py` + `statements_detail.py` + `statements_actions.py`.
+- **Narocnost + cas**: stredni, ~1 hod
+- **Zavislosti**: zadne
+- **Regrese riziko**: stredni — refactoring muze zavest chyby v logice parovani
+- **Jak otestovat**: Importovat CSV vypis, overit ze parovani funguje stejne.
 
-- **Co a kde**: POST formulare nemaji CSRF tokeny. Utocnik muze vytvorit stranku, ktera odesle POST na SVJ aplikaci.
-- **Reseni**: Implementovat spolecne s autentizaci (session-based CSRF token)
-- **Narocnost**: Stredni (~4 hodiny, soucast auth)
-- **Zavislosti**: Nejdriv #1 (autentizace)
-- **Regrese riziko**: Nizke
+#### N7 — MEDIUM: Nepouzite importy
+- **Co a kde**: `prescriptions.py:3-4` — `import os` a `import shutil` nejsou v souboru nikde pouzity.
+- **Reseni**: Smazat oba importy.
+- **Narocnost + cas**: nizka, ~1 min
+- **Zavislosti**: zadne
+- **Regrese riziko**: nulove
+- **Jak otestovat**: Spustit server, importovat predpisy — overit ze funguje.
 
-#### #3 Zadne testy (CRITICAL) -- pretrvava
+#### N8 — MEDIUM: Duplicitni sekce komentare v modelu
+- **Co a kde**: `payment.py:224` a `payment.py:246` — dve identicky `# -- Vyuctovani (Faze 4)` komentarove sekce. Pravdepodobne pozustatek z refactoringu kdy se pridal `PaymentAllocation` model mezi ne.
+- **Reseni**: Smazat druhou (radek 246), pripadne prejmenovat prvni na neco vystiznejsiho.
+- **Narocnost + cas**: nizka, ~1 min
+- **Zavislosti**: zadne
+- **Regrese riziko**: nulove
+- **Jak otestovat**: Automaticky — zadny dopad na runtime.
 
-- **Co a kde**: Adresar `tests/` neexistuje. Zadne unit testy, zadne integration testy.
-- **Reseni**: Vytvorit zakladni test suite pro kriticke business logiku (import, hlasovani, synchronizace). Novy import_mapping.py service je idealnim kandidatem -- cista business logika, zadne IO zavislosti v auto_detect/validate funkcich.
-- **Narocnost**: Vysoka (~2 dny pro zakladni pokryti)
-- **Regrese riziko**: Zadne (pridavame nove soubory)
+#### N9 — MEDIUM: Opakujici se inline import `asc`/`desc`
+- **Co a kde**: `prescriptions.py:328`, `symbols.py:54`, `statements.py:387` — `from sqlalchemy import asc as sa_asc, desc as sa_desc` je importovano uvnitr funkce misto na zacatku souboru.
+- **Reseni**: Presunout do top-level importu.
+- **Narocnost + cas**: nizka, ~5 min
+- **Zavislosti**: zadne
+- **Regrese riziko**: nulove
+- **Jak otestovat**: Overit razeni na vsech tabulkach modulu.
 
-#### #9 Exception detail v contact_import error dict (LOW) -- NOVY
+#### N10 — MEDIUM: Inline importy uvnitr `match_payments()`
+- **Co a kde**: `payment_matching.py:313` (`from app.models import PrescriptionYear`), `:407` (`from app.models import Owner`), `:505` (`from app.models import Owner`).
+- **Reseni**: Presunout na zacatek souboru (PrescriptionYear a Owner uz nejsou v cirkularni zavislosti s payment.py).
+- **Narocnost + cas**: nizka, ~10 min. Pozor: otestovat ze import neni cirkularni.
+- **Zavislosti**: zadne
+- **Regrese riziko**: nizke — muze zpusobit cirkularni import, ale pravdepodobne ne
+- **Jak otestovat**: `python -c "from app.services.payment_matching import match_payments"` — overit ze import probehne.
 
-- **Co a kde**: `app/services/contact_import.py:161` -- `f"Nepodařilo se otevřít Excel soubor: {e}"` obsahuje plnou exception zpravu vcetne potencialnich interních cest k souborum. Tento error dict se vraci z `preview_contact_import()` a mohl by se zobrazit uzivateli.
-- **Reseni**: Nahradit generickou zpravou, detail logovat:
-  ```python
-  logger.warning("Failed to open Excel: %s", e)
-  "error": "Nepodařilo se otevřít Excel soubor."
-  ```
-- **Varianty**: Zadne -- jednoznacna oprava
-- **Narocnost + cas**: Nizka (~5 min)
-- **Zavislosti**: Zadne
-- **Regrese riziko**: Zadne
-- **Jak otestovat**: Nahrat poskozeny .xlsx soubor jako import kontaktu -- odpoved nesmí obsahovat interni cestu/exception detail
+#### N19 — LOW: Duplicitni MONTH_NAMES
+- **Co a kde**: `overview.py:22-25` definuje `MONTH_NAMES` dict. Sablony `vypis_detail.html:2` a `vypisy.html:18` definuji vlastni `month_names` dict s jinym formatem (zkracena vs plna jmena).
+- **Reseni**: Centralizovat do `_helpers.py` — kratky i dlouhy format. Sablony importuji z kontextu.
+- **Narocnost + cas**: nizka, ~5 min
+- **Zavislosti**: zadne
+- **Regrese riziko**: nizke
+- **Jak otestovat**: Overit ze mesice se zobrazuji spravne na vsech strankach.
 
-#### #13 `str(e)` v contact import progress error (LOW) -- NOVY
+#### N20 — LOW: Dynamicky pridavany atribut na ORM objektu
+- **Co a kde**: `payment_overview.py:188` a `settlement_service.py:173` — `payment.alloc_amount = alloc.amount` dynamicky pridava atribut na SQLAlchemy objekt. Sablona pak pouziva `p.alloc_amount if p.alloc_amount is defined`.
+- **Reseni**: Varianty: (A) Vytvorit namedtuple/dataclass `PaymentWithAlloc(payment, alloc_amount)`. (B) Ponechat — funguje to, je to jednoduche.
+- **Narocnost + cas**: nizka/stredni, ~15 min
+- **Zavislosti**: zadne
+- **Regrese riziko**: nizke
+- **Jak otestovat**: Detail platby jednotky a detail vyuctovani — overit castky.
 
-- **Co a kde**: `app/routers/owners.py:681` -- `_contact_import_progress[file_key]["error"] = str(e)` uklada plnou exception zpravu. Prestoze je pouzita jen pro interni presmerovani (radek 753-754 presmeruje na generickou stranku), je to potencialni info leakage, pokud by se template v budoucnu zmenil.
-- **Reseni**: Logovat detail, ulozit generickou zpravu:
-  ```python
-  logger.exception("Contact import failed for %s", file_key)
-  _contact_import_progress[file_key]["error"] = "Zpracování selhalo"
-  ```
-- **Narocnost + cas**: Nizka (~5 min)
-- **Zavislosti**: Zadne
-- **Regrese riziko**: Zadne
-- **Jak otestovat**: Vyvolat chybu v contact importu -- error page musi zobrazit generickou zpravu
-
-### 2. Kodova kvalita
-
-#### #5 Duplicitni `from __future__ import annotations` v import_mapping.py (MEDIUM) -- NOVY
-
-- **Co a kde**: `app/services/import_mapping.py:6-7` -- `from __future__ import annotations` je importovano 2x za sebou. Funkcne neovlivnuje (Python ignoruje duplikat), ale indikuje chybu pri merge/copy-paste.
-- **Reseni**: Smazat radek 7 (duplikat).
-- **Varianty**: Zadne -- jednoznacna oprava
-- **Narocnost + cas**: Nizka (~1 min)
-- **Zavislosti**: Zadne
-- **Regrese riziko**: Zadne
-- **Jak otestovat**: `python -c "import app.services.import_mapping"` -- nesmí vyhodit chybu
-
-#### #6 Nepouzity import `json` v import_mapping.py (MEDIUM) -- NOVY
-
-- **Co a kde**: `app/services/import_mapping.py:9` -- `import json` neni nikde v souboru pouzit (zadne `json.` volani). Vzniklo zrejme pri refaktoringu, kdy JSON logika zustala v routeru.
-- **Reseni**: Smazat `import json` na radku 9.
-- **Varianty**: Zadne -- jednoznacna oprava
-- **Narocnost + cas**: Nizka (~1 min)
-- **Zavislosti**: Zadne
-- **Regrese riziko**: Zadne
-- **Jak otestovat**: Spustit server, import vlastniku/kontaktu -- musi fungovat
-
-#### #7 Duplicitni JS funkce v mapping sablonach (MEDIUM) -- NOVY
-
-- **Co a kde**: `app/templates/owners/owner_import_mapping.html` (radky 116-176) a `app/templates/owners/contact_import_mapping.html` (radky 113-173) obsahuji **totozne JS funkce**: `reloadMapping()`, `collectMapping()`, `updateStats()`, `submitMapping()`, a event listener registraci. Jediny rozdil je v `start_row` default hodnote (2 vs 7) a `action` URL.
-- **Reseni**:
-  - Varianta A: Extrahovat JS do `/static/js/import-mapping.js` s konfigurovatelnym `startRowDefault` a `actionUrl` parametrem. Sablona preda data pres `data-` atributy nebo globalni promennou.
-  - Varianta B: Ponechat -- 60 radku JS v kazde sablone je jeste akceptovatelne a projekt nezakazuje inline JS (naopak CLAUDE.md § JavaScript: "strankovy JS jde do `<script>` na konci {% block content %}")
-- **Narocnost + cas**: Nizka (~20 min pro variantu A)
-- **Zavislosti**: Zadne
-- **Regrese riziko**: Nizke
-- **Jak otestovat**: Otevrit `/vlastnici/import`, nahrat Excel, overit ze mapping stranka funguje; stejne pro kontakty
-
-#### #10 `from sqlalchemy import func as _sa_func` inline v administration.py (LOW) -- pretrvava (castecne)
-
-- **Co a kde**: `app/routers/administration.py:91` -- import zustava inline (ne na top-level). Ostatni inline importy z minuleho auditu (#9) byly opraveny: `smtplib` presunuto na radek 2, `sqlite3` na radek 6, `markupsafe.escape` presunuto na top-level v owners.py radek 18.
-- **Reseni**: Presunout na top-level pred `logger`. Zbyva jen tento 1 import + 4x legitimni cirkularni `from app.main import run_post_restore_migrations` (radky 630, 681, 743, 827).
-- **Narocnost + cas**: Nizka (~5 min)
-- **Zavislosti**: Zadne -- musi byt az po importu `BoardMember` modelu (radek 79)
-- **Regrese riziko**: Nizke -- testovat sortirovani clenu vyboru
-- **Jak otestovat**: Spustit server, otevrit `/sprava` -- clenove vyboru musi byt serazeni (predseda nahore)
-
-#### #12 owners.py presahuje 1500+ radku (LOW) -- NOVY
-
-- **Co a kde**: `app/routers/owners.py` ma 1604 radku. CLAUDE.md § Router packages rika: "Komplexni routery (1500+ radku) se deli na package". Soubor obsahuje tri logicke celky: (1) CRUD vlastniku (seznam, detail, vytvareni, uprava, mazani, merge, export), (2) import vlastniku (upload, mapping, preview, confirm), (3) import kontaktu (upload, mapping, preview, confirm).
-- **Reseni**:
-  - Varianta A: Rozdelit na `app/routers/owners/` package s `__init__.py`, `crud.py`, `import_owners.py`, `import_contacts.py`, `_helpers.py`. Stejny vzor jako `voting/` a `tax/`.
-  - Varianta B: Ponechat -- 1604 je temer na hranici (1500+) a dalsi rust se neocekava (import mapping je hotovy).
-- **Narocnost + cas**: Stredni (~1 hod pro variantu A)
-- **Zavislosti**: Zadne
-- **Regrese riziko**: Nizke (pouze presun kodu, zadna zmena logiky)
-- **Jak otestovat**: Otestovat vsechny import a CRUD operace na `/vlastnici`
-
-### 3. Vykon
-
-#### #4 Python-side iterace na voting detail (MEDIUM) -- pretrvava
-
-- **Co a kde**: `app/routers/voting/session.py:347-361` -- funkce `voting_detail()` pocita hlasy per item pomoci trojite vnorene smycky (items x ballots x votes). Na seznamu hlasovani (`voting_list()`) je uz SQL agregace (commit 9c36d4d). Na detail strance jsou data eager-loaded, takze to neni N+1, ale stale je to O(I*B*V) v Pythonu a nekonzistentni pristup.
-- **Reseni**:
-  - Varianta A: Pouzit stejnou SQL agregaci jako na seznamu + filtrovat na voting_id
-  - Varianta B: Ponechat -- pro typicke SVJ (~5-10 bodu, ~100 listku) je to <1ms
-- **Narocnost + cas**: Stredni (~20 min pro variantu A)
-- **Regrese riziko**: Stredni (zmena logiky vypoctu)
-- **Jak otestovat**: Overit ze vysledky na `/hlasovani/{id}` odpovidaji excelove exportu
-
-#### #8 `load_workbook` bez `read_only=True` v contact_import.py (LOW) -- NOVY
-
-- **Co a kde**: `app/services/contact_import.py:150` -- `wb = load_workbook(file_path, data_only=True)` chybi `read_only=True`. Vsechny ostatni Excel importy v projektu pouzivaji `read_only=True` (excel_import.py:191, import_mapping.py:25, voting_import.py:190, share_check_comparator.py:58). Bez `read_only=True` openpyxl nacte cely workbook do pameti vcetne stylu, komentaru a formul, coz pro velke soubory (~1000+ radku) muze zvysit pamet a cas.
-- **Reseni**: Pridat `read_only=True`:
-  ```python
-  wb = load_workbook(file_path, read_only=True, data_only=True)
-  ```
-  **Pozor**: `read_only` mode pouziva `iter_rows` lazy loading, takze pristup k bunkam pres `cell.column` (radek 180) musi byt overen -- ale `values_only=False` + `iter_rows` funguje i v read_only modu.
-- **Narocnost + cas**: Nizka (~2 min)
-- **Zavislosti**: Zadne
-- **Regrese riziko**: Nizke -- overit ze `cell.column` vraci spravne hodnoty v read_only modu
-- **Jak otestovat**: Importovat kontakty z Excelu -- vsechna pole se musi spravne naprovazovat
-
-#### #11 Diacritics fallback search v settings nacte 500 zaznamu (LOW) -- pretrvava
-
-- **Co a kde**: `app/routers/settings_page.py:89-97` -- pri hledani s diakritikou nacte az 500 EmailLog zaznamu do Pythonu a iteruje je.
-- **Reseni**:
-  - Varianta A: Pridat `name_normalized` sloupec na EmailLog
-  - Varianta B: Ponechat s limitem 500 -- pro typicke SVJ staci
-- **Narocnost + cas**: Stredni (~15 min pro variantu A)
-- **Regrese riziko**: Nizke
-- **Jak otestovat**: Hledat v email logu ceske jmeno (s diakritikou) -- musi najit
-
-### 4. Dokumentace
-
-#### #14 Chybi popis novych import mapping endpointu v README.md (LOW) -- NOVY
-
-- **Co a kde**: README.md nepopisuje nove endpointy pro dynamicke mapovani sloupcu (`/vlastnici/import/mapovani`, `/vlastnici/import-kontaktu/mapovani`) a novou service `import_mapping.py`. Tyto funkce jsou dost vyznamne -- dynamicke mapovani sloupcu pro import je hlavni nova feature od posledniho auditu.
-- **Reseni**: Pridat do README.md sekce Vlastnici popis novych endpointu a kratky popis `import_mapping.py` service.
-- **Narocnost + cas**: Nizka (~10 min)
-- **Zavislosti**: Zadne
-- **Regrese riziko**: Zadne
-- **Jak otestovat**: Precist README.md -- musi obsahovat popis import mapping workflow
+#### N21 — LOW: Duplicitni payment list sablona
+- **Co a kde**: `jednotka_platby.html:86-113` a `vyuctovani_detail.html:154-183` — temer identicky blok kodu pro zobrazeni seznamu plateb.
+- **Reseni**: Extrahovat do `partials/_payment_list.html` a includovat na obou mistech.
+- **Narocnost + cas**: nizka, ~15 min
+- **Zavislosti**: zadne
+- **Regrese riziko**: nizke
+- **Jak otestovat**: Zobrazit detail plateb jednotky i detail vyuctovani — overit vizualni shodu.
 
 ---
 
-## Pozitivni nalezy
+### 2. Bezpecnost
 
-### Bezpecnost
+#### N1 — CRITICAL: Path traversal pres `saved_path` (viz vyse)
 
-- **Path traversal ochrana na vsech novych import endpointech** -- vsech 8 novych POST endpointu v owners.py s `file_path` parametrem validuje `is_safe_path()` (radky 577, 624, 778, 815, 920, 971, 1013)
-- Zadne SQL injection -- ORM konzistentne pouzivan ve vsech novych funkcich
-- Autoescaping v Jinja2 -- nove sablony nepouzivaji `|safe` na uzivatelska data
-- XSS v units.py opraveno -- `escape()` z markupsafe pouzito v `_parse_numeric_fields()` (radek 33, 41)
-- Upload validace na novych import endpointech (validate_upload s UPLOAD_LIMITS)
-- SMTP exception genericke zpravy (opraveno v predchozim auditu)
-- JSON parsing error v voting session.py opraveno -- genericka zprava
+Uzivatel muze poslat libovolnou cestu v hidden input `saved_path`. Server cte obsah souboru z teto cesty bez validace:
+```python
+saved_file = Path(saved_path)  # LIBOVOLNA CESTA
+file_content = saved_file.read_bytes()  # CTENI BEZ VALIDACE
+```
+Utocnik muze precist libovolny soubor na serveru (`/etc/passwd`, `data/svj.db`).
 
-### Novy kod -- kvalitni vzory
+#### N6 — HIGH: Float pro penezni castky
+- **Co a kde**: `payment.py` — vsechny financni sloupce pouzivaji `Float` (amount, monthly_total, opening_amount, result_amount, cost_building, paid, result atd.). SQLite Float je IEEE 754 double, ktery ma inherentni zaokrouhlovaci chyby u desitkovych hodnot.
+- **Reseni**: Varianty: (A) Prejit na `Numeric(precision=10, scale=2)` — umi presne desitky, vyzaduje migraci. (B) Ponechat Float, ale dusledne pouzivat `round()` pri vsech vypoctech. (C) Pouzivat Integer (halerove castky) — nejpresnejsi, ale vyzaduje prepis celeho modulu.
+- **Pro/proti**: (A) je nejlepsi kompromis, ale SQLite Numeric se chova jako Float, takze skutecny prinos je limitovany. Doporucuji variantu (B) — uz se dela v `settlement_service.py`, ale chybi na dalsich mistech.
+- **Narocnost + cas**: stredni, ~2 hod pro kompletni audit a round() doplneni
+- **Zavislosti**: zadne
+- **Regrese riziko**: stredni — zaokrouhleni muze zmenit existujici data o halerove castky
+- **Jak otestovat**: Generovat vyuctovani, overit ze vysledky sedi s manualnim vypoctem.
 
-- **import_mapping.py** -- cista architektura:
-  - Sdilena logika pro owner i contact mapping (DRY princip)
-  - Auto-detekce sloupcu s scoring systemem (exact match > contains > reverse contains)
-  - Saved mapping s fallbackem na auto-detekci
-  - Validace mapping dictu (`validate_owner_mapping`, `validate_contact_mapping`)
-  - Helper `build_mapping_context()` pro sjednoceni template kontextu
-  - Docstringy na vsech public funkcich
-- **excel_import.py refaktoring** -- dynamicke mapovani:
-  - `_build_field_map()` pro extrakci field->column mapy
-  - `_cell()`, `_cell_int()`, `_cell_float()` safe accessors
-  - `_parse_row()` centralizovany parsing jednoho radku
-  - `_describe_skip_error()` detailni chybove zpravy pro preskocene radky
-  - Backward compatible -- `DEFAULT_OWNER_MAPPING` zachovava puvodni chovani
-- **contact_import.py refaktoring** -- stejny pattern jako excel_import
-- **Sdileny Jinja2 macro** `import_mapping_fields.html` -- barvy, badge, dropdown rendering
-- **Import stepper** partial `import_stepper.html` -- konzistentni vizualni indikace kroku
-- **PDF parser fix** -- `_extract_name_from_sp_line()` nyni zvlada oba formaty (zkraceny "SP 2 3108/..." i plny "Spoluvlastnicky podil 4: ...")
-- **Ciselniky redesign** -- kolapsovatelne karty s ikonami, accordion vzor (jen 1 otevreny), inline edit, data-confirm mazani
-
-### Vykon
-
-- 38 databazovych indexu v `_ensure_indexes()` (beze zmeny)
-- SQL agregace v `voting_list()` (predchozi oprava)
-- WAL mode pro SQLite
-- Eager loading s `joinedload()` konzistentne
-- Migrace `_migrate_svj_import_mappings()` spravne v lifespan i v `run_post_restore_migrations()`
-
-### Error handling
-
-- Vsechny `except Exception:` maji loggovani
-- Custom error stranky (404, 500, 409)
-- Entity not found -> redirect vzor dusledne dodrzovan v novych endpointech
-- Contact import background thread s try/finally db.close()
-- Excel open error v contact_import.py zachycen a vracen jako user-friendly error
-
-### UI/Sablony -- NOVE pozitivni nalezy
-
-- Ciselniky: accordion vzor (jen 1 kategorie otevrena), smooth scroll do detailu
-- Ciselniky: inline edit s Escape handlerem, usage count badge
-- Import mapping: barevne kodovani stavu (saved=modra, auto=zelena, required-missing=cervena)
-- Import mapping: real-time stats bar s pocitadlem nalezeni/chybejicich poli
-- Import mapping: sheet selector + start_row nastaveni pro flexibilni formaty
-- Import mapping: save checkbox pro ulozeni mapovani pro pristi import
-- Destruktivni import varovani se zobrazuje jen kdyz existuji data (`owner_count > 0`)
-- `aria-hidden="true"` na vsech SVG ikonach v cislenikovem redesignu
-
-### Git hygiene
-
-- .playwright-mcp/ prazdny
-- Zadne screenshoty v korenovem adresari
-- Commit messages v cestine, strucne, vystizne
-- 5 commitu od posledniho auditu -- logicke celky (parser fix, mapping feature, ciselniky redesign)
-
-### Dokumentace
-
-- CLAUDE.md aktualni -- obsahuje vsechny moduly a konvence
-- UI_GUIDE.md jako jediny zdroj pravdy pro frontend
-- CLAUDE-zaloha.md smazana (opraveno z predchoziho auditu)
+#### Pozitivni nalezy (bez problemu):
+- **SQL injection**: Vsechny DB dotazy pouzivaji SQLAlchemy ORM (parametrizovane). Zadne f-stringy v SQL.
+- **XSS**: Jinja2 auto-escaping je zapnuty. Uzivatelske vstupy v sablobach jsou escapovane.
+- **CSRF**: Projekt nepouziva CSRF tokeny (FastAPI default), ale je to lokalni aplikace bez autentizace.
+- **File upload validace**: Pouziva se `validate_upload()` s centralizovanymi limity — OK.
+- **LIKE escape**: V `symbols.py:40-44` se spravne escapuji `%` a `_` v LIKE dotazech.
 
 ---
 
-## Otevrene polozky
+### 3. Dokumentace
 
-### Planovane (strategicke)
+#### N18 — LOW: Hardcoded "1098" bez vysvetleni
+- **Co a kde**: `payment_matching.py:259` — funkce `_extract_unit_from_vs` hleda retezec "1098" v VS cisle. Toto je pravdepodobne specificky prefix pro toto SVJ, ale v kodu chybi jakekoliv vysvetleni.
+- **Reseni**: Pridat komentar vysvetlujici puvod prefixu. Idealne extrahovat do konstanty `VS_PREFIX = "1098"`.
+- **Narocnost + cas**: nizka, ~5 min
+- **Zavislosti**: zadne
+- **Regrese riziko**: nulove
+- **Jak otestovat**: Automaticky — zadny dopad na runtime.
 
-| # | Nalez | Priorita | Poznamka |
-|---|-------|----------|----------|
-| 1 | Autentizace | CRITICAL | Plan implementace v CLAUDE.md § Uzivatelske role |
-| 2 | CSRF ochrana | CRITICAL | Implementovat spolecne s autentizaci |
-| 3 | Testy | CRITICAL | Zakladni test suite -- import_mapping.py je idealnim kandidatem |
+#### N25 — LOW: Magicke hodnoty v matching logice
+- **Co a kde**: `payment_matching.py` — vice magickych cisel:
+  - Radek 29: slova > 3 znaky (proc ne 2 nebo 4?)
+  - Radek 119: `len(common) >= 2` (proc prave 2?)
+  - Radek 132: `monthly > payment.amount * 10` (proc 10x?)
+  - Radek 554: `score >= 5` (proc prave 5?)
+- **Reseni**: Pridat komentare vysvetlujici volbu hodnot, idealne extrahovat do pojmenovanych konstant (`MIN_WORD_LENGTH = 3`, `MIN_COMMON_WORDS = 2`, `MAX_PRESCRIPTION_RATIO = 10`, `MIN_MATCH_SCORE = 5`).
+- **Narocnost + cas**: nizka, ~10 min
+- **Zavislosti**: zadne
+- **Regrese riziko**: nulove
+- **Jak otestovat**: Automaticky — zadny dopad na runtime.
 
-### Nalezy k oprave
+#### Pozitivni nalezy:
+- **Docstringy**: Vsechny hlavni funkce maji popisne docstringy (match_payments, compute_candidates, compute_payment_matrix, generate_settlements).
+- **Modely v __init__.py**: Vsechny modely a enumy jsou spravne exportovane.
+- **Indexy v _ensure_indexes()**: Vsechny FK a filtrovaci sloupce payment modulu maji indexy v `_ensure_indexes()` — sedi s modely.
 
-| # | Nalez | Priorita | Odhad | Novy/Pretrvava |
-|---|-------|----------|-------|----------------|
-| 5 | Duplicitni `from __future__` v import_mapping.py | MEDIUM | ~1 min | Novy |
-| 6 | Nepouzity import `json` v import_mapping.py | MEDIUM | ~1 min | Novy |
-| 7 | Duplicitni JS v mapping sablonach | MEDIUM | ~20 min | Novy |
-| 4 | Python-side iterace na voting detail | MEDIUM | ~20 min | Pretrvava |
-| 8 | `load_workbook` bez `read_only=True` v contact_import | LOW | ~2 min | Novy |
-| 9 | Exception detail v contact_import error dict | LOW | ~5 min | Novy |
-| 10 | `_sa_func` inline import v administration.py | LOW | ~5 min | Pretrvava |
-| 13 | `str(e)` v contact import progress error | LOW | ~5 min | Novy |
-| 11 | Diacritics fallback search v settings (500 rows) | LOW | ~15 min | Pretrvava |
-| 12 | owners.py 1604 radku -- kandidat na package | LOW | ~1 hod | Novy |
-| 14 | Chybi popis mapping v README.md | LOW | ~10 min | Novy |
+---
 
-### Ponechano (by design)
+### 4. UI / Sablony
 
-| Nalez | Stav |
-|-------|------|
-| Hardcoded wizard labels | By design -- ceska aplikace bez i18n |
-| `from app.main import run_post_restore_migrations` inline (4x) | Legitimni -- cirkularni zavislost main -> routers -> main |
-| Inline JS v sablonach | By design -- CLAUDE.md § JavaScript: "strankovy JS jde do `<script>` na konci" |
+#### N14 — MEDIUM: Duplicitni formulare v vypis_tbody.html
+- **Co a kde**: `vypis_tbody.html:29-73` — pro kazdy SUGGESTED platbu s potvrdit/odmitnout tlacitky je 14 hidden inputu (7 pro potvrdit, 7 pro odmitnout). Toto se opakuje pro single-unit i multi-unit varianty. S 50 navrzenym platbami je to 1400 hidden inputu.
+- **Reseni**: Varianty: (A) Presunout filtrovaci hidden inputy do jednoho spolecneho formulare a pouzit JS k prepinani action URL. (B) Ponechat — funkcionalne spravne, jen verbozni.
+- **Narocnost + cas**: stredni, ~20 min
+- **Zavislosti**: zadne
+- **Regrese riziko**: stredni — zmena formulare muze rozbit HTMX interakce
+- **Jak otestovat**: (1) Otevrit detail vypisu s navrhy. (2) Potvrdit navrh. (3) Odmitnout navrh. (4) Overit ze filtry a scroll pozice se zachovaji.
+
+#### N17 — MEDIUM: Formulare nezachovavaji pole pri chybe
+- **Co a kde**: `predpisy_import.html` a `vypis_import.html` — pri validacni chybe v import vypisu se formular zobrazi prazdny (bez `form_data` predaneho zpet). V `statements.py` error kontexty nepredavaji `form_data`.
+- **Reseni**: Pridat `"form_data": {...}` do vsech error kontextu v `vypis_import_upload()`. Poznamka: u CSV importu neni co zachovavat (zadny textovy input krome souboru), takze dopad je minimalni.
+- **Narocnost + cas**: nizka, ~10 min
+- **Zavislosti**: zadne
+- **Regrese riziko**: nizke
+- **Jak otestovat**: Na importu vypisu odeslat nevalidni soubor — overit chybovou hlasku.
+
+#### Pozitivni nalezy:
+- **Konzistence UI**: Vsechny stranky pouzivaji konzistentni Tailwind tridy, dark mode podpora, sticky hlavicky.
+- **HTMX interakce**: Spravne `hx-target`, `hx-swap`, `hx-trigger="keyup changed delay:300ms"`. Loading indikatory u importu.
+- **Back URL propagace**: Spravne implementovana na vsech strankach — bubliny, razeni, hledani zachovavaji `back` parametr.
+- **Pristupnost**: Label elementy u formularu, `title` atributy na tlacitcich, `data-confirm` na destruktivnich akcich.
+- **`hx-boost="false"`**: Spravne na vsech file inputech a delete formularich.
+- **Scroll restore**: Sdileny `_scroll_restore.html` partial s highlight efektem.
+- **Klikaci entity**: Vsechny entity (jednotky, vlastnici) jsou klikaci s back URL.
+- **Razitelne sloupce**: Vsechny datove tabulky maji razitelne sloupce.
+- **Search HTMX**: Vsechny seznamove stranky maji HTMX search s debounce.
+
+---
+
+### 5. Vykon
+
+#### N2 — HIGH: N+1 dotazy v payment_matching.py
+- **Co a kde**: `payment_matching.py` — tri mista s N+1 problemem:
+  1. **Radek 60**: `db.query(Unit).get(p.unit_id)` uvnitr cyklu pres vsechny predpisy (compute_candidates) — potencialne 100+ dotazu.
+  2. **Radek 89-91**: `db.query(Owner).get(ou.owner_id)` + `db.query(Unit).get(ou.unit_id)` pro kazdy aktivni OwnerUnit — potencialne 200+ dotazu.
+  3. **Radky 411, 507**: `db.query(Owner).get(ou.owner_id)` v cyklu v match_payments() faze 2 a 3 — potencialne 100+ dotazu.
+- **Reseni**: Nacist vsechny Unit/Owner najednou pred cyklem:
+  ```python
+  units_by_id = {u.id: u for u in db.query(Unit).all()}
+  owners_by_id = {o.id: o for o in db.query(Owner).all()}
+  ```
+- **Narocnost + cas**: stredni, ~30 min
+- **Zavislosti**: zadne
+- **Regrese riziko**: nizke — meni jen zpusob nacitani, ne logiku
+- **Jak otestovat**: (1) Importovat CSV vypis s 50+ platbami. (2) Merit cas importu pred a po oprave. (3) Overit ze vysledky parovani jsou shodne.
+
+#### N3 — HIGH: `_count_debtors_fast` neni tak fast
+- **Co a kde**: `_helpers.py:76-141` — funkce nacita vsechny predpisy, vsechny platby (pres alokace), vsechny zustatky pro rok do pameti. Potom iteruje v Pythonu. Pro 100 jednotek a 1000 plateb to je 3+ dotazy + Python iterace. Funkce se vola na **kazdem** page loadu (cela navigace ho pouziva).
+- **Reseni**: Presunout vypocet do jedineho SQL dotazu s GROUP BY a HAVING. Nebo cachovat vysledek per rok (cislo dluziku se meni jen pri importu/parovani).
+- **Narocnost + cas**: stredni, ~20 min
+- **Zavislosti**: zadne
+- **Regrese riziko**: stredni — SQL optimalizace muze mit jiny vysledek nez Python logika
+- **Jak otestovat**: Porovnat cislo dluziku pred a po optimalizaci.
+
+#### N11 — MEDIUM: N+1 v compute_candidates()
+- **Co a kde**: `payment_matching.py:60` — `db.query(Unit).get(p.unit_id)` pro kazdy predpis s unit_id.
+- **Reseni**: Zahrnut v oprave N2.
+- **Zavislosti**: zavisi na N2
+- **Regrese riziko**: nizke
+- **Jak otestovat**: viz N2
+
+#### N12 — MEDIUM: Dvojite volani compute_payment_matrix
+- **Co a kde**: `payment_overview.py:148-153` — `compute_debtor_list()` vola `compute_payment_matrix(db, year)` a pak filtruje vysledek. Kazdy endpoint vola jednu z techto funkci oddelene, ale neni zadny sdileny cache.
+- **Reseni**: Varianta (A): cachovat na urovni requestu. Varianta (B): akceptovatelne — kazdy endpoint vola jednu funkci.
+- **Narocnost + cas**: nizka, ~10 min
+- **Zavislosti**: zadne
+- **Regrese riziko**: nizke
+- **Jak otestovat**: Overit ze dluznici stale ukazuji spravna data po optimalizaci.
+
+#### N13 — MEDIUM: compute_nav_stats na kazdem requestu
+- **Co a kde**: `_helpers.py:23-73` — kazdy endpoint platebniho modulu vola `compute_nav_stats(db)`, ktery provede 7+ DB dotazu (years, vs_count, prescriptions, statements, payments, debtors, settlements, balances). Na kazdem page loadu.
+- **Reseni**: Varianty: (A) Cachovani s kratkym TTL (~5s). (B) Lehci verze — misto pocitani dluziku ukazovat jen pocet predpisu/plateb. (C) Akceptovatelne pro lokalni SQLite — 7 jednoduchych dotazu trvaji < 10ms.
+- **Narocnost + cas**: stredni, ~30 min (pro implementaci caching)
+- **Zavislosti**: zadne
+- **Regrese riziko**: stredni — caching muze ukazovat stara data
+- **Jak otestovat**: Overit ze navigacni statistiky se aktualizuji po importu.
+
+---
+
+### 6. Error Handling
+
+#### N15 — MEDIUM: Chybejici error handling pri match_payments
+- **Co a kde**: `statements.py:294` — `match_payments(db, statement.id, year)` se vola bez try/except. Pokud matching selze (napr. chyba v DB), cely import selze a data zustanou v nekonzistentnim stavu (platby vlozeny, ale nenaprovany).
+- **Reseni**: Obalit do try/except, pri chybe nastavit match_result na nulove hodnoty a pridat warning do flash zpravy.
+- **Narocnost + cas**: nizka, ~5 min
+- **Zavislosti**: zadne
+- **Regrese riziko**: nizke
+- **Jak otestovat**: Tezko — vyzaduje simulaci chyby v match_payments.
+
+#### N16 — MEDIUM: compute_unit_payment_detail vraci None
+- **Co a kde**: `payment_overview.py:157` — `compute_unit_payment_detail()` muze vratit `None` kdyz jednotka neexistuje. Router `overview.py:216` uz tento pripad korektne handluje — `detail` muze byt None a sablona ho testuje (`{% if detail %}`).
+- **Reseni**: Pridat explicitni kontrolu v routeru: `if not detail: return RedirectResponse(...)` — pro jasnejsi kod.
+- **Narocnost + cas**: nizka, ~5 min
+- **Zavislosti**: zadne
+- **Regrese riziko**: nizke
+- **Jak otestovat**: Navstivit `/platby/jednotka/999999` — overit ze se zobrazi prazdna zprava, ne error.
+
+#### N24 — LOW: Rok validace bez uzivatelske zpravy
+- **Co a kde**: `balances.py:106-107` — pokud rok je mimo rozsah 2020-2040, vraci redirect s `flash=chyba_rok`, ale na strance zustatku se tento flash parametr neprekonvertuje na zpravu (chybi vetev v flash_param handlingu na radku 64-69).
+- **Reseni**: Pridat vetev `elif flash_param == "chyba_rok": flash_message = "Rok musi byt mezi 2020 a 2040."`.
+- **Narocnost + cas**: nizka, ~5 min
+- **Zavislosti**: zadne
+- **Regrese riziko**: nulove
+- **Jak otestovat**: Zkusit pridat zustatek s rokem 2050 — overit ze se zobrazi chybova zprava.
+
+---
+
+### 7. Git Hygiene
+
+#### N22 — LOW: Testovaci CSV v koreni projektu
+- **Co a kde**: `test_vypis.csv` (110 KB) — netrackovan soubor v Git. Pravdepodobne pozustatek z manualniho testovani importu.
+- **Reseni**: Smazat nebo pridat do `.gitignore`.
+- **Narocnost + cas**: nizka, ~1 min
+- **Zavislosti**: zadne
+- **Regrese riziko**: nulove
+- **Jak otestovat**: Automaticky — zadny dopad.
+
+#### Pozitivni nalezy:
+- **Commit messages**: Vsech 20 commitu ma srozumitelne ceske commit messages s prefixy (feat, fix, ui).
+- **Commit granularita**: Kazdy commit resi jednu vec — bez michanich zmen.
+- **.gitignore**: Neni viditelny problem s citlivymi daty v repozitari.
+- **Zadne soubory v .playwright-mcp/**: Cisto.
+
+---
+
+### 8. Testy
+
+#### N23 — LOW: Nulove pokryti testy
+- **Co a kde**: Neexistuje zadny `test_payment*.py`. Projekt ma testy pro import_mapping, email_service, contact_import, voting_aggregation, a smoke test — ale ZADNE pro platebni modul.
+- **Reseni**: Vytvorit testy pro kriticke flows:
+  1. `test_payment_matching.py` — unit testy pro `match_payments()`, `_check_amount_match()`, `_extract_unit_from_vs()`, `_find_name_matches()`, `_find_multi_unit_match()`
+  2. `test_payment_overview.py` — testy pro `compute_payment_matrix()`, `compute_debtor_list()`
+  3. `test_settlement_service.py` — testy pro `generate_settlements()`
+- **Narocnost + cas**: vysoka, ~4 hod
+- **Zavislosti**: zadne
+- **Regrese riziko**: nulove — testy pridavaji, nic nemeni
+- **Jak otestovat**: `pytest tests/ -v`
+
+#### Prioritni test scenare:
+- **match_payments**: Platba s VS -> auto match. Platba bez VS, s jmenem -> suggested. Multi-unit match. VS prefix dekodovani. Duplicitni operation_id -> preskocit.
+- **compute_payment_matrix**: Jednotka s predpisem bez plateb -> dluh. Castecna platba -> partial. Overeni mesicnich statusu.
+- **generate_settlements**: Presny vypocet nedoplatku/preplatku. Upsert logika (update existujiciho).
+- **_extract_unit_from_vs**: Ruzne formaty VS. Neexistujici jednotka. Prazdny VS.
 
 ---
 
 ## Doporuceny postup oprav
 
-1. **#5 + #6** Smazat duplicitni import a nepouzity `json` v import_mapping.py (~2 min) -- trivial fix
-2. **#8** Pridat `read_only=True` do contact_import.py:150 (~2 min) -- vykonnostni fix
-3. **#9** Nahradit exception detail v contact_import.py generickou zpravou (~5 min)
-4. **#13** Nahradit `str(e)` v owners.py:681 generickou zpravou (~5 min)
-5. **#10** Presunout `_sa_func` import na top-level v administration.py (~5 min)
-6. **#7** Volitelne: extrahovat duplicitni JS z mapping sablon (~20 min)
-7. **#4** Volitelne: sjednotit SQL agregaci na voting detail (~20 min)
-8. **#12** Volitelne: rozdelit owners.py na package (~1 hod)
-9. **#14** Aktualizovat README.md s popisem import mapping (~10 min)
-10. **#11** Volitelne: pridat name_normalized na EmailLog (~15 min)
-11. **#1-3** Strategicke: autentizace, CSRF, testy (planovat separatne)
+### 1. Ihned (CRITICAL)
+1. **N1**: Path traversal validace `saved_path` (~15 min)
 
-**Celkovy odhadovany cas pro polozky 1-5: ~19 minut**
-**Celkovy odhadovany cas pro polozky 1-9: ~70 minut**
+### 2. Vysoka priorita (HIGH)
+2. **N2**: N+1 v payment_matching.py (~30 min)
+3. **N4**: Duplicitni `active_tab` klic (~2 min)
+4. **N3**: Optimalizace `_count_debtors_fast` (~20 min)
+5. **N5**: Refactoring dlouhych souboru (~1 hod) — doporucuji po pridani testu (N23)
+6. **N6**: Float vs Numeric rozhodnuti (~2 hod) — rozhodnout variantu
+
+### 3. Stredni priorita (MEDIUM)
+7. **N7**: Nepouzite importy (~1 min)
+8. **N8**: Duplicitni komentare (~1 min)
+9. **N9**: Inline import asc/desc (~5 min)
+10. **N15**: Error handling match_payments (~5 min)
+11. **N16**: None handling v overview (~5 min)
+12. **N24**: Flash zprava pro chybny rok (~5 min)
+13. **N14**: Duplicitni hidden inputy (~20 min)
+14. **N13**: Nav stats optimalizace (~30 min)
+15. **N10**: Inline importy v matching (~10 min)
+16. **N11**: N+1 v compute_candidates (~15 min, soucast N2)
+17. **N12**: Dvojite volani matrix (~10 min)
+18. **N17**: Zachovani formularu pri chybe (~10 min)
+
+### 4. Nizka priorita (LOW) — naplanovat do dalsich iteraci
+19. **N22**: Smazat test_vypis.csv (~1 min)
+20. **N18**: Komentar k "1098" (~5 min)
+21. **N25**: Komentare k magickym hodnotam (~10 min)
+22. **N19**: Centralizace MONTH_NAMES (~5 min)
+23. **N20**: alloc_amount dynamicky atribut (~15 min)
+24. **N21**: Extrakce payment list partialu (~15 min)
+25. **N23**: Testy pro platebni modul (~4 hod)
+
+---
+
+## Celkovy odhad casu oprav
+
+| Priorita | Pocet | Cas       |
+|----------|-------|-----------|
+| CRITICAL | 1     | ~15 min   |
+| HIGH     | 5     | ~4.5 hod  |
+| MEDIUM   | 11    | ~2 hod    |
+| LOW      | 8     | ~5 hod    |
+| **Celkem** | **25** | **~11.5 hod** |
+
+Pozn.: CRITICAL a HIGH opravy (bez N5 a N6 ktere vyzaduji rozhodnuti) = ~1 hod. S testama (N23) = ~5 hod.

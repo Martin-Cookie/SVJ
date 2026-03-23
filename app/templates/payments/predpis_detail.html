@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}Předpis #{{ prescription.space_number }} — {{ prescription_year.year }}{% endblock %}
+{% block content %}
+{% include "payments/partials/_platby_nav.html" %}
+<div class="max-w-3xl mx-auto">
+    <h1 class="text-lg font-bold text-gray-900 dark:text-white mb-1">
+        Předpis plateb — prostor {{ prescription.space_number }}
+    </h1>
+    <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">
+        Rok {{ prescription_year.year }}
+        {% if prescription.section %} · Sekce {{ prescription.section }}{% endif %}
+        {% if prescription.space_type %} · {{ prescription.space_type }}{% endif %}
+    </p>
+
+    <!-- Info karta -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-4">
+        <div class="grid grid-cols-2 gap-3 text-xs">
+            <div>
+                <span class="text-gray-500 dark:text-gray-400">Vlastník:</span>
+                <span class="ml-1 font-medium text-gray-900 dark:text-white">{{ prescription.owner_name or "—" }}</span>
+            </div>
+            <div>
+                <span class="text-gray-500 dark:text-gray-400">Variabilní symbol:</span>
+                <span class="ml-1 font-mono font-medium text-gray-900 dark:text-white">{{ prescription.variable_symbol or "—" }}</span>
+            </div>
+            <div>
+                <span class="text-gray-500 dark:text-gray-400">Jednotka:</span>
+                {% if prescription.unit %}
+                <a href="/jednotky/{{ prescription.unit.id }}?back={{ list_url|urlencode }}" class="ml-1 text-blue-600 dark:text-blue-400 hover:underline">č. {{ prescription.unit.unit_number }}</a>
+                {% else %}
+                <span class="ml-1 text-yellow-600 dark:text-yellow-400">nepřiřazeno</span>
+                {% endif %}
+            </div>
+            <div>
+                <span class="text-gray-500 dark:text-gray-400">Měsíční celkem:</span>
+                <span class="ml-1 font-bold text-gray-900 dark:text-white">{{ prescription.monthly_total|fmt_num }} Kč</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Položky -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow">
+        <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+            <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Položky předpisu</h2>
+        </div>
+        <div class="overflow-x-auto">
+        <table class="w-full text-xs">
+            <thead class="bg-gray-50 dark:bg-gray-700">
+                <tr>
+                    <th class="px-4 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">Položka</th>
+                    <th class="px-4 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">Kategorie</th>
+                    <th class="px-4 py-2 text-right font-semibold text-gray-600 dark:text-gray-300">Částka</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% set cat_labels = {"provozni": "Provozní", "fond_oprav": "Fond oprav", "sluzby": "Služby"} %}
+                {% set cat_colors = {"provozni": "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300", "fond_oprav": "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300", "sluzby": "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"} %}
+                {% for item in prescription.items|sort(attribute='order') %}
+                <tr class="border-b border-gray-100 dark:border-gray-700">
+                    <td class="px-4 py-2 text-gray-900 dark:text-white">{{ item.name }}</td>
+                    <td class="px-4 py-2">
+                        <span class="px-2 py-0.5 text-xs rounded-full {{ cat_colors.get(item.category.value, 'bg-gray-100 text-gray-700') }}">
+                            {{ cat_labels.get(item.category.value, item.category.value) }}
+                        </span>
+                    </td>
+                    <td class="px-4 py-2 text-right font-medium text-gray-900 dark:text-white">{{ item.amount|fmt_num }} Kč</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot class="bg-gray-50 dark:bg-gray-700">
+                <tr>
+                    <td class="px-4 py-2 font-bold text-gray-900 dark:text-white" colspan="2">CELKEM</td>
+                    <td class="px-4 py-2 text-right font-bold text-gray-900 dark:text-white">{{ prescription.monthly_total|fmt_num }} Kč</td>
+                </tr>
+                {% set provozni = prescription.items|selectattr('category', 'equalto', 'provozni')|map(attribute='amount')|sum %}
+                {% set fond = prescription.items|selectattr('category', 'equalto', 'fond_oprav')|map(attribute='amount')|sum %}
+                {% set sluzby = prescription.items|selectattr('category', 'equalto', 'sluzby')|map(attribute='amount')|sum %}
+                <tr class="text-gray-500 dark:text-gray-400">
+                    <td class="px-4 py-1" colspan="2">z toho provozní</td>
+                    <td class="px-4 py-1 text-right">{{ provozni|fmt_num }} Kč</td>
+                </tr>
+                <tr class="text-gray-500 dark:text-gray-400">
+                    <td class="px-4 py-1" colspan="2">z toho fond oprav</td>
+                    <td class="px-4 py-1 text-right">{{ fond|fmt_num }} Kč</td>
+                </tr>
+                <tr class="text-gray-500 dark:text-gray-400">
+                    <td class="px-4 py-1 pb-2" colspan="2">z toho služby</td>
+                    <td class="px-4 py-1 pb-2 text-right">{{ sluzby|fmt_num }} Kč</td>
+                </tr>
+            </tfoot>
+        </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

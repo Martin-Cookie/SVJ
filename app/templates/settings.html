@@ -26,6 +26,7 @@
                 <div class="flex-1">
                     <input type="text" name="q" value="{{ q }}"
                            placeholder="Hledat příjemce, email, předmět, modul..."
+                           aria-label="Hledat"
                            hx-get="/nastaveni"
                            hx-trigger="keyup changed delay:300ms"
                            hx-target="#email-tbody"
@@ -38,7 +39,7 @@
     </div>
 
     <!-- Scrollable email log -->
-    <div class="flex-1 overflow-y-auto min-h-0 bg-white rounded-lg shadow">
+    <div class="flex-1 overflow-y-auto overflow-x-auto min-h-0 bg-white rounded-lg shadow">
         <table class="min-w-full divide-y divide-gray-200" style="table-layout:fixed">
             <colgroup>
                 <col style="width:11%">

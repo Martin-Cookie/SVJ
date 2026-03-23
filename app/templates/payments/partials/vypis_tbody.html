@@ -1,0 +1,113 @@
+{% set match_labels = {"auto_matched": "Auto", "suggested": "Návrh", "manual": "Ručně", "unmatched": "—"} %}
+{% set match_colors = {"auto_matched": "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300", "suggested": "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300", "manual": "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300", "unmatched": "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300"} %}
+{% set locked = statement.locked_at if statement is defined else None %}
+{# Macro pro sdílené hidden inputy filtrů — eliminuje duplicitu (N14) #}
+{% macro filter_hidden() %}
+<input type="hidden" name="q" value="{{ q }}"><input type="hidden" name="sort" value="{{ sort }}"><input type="hidden" name="order" value="{{ order }}"><input type="hidden" name="stav" value="{{ stav }}"><input type="hidden" name="smer" value="{{ smer }}"><input type="hidden" name="back" value="{{ back_url }}">
+{% endmacro %}
+{% for p in payments %}
+<tr class="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors" id="p-{{ p.id }}">
+    <td class="px-2 py-1.5 text-gray-600 dark:text-gray-400 whitespace-nowrap">{{ p.date.strftime('%d.%m.') if p.date else "—" }}</td>
+    <td class="px-2 py-1.5 font-medium whitespace-nowrap {% if p.direction.value == 'income' %}text-green-700 dark:text-green-400{% else %}text-red-600 dark:text-red-400{% endif %}">
+        {% if p.direction.value == 'income' %}+{% else %}-{% endif %}{{ p.amount|fmt_num }} Kč
+    </td>
+    <td class="px-2 py-1.5 font-mono text-gray-500 dark:text-gray-400">{{ p.vs or "—" }}</td>
+    <td class="px-2 py-1.5 text-gray-700 dark:text-gray-300 max-w-[150px] truncate" title="{{ p.counter_account_name or '' }}">
+        {{ p.counter_account_name or "—" }}
+    </td>
+    <td class="px-2 py-1.5">
+        <span class="px-2 py-0.5 text-xs rounded-full {{ match_colors.get(p.match_status.value, '') }}">
+            {{ match_labels.get(p.match_status.value, p.match_status.value) }}
+        </span>
+    </td>
+    <td class="px-2 py-1.5">
+        {% if p.match_status.value == 'suggested' and p.allocations|length > 1 %}
+        {# Multi-unit SUGGESTED — více badge + potvrdit/odmítnout #}
+        <span class="inline-flex items-center gap-1 flex-wrap">
+            {% for a in p.allocations %}
+            <span class="px-1.5 py-0.5 text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full" title="VS: {{ unit_vs.get(a.unit.id, '—') }} · Předpis: {{ unit_monthly.get(a.unit.id, 0)|fmt_num }} Kč/měs">
+                č. {{ a.unit.unit_number }}
+            </span>
+            {% endfor %}
+            {% if not locked %}
+            <form method="post" action="/platby/vypisy/{{ statement.id }}/potvrdit/{{ p.id }}" hx-boost="false" class="inline">
+                {{ filter_hidden() }}
+                <button type="submit" class="px-1 py-0.5 text-xs text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300" title="Potvrdit návrh">✓</button>
+            </form>
+            <form method="post" action="/platby/vypisy/{{ statement.id }}/odmitnout/{{ p.id }}" hx-boost="false" class="inline">
+                {{ filter_hidden() }}
+                <button type="submit" class="px-1 py-0.5 text-xs text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300" title="Odmítnout návrh">✕</button>
+            </form>
+            {% endif %}
+        </span>
+        {% elif p.match_status.value == 'suggested' and p.unit %}
+        {# Single-unit SUGGESTED — modrý badge s tlačítky potvrdit/odmítnout #}
+        <span class="inline-flex items-center gap-1">
+            <span class="px-2 py-0.5 text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full" title="VS: {{ unit_vs.get(p.unit.id, '—') }} · Předpis: {{ unit_monthly.get(p.unit.id, 0)|fmt_num }} Kč/měs">
+                č. {{ p.unit.unit_number }}
+            </span>
+            {% if not locked %}
+            <form method="post" action="/platby/vypisy/{{ statement.id }}/potvrdit/{{ p.id }}" hx-boost="false" class="inline">
+                {{ filter_hidden() }}
+                <button type="submit" class="px-1 py-0.5 text-xs text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300" title="Potvrdit návrh">✓</button>
+            </form>
+            <form method="post" action="/platby/vypisy/{{ statement.id }}/odmitnout/{{ p.id }}" hx-boost="false" class="inline">
+                {{ filter_hidden() }}
+                <button type="submit" class="px-1 py-0.5 text-xs text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300" title="Odmítnout návrh">✕</button>
+            </form>
+            {% endif %}
+        </span>
+        {% elif p.allocations|length > 1 %}
+        {# Multi-unit potvrzené — zelené badge #}
+        <span class="inline-flex items-center gap-1 flex-wrap">
+            {% for a in p.allocations %}
+            <a href="/jednotky/{{ a.unit.id }}?back={{ (list_url ~ '#p-' ~ p.id)|urlencode }}" class="px-1.5 py-0.5 text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full hover:bg-green-200" title="VS: {{ unit_vs.get(a.unit.id, '—') }} · Předpis: {{ unit_monthly.get(a.unit.id, 0)|fmt_num }} Kč/měs">
+                č. {{ a.unit.unit_number }}
+            </a>
+            {% endfor %}
+        </span>
+        {% elif p.unit %}
+        <a href="/jednotky/{{ p.unit.id }}?back={{ (list_url ~ '#p-' ~ p.id)|urlencode }}" class="px-2 py-0.5 text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full hover:bg-green-200" title="VS: {{ unit_vs.get(p.unit.id, '—') }} · Předpis: {{ unit_monthly.get(p.unit.id, 0)|fmt_num }} Kč/měs">
+            č. {{ p.unit.unit_number }}
+        </a>
+        {% elif p.match_status.value == 'unmatched' and p.direction.value == 'income' and not locked %}
+        {% set cands = candidates_map.get(p.id, []) if candidates_map is defined else [] %}
+        <span id="assign-btn-{{ p.id }}" class="inline-flex items-center gap-1 flex-wrap">
+            <button onclick="document.getElementById('assign-btn-{{ p.id }}').classList.add('hidden');document.getElementById('assign-form-{{ p.id }}').classList.remove('hidden');document.getElementById('assign-input-{{ p.id }}').focus()"
+                class="px-2 py-0.5 text-xs bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300 rounded-full hover:bg-yellow-200 cursor-pointer">
+                přiřadit
+            </button>
+            {% for c in cands %}
+            <button type="button" title="VS: {{ c.vs or '—' }} · Předpis: {{ c.monthly|fmt_num }} Kč/měs{{ ' (' ~ c.reasons|join(', ') ~ ')' if c.reasons else '' }}"
+                onclick="document.getElementById('assign-btn-{{ p.id }}').classList.add('hidden');document.getElementById('assign-form-{{ p.id }}').classList.remove('hidden');var inp=document.getElementById('assign-input-{{ p.id }}');inp.value='{{ c.unit_number }}';inp.form.submit()"
+                class="px-1.5 py-0.5 text-xs rounded-full cursor-pointer
+                {% if c.amount_match %}bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-800
+                {% else %}bg-blue-50 text-blue-500 dark:bg-blue-900/40 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900{% endif %}">
+                {{ c.unit_number }}?
+            </button>
+            {% endfor %}
+        </span>
+        <form id="assign-form-{{ p.id }}" method="post" action="/platby/vypisy/{{ statement.id }}/prirazeni/{{ p.id }}" hx-boost="false" class="hidden inline-flex items-center gap-1">
+            {{ filter_hidden() }}
+            <input id="assign-input-{{ p.id }}" type="text" name="unit_id" placeholder="č. (5, 425)" required
+                aria-label="Číslo jednotky pro přiřazení"
+                class="w-24 px-1.5 py-0.5 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                title="Číslo jednotky nebo více oddělených čárkou">
+            <button type="submit" class="px-1.5 py-0.5 bg-green-600 text-white text-xs rounded hover:bg-green-700">OK</button>
+            <button type="button" onclick="document.getElementById('assign-form-{{ p.id }}').classList.add('hidden');document.getElementById('assign-btn-{{ p.id }}').classList.remove('hidden')"
+                class="px-1 py-0.5 text-gray-400 hover:text-gray-600 text-xs" title="Zrušit">✕</button>
+        </form>
+        {% else %}
+        <span class="text-gray-400">—</span>
+        {% endif %}
+    </td>
+    <td class="px-2 py-1.5 text-gray-400 dark:text-gray-500 max-w-[200px] truncate" title="{{ p.message or p.note or '' }}">
+        {{ p.message or p.note or "" }}
+    </td>
+</tr>
+{% endfor %}
+{% if not payments %}
+<tr>
+    <td colspan="7" class="px-3 py-8 text-center text-xs text-gray-400 dark:text-gray-500">Žádné platby nenalezeny.</td>
+</tr>
+{% endif %}

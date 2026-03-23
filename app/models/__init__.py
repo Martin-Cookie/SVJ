@@ -11,6 +11,15 @@ from app.models.share_check import (
     ShareCheckSession, ShareCheckRecord, ShareCheckColumnMapping,
     ShareCheckStatus, ShareCheckResolution,
 )
+from app.models.payment import (
+    VariableSymbolMapping, UnitBalance,
+    PrescriptionYear, Prescription, PrescriptionItem,
+    BankStatement, Payment, BankStatementColumnMapping,
+    PaymentAllocation,
+    Settlement, SettlementItem,
+    SymbolSource, BalanceSource, PrescriptionCategory,
+    ImportStatus, PaymentDirection, PaymentMatchStatus, SettlementStatus,
+)
 
 __all__ = [
     "Owner", "Unit", "OwnerUnit", "OwnerType", "Proxy",
@@ -24,4 +33,11 @@ __all__ = [
     "SvjInfo", "SvjAddress", "BoardMember", "CodeListItem", "EmailTemplate",
     "ShareCheckSession", "ShareCheckRecord", "ShareCheckColumnMapping",
     "ShareCheckStatus", "ShareCheckResolution",
+    "VariableSymbolMapping", "UnitBalance",
+    "PrescriptionYear", "Prescription", "PrescriptionItem",
+    "BankStatement", "Payment", "BankStatementColumnMapping",
+    "PaymentAllocation",
+    "Settlement", "SettlementItem",
+    "SymbolSource", "BalanceSource", "PrescriptionCategory",
+    "ImportStatus", "PaymentDirection", "PaymentMatchStatus", "SettlementStatus",
 ]

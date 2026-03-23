@@ -5,7 +5,7 @@ from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import ActivityLog, EmailLog, Owner, OwnerUnit, SvjInfo, Unit, Voting
+from app.models import ActivityLog, EmailLog, Owner, OwnerUnit, PrescriptionYear, SvjInfo, Unit, Voting, BankStatement, Payment, PaymentDirection, PaymentMatchStatus
 from app.models.voting import Ballot, BallotStatus, BallotVote
 from app.models.tax import TaxDocument, TaxSession, TaxDistribution, EmailDeliveryStatus
 from app.utils import strip_diacritics, templates
@@ -202,7 +202,7 @@ async def home(
     }
 
     for e in recent_emails:
-        url = f"/dane/{e.session_id}" if e.session_id else ""
+        url = f"/dane/{e.reference_id}" if e.reference_id else ""
         unified.append({
             "type": "email",
             "created_at": e.created_at,
@@ -259,6 +259,34 @@ async def home(
     owners_scd = db.query(func.sum(OwnerUnit.votes)).filter(OwnerUnit.valid_to.is_(None)).scalar() or 0
     units_scd = db.query(func.sum(Unit.podil_scd)).scalar() or 0
 
+    # Payment stats
+    statement_count = db.query(BankStatement).count()
+    confirmed_statuses = [PaymentMatchStatus.AUTO_MATCHED, PaymentMatchStatus.MANUAL]
+    matched_payments = db.query(Payment).filter(
+        Payment.direction == PaymentDirection.INCOME,
+        Payment.match_status.in_(confirmed_statuses),
+    ).count()
+    unmatched_payments = db.query(Payment).filter_by(
+        match_status=PaymentMatchStatus.UNMATCHED,
+        direction=PaymentDirection.INCOME,
+    ).count()
+    total_income = db.query(
+        func.coalesce(func.sum(Payment.amount), 0)
+    ).filter(
+        Payment.direction == PaymentDirection.INCOME,
+        Payment.match_status.in_(confirmed_statuses),
+    ).scalar() or 0
+
+    # Debtor count (imported from payments helpers if available)
+    debtor_count = 0
+    try:
+        from app.routers.payments._helpers import _count_debtors_fast
+        latest_py = db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).first()
+        if latest_py:
+            debtor_count = _count_debtors_fast(db, latest_py.year)
+    except Exception:
+        pass
+
     ctx = {
         "request": request,
         "active_nav": "dashboard",
@@ -275,6 +303,11 @@ async def home(
         "q": q,
         "sort": sort,
         "order": order,
+        "statement_count": statement_count,
+        "matched_payments": matched_payments,
+        "unmatched_payments": unmatched_payments,
+        "total_income": total_income,
+        "debtor_count": debtor_count,
     }
 
     if request.headers.get("HX-Request") and not request.headers.get("HX-Boosted"):

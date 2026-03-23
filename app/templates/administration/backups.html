@@ -88,7 +88,7 @@
                 <div class="flex items-end gap-2">
                     <div class="flex-1">
                         <label class="block text-xs text-gray-500 mb-1">ZIP soubor</label>
-                        <input type="file" name="file" accept=".zip" required
+                        <input type="file" name="file" accept=".zip" required hx-disable
                                onchange="restoreZipCheck(this)"
                                class="file-input file-input-gray w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200">
                     </div>
@@ -105,7 +105,7 @@
                 <div class="flex items-end gap-2">
                     <div class="flex-1">
                         <label class="block text-xs text-gray-500 mb-1">Složka rozbalené zálohy (z Finderu)</label>
-                        <input type="file" name="files" webkitdirectory required
+                        <input type="file" name="files" webkitdirectory required hx-disable
                                onchange="restoreFolderCheck(this)"
                                class="file-input file-input-gray w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200">
                         <p id="restore-folder-info" class="text-xs text-gray-500 mt-1 hidden"></p>
@@ -133,6 +133,7 @@
                 {% endif %}
             </div>
             {% if backups %}
+            <div class="overflow-x-auto">
             <table class="w-full text-sm" style="table-layout:fixed">
                 <colgroup>
                     <col style="width:50%">
@@ -224,6 +225,7 @@
                     {% endfor %}
                 </tbody>
             </table>
+            </div>
             {% else %}
             <p class="text-sm text-gray-500">Zatím nejsou vytvořeny žádné zálohy.</p>
             {% endif %}
@@ -233,6 +235,7 @@
         <div>
             <h3 class="text-sm font-medium text-gray-600 mb-2">Historie obnovení</h3>
             {% if restore_log %}
+            <div class="overflow-x-auto">
             <table class="w-full text-sm" style="table-layout:fixed">
                 <colgroup>
                     <col style="width:50%">
@@ -261,6 +264,7 @@
                     {% endfor %}
                 </tbody>
             </table>
+            </div>
             {% else %}
             <p class="text-sm text-gray-500">Zatím nebyla provedena žádná obnova.</p>
             {% endif %}

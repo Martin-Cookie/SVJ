@@ -44,12 +44,14 @@
 </div>
 {% endif %}
 <div class="flex-1 bg-white rounded-lg shadow overflow-auto min-h-0">
+    <div class="overflow-x-auto">
     <table class="min-w-full divide-y divide-gray-200 text-sm">
         <thead class="bg-gray-50 border-b-2 border-gray-300 sticky top-0 z-10">
             <tr>
                 {% if voting.status.value == 'active' %}
                 <th class="px-2 py-3 text-center w-8">
                     <input type="checkbox" id="ballot-select-all" onchange="toggleBallotCheckboxes(this)"
+                           aria-label="Vybrat vše"
                            class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
                 </th>
                 {% endif %}
@@ -96,6 +98,7 @@
             {% include "voting/ballots_table.html" %}
         </tbody>
     </table>
+    </div>
 </div>
 
 <div class="shrink-0 mt-2 text-xs text-gray-500">Zobrazeno: {{ ballots|length }} lístků</div>

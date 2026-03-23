@@ -1,4 +1,4 @@
-from datetime import datetime
+
 from io import BytesIO
 from pathlib import Path
 
@@ -13,7 +13,7 @@ from app.models import (
     Ballot, BallotStatus, BallotVote, Owner, OwnerUnit, Voting,
     VotingStatus, VoteValue,
 )
-from app.utils import build_list_url, excel_auto_width, is_htmx_partial, strip_diacritics
+from app.utils import build_list_url, excel_auto_width, is_htmx_partial, strip_diacritics, utcnow
 
 from ._helpers import (
     _ballot_stats,
@@ -204,7 +204,7 @@ async def process_page(
             BallotStatus.GENERATED, BallotStatus.SENT, BallotStatus.RECEIVED,
         ):
             b.status = BallotStatus.PROCESSED
-            b.processed_at = b.processed_at or datetime.utcnow()
+            b.processed_at = b.processed_at or utcnow()
             fixed = True
     if fixed:
         db.commit()
@@ -311,7 +311,7 @@ async def process_ballot(
         return RedirectResponse(f"/hlasovani/{voting_id}/zpracovani", status_code=302)
 
     ballot.status = BallotStatus.PROCESSED
-    ballot.processed_at = datetime.utcnow()
+    ballot.processed_at = utcnow()
     db.commit()
 
     if request.headers.get("HX-Request"):
@@ -364,7 +364,7 @@ async def process_ballots_bulk(
                 bv.vote = VoteValue(vote_value)
                 bv.manually_verified = True
         ballot.status = BallotStatus.PROCESSED
-        ballot.processed_at = datetime.utcnow()
+        ballot.processed_at = utcnow()
         count += 1
 
     db.commit()
@@ -558,7 +558,7 @@ async def export_not_submitted(voting_id: int, db: Session = Depends(get_db)):
     wb.save(buf)
     buf.seek(0)
 
-    filename = f"hlasovani_{voting.id}_neodevzdane_{datetime.utcnow().strftime('%Y%m%d')}.xlsx"
+    filename = f"hlasovani_{voting.id}_neodevzdane_{utcnow().strftime('%Y%m%d')}.xlsx"
     return Response(
         content=buf.getvalue(),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

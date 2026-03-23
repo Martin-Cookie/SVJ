@@ -18,6 +18,7 @@
         {% if stats.declared_shares %}
         {% set diff = stats.total_scd - stats.declared_shares %}
         {% set diff_pct = ((diff / stats.declared_shares) * 100) | round(2) if stats.declared_shares else 0 %}
+        <div class="overflow-x-auto">
         <table class="text-xs text-gray-500 mt-1" style="border-spacing:0">
             <tr>
                 <td class="pr-2">Podíly dle prohlášení vlastníka:</td>
@@ -35,6 +36,7 @@
                 <td class="pl-2 font-mono {% if diff < 0 %}text-red-600{% elif diff > 0 %}text-blue-600{% else %}text-green-600{% endif %} whitespace-nowrap">{% if diff != 0 %}({{ "{:+.2f}".format(diff_pct) }} %){% endif %}</td>
             </tr>
         </table>
+        </div>
         {% else %}
         <div class="text-xs text-gray-500 mt-0.5">
             Celkový podíl SČD: <span class="font-mono text-gray-700">{{ "{:,}".format(stats.total_scd).replace(",", " ") }}</span>
@@ -113,7 +115,7 @@
 
 <!-- Unit table -->
 </div>
-<div class="flex-1 bg-white rounded-lg shadow overflow-y-auto overflow-x-hidden min-h-0">
+<div class="flex-1 bg-white rounded-lg shadow overflow-y-auto overflow-x-auto min-h-0">
     <table class="w-full text-xs" style="table-layout:fixed">
         <colgroup>
             <col style="width:7%">

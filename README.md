@@ -47,6 +47,28 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
 - Python 3.9+ (`python3 --version`)
 - LibreOffice (volitelně, jen pro generování PDF lístků)
 
+## Testy a CI
+
+```bash
+python3 -m pytest tests/ -v          # spustit všechny testy
+python3 -m pytest tests/ -q --tb=short  # stručný výstup
+```
+
+**248 testů** (~1.5s, in-memory SQLite) pokrývá:
+
+| Soubor | Testů | Oblast |
+|--------|-------|--------|
+| `test_payment_matching.py` | 33 | matching pipeline, settlement, rounding |
+| `test_voting.py` | 72 | wizard, ballot stats, import, SJM párování |
+| `test_backup.py` | 43 | lock, ZIP create/restore, cleanup, integrity |
+| `test_csv_comparator.py` | 77 | CSV parsing, fuzzy matching, Czech stemming |
+| `test_smoke.py` | 3 | app start, dashboard |
+| ostatní | 20 | email, import mapping, voting aggregation |
+
+**Automatizace:**
+- **Pre-push hook** — testy se spustí automaticky před každým `git push`. Pokud selžou, push se zablokuje
+- **GitHub Actions** — testy běží při push na `main`/`Platby` a při pull requestech (`.github/workflows/tests.yml`)
+
 ## Moduly
 
 ### A. Evidence vlastníků (`/vlastnici`)
@@ -229,7 +251,29 @@ Skript automaticky vytvoří virtuální prostředí, nainstaluje závislosti (o
   - Odkaz „Rozeslat →" u READY session — přímý přístup k rozesílce ze seznamu
 - Smazání celé relace (session + dokumenty + distribuce + soubory)
 
-### E. Kontroly (`/synchronizace`)
+### E. Evidence plateb (`/platby`)
+
+Modul pro správu předpisů, bankovních výpisů, variabilních symbolů a přehledu plateb.
+
+- **Předpisy** — import z DOCX, automatické párování na jednotky, správa roků předpisů, detekce VS konfliktů při importu (pokud VS z DOCX ukazuje na jinou jednotku než existující mapování — potvrzovací dialog s přehledem konfliktů)
+- **Variabilní symboly** — mapování VS → jednotka (ruční + automatické z předpisů)
+- **Bankovní výpisy** — import Fio CSV (reimport zachová ruční přiřazení), 3-fázové automatické párování plateb:
+  - Fáze 1: VS → `VariableSymbolMapping` lookup (výsledek: AUTO_MATCHED)
+  - Fáze 2: Fallback jméno odesílatele + částka vs předpis (výsledek: SUGGESTED); podpora multi-unit plateb — kombinace jednotek jednoho vlastníka kde součet předpisů odpovídá částce
+  - Fáze 3: VS-prefix dekódování + skórovací systém (jméno + částka + VS shoda; výsledek: SUGGESTED při skóre ≥ 5)
+  - Stavy párování: `AUTO_MATCHED`, `SUGGESTED`, `MANUAL`, `UNMATCHED` — jako potvrzené (confirmed) se počítají pouze `AUTO_MATCHED` + `MANUAL`; `SUGGESTED` vyžaduje ruční potvrzení/odmítnutí
+  - Ruční přiřazení: single-unit (celá částka) i multi-unit (čísla oddělená čárkou, částka rozdělena proporcionálně dle předpisů)
+  - PaymentAllocation: dual-write model — každé přiřazení vytváří alokační záznamy (podpora multi-unit plateb kde jedna platba pokrývá více jednotek)
+  - Zamčení/odemčení výpisu (`locked_at`) — zamčený výpis nelze přepárovat, měnit ani mazat
+- **Počáteční zůstatky** — evidované zůstatky per jednotka/rok
+- **Matice plateb** — přehled 508 jednotek × 12 měsíců s barevným stavem (zaplaceno/částečně/nezaplaceno), filtry dle typu prostoru, řazení, hledání
+- **Dlužníci** — seznam jednotek s dluhem seřazený dle výše dluhu
+- **Detail plateb jednotky** — měsíční grid + seznam přijatých plateb
+- **Vyúčtování** — roční vyúčtování per jednotka (předpis × 12 vs. zaplaceno), rozpad po položkách, změna stavu (vygenerováno → odesláno → zaplaceno / po splatnosti), hledání, řazení, bubliny dle stavu, hromadná změna stavu, export do Excelu (souhrn / s položkami)
+- **Dashboard integrace** — 5. karta na hlavním dashboardu (napárované platby, výpisy)
+- **Badge v detailu jednotky** — "Zaplaceno ✓" (zelený) nebo "Dluh X Kč" (červený/žlutý)
+
+### F. Kontroly (`/synchronizace`)
 
 Sloučená stránka se dvěma sekcemi — Kontrola vlastníků (nahoře) a Kontrola podílů (dole). Každá sekce má upload formulář a historii kontrol s nezávislým vyhledáváním.
 
@@ -272,7 +316,7 @@ Sloučená stránka se dvěma sekcemi — Kontrola vlastníků (nahoře) a Kontr
   - Zachování filtru a scroll pozice při navigaci zpět z výměny (filtr + #sync-{id} anchor)
   - Logování změn do ImportLog
 
-### F. Administrace SVJ (`/sprava`)
+### G. Administrace SVJ (`/sprava`)
 
 - Informace o SVJ (název, typ budovy, celkový počet podílů) — read-only pohled + inline editace
 - Správa adres SVJ — přidání, editace, smazání s řazením abecedně
@@ -365,7 +409,7 @@ Sloučená stránka se dvěma sekcemi — Kontrola vlastníků (nahoře) a Kontr
 - Historie kontrol s vyhledáváním a řazením (soubor, datum, shoda, rozdíly) s HTMX partial
 - Stará URL `/kontrola-podilu` automaticky přesměruje na `/synchronizace#kontrola-podilu`
 
-### G. Nastavení (`/nastaveni`)
+### H. Nastavení (`/nastaveni`)
 
 - SMTP konfigurace — read-only přehled (4-sloupcový grid) + inline editace (HTMX)
 - Historie odeslaných emailů (posledních 100):
@@ -384,13 +428,14 @@ app/
 ├── main.py                    # FastAPI aplikace
 ├── config.py                  # Nastavení (Pydantic)
 ├── database.py                # SQLAlchemy engine + session
-├── utils.py                   # Sdílené utility (strip_diacritics, build_list_url, is_htmx_partial, fmt_num, is_safe_path, validate_upload, validate_uploads, setup_jinja_filters, excel_auto_width, compute_eta, build_wizard_steps, build_name_with_titles, UPLOAD_LIMITS, is_valid_email)
+├── utils.py                   # Sdílené utility (utcnow, strip_diacritics, build_list_url, is_htmx_partial, fmt_num, is_safe_path, validate_upload, validate_uploads, setup_jinja_filters, excel_auto_width, compute_eta, build_wizard_steps, build_name_with_titles, UPLOAD_LIMITS, is_valid_email, templates)
 ├── models/                    # Databázové modely
 │   ├── owner.py               #   Owner, Unit, OwnerUnit, Proxy
 │   ├── voting.py              #   Voting, VotingItem, Ballot, BallotVote
 │   ├── tax.py                 #   TaxSession, TaxDocument, TaxDistribution
 │   ├── sync.py                #   SyncSession, SyncRecord
 │   ├── share_check.py         #   ShareCheckSession, ShareCheckRecord, ShareCheckColumnMapping
+│   ├── payment.py             #   PrescriptionYear, Prescription, PrescriptionItem, VariableSymbolMapping, BankStatement, Payment, PaymentAllocation, BankStatementColumnMapping, UnitBalance, Settlement, SettlementItem
 │   ├── common.py              #   EmailLog (+ name_normalized), ImportLog, ActivityLog, ActivityAction, log_activity()
 │   └── administration.py      #   SvjInfo (+ owner/contact_import_mapping), SvjAddress, BoardMember, CodeListItem, EmailTemplate
 ├── routers/                   # HTTP endpointy
@@ -415,9 +460,28 @@ app/
 │   │   ├── matching.py        #   Přiřazení, potvrzení
 │   │   ├── sending.py         #   Email rozesílání, progress
 │   │   └── _helpers.py        #   _tax_wizard, _session_stats, _find_coowners
-│   ├── sync.py                #   /synchronizace (sloučená stránka Kontroly)
+│   ├── payments/              #   /platby (předpisy, symboly, výpisy, zůstatky, přehled, vyúčtování)
+│   │   ├── __init__.py
+│   │   ├── prescriptions.py   #   Import DOCX, seznam, detail, VS konflikty
+│   │   ├── symbols.py         #   Variabilní symboly CRUD
+│   │   ├── statements.py      #   Import CSV, detail, párování, lock/unlock
+│   │   ├── balances.py        #   Počáteční zůstatky
+│   │   ├── overview.py        #   Matice plateb, dlužníci, detail jednotky
+│   │   ├── settlement.py      #   Vyúčtování CRUD, export
+│   │   └── _helpers.py        #   compute_nav_stats, sdílené funkce
+│   ├── sync/                  #   /synchronizace (sloučená stránka Kontroly)
+│   │   ├── session.py         #   Seznam, vytvoření, smazání, detail, export
+│   │   ├── contacts.py        #   Přijetí/zamítnutí změn, aplikace kontaktů
+│   │   ├── exchange.py        #   Výměna vlastníků preview + potvrzení
+│   │   └── _helpers.py        #   Sdílené konstanty a funkce
 │   ├── share_check.py         #   /kontrola-podilu (detail + redirect na /synchronizace)
-│   ├── administration.py      #   /sprava
+│   ├── administration/        #   /sprava
+│   │   ├── info.py            #   SVJ info CRUD, adresy
+│   │   ├── board.py           #   Členové výboru
+│   │   ├── code_lists.py      #   Číselníky + emailové šablony
+│   │   ├── backups.py         #   Zálohy vytvoření/stažení/mazání/obnova
+│   │   ├── bulk.py            #   Export, purge, hromadné úpravy, duplicity
+│   │   └── _helpers.py        #   DB_PATH, BACKUP_DIR, _PURGE_ORDER
 │   └── settings_page.py       #   /nastaveni
 ├── services/                  # Business logika
 │   ├── excel_import.py        #   Import z 31-sloupcového Excelu
@@ -436,7 +500,12 @@ app/
 │   ├── data_export.py         #   Export dat do Excel/CSV (7 kategorií)
 │   ├── import_mapping.py      #   Definice polí a auto-detekce mapování pro import vlastníků/kontaktů
 │   ├── email_service.py       #   SMTP odesílání emailů
-│   └── code_list_service.py   #   Sdílený přístup k číselníkům
+│   ├── code_list_service.py   #   Sdílený přístup k číselníkům
+│   ├── prescription_import.py #   Parsování DOCX předpisů
+│   ├── bank_import.py         #   Parsování Fio CSV bankovních výpisů
+│   ├── payment_matching.py    #   3-fázové párování plateb (VS, jméno+částka, VS-prefix)
+│   ├── payment_overview.py    #   Matice plateb, dlužníci, detail jednotky
+│   └── settlement_service.py  #   Logika vyúčtování (generování, přepočet)
 ├── templates/                 # Jinja2 šablony
 │   ├── base.html              #   Layout se sidebar navigací
 │   ├── dashboard.html         #   Přehled (statistiky vlastníků, jednotek, podílů)
@@ -502,6 +571,21 @@ app/
 │   │   ├── duplicates.html    #     Přehled a sloučení duplicitních vlastníků
 │   │   ├── bulk_edit_values.html #  HTMX: tabulka unikátních hodnot
 │   │   └── bulk_edit_records.html # HTMX: záznamy pro danou hodnotu
+│   ├── payments/              #   Stránky plateb
+│   │   ├── predpisy.html      #     Seznam předpisů (roky)
+│   │   ├── predpisy_import.html #   Import předpisů (DOCX upload, VS konflikt dialog)
+│   │   ├── predpisy_detail.html #   Detail roku předpisů
+│   │   ├── predpis_detail.html #    Detail jednoho předpisu (položky)
+│   │   ├── symboly.html       #     Variabilní symboly
+│   │   ├── zustatky.html      #     Počáteční zůstatky
+│   │   ├── vypisy.html        #     Seznam bankovních výpisů
+│   │   ├── vypis_import.html  #     Import výpisu (CSV upload, confirm overwrite)
+│   │   ├── vypis_detail.html  #     Detail výpisu s platbami (filtry, search, lock)
+│   │   ├── prehled.html       #     Matice plateb (jednotky × měsíce)
+│   │   ├── dluznici.html      #     Seznam dlužníků
+│   │   ├── jednotka_platby.html #   Detail plateb jednotky
+│   │   ├── vyuctovani.html    #     Seznam vyúčtování
+│   │   └── vyuctovani_detail.html # Detail vyúčtování
 │   └── partials/              #   HTMX komponenty
 │       ├── owner_row.html
 │       ├── owner_table_body.html
@@ -646,6 +730,7 @@ wheels/                        # Offline Python balíčky (gitignored)
 | GET | `/hlasovani/{id}/neodevzdane` | Neodevzdané lístky (search, sort) |
 | GET | `/hlasovani/{id}/import` | Stránka importu výsledků z Excelu |
 | POST | `/hlasovani/{id}/import` | Nahrání Excel souboru → mapování sloupců |
+| POST | `/hlasovani/{id}/import/mapovani` | Návrat na mapování z náhledu (back navigace) |
 | POST | `/hlasovani/{id}/import/nahled` | Náhled importu (přiřazení + statistika) |
 | POST | `/hlasovani/{id}/import/potvrdit` | Potvrzení a provedení importu |
 | POST | `/hlasovani/{id}/listek/{ballot_id}/opravit` | Oprava zpracovaného lístku (reset hlasů → znovu zpracovat) |
@@ -763,6 +848,45 @@ wheels/                        # Offline Python balíčky (gitignored)
 | POST | `/sprava/duplicity/sloucit` | Sloučení jedné skupiny duplicit do cílového vlastníka |
 | POST | `/sprava/duplicity/sloucit-vse` | Sloučení všech skupin najednou (doporučení cíle) |
 
+### Evidence plateb (`/platby`)
+
+| Metoda | Cesta | Popis |
+|--------|-------|-------|
+| GET | `/platby` | Redirect na výchozí tab (předpisy) |
+| GET | `/platby/predpisy` | Seznam předpisů podle roku |
+| GET | `/platby/predpisy/import` | Import předpisů — formulář (upload DOCX) |
+| POST | `/platby/predpisy/import` | Import předpisů — zpracování DOCX |
+| GET | `/platby/predpisy/{year_id}` | Detail předpisů roku (tabulka s filtry) |
+| GET | `/platby/predpisy/{year_id}/{prescription_id}` | Detail jednoho předpisu (položky) |
+| POST | `/platby/predpisy/{year_id}/smazat` | Smazání roku předpisů |
+| GET | `/platby/symboly` | Seznam variabilních symbolů |
+| POST | `/platby/symboly/pridat` | Přidání VS mapování |
+| POST | `/platby/symboly/{id}/smazat` | Smazání VS mapování |
+| GET | `/platby/zustatky` | Počáteční zůstatky jednotek |
+| POST | `/platby/zustatky/pridat` | Přidání/úprava zůstatku |
+| POST | `/platby/zustatky/{id}/smazat` | Smazání zůstatku |
+| GET | `/platby/vypisy` | Seznam bankovních výpisů |
+| GET | `/platby/vypisy/import` | Import bankovního výpisu — formulář (upload CSV) |
+| POST | `/platby/vypisy/import` | Import bankovního výpisu — zpracování CSV |
+| GET | `/platby/vypisy/{id}` | Detail výpisu s platbami (filtry: stav, směr, hledání) |
+| POST | `/platby/vypisy/{id}/prirazeni/{payment_id}` | Ruční přiřazení platby (single/multi-unit) |
+| POST | `/platby/vypisy/{id}/potvrdit/{payment_id}` | Potvrzení navrženého přiřazení (SUGGESTED → MANUAL) |
+| POST | `/platby/vypisy/{id}/odmitnout/{payment_id}` | Odmítnutí navrženého přiřazení (SUGGESTED → UNMATCHED) |
+| POST | `/platby/vypisy/{id}/preparovat` | Přepárování plateb (reset AUTO + SUGGESTED, zachová MANUAL) |
+| POST | `/platby/vypisy/{id}/zamknout` | Zamčení/odemčení párování výpisu |
+| POST | `/platby/vypisy/{id}/smazat` | Smazání výpisu (zamčený výpis nelze smazat) |
+| GET | `/platby/prehled` | Matice plateb (jednotky × měsíce) |
+| GET | `/platby/dluznici` | Seznam dlužníků |
+| POST | `/platby/dluznici/exportovat` | Export dlužníků (xlsx) |
+| GET | `/platby/jednotka/{unit_id}` | Platební detail jedné jednotky |
+| GET | `/platby/vyuctovani` | Seznam vyúčtování (rok, filtry, search, sort) |
+| GET | `/platby/vyuctovani/{id}` | Detail vyúčtování (položky, platby, stav) |
+| POST | `/platby/vyuctovani/generovat` | Generování vyúčtování pro rok |
+| POST | `/platby/vyuctovani/{id}/stav` | Změna stavu vyúčtování |
+| POST | `/platby/vyuctovani/hromadny-stav` | Hromadná změna stavu vyúčtování |
+| GET | `/platby/vyuctovani/exportovat/{fmt}` | Export vyúčtování (xlsx souhrn / xlsx s položkami) |
+| POST | `/platby/vyuctovani/smazat-rok` | Smazání všech vyúčtování roku |
+
 ### Nastavení (`/nastaveni`)
 
 | Metoda | Cesta | Popis |
@@ -803,6 +927,11 @@ LIBREOFFICE_PATH=/Applications/LibreOffice.app/Contents/MacOS/soffice
 - **CodeListItem** — položky číselníků (category: space_type/section/room_count/ownership_type, value, order); unique index na (category, value)
 - **EmailTemplate** — šablony emailů pro hromadné rozesílání (name, subject_template, body_template, order); placeholder `{rok}` nahrazen při výběru
 - **ActivityLog** — log aktivit (modul, akce, entita, timestamp); **ActivityAction** — enum typů aktivit (CREATED, UPDATED, DELETED, STATUS_CHANGED, IMPORTED, EXPORTED, RESTORED)
+- **PrescriptionYear** → **Prescription** (monthly_total, variable_symbol, space_type) → **PrescriptionItem** (name, amount, category, order); předpisy plateb per rok/jednotka
+- **VariableSymbolMapping** — mapování VS → jednotka (source: manual/auto/legacy)
+- **BankStatement** (locked_at) — importovaný bankovní výpis (Fio CSV); → **Payment** (amount, date, direction, match_status, unit_id) → **PaymentAllocation** (payment_id, unit_id, owner_id, amount — dual-write pro multi-unit platby); PaymentMatchStatus (UNMATCHED/AUTO_MATCHED/SUGGESTED/MANUAL), PaymentDirection (INCOME/EXPENSE); **BankStatementColumnMapping** (zapamatované mapování sloupců CSV)
+- **UnitBalance** — počáteční zůstatek jednotky per rok (opening_amount, source: manual/import/carryover)
+- **Settlement** → **SettlementItem** — roční vyúčtování per jednotka; SettlementStatus (GENERATED/SENT/PAID/OVERDUE)
 - **EmailLog** (+ `name_normalized` pro diacritics-insensitive vyhledávání), **ImportLog** — systémové logy
 
 ## Bezpečnost a kvalita kódu
@@ -918,6 +1047,24 @@ Zbývající nálezy z druhého auditu: autentizace (plánováno), CSRF ochrana,
 - Exception handling: try/except ve všech restore endpointech s error flash messages
 - Post-restore migrace vrací warnings list pro UI feedback
 - Odstraněn nebezpečný endpoint `obnovit-adresar` (přijímal libovolnou cestu z formuláře)
+
+**Osmý audit — platební modul (2026-03-22) — 28 nálezů, opraveno 20:**
+- Refaktoring `match_payments()` na 3 fázové funkce (VS match, name match, VS-prefix decode)
+- Sdílená `templates` instance z `app.utils` (nahrazeno 9 duplicitních `Jinja2Templates` setupů)
+- `_create_error_log()` helper v email_service (nahrazeny 4 copy-paste bloky)
+- `except Exception: pass` → `logger.debug()` s exc_info ve statements.py
+- `overflow-x-auto` wrapper na tabulkách ve 27 šablonách (mobilní responsivita)
+- `datetime.utcnow()` → helper `utcnow()` v `app/utils.py` (44 výskytů, Python 3.12+ kompatibilita)
+- Lokální kopie Tailwind CSS + HTMX s CDN fallback (offline podpora)
+- `aria-label` na 22 inputech/checkboxech ve 13 šablonách (WCAG AA)
+- Rozdělen `administration.py` (1426 ř.) na package — 6 modulů (info, board, code_lists, backups, bulk)
+- Rozdělen `sync.py` (1171 ř.) na package — 4 moduly (session, contacts, exchange)
+- Refaktoring 4 nejdelších funkcí na menší helpery (20 nových helper funkcí)
+- 248 automatizovaných testů (voting, backup, CSV comparator, payment matching)
+- Pre-push git hook + GitHub Actions CI workflow
+- UX Optimizer: 18/18 nálezů opraveno (compute_nav_stats skip, export matice, VS inline edit, hromadné potvrzení SUGGESTED, hromadná změna stavu filtrovaných, search výpisů, hardcoded rok, confirm dialogy, dashboard dlužníci, empty state CTA, sort měsíců v matici, sidebar badge dlužníků)
+- Zobrazení všech spoluvlastníků v platebním modulu (dlužníci, matice, vyúčtování, exporty)
+- Zbývá: autentizace + CSRF
 
 ## UX vylepšení
 

@@ -111,6 +111,7 @@
         </div>
 
         {% if stats.item_results %}
+        <div class="overflow-x-auto">
         <table class="w-full text-xs" style="table-layout:fixed">
             <colgroup>
                 <col>
@@ -137,6 +138,7 @@
                 {% endfor %}
             </tbody>
         </table>
+        </div>
         {% endif %}
     </div>
     {% endfor %}

@@ -10,9 +10,9 @@
     if(s==='dark'||(!s&&matchMedia('(prefers-color-scheme:dark)').matches))
     document.documentElement.classList.add('dark')})();
     </script>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.tailwindcss.com" onerror="var s=document.createElement('script');s.src='/static/js/tailwind.min.js';document.head.appendChild(s)"></script>
     <script>tailwind.config={darkMode:'class'}</script>
-    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <script src="https://unpkg.com/htmx.org@2.0.4" onerror="var s=document.createElement('script');s.src='/static/js/htmx.min.js';document.head.appendChild(s)"></script>
     <link rel="stylesheet" href="/static/css/custom.css">
     <link rel="stylesheet" href="/static/css/dark-mode.css">
     {% block extra_head %}{% endblock %}
@@ -103,6 +103,19 @@
                         Kontroly
                     </a>
                 </li>
+                <li>
+                    <a href="/platby?back=/" class="flex items-center px-2 py-2 rounded-lg text-xs font-medium transition-colors
+                        {% if active_nav == 'platby' %}bg-gray-700 text-white{% else %}text-gray-300 hover:bg-gray-700 hover:text-white{% endif %}">
+                        <svg aria-hidden="true" class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/>
+                        </svg>
+                        Platby
+                        {% set _dcount = request.state.nav_debtor_count|default(0) %}
+                        {% if _dcount > 0 %}
+                        <span class="ml-auto px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-red-600 text-white">{{ _dcount }}</span>
+                        {% endif %}
+                    </a>
+                </li>
                 <li class="pt-4">
                     <p class="px-2 text-xs uppercase tracking-wider text-gray-500 font-semibold">Systém</p>
                 </li>
@@ -141,21 +154,6 @@
 
         <!-- Main content -->
         <main class="md:ml-44 flex-1 p-4 pt-14 md:pt-6 md:p-6 min-w-0 overflow-x-hidden">
-            <!-- Flash messages -->
-            <div id="flash-messages">
-                {% if flash_message %}
-                <div role="alert" {% if flash_type != 'error' %}data-auto-dismiss{% endif %} class="p-4 rounded-lg mb-4 flex items-center justify-between
-                    {% if flash_type == 'error' %}bg-red-100 text-red-700 border border-red-200
-                    {% elif flash_type == 'warning' %}bg-yellow-100 text-yellow-700 border border-yellow-200
-                    {% else %}bg-green-100 text-green-700 border border-green-200{% endif %}">
-                    <span>{{ flash_message }}</span>
-                    {% if flash_type == 'error' %}
-                    <button onclick="this.parentElement.remove()" aria-label="Zavřít hlášku" class="ml-4 text-red-500 hover:text-red-700 font-bold text-lg leading-none">&times;</button>
-                    {% endif %}
-                </div>
-                {% endif %}
-            </div>
-
             {% block content %}{% endblock %}
         </main>
     </div>
@@ -200,7 +198,29 @@
         </div>
     </div>
 
-    <script src="/static/js/app.js?v=14"></script>
+    <!-- Toast notifications (fixed position, no layout shift) -->
+    <div id="toast-container" class="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none" style="max-width: 28rem;">
+        {% if flash_message %}
+        <div role="alert" data-auto-dismiss{% if flash_type == 'error' %}="0"{% endif %}
+             class="pointer-events-auto px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 text-sm animate-slide-in
+                {% if flash_type == 'error' %}bg-red-600 text-white
+                {% elif flash_type == 'warning' %}bg-yellow-500 text-white
+                {% else %}bg-gray-800 text-white{% endif %}">
+            {% if flash_type == 'error' %}
+            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
+            {% elif flash_type == 'warning' %}
+            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
+            {% else %}
+            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+            {% endif %}
+            <span class="flex-1">{{ flash_message }}</span>
+            <button onclick="this.parentElement.style.transition='opacity 0.2s';this.parentElement.style.opacity='0';setTimeout(function(){this.parentElement.remove()}.bind(this),200)"
+                    aria-label="Zavřít hlášku" class="ml-2 text-white/70 hover:text-white flex-shrink-0">&times;</button>
+        </div>
+        {% endif %}
+    </div>
+
+    <script src="/static/js/app.js?v=15"></script>
     <script>
     function toggleSidebar() {
         var sb = document.getElementById('sidebar');

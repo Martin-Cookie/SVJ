@@ -122,46 +122,29 @@ def _get_cell(cells: dict, field_key: str, fm: dict) -> str | None:
     return cells.get(col_1)
 
 
-def preview_contact_import(
+def _load_and_parse_excel(
     file_path: str,
-    db: Session,
-    progress: dict | None = None,
-    mapping: dict | None = None,
-) -> dict:
-    """Parse Excel and return preview of changes.
+    mapping: dict,
+) -> tuple[list[tuple[int, dict]], str | None]:
+    """Load Excel file and parse data rows.
 
     Args:
-        progress: optional shared dict updated with 'total'/'current' for progress tracking.
-        mapping: column mapping dict. If None, uses DEFAULT_CONTACT_MAPPING.
+        file_path: path to Excel file.
+        mapping: resolved mapping dict (with sheet_name, start_row, fields).
 
-    Returns dict with keys:
-    - rows: list of dicts with excel_row, excel_name, owner_id, owner_name, matched, changes
-    - stats: total_rows, matched_count, unmatched_count, with_changes, changes_by_field
+    Returns:
+        (data_rows, error) — data_rows is list of (row_num, cells_dict) tuples.
+        If error is not None, data_rows is empty and error contains the message.
     """
-    m = mapping or DEFAULT_CONTACT_MAPPING
-    fm = m.get("fields", DEFAULT_CONTACT_MAPPING["fields"])
-    sheet_name = m.get("sheet_name", "ZU")
-    start_row = m.get("start_row", 7)
-
-    if progress is not None:
-        progress["phase"] = "Načítám Excel..."
+    sheet_name = mapping.get("sheet_name", "ZU")
+    start_row = mapping.get("start_row", 7)
 
     try:
         wb = load_workbook(file_path, read_only=True, data_only=True)
     except Exception as e:
         import logging as _log
         _log.getLogger(__name__).warning("Failed to open Excel: %s", e)
-        return {
-            "rows": [],
-            "stats": {
-                "total_rows": 0,
-                "matched_count": 0,
-                "unmatched_count": 0,
-                "with_changes": 0,
-                "changes_by_field": {},
-            },
-            "error": "Nepodařilo se otevřít Excel soubor.",
-        }
+        return [], "Nepodařilo se otevřít Excel soubor."
 
     # Select sheet
     if sheet_name and sheet_name in wb.sheetnames:
@@ -184,13 +167,15 @@ def preview_contact_import(
             data_rows.append((row[0].row, cells))
 
     wb.close()
+    return data_rows, None
 
-    if progress is not None:
-        progress["phase"] = "Porovnávám s evidencí..."
-        progress["total"] = len(data_rows)
-        progress["current"] = 0
 
-    # Build owner lookup by normalized name + RČ/IČ
+def _build_owner_lookups(db: Session) -> tuple[dict, dict]:
+    """Build owner lookup dicts from active owners.
+
+    Returns:
+        (owner_by_name, owner_by_rc) — dicts mapping normalized name / RČ / IČ to Owner.
+    """
     owners = db.query(Owner).filter_by(is_active=True).all()
     owner_by_name = {}
     owner_by_rc = {}
@@ -205,14 +190,217 @@ def preview_contact_import(
         if o.company_id:
             ic_key = o.company_id.replace(" ", "")
             owner_by_rc[ic_key] = o
+    return owner_by_name, owner_by_rc
+
+
+def _extract_owner_name(
+    cells: dict,
+    mapping: dict,
+    name_cols: dict,
+) -> tuple[str | None, str | None, str]:
+    """Extract first_name, last_name and build display name from Excel row cells.
+
+    Args:
+        cells: dict of {1-based col → value} for the row.
+        mapping: resolved mapping dict (used for _title_before_col etc.).
+        name_cols: dict with 'match_name_col_0', 'last_name_col',
+                   'title_before_col', 'title_after_col'.
+
+    Returns:
+        (first_name, last_name, excel_name) — first/last may be None.
+        excel_name is the formatted display name from Excel.
+    """
+    match_name_col_0 = name_cols.get("match_name_col_0")
+    last_name_col = name_cols.get("last_name_col")
+    title_before_col = name_cols.get("title_before_col")
+    title_after_col = name_cols.get("title_after_col")
+
+    # Get name for matching
+    if match_name_col_0 is not None:
+        first_name = cells.get(match_name_col_0 + 1)
+    else:
+        first_name = None
+
+    # Try to get last_name from separate column (default layout)
+    if last_name_col is not None:
+        last_name = cells.get(last_name_col + 1)
+    else:
+        last_name = None
+
+    # Build display name
+    name_parts = []
+    if title_before_col is not None:
+        t = cells.get(title_before_col + 1)
+        if t:
+            name_parts.append(t)
+    if last_name:
+        name_parts.append(last_name)
+    if first_name:
+        name_parts.append(first_name)
+    if title_after_col is not None:
+        t = cells.get(title_after_col + 1)
+        if t:
+            name_parts.append(t)
+    excel_name = " ".join(name_parts) if name_parts else (first_name or "")
+
+    return first_name, last_name, excel_name
+
+
+def _compare_field(
+    owner: Owner,
+    cells: dict,
+    field_key: str,
+    fm: dict,
+    changes: list,
+    changes_by_field: dict,
+) -> None:
+    """Compare a single field between Excel row and owner, appending to changes if different.
+
+    Handles secondary routing for phone/email fields and all edge cases.
+    Mutates `changes` list and `changes_by_field` dict in place.
+
+    Args:
+        owner: matched Owner instance.
+        cells: dict of {1-based col → value} for the row.
+        field_key: key from _IMPORT_FIELDS.
+        fm: fields sub-dict from mapping.
+        changes: list to append change dicts to.
+        changes_by_field: dict to increment field counts in.
+    """
+    col_0 = fm.get(field_key)
+    if col_0 is None:
+        return
+    excel_val = cells.get(col_0 + 1)
+    if not excel_val:
+        return
+
+    label = _FIELD_LABELS.get(field_key, field_key)
+
+    # email_secondary: only use if value looks like email
+    if field_key == "email_secondary" and "@" not in excel_val:
+        return
+
+    field = field_key
+    # RČ/IČ: use correct DB field based on owner type
+    if field == "birth_number" and owner.owner_type == OwnerType.LEGAL_ENTITY:
+        field = "company_id"
+        label = "IČ"
+
+    current_val = getattr(owner, field, None) or ""
+
+    # Intelligent routing for phone/email → secondary fields
+    secondary_map = {
+        "phone": ("phone_secondary", "→ Telefon GSM 2"),
+        "email": ("email_secondary", "→ Email 2"),
+    }
+    if field in secondary_map:
+        sec_field, sec_label = secondary_map[field]
+        sec_val = getattr(owner, sec_field, None) or ""
+        is_phone = field == "phone"
+
+        if is_phone:
+            match_primary = _normalize_phone(current_val) == _normalize_phone(excel_val)
+            match_secondary = _normalize_phone(sec_val) == _normalize_phone(excel_val)
+        else:
+            match_primary = current_val.strip().lower() == excel_val.strip().lower()
+            match_secondary = sec_val.strip().lower() == excel_val.strip().lower()
+
+        if not current_val.strip():
+            pass  # Primary empty → fill primary
+        elif match_primary or match_secondary:
+            return
+        elif not sec_val.strip():
+            changes.append({
+                "field": sec_field,
+                "label": sec_label,
+                "current": "",
+                "new": excel_val,
+                "is_overwrite": False,
+                "is_secondary": True,
+                "primary_label": label,
+                "primary_current": current_val,
+            })
+            changes_by_field[sec_field] = changes_by_field.get(sec_field, 0) + 1
+            return
+        else:
+            pass  # Both occupied → overwrite primary
+    else:
+        if field in ("phone_landline",):
+            if _normalize_phone(current_val) == _normalize_phone(excel_val):
+                return
+        elif field == "email_secondary":
+            primary_email = (getattr(owner, "email", None) or "").strip().lower()
+            if excel_val.strip().lower() == primary_email:
+                return
+            if current_val and current_val.strip().lower() == excel_val.strip().lower():
+                return
+            if any(c["field"] == "email_secondary" for c in changes):
+                return
+        elif current_val and current_val.strip() == excel_val.strip():
+            return
+
+    changes.append({
+        "field": field,
+        "label": label,
+        "current": current_val,
+        "new": excel_val,
+        "is_overwrite": bool(current_val.strip()),
+    })
+    changes_by_field[field] = changes_by_field.get(field, 0) + 1
+
+
+def preview_contact_import(
+    file_path: str,
+    db: Session,
+    progress: dict | None = None,
+    mapping: dict | None = None,
+) -> dict:
+    """Parse Excel and return preview of changes.
+
+    Args:
+        progress: optional shared dict updated with 'total'/'current' for progress tracking.
+        mapping: column mapping dict. If None, uses DEFAULT_CONTACT_MAPPING.
+
+    Returns dict with keys:
+    - rows: list of dicts with excel_row, excel_name, owner_id, owner_name, matched, changes
+    - stats: total_rows, matched_count, unmatched_count, with_changes, changes_by_field
+    """
+    m = mapping or DEFAULT_CONTACT_MAPPING
+    fm = m.get("fields", DEFAULT_CONTACT_MAPPING["fields"])
+
+    if progress is not None:
+        progress["phase"] = "Načítám Excel..."
+
+    data_rows, error = _load_and_parse_excel(file_path, m)
+    if error is not None:
+        return {
+            "rows": [],
+            "stats": {
+                "total_rows": 0,
+                "matched_count": 0,
+                "unmatched_count": 0,
+                "with_changes": 0,
+                "changes_by_field": {},
+            },
+            "error": error,
+        }
+
+    if progress is not None:
+        progress["phase"] = "Porovnávám s evidencí..."
+        progress["total"] = len(data_rows)
+        progress["current"] = 0
+
+    owner_by_name, owner_by_rc = _build_owner_lookups(db)
 
     # Name building columns — for display of Excel name
     # Default layout has separate first_name(16), last_name(17), title_before(15), title_after(18)
     # Custom mapping: match_name is the primary name column
-    title_before_col = m.get("_title_before_col")
-    last_name_col = m.get("_last_name_col")
-    title_after_col = m.get("_title_after_col")
-    match_name_col_0 = fm.get("match_name")
+    name_cols = {
+        "match_name_col_0": fm.get("match_name"),
+        "last_name_col": m.get("_last_name_col"),
+        "title_before_col": m.get("_title_before_col"),
+        "title_after_col": m.get("_title_after_col"),
+    }
     match_rc_col_0 = fm.get("match_birth_number")
 
     rows = []
@@ -223,36 +411,10 @@ def preview_contact_import(
         if progress is not None:
             progress["current"] = idx + 1
 
-        # Get name for matching
-        if match_name_col_0 is not None:
-            first_name = cells.get(match_name_col_0 + 1)
-        else:
-            first_name = None
-
-        # Try to get last_name from separate column (default layout)
-        if last_name_col is not None:
-            last_name = cells.get(last_name_col + 1)
-        else:
-            last_name = None
+        first_name, last_name, excel_name = _extract_owner_name(cells, m, name_cols)
 
         if not first_name and not last_name:
             continue
-
-        # Build display name
-        name_parts = []
-        if title_before_col is not None:
-            t = cells.get(title_before_col + 1)
-            if t:
-                name_parts.append(t)
-        if last_name:
-            name_parts.append(last_name)
-        if first_name:
-            name_parts.append(first_name)
-        if title_after_col is not None:
-            t = cells.get(title_after_col + 1)
-            if t:
-                name_parts.append(t)
-        excel_name = " ".join(name_parts) if name_parts else (first_name or "")
 
         # Match to DB owner
         norm_name = _build_normalized_name(first_name, last_name)
@@ -275,86 +437,7 @@ def preview_contact_import(
         changes = []
         if owner:
             for field_key in _IMPORT_FIELDS:
-                col_0 = fm.get(field_key)
-                if col_0 is None:
-                    continue
-                excel_val = cells.get(col_0 + 1)
-                if not excel_val:
-                    continue
-
-                label = _FIELD_LABELS.get(field_key, field_key)
-
-                # email_secondary: only use if value looks like email
-                if field_key == "email_secondary" and "@" not in excel_val:
-                    continue
-
-                field = field_key
-                # RČ/IČ: use correct DB field based on owner type
-                if field == "birth_number" and owner.owner_type == OwnerType.LEGAL_ENTITY:
-                    field = "company_id"
-                    label = "IČ"
-
-                current_val = getattr(owner, field, None) or ""
-
-                # Intelligent routing for phone/email → secondary fields
-                secondary_map = {
-                    "phone": ("phone_secondary", "→ Telefon GSM 2"),
-                    "email": ("email_secondary", "→ Email 2"),
-                }
-                if field in secondary_map:
-                    sec_field, sec_label = secondary_map[field]
-                    sec_val = getattr(owner, sec_field, None) or ""
-                    is_phone = field == "phone"
-
-                    if is_phone:
-                        match_primary = _normalize_phone(current_val) == _normalize_phone(excel_val)
-                        match_secondary = _normalize_phone(sec_val) == _normalize_phone(excel_val)
-                    else:
-                        match_primary = current_val.strip().lower() == excel_val.strip().lower()
-                        match_secondary = sec_val.strip().lower() == excel_val.strip().lower()
-
-                    if not current_val.strip():
-                        pass  # Primary empty → fill primary
-                    elif match_primary or match_secondary:
-                        continue
-                    elif not sec_val.strip():
-                        changes.append({
-                            "field": sec_field,
-                            "label": sec_label,
-                            "current": "",
-                            "new": excel_val,
-                            "is_overwrite": False,
-                            "is_secondary": True,
-                            "primary_label": label,
-                            "primary_current": current_val,
-                        })
-                        changes_by_field[sec_field] = changes_by_field.get(sec_field, 0) + 1
-                        continue
-                    else:
-                        pass  # Both occupied → overwrite primary
-                else:
-                    if field in ("phone_landline",):
-                        if _normalize_phone(current_val) == _normalize_phone(excel_val):
-                            continue
-                    elif field == "email_secondary":
-                        primary_email = (getattr(owner, "email", None) or "").strip().lower()
-                        if excel_val.strip().lower() == primary_email:
-                            continue
-                        if current_val and current_val.strip().lower() == excel_val.strip().lower():
-                            continue
-                        if any(c["field"] == "email_secondary" for c in changes):
-                            continue
-                    elif current_val and current_val.strip() == excel_val.strip():
-                        continue
-
-                changes.append({
-                    "field": field,
-                    "label": label,
-                    "current": current_val,
-                    "new": excel_val,
-                    "is_overwrite": bool(current_val.strip()),
-                })
-                changes_by_field[field] = changes_by_field.get(field, 0) + 1
+                _compare_field(owner, cells, field_key, fm, changes, changes_by_field)
 
         rows.append({
             "excel_row": row_num,

@@ -9,12 +9,6 @@
         {% endif %}
     </div>
     <h1 class="text-xl font-bold text-gray-800 mb-4 flex-none">Kontroly</h1>
-    {% if flash_message %}
-    <div class="mb-3 p-3 rounded-lg text-sm flex-none {% if flash_type == 'error' %}bg-red-50 text-red-800 border border-red-200{% else %}bg-green-50 text-green-800 border border-green-200{% endif %}">
-        {{ flash_message }}
-    </div>
-    {% endif %}
-
     {# ── Taby ── #}
     <div class="flex gap-1 mb-4 flex-none border-b border-gray-200">
         <button id="tab-vlastnici" onclick="switchTab('vlastnici')"
@@ -56,7 +50,7 @@
                 </div>
                 <form id="sync-upload-form" action="/synchronizace/nova" method="post" enctype="multipart/form-data" hx-boost="false">
                     <div class="mb-3">
-                        <input type="file" name="file" accept=".csv" required
+                        <input type="file" name="file" accept=".csv" required hx-disable
                                onchange="document.getElementById('sync-submit-btn').classList.toggle('hidden', !this.files.length)"
                                class="file-input block w-full text-sm text-gray-500 file:mr-4 file:py-1.5 file:px-3
                                       file:rounded file:border-0 file:text-sm file:font-medium
@@ -88,6 +82,7 @@
                 </div>
                 {% if sync_sessions or sync_q %}
                 <div class="flex-none px-4">
+                    <div class="overflow-x-auto">
                     <table class="w-full text-sm">
                         <thead class="border-b border-gray-200">
                             <tr>
@@ -111,8 +106,10 @@
                             </tr>
                         </thead>
                     </table>
+                    </div>
                 </div>
                 <div class="flex-1 overflow-y-auto px-4 pb-4 min-h-0">
+                    <div class="overflow-x-auto">
                     <table class="w-full text-sm">
                         <tbody id="sync-history-body" class="divide-y divide-gray-100">
                             {% with sessions=sync_sessions, q=sync_q %}
@@ -120,6 +117,7 @@
                             {% endwith %}
                         </tbody>
                     </table>
+                    </div>
                 </div>
                 {% else %}
                 <div class="px-4 pb-4">
@@ -151,7 +149,7 @@
                 </div>
                 <form id="sc-upload-form" action="/kontrola-podilu/nova" method="post" enctype="multipart/form-data" hx-boost="false">
                     <div class="mb-3">
-                        <input type="file" name="file" accept=".csv,.xlsx,.xls" required
+                        <input type="file" name="file" accept=".csv,.xlsx,.xls" required hx-disable
                                onchange="document.getElementById('sc-submit-btn').classList.toggle('hidden', !this.files.length)"
                                class="file-input block w-full text-sm text-gray-500 file:mr-4 file:py-1.5 file:px-3
                                       file:rounded file:border-0 file:text-sm file:font-medium
@@ -182,6 +180,7 @@
                 </div>
                 {% if sc_sessions or sc_q %}
                 <div class="flex-none px-4">
+                    <div class="overflow-x-auto">
                     <table class="w-full text-sm">
                         <thead class="border-b border-gray-200">
                             <tr>
@@ -205,8 +204,10 @@
                             </tr>
                         </thead>
                     </table>
+                    </div>
                 </div>
                 <div class="flex-1 overflow-y-auto px-4 pb-4 min-h-0">
+                    <div class="overflow-x-auto">
                     <table class="w-full text-sm">
                         <tbody id="sc-history-body" class="divide-y divide-gray-100">
                             {% with sessions=sc_sessions, q=sc_q %}
@@ -214,6 +215,7 @@
                             {% endwith %}
                         </tbody>
                     </table>
+                    </div>
                 </div>
                 {% else %}
                 <div class="px-4 pb-4">

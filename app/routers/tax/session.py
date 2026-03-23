@@ -24,7 +24,7 @@ from app.models import (
     TaxDistribution, TaxDocument, TaxSession,
     ActivityAction, log_activity,
 )
-from app.utils import UPLOAD_LIMITS, build_list_url, excel_auto_width, is_htmx_partial, is_safe_path, strip_diacritics, validate_uploads
+from app.utils import UPLOAD_LIMITS, build_list_url, excel_auto_width, is_htmx_partial, is_safe_path, strip_diacritics, utcnow, validate_uploads
 
 from ._helpers import (
     logger, templates,
@@ -663,7 +663,7 @@ async def tax_export(session_id: int, db: Session = Depends(get_db)):
 
     buf = BytesIO()
     wb.save(buf)
-    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    timestamp = utcnow().strftime("%Y%m%d_%H%M%S")
     filename = f"rozeslani_{session_id}_{timestamp}.xlsx"
 
     return Response(

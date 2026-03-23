@@ -171,6 +171,125 @@ def _compare_structured_names(
     return "match"
 
 
+def _parse_csv_share(share_str: str, unit: str = "") -> int | None:
+    """Parse share string — handles '12212/4103391' fraction format and plain numbers."""
+    if not share_str:
+        return None
+    try:
+        if "/" in share_str:
+            return int(share_str.split("/")[0].strip())
+        else:
+            return int(float(share_str))
+    except (ValueError, TypeError):
+        logger.debug("Cannot parse CSV share value '%s' for unit %s", share_str, unit)
+        return None
+
+
+_NAME_SEPARATORS = re.compile(r"[,;\s]+")
+_NAME_CONNECTORS = {"a", "and", "und", "sjm", "sj", ""}
+
+
+def _match_owner_names(
+    csv_norm: str,
+    excel_norm: str,
+    csv_owners_raw: str,
+    excel_names_combined: str,
+) -> tuple[float, float, bool]:
+    """
+    Apply 4 string matching strategies for owner names.
+
+    Returns (best_ratio, parts_overlap, individuals_match).
+    """
+    # Strategy 1: SequenceMatcher ratio
+    ratio = SequenceMatcher(None, csv_norm, excel_norm).ratio()
+
+    # Strategy 2: Compare as sets of name parts (handles different order and separators)
+    csv_parts = set(_NAME_SEPARATORS.split(csv_norm)) - _NAME_CONNECTORS
+    excel_parts = set(_NAME_SEPARATORS.split(excel_norm)) - _NAME_CONNECTORS
+
+    if csv_parts and excel_parts:
+        parts_overlap = len(csv_parts & excel_parts) / len(csv_parts | excel_parts)
+    else:
+        parts_overlap = 0.0
+
+    best_ratio = max(ratio, parts_overlap)
+
+    # Strategy 3: Compare as sorted individual names (handles SJM pairs in different order/separator)
+    csv_individuals = sorted(
+        " ".join(sorted(normalize_for_matching(n).split()))
+        for n in re.split(r'\s*[;,]\s*', csv_owners_raw) if n.strip()
+    )
+    excel_individuals = sorted(
+        " ".join(sorted(normalize_for_matching(n).split()))
+        for n in re.split(r'\s*[;,]\s*', excel_names_combined) if n.strip()
+    )
+    individuals_match = csv_individuals == excel_individuals
+
+    return best_ratio, parts_overlap, individuals_match
+
+
+def _determine_status(
+    structured_result: str | None,
+    parts_overlap: float,
+    individuals_match: bool,
+    best_ratio: float,
+    exact_string_match: bool,
+) -> SyncStatus:
+    """Decision tree for primary comparison status (name comparison only)."""
+    if structured_result == "match" or parts_overlap == 1.0 or individuals_match:
+        return SyncStatus.MATCH
+    elif structured_result == "name_order":
+        return SyncStatus.NAME_ORDER
+    elif best_ratio >= 0.85 and exact_string_match:
+        return SyncStatus.MATCH
+    elif best_ratio >= 0.85:
+        # Names are the same people, just in different order/format
+        return SyncStatus.NAME_ORDER
+    else:
+        return SyncStatus.DIFFERENCE
+
+
+def _check_secondary_mismatches(
+    csv_share: int | None,
+    excel_podil_scd: int | None,
+    csv_type: str,
+    excel_ownership_type: str,
+) -> tuple[bool, bool]:
+    """Detect share + ownership type differences. Returns (share_mismatch, type_mismatch)."""
+    share_mismatch = (
+        csv_share is not None
+        and excel_podil_scd
+        and csv_share != excel_podil_scd
+    )
+
+    type_mismatch = False
+    if csv_type and excel_ownership_type:
+        csv_type_norm = csv_type.strip().lower()
+        excel_type_norm = excel_ownership_type.strip().lower()
+        if csv_type_norm != excel_type_norm:
+            type_mismatch = True
+
+    return share_mismatch, type_mismatch
+
+
+def _sort_results(results: list[dict]) -> None:
+    """Sort results in-place by status priority (differences first) then unit number."""
+    status_order = {
+        SyncStatus.DIFFERENCE: 0,
+        SyncStatus.MISSING_EXCEL: 1,
+        SyncStatus.MISSING_CSV: 2,
+        SyncStatus.MATCH: 3,
+    }
+
+    def _unit_sort_key(r):
+        try:
+            return int(r["unit_number"])
+        except (ValueError, TypeError):
+            return 0
+
+    results.sort(key=lambda r: (status_order.get(r["status"], 4), _unit_sort_key(r)))
+
+
 def compare_owners(
     csv_records: list[dict],
     excel_data: list[dict],
@@ -197,17 +316,7 @@ def compare_owners(
         csv_owners_raw = csv_rec.get("owners", "")
         csv_type = csv_rec.get("ownership_type", "")
         csv_space_type = csv_rec.get("space_type", "")
-        # Extract share: "12212/4103391" -> 12212 or plain "3051" -> 3051
-        csv_share_raw = csv_rec.get("share", "")
-        csv_share = None
-        if csv_share_raw:
-            try:
-                if "/" in csv_share_raw:
-                    csv_share = int(csv_share_raw.split("/")[0].strip())
-                else:
-                    csv_share = int(float(csv_share_raw))
-            except (ValueError, TypeError):
-                logger.debug("Cannot parse CSV share value '%s' for unit %s", csv_share_raw, unit)
+        csv_share = _parse_csv_share(csv_rec.get("share", ""), unit)
 
         if unit not in excel_by_unit:
             results.append({
@@ -237,41 +346,9 @@ def compare_owners(
         csv_norm = normalize_for_matching(csv_owners_raw)
         excel_norm = normalize_for_matching(excel_names_combined)
 
-        # Compare names
-        ratio = SequenceMatcher(None, csv_norm, excel_norm).ratio()
-
-        # Compare as sets of name parts (handles different order and separators)
-        # Split on commas, semicolons, and whitespace
-        separators = re.compile(r"[,;\s]+")
-        csv_parts = set(separators.split(csv_norm))
-        excel_parts = set(separators.split(excel_norm))
-        connectors = {"a", "and", "und", "sjm", "sj", ""}
-        csv_parts -= connectors
-        excel_parts -= connectors
-
-        if csv_parts and excel_parts:
-            parts_overlap = len(csv_parts & excel_parts) / len(csv_parts | excel_parts)
-        else:
-            parts_overlap = 0.0
-
-        best_ratio = max(ratio, parts_overlap)
-
-        # Compare as sorted individual names (handles SJM pairs in different order/separator)
-        csv_individuals = sorted(
-            " ".join(sorted(normalize_for_matching(n).split()))
-            for n in re.split(r'\s*[;,]\s*', csv_owners_raw) if n.strip()
-        )
-        excel_individuals = sorted(
-            " ".join(sorted(normalize_for_matching(n).split()))
-            for n in re.split(r'\s*[;,]\s*', excel_names_combined) if n.strip()
-        )
-        individuals_match = csv_individuals == excel_individuals
-
-        # Check share mismatch
-        share_mismatch = (
-            csv_share is not None
-            and excel_podil_scd
-            and csv_share != excel_podil_scd
+        # Apply name matching strategies
+        best_ratio, parts_overlap, individuals_match = _match_owner_names(
+            csv_norm, excel_norm, csv_owners_raw, excel_names_combined,
         )
 
         # Determine status: try structured comparison first, then fuzzy fallback
@@ -287,25 +364,15 @@ def compare_owners(
         # Status reflects name comparison only; share/type differences are
         # captured in match_details and shown via field checkboxes in the UI.
         exact_string_match = csv_norm == excel_norm
-        if structured_result == "match" or parts_overlap == 1.0 or individuals_match:
-            status = SyncStatus.MATCH
-        elif structured_result == "name_order":
-            status = SyncStatus.NAME_ORDER
-        elif best_ratio >= 0.85 and exact_string_match:
-            status = SyncStatus.MATCH
-        elif best_ratio >= 0.85:
-            # Names are the same people, just in different order/format
-            status = SyncStatus.NAME_ORDER
-        else:
-            status = SyncStatus.DIFFERENCE
+        status = _determine_status(
+            structured_result, parts_overlap, individuals_match,
+            best_ratio, exact_string_match,
+        )
 
-        # Check ownership type mismatch (compare ownership_type, not owner_type)
-        type_mismatch = False
-        if csv_type and excel_ownership_type_raw:
-            csv_type_norm = csv_type.strip().lower()
-            excel_type_norm = excel_ownership_type_raw.strip().lower()
-            if csv_type_norm != excel_type_norm:
-                type_mismatch = True
+        # Check secondary mismatches (share + ownership type)
+        share_mismatch, type_mismatch = _check_secondary_mismatches(
+            csv_share, excel_podil_scd, csv_type, excel_ownership_type_raw,
+        )
 
         details = f"{best_ratio:.0%}"
         if share_mismatch:
@@ -348,18 +415,6 @@ def compare_owners(
                     "match_details": "Jednotka v Excelu, ale ne v CSV",
                 })
 
-    # Sort: differences first, then missing, then matches
-    status_order = {
-        SyncStatus.DIFFERENCE: 0,
-        SyncStatus.MISSING_EXCEL: 1,
-        SyncStatus.MISSING_CSV: 2,
-        SyncStatus.MATCH: 3,
-    }
-    def _unit_sort_key(r):
-        try:
-            return int(r["unit_number"])
-        except (ValueError, TypeError):
-            return 0
-    results.sort(key=lambda r: (status_order.get(r["status"], 4), _unit_sort_key(r)))
+    _sort_results(results)
 
     return results

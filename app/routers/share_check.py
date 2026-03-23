@@ -23,7 +23,7 @@ from app.services.owner_exchange import recalculate_unit_votes
 from app.services.share_check_comparator import (
     compare_shares, get_file_headers, get_file_preview, parse_file, suggest_mapping,
 )
-from app.utils import UPLOAD_LIMITS, build_list_url, excel_auto_width, is_htmx_partial, is_safe_path, strip_diacritics, templates, validate_upload
+from app.utils import UPLOAD_LIMITS, build_list_url, excel_auto_width, is_htmx_partial, is_safe_path, strip_diacritics, templates, utcnow, validate_upload
 
 router = APIRouter()
 
@@ -183,7 +183,7 @@ async def share_check_confirm_mapping(
     )
     if existing:
         existing.used_count += 1
-        existing.last_used_at = datetime.utcnow()
+        existing.last_used_at = utcnow()
     else:
         mapping = ShareCheckColumnMapping(
             col_unit=col_unit,

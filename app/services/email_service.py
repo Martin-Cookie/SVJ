@@ -3,13 +3,13 @@ from __future__ import annotations
 """
 Email sending service using smtplib with attachment support.
 """
+import asyncio
 import html as html_module
 import logging
 import smtplib
 import socket
 
 logger = logging.getLogger(__name__)
-from datetime import datetime
 from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.models.common import EmailLog, EmailStatus
-from app.utils import strip_diacritics
+from app.utils import strip_diacritics, utcnow
 
 
 def create_smtp_connection():
@@ -69,6 +69,25 @@ def _build_message(
     return msg, attachment_full_paths
 
 
+def _create_error_log(db: Session, to_email: str, to_name: str, subject: str,
+                     body_html: str, module: str, reference_id: int | None,
+                     error_msg: str) -> None:
+    """Vytvořit EmailLog záznam pro chybový stav."""
+    log = EmailLog(
+        recipient_email=to_email,
+        recipient_name=to_name,
+        name_normalized=strip_diacritics(to_name or ""),
+        subject=subject,
+        body_preview=body_html[:500] if body_html else None,
+        status=EmailStatus.FAILED,
+        module=module,
+        reference_id=reference_id,
+        error_message=error_msg,
+    )
+    db.add(log)
+    db.commit()
+
+
 def send_email(
     to_email: str,
     to_name: str,
@@ -89,18 +108,7 @@ def send_email(
     if settings.smtp_host in ("smtp.example.com", ""):
         error_msg = "SMTP server není nakonfigurován. Nastavte SMTP_HOST v souboru .env"
         if db:
-            log = EmailLog(
-                recipient_email=to_email,
-                recipient_name=to_name, name_normalized=strip_diacritics(to_name or ""),
-                subject=subject,
-                body_preview=body_html[:500] if body_html else None,
-                status=EmailStatus.FAILED,
-                module=module,
-                reference_id=reference_id,
-                error_message=error_msg,
-            )
-            db.add(log)
-            db.commit()
+            _create_error_log(db, to_email, to_name, subject, body_html, module, reference_id, error_msg)
         return {"success": False, "error": error_msg}
 
     # Create own SMTP connection if not provided
@@ -116,37 +124,16 @@ def send_email(
         except smtplib.SMTPAuthenticationError:
             error_msg = "Přihlášení k SMTP serveru selhalo. Zkontrolujte uživatelské jméno a heslo v Nastavení. Pro Gmail použijte App Password."
             if db:
-                log = EmailLog(
-                    recipient_email=to_email, recipient_name=to_name, name_normalized=strip_diacritics(to_name or ""), subject=subject,
-                    body_preview=body_html[:500] if body_html else None,
-                    status=EmailStatus.FAILED, module=module, reference_id=reference_id,
-                    error_message=error_msg,
-                )
-                db.add(log)
-                db.commit()
+                _create_error_log(db, to_email, to_name, subject, body_html, module, reference_id, error_msg)
             return {"success": False, "error": error_msg}
         except socket.gaierror:
             error_msg = f"SMTP server '{settings.smtp_host}' není dostupný. Zkontrolujte nastavení v souboru .env"
             if db:
-                log = EmailLog(
-                    recipient_email=to_email, recipient_name=to_name, name_normalized=strip_diacritics(to_name or ""), subject=subject,
-                    body_preview=body_html[:500] if body_html else None,
-                    status=EmailStatus.FAILED, module=module, reference_id=reference_id,
-                    error_message=error_msg,
-                )
-                db.add(log)
-                db.commit()
+                _create_error_log(db, to_email, to_name, subject, body_html, module, reference_id, error_msg)
             return {"success": False, "error": error_msg}
         except Exception as e:
             if db:
-                log = EmailLog(
-                    recipient_email=to_email, recipient_name=to_name, name_normalized=strip_diacritics(to_name or ""), subject=subject,
-                    body_preview=body_html[:500] if body_html else None,
-                    status=EmailStatus.FAILED, module=module, reference_id=reference_id,
-                    error_message=str(e),
-                )
-                db.add(log)
-                db.commit()
+                _create_error_log(db, to_email, to_name, subject, body_html, module, reference_id, str(e))
             return {"success": False, "error": str(e)}
 
     # Send separate email to each address
@@ -173,7 +160,7 @@ def send_email(
             server.send_message(msg)
             if log:
                 log.status = EmailStatus.SENT
-                log.sent_at = datetime.utcnow()
+                log.sent_at = utcnow()
         except Exception as e:
             errors.append(f"{addr}: {e}")
             if log:
@@ -222,3 +209,38 @@ def send_to_owner_emails(
         results.append(result)
 
     return results
+
+
+async def async_send_email(
+    to_email: str,
+    to_name: str,
+    subject: str,
+    body_html: str,
+    attachments: list[str] | None = None,
+    module: str = "",
+    reference_id: int | None = None,
+    db: Session | None = None,
+    smtp_server: smtplib.SMTP | None = None,
+) -> dict:
+    """Async wrapper pro send_email — neblokuje request thread."""
+    return await asyncio.to_thread(
+        send_email, to_email, to_name, subject, body_html,
+        attachments, module, reference_id, db, smtp_server,
+    )
+
+
+async def async_send_to_owner_emails(
+    owner_email: str,
+    owner_name: str,
+    subject: str,
+    body_html: str,
+    attachments: list[str] | None = None,
+    module: str = "",
+    reference_id: int | None = None,
+    db: Session | None = None,
+) -> list[dict]:
+    """Async wrapper pro send_to_owner_emails — neblokuje request thread."""
+    return await asyncio.to_thread(
+        send_to_owner_emails, owner_email, owner_name, subject, body_html,
+        attachments, module, reference_id, db,
+    )
