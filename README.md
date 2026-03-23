@@ -265,7 +265,7 @@ Modul pro správu předpisů, bankovních výpisů, variabilních symbolů a př
   - Ruční přiřazení: single-unit (celá částka) i multi-unit (čísla oddělená čárkou, částka rozdělena proporcionálně dle předpisů)
   - PaymentAllocation: dual-write model — každé přiřazení vytváří alokační záznamy (podpora multi-unit plateb kde jedna platba pokrývá více jednotek)
   - Zamčení/odemčení výpisu (`locked_at`) — zamčený výpis nelze přepárovat, měnit ani mazat
-- **Počáteční zůstatky** — evidované zůstatky per jednotka/rok
+- **Počáteční zůstatky** — evidované zůstatky per jednotka/rok s vazbou na vlastníka; import z Excelu (.xlsx/.xls) s 4-krokovým workflow (upload → mapování sloupců → náhled → potvrzení); ruční přidání/editace s dynamickým výběrem vlastníka; zobrazení dluhů v seznamech i detailech jednotek a vlastníků
 - **Matice plateb** — přehled 508 jednotek × 12 měsíců s barevným stavem (zaplaceno/částečně/nezaplaceno), filtry dle typu prostoru, řazení, hledání
 - **Dlužníci** — seznam jednotek s dluhem seřazený dle výše dluhu
 - **Detail plateb jednotky** — měsíční grid + seznam přijatých plateb
@@ -498,7 +498,8 @@ app/
 │   ├── owner_exchange.py      #   Výměna vlastníků při synchronizaci
 │   ├── backup_service.py      #   Zálohování a obnova dat (ZIP)
 │   ├── data_export.py         #   Export dat do Excel/CSV (7 kategorií)
-│   ├── import_mapping.py      #   Definice polí a auto-detekce mapování pro import vlastníků/kontaktů
+│   ├── import_mapping.py      #   Definice polí a auto-detekce mapování pro import vlastníků/kontaktů/zůstatků
+│   ├── balance_import.py      #   Import počátečních zůstatků z Excelu (.xlsx/.xls)
 │   ├── email_service.py       #   SMTP odesílání emailů
 │   ├── code_list_service.py   #   Sdílený přístup k číselníkům
 │   ├── prescription_import.py #   Parsování DOCX předpisů
@@ -578,6 +579,9 @@ app/
 │   │   ├── predpis_detail.html #    Detail jednoho předpisu (položky)
 │   │   ├── symboly.html       #     Variabilní symboly
 │   │   ├── zustatky.html      #     Počáteční zůstatky
+│   │   ├── zustatky_import.html #   Import zůstatků (upload)
+│   │   ├── zustatky_mapping.html #  Import — mapování sloupců
+│   │   ├── zustatky_preview.html #  Import — náhled před potvrzením
 │   │   ├── vypisy.html        #     Seznam bankovních výpisů
 │   │   ├── vypis_import.html  #     Import výpisu (CSV upload, confirm overwrite)
 │   │   ├── vypis_detail.html  #     Detail výpisu s platbami (filtry, search, lock)
@@ -863,8 +867,15 @@ wheels/                        # Offline Python balíčky (gitignored)
 | POST | `/platby/symboly/pridat` | Přidání VS mapování |
 | POST | `/platby/symboly/{id}/smazat` | Smazání VS mapování |
 | GET | `/platby/zustatky` | Počáteční zůstatky jednotek |
-| POST | `/platby/zustatky/pridat` | Přidání/úprava zůstatku |
+| POST | `/platby/zustatky/pridat` | Přidání zůstatku (s vlastníkem) |
+| POST | `/platby/zustatky/{id}/upravit` | Úprava zůstatku |
 | POST | `/platby/zustatky/{id}/smazat` | Smazání zůstatku |
+| GET | `/platby/zustatky/vlastnici/{unit_id}` | JSON API — vlastníci jednotky (pro dropdown) |
+| GET | `/platby/zustatky/import` | Import zůstatků — upload formulář |
+| POST | `/platby/zustatky/import` | Import zůstatků — upload souboru |
+| POST | `/platby/zustatky/import/mapovani` | Import — mapování sloupců |
+| POST | `/platby/zustatky/import/nahled` | Import — náhled dat |
+| POST | `/platby/zustatky/import/potvrdit` | Import — potvrzení importu |
 | GET | `/platby/vypisy` | Seznam bankovních výpisů |
 | GET | `/platby/vypisy/import` | Import bankovního výpisu — formulář (upload CSV) |
 | POST | `/platby/vypisy/import` | Import bankovního výpisu — zpracování CSV |
@@ -930,7 +941,7 @@ LIBREOFFICE_PATH=/Applications/LibreOffice.app/Contents/MacOS/soffice
 - **PrescriptionYear** → **Prescription** (monthly_total, variable_symbol, space_type) → **PrescriptionItem** (name, amount, category, order); předpisy plateb per rok/jednotka
 - **VariableSymbolMapping** — mapování VS → jednotka (source: manual/auto/legacy)
 - **BankStatement** (locked_at) — importovaný bankovní výpis (Fio CSV); → **Payment** (amount, date, direction, match_status, unit_id) → **PaymentAllocation** (payment_id, unit_id, owner_id, amount — dual-write pro multi-unit platby); PaymentMatchStatus (UNMATCHED/AUTO_MATCHED/SUGGESTED/MANUAL), PaymentDirection (INCOME/EXPENSE); **BankStatementColumnMapping** (zapamatované mapování sloupců CSV)
-- **UnitBalance** — počáteční zůstatek jednotky per rok (opening_amount, source: manual/import/carryover)
+- **UnitBalance** — počáteční zůstatek jednotky per rok (opening_amount, source: manual/import/carryover, owner_id FK → Owner, owner_name text z importu)
 - **Settlement** → **SettlementItem** — roční vyúčtování per jednotka; SettlementStatus (GENERATED/SENT/PAID/OVERDUE)
 - **EmailLog** (+ `name_normalized` pro diacritics-insensitive vyhledávání), **ImportLog** — systémové logy
 
