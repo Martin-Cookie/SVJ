@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
 from app.config import settings
-from app.database import Base, engine
+from app.database import Base, engine, SessionLocal
 
 logger = logging.getLogger(__name__)
 
@@ -567,6 +567,32 @@ async def add_security_headers(request, call_next):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     return response
+
+
+# Global debtor count for sidebar badge — runs on full-page HTML requests only
+@app.middleware("http")
+async def inject_debtor_count(request, call_next):
+    path = request.url.path
+    is_htmx_partial = (
+        request.headers.get("hx-request") == "true"
+        and request.headers.get("hx-boosted") != "true"
+    )
+    # Skip static files, HTMX partials, and non-page requests (exports, API)
+    if path.startswith("/static") or is_htmx_partial:
+        return await call_next(request)
+    # Compute debtor count
+    try:
+        from app.routers.payments._helpers import _count_debtors_fast
+        from app.models import PrescriptionYear
+        db = SessionLocal()
+        try:
+            py = db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).first()
+            request.state.nav_debtor_count = _count_debtors_fast(db, py.year) if py else 0
+        finally:
+            db.close()
+    except Exception:
+        request.state.nav_debtor_count = 0
+    return await call_next(request)
 
 # Raise default Starlette multipart limits (default max_files=1000 is too low
 # for large PDF directories uploaded via webkitdirectory)
