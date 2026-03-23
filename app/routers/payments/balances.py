@@ -320,7 +320,7 @@ async def zustatky_import_mapping_get(
     db: Session = Depends(get_db),
 ):
     """Mapování sloupců — GET (po reload)."""
-    if not file_path or not is_safe_path(file_path, [str(settings.upload_dir)]):
+    if not file_path or not is_safe_path(Path(file_path), settings.upload_dir):
         return RedirectResponse("/platby/zustatky/import", status_code=302)
     return _balance_mapping_page(request, file_path, filename, year or utcnow().year, db)
 
@@ -336,7 +336,7 @@ async def zustatky_import_mapping_post(
     db: Session = Depends(get_db),
 ):
     """Reload mapování s jiným sheet/řádkem."""
-    if not file_path or not is_safe_path(file_path, [str(settings.upload_dir)]):
+    if not file_path or not is_safe_path(Path(file_path), settings.upload_dir):
         return RedirectResponse("/platby/zustatky/import", status_code=302)
     return _balance_mapping_page(
         request, file_path, filename, year or utcnow().year, db,
@@ -390,7 +390,7 @@ async def zustatky_import_preview(
     db: Session = Depends(get_db),
 ):
     """Náhled importu s párováním."""
-    if not file_path or not is_safe_path(file_path, [str(settings.upload_dir)]):
+    if not file_path or not is_safe_path(Path(file_path), settings.upload_dir):
         return RedirectResponse("/platby/zustatky/import", status_code=302)
 
     import json as _json
@@ -435,7 +435,7 @@ async def zustatky_import_confirm(
     db: Session = Depends(get_db),
 ):
     """Provedení importu."""
-    if not file_path or not is_safe_path(file_path, [str(settings.upload_dir)]):
+    if not file_path or not is_safe_path(Path(file_path), settings.upload_dir):
         return RedirectResponse("/platby/zustatky?flash=import_chyba", status_code=302)
 
     import json as _json

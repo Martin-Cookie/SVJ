@@ -401,11 +401,12 @@ async def owner_detail(
 
     # Platební dluh vlastníka (přes jeho jednotky)
     owner_debt = 0
+    unit_debt_map = {}
     bal_py = db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).first()
     if bal_py:
-        unit_debt = compute_debt_map(db, bal_py.year)
+        unit_debt_map = compute_debt_map(db, bal_py.year)
         for ou in owner.current_units:
-            owner_debt += unit_debt.get(ou.unit_id, 0)
+            owner_debt += unit_debt_map.get(ou.unit_id, 0)
 
     ctx = {
         "request": request,
@@ -414,6 +415,7 @@ async def owner_detail(
         "available_units": available_units,
         "declared_shares": declared_shares,
         "owner_debt": owner_debt,
+        "unit_debt_map": unit_debt_map,
         "back_url": back or "/vlastnici",
         "back_label": (
             "Zpět na hromadné úpravy" if "/sprava/hromadne" in back
@@ -574,12 +576,15 @@ async def owner_merge(
         })
         # Also refresh units section via OOB (new units were merged in)
         available_units, declared_shares = _owner_units_context(owner, db)
+        _bal_py = db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).first()
+        _udm = compute_debt_map(db, _bal_py.year) if _bal_py else {}
         units_html = templates.TemplateResponse("partials/owner_units_section.html", {
             "request": request,
             "owner": owner,
             "available_units": available_units,
             "declared_shares": declared_shares,
             "code_lists": get_all_code_lists(db),
+            "unit_debt_map": _udm,
         })
         units_oob = (
             f'<div id="owner-units-section" hx-swap-oob="true">'
@@ -774,12 +779,15 @@ async def owner_add_unit(
 
     if request.headers.get("HX-Request"):
         available_units, declared_shares = _owner_units_context(owner, db)
+        _bal_py = db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).first()
+        _udm = compute_debt_map(db, _bal_py.year) if _bal_py else {}
         return templates.TemplateResponse("partials/owner_units_section.html", {
             "request": request,
             "owner": owner,
             "available_units": available_units,
             "declared_shares": declared_shares,
             "code_lists": get_all_code_lists(db),
+            "unit_debt_map": _udm,
         })
     return RedirectResponse(f"/vlastnici/{owner_id}", status_code=302)
 
@@ -803,11 +811,14 @@ async def owner_remove_unit(
 
     if request.headers.get("HX-Request"):
         available_units, declared_shares = _owner_units_context(owner, db)
+        _bal_py = db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).first()
+        _udm = compute_debt_map(db, _bal_py.year) if _bal_py else {}
         return templates.TemplateResponse("partials/owner_units_section.html", {
             "request": request,
             "owner": owner,
             "available_units": available_units,
             "declared_shares": declared_shares,
             "code_lists": get_all_code_lists(db),
+            "unit_debt_map": _udm,
         })
     return RedirectResponse(f"/vlastnici/{owner_id}", status_code=302)

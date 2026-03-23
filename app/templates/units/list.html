@@ -119,6 +119,7 @@
     <table class="w-full text-xs" style="table-layout:fixed">
         <colgroup>
             <col style="width:7%">
+            <col style="width:7%">
             <col style="width:6%">
             <col style="width:9%">
             <col style="width:5%">
@@ -126,7 +127,6 @@
             <col style="width:4%">
             <col style="width:5%">
             <col style="width:6%">
-            <col style="width:7%">
             <col style="width:7%">
             <col style="width:31%">
         </colgroup>
@@ -149,6 +149,7 @@
                 </th>
                 {% endmacro %}
                 {{ sort_th("Jednotka", "unit_number") }}
+                {{ sort_th("Dluh", "dluh", "right", "Nedoplatek na platbách") }}
                 {{ sort_th("Budova", "building") }}
                 {{ sort_th("Typ", "space_type") }}
                 {{ sort_th("Sekce", "section") }}
@@ -157,7 +158,6 @@
                 {{ sort_th("Místn.", "room_count") }}
                 {{ sort_th("Plocha", "floor_area", "right") }}
                 {{ sort_th("Podíl SČD", "podil", "right", "Spoluvlastnický podíl na společných částech domu") }}
-                {{ sort_th("Dluh", "dluh", "right", "Počáteční zůstatek (nedoplatek)") }}
                 {{ sort_th("Vlastníci", "owners") }}
             </tr>
         </thead>
