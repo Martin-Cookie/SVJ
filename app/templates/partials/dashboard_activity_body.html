@@ -1,11 +1,11 @@
 {% for item in recent_activity %}
 <tr class="{% if item.url %}hover:bg-gray-50 cursor-pointer{% endif %}" {% if item.url %}onclick="window.location='{{ item.url }}?back=/'"{% endif %}>
-    <td class="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">{{ item.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
+    <td class="px-3 py-1.5 text-xs text-gray-500 whitespace-nowrap">{{ item.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
     {% set _module_labels = {"dane": "Rozesílání", "tax": "Rozesílání", "owners": "Vlastníci", "vlastnici": "Vlastníci", "voting": "Hlasování", "hlasovani": "Hlasování", "units": "Jednotky", "jednotky": "Jednotky", "sync": "Kontroly", "synchronizace": "Kontroly", "sprava": "Administrace", "admin": "Administrace", "settings": "Nastavení", "nastaveni": "Nastavení", "import": "Import"} %}
-    <td class="px-6 py-4 text-sm text-gray-500">{{ _module_labels.get(item.module, item.module) }}</td>
-    <td class="px-6 py-4 text-sm text-gray-900">{% if item.url %}<a href="{{ item.url }}?back=/" class="text-blue-600 hover:underline">{{ item.description }}</a>{% else %}{{ item.description }}{% endif %}</td>
-    <td class="px-6 py-4 text-sm text-gray-500">{{ item.detail }}</td>
-    <td class="px-6 py-4">
+    <td class="px-3 py-1.5 text-xs text-gray-500">{{ _module_labels.get(item.module, item.module) }}</td>
+    <td class="px-3 py-1.5 text-xs text-gray-900">{% if item.url %}<a href="{{ item.url }}?back=/" class="text-blue-600 hover:underline">{{ item.description }}</a>{% else %}{{ item.description }}{% endif %}</td>
+    <td class="px-3 py-1.5 text-xs text-gray-500">{{ item.detail }}</td>
+    <td class="px-3 py-1.5">
         {% if item.type == "email" %}
             {% if item.status == 'sent' %}
             <span class="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">Odesláno</span>
@@ -38,7 +38,7 @@
 {% endfor %}
 {% if not recent_activity %}
 <tr>
-    <td colspan="5" class="px-6 py-8 text-center text-gray-500">
+    <td colspan="5" class="px-3 py-8 text-center text-gray-500">
         {% if q %}Žádné záznamy neodpovídají hledání „{{ q }}".{% else %}Žádná aktivita.{% endif %}
     </td>
 </tr>
