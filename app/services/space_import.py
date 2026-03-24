@@ -376,7 +376,7 @@ def import_spaces_from_excel(db: Session, file_path: str, mapping: dict):
                         variable_symbol=vs,
                         space_id=space.id,
                         unit_id=None,
-                        source=SymbolSource.IMPORT,
+                        source=SymbolSource.AUTO,
                         description=f"Import prostorů — prostor {space_number}",
                         created_at=now,
                     ))

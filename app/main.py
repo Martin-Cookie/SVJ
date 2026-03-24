@@ -473,6 +473,30 @@ def _migrate_spaces_tables():
         if "space_import_mapping" not in svj_cols:
             conn.execute(text("ALTER TABLE svj_info ADD COLUMN space_import_mapping TEXT"))
             logger.info("Added space_import_mapping column to svj_info")
+        # Fix unit_id NOT NULL → nullable on variable_symbol_mappings (needed for space-only VS)
+        vsm_cols = conn.execute(text("PRAGMA table_info('variable_symbol_mappings')")).fetchall()
+        unit_id_col = next((c for c in vsm_cols if c[1] == "unit_id"), None)
+        if unit_id_col and unit_id_col[3] == 1:  # notnull=1 → needs fix
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS _vsm_new (
+                    id INTEGER PRIMARY KEY,
+                    variable_symbol VARCHAR(20) NOT NULL UNIQUE,
+                    unit_id INTEGER REFERENCES units(id),
+                    space_id INTEGER REFERENCES spaces(id),
+                    source VARCHAR(6),
+                    description TEXT,
+                    is_active BOOLEAN DEFAULT 1,
+                    created_at DATETIME,
+                    updated_at DATETIME
+                )
+            """))
+            conn.execute(text("INSERT INTO _vsm_new SELECT id, variable_symbol, unit_id, space_id, source, description, is_active, created_at, updated_at FROM variable_symbol_mappings"))
+            conn.execute(text("DROP TABLE variable_symbol_mappings"))
+            conn.execute(text("ALTER TABLE _vsm_new RENAME TO variable_symbol_mappings"))
+            conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_vsm_variable_symbol ON variable_symbol_mappings(variable_symbol)"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_vsm_unit_id ON variable_symbol_mappings(unit_id)"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_vsm_space_id ON variable_symbol_mappings(space_id)"))
+            logger.info("Recreated variable_symbol_mappings with nullable unit_id")
         conn.commit()
 
 
