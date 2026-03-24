@@ -67,7 +67,7 @@
                 </div>
                 <div>
                     <label class="text-xs text-gray-500">Měsíční nájemné (Kč)</label>
-                    <input type="text" name="monthly_rent" value="{{ form_data.monthly_rent|default('') }}" placeholder="0" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+                    <input type="number" step="any" min="0" name="monthly_rent" value="{{ form_data.monthly_rent|default('') }}" placeholder="0" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
                 </div>
                 <div>
                     <label class="text-xs text-gray-500">Variabilní symbol</label>

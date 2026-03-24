@@ -69,7 +69,7 @@
         <div class="flex flex-wrap gap-2 mb-2">
             <a href="{{ _entity_base }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
                 {% if not entita %}bg-blue-600 text-white ring-2 ring-blue-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
-                Vše <span class="ml-1 text-xs opacity-75">{{ mappings|length if not entita else '' }}</span>
+                Vše <span class="ml-1 text-xs opacity-75">{{ total_vs_count }}</span>
             </a>
             <a href="{{ _entity_base }}&entita=jednotky" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
                 {% if entita == 'jednotky' %}bg-blue-600 text-white ring-2 ring-blue-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">

@@ -11,11 +11,11 @@
 {% endif %}
 <div class="flex items-center justify-between mb-3">
     <div>
-        <h1 class="text-xl font-bold text-gray-800">Evidence prostorů</h1>
-        <div class="text-xs text-gray-500 mt-0.5">
+        <h1 class="text-xl font-bold text-gray-800 dark:text-white">Evidence prostorů</h1>
+        <div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
             <span>{{ stats.total }} prostorů</span>
             {% if stats.total_rent %}
-            <span class="ml-2">· Celkové měsíční nájemné: <span class="font-mono text-gray-700">{{ stats.total_rent|fmt_num }} Kč</span></span>
+            <span class="ml-2">· Celkové měsíční nájemné: <span class="font-mono text-gray-700 dark:text-gray-300">{{ stats.total_rent|fmt_num }} Kč</span></span>
             {% endif %}
         </div>
     </div>
@@ -23,11 +23,11 @@
         {% set _export_qs = "q=" ~ q ~ "&stav=" ~ stav ~ "&sekce=" ~ sekce ~ "&sort=" ~ sort ~ "&order=" ~ order %}
         <a href="/prostory/exportovat/xlsx?{{ _export_qs }}" hx-boost="false"
            onclick="var b=this,t=b.textContent;b.textContent='Generuji…';b.classList.add('opacity-50');setTimeout(function(){b.textContent=t;b.classList.remove('opacity-50')},3000)"
-           class="px-2.5 py-1.5 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 text-xs font-medium transition-colors border border-gray-200"
+           class="px-2.5 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 text-xs font-medium transition-colors border border-gray-200 dark:border-gray-600"
            title="Export do Excelu">↓ Excel</a>
         <a href="/prostory/exportovat/csv?{{ _export_qs }}" hx-boost="false"
            onclick="var b=this,t=b.textContent;b.textContent='Generuji…';b.classList.add('opacity-50');setTimeout(function(){b.textContent=t;b.classList.remove('opacity-50')},3000)"
-           class="px-2.5 py-1.5 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 text-xs font-medium transition-colors border border-gray-200"
+           class="px-2.5 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 text-xs font-medium transition-colors border border-gray-200 dark:border-gray-600"
            title="Export do CSV">↓ CSV</a>
         <a href="/prostory/import" class="px-2.5 py-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 text-xs font-medium transition-colors border border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800 dark:hover:bg-blue-900/50"
            title="Import prostorů z Excelu">↑ Import</a>
@@ -42,29 +42,29 @@
 
 {% set _back = "&back=" ~ (back_url|default('')|urlencode) if back_url else "" %}
 {% set _ubase = "q=" ~ q ~ "&sekce=" ~ sekce ~ "&sort=" ~ sort ~ "&order=" ~ order ~ _back %}
-<div class="bg-white rounded-lg shadow mb-2">
+<div class="bg-white dark:bg-gray-800 rounded-lg shadow mb-2">
 <!-- Status filter bubbles -->
 <div class="flex gap-2 p-3 pb-2">
-    <a href="/prostory?{{ _ubase }}" class="flex-1 block rounded p-2 text-center hover:bg-gray-50 transition-colors {% if not stav %}ring-2 ring-gray-400{% endif %}">
-        <p class="text-lg font-bold text-gray-800">{{ stats.total }}</p>
-        <p class="text-xs text-gray-500">Vše</p>
+    <a href="/prostory?{{ _ubase }}" class="flex-1 block rounded p-2 text-center hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors {% if not stav %}ring-2 ring-gray-400{% endif %}">
+        <p class="text-lg font-bold text-gray-800 dark:text-white">{{ stats.total }}</p>
+        <p class="text-xs text-gray-500 dark:text-gray-400">Vše</p>
     </a>
-    <a href="/prostory?stav=rented&{{ _ubase }}" class="flex-1 block bg-green-50 rounded p-2 text-center border border-green-200 hover:bg-green-100 transition-colors {% if stav == 'rented' %}ring-2 ring-green-400{% endif %}">
-        <p class="text-lg font-bold text-green-600">{{ stats.rented }}</p>
-        <p class="text-xs text-green-600">Pronajato</p>
+    <a href="/prostory?stav=rented&{{ _ubase }}" class="flex-1 block bg-green-50 dark:bg-green-900/30 rounded p-2 text-center border border-green-200 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-900/50 transition-colors {% if stav == 'rented' %}ring-2 ring-green-400{% endif %}">
+        <p class="text-lg font-bold text-green-600 dark:text-green-400">{{ stats.rented }}</p>
+        <p class="text-xs text-green-600 dark:text-green-400">Pronajato</p>
     </a>
-    <a href="/prostory?stav=vacant&{{ _ubase }}" class="flex-1 block bg-yellow-50 rounded p-2 text-center border border-yellow-200 hover:bg-yellow-100 transition-colors {% if stav == 'vacant' %}ring-2 ring-yellow-400{% endif %}">
-        <p class="text-lg font-bold text-yellow-600">{{ stats.vacant }}</p>
-        <p class="text-xs text-yellow-600">Volné</p>
+    <a href="/prostory?stav=vacant&{{ _ubase }}" class="flex-1 block bg-yellow-50 dark:bg-yellow-900/30 rounded p-2 text-center border border-yellow-200 dark:border-yellow-800 hover:bg-yellow-100 dark:hover:bg-yellow-900/50 transition-colors {% if stav == 'vacant' %}ring-2 ring-yellow-400{% endif %}">
+        <p class="text-lg font-bold text-yellow-600 dark:text-yellow-400">{{ stats.vacant }}</p>
+        <p class="text-xs text-yellow-600 dark:text-yellow-400">Volné</p>
     </a>
-    <a href="/prostory?stav=blocked&{{ _ubase }}" class="flex-1 block bg-red-50 rounded p-2 text-center border border-red-200 hover:bg-red-100 transition-colors {% if stav == 'blocked' %}ring-2 ring-red-400{% endif %}">
-        <p class="text-lg font-bold text-red-600">{{ stats.blocked }}</p>
-        <p class="text-xs text-red-600">Blokované</p>
+    <a href="/prostory?stav=blocked&{{ _ubase }}" class="flex-1 block bg-red-50 dark:bg-red-900/30 rounded p-2 text-center border border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors {% if stav == 'blocked' %}ring-2 ring-red-400{% endif %}">
+        <p class="text-lg font-bold text-red-600 dark:text-red-400">{{ stats.blocked }}</p>
+        <p class="text-xs text-red-600 dark:text-red-400">Blokované</p>
     </a>
 </div>
 
 <!-- Separator -->
-<div class="border-t border-gray-100"></div>
+<div class="border-t border-gray-100 dark:border-gray-700"></div>
 
 <!-- Search & section filter -->
 <div class="flex items-center gap-3 px-3 py-2">
@@ -78,14 +78,14 @@
                hx-get="/prostory" hx-trigger="keyup changed delay:300ms"
                hx-target="#space-table-body" hx-include="[name='stav'],[name='sekce'],[name='sort'],[name='order'],[name='back']"
                hx-push-url="true"
-               class="w-full px-3 py-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs">
+               class="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs">
     </div>
     {% if stats.sections %}
     <select name="sekce"
             hx-get="/prostory" hx-trigger="change"
             hx-target="#space-table-body" hx-include="[name='q'],[name='stav'],[name='sort'],[name='order'],[name='back']"
             hx-push-url="true"
-            class="px-3 py-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 text-xs h-[30px]">
+            class="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 text-xs h-[30px]">
         <option value="">Všechny sekce</option>
         {% for s in stats.sections %}
         <option value="{{ s }}" {% if sekce == s %}selected{% endif %}>Sekce {{ s }}</option>
@@ -97,7 +97,7 @@
 
 <!-- Space table -->
 </div>
-<div class="flex-1 bg-white rounded-lg shadow overflow-y-auto overflow-x-auto min-h-0">
+<div class="flex-1 bg-white dark:bg-gray-800 rounded-lg shadow overflow-y-auto overflow-x-auto min-h-0">
     <table class="w-full text-xs" style="table-layout:fixed">
         <colgroup>
             <col style="width:8%">
@@ -110,11 +110,11 @@
             <col style="width:10%">
             <col style="width:10%">
         </colgroup>
-        <thead class="bg-gray-50 border-b-2 border-gray-300 sticky top-0 z-10">
+        <thead class="bg-gray-50 dark:bg-gray-700 border-b-2 border-gray-300 dark:border-gray-600 sticky top-0 z-10">
             <tr>
                 {% macro sort_th(label, col, align="left", title="") %}
                 {% set next_order = "desc" if sort == col and order == "asc" else "asc" %}
-                <th class="px-2 py-1.5 text-{{ align }} font-medium {% if sort == col %}text-blue-600{% else %}text-gray-500{% endif %}"{% if title %} title="{{ title }}"{% endif %}>
+                <th class="px-2 py-1.5 text-{{ align }} font-medium {% if sort == col %}text-blue-600 dark:text-blue-400{% else %}text-gray-500 dark:text-gray-400{% endif %}"{% if title %} title="{{ title }}"{% endif %}>
                     <a href="/prostory?sort={{ col }}&order={{ next_order }}&q={{ q }}&stav={{ stav }}&sekce={{ sekce }}{{ _back }}"
                        class="inline-flex items-center gap-0.5 cursor-pointer hover:text-blue-600 select-none">
                         {{ label }}
@@ -136,10 +136,10 @@
                 {{ sort_th("Stav", "status") }}
                 {{ sort_th("Nájemce", "tenant") }}
                 {{ sort_th("Nájemné", "rent", "right", "Měsíční nájemné v Kč") }}
-                <th class="px-2 py-1.5 text-left font-medium text-gray-500">VS</th>
+                <th class="px-2 py-1.5 text-left font-medium text-gray-500 dark:text-gray-400">VS</th>
             </tr>
         </thead>
-        <tbody id="space-table-body" class="divide-y divide-gray-200">
+        <tbody id="space-table-body" class="divide-y divide-gray-200 dark:divide-gray-700">
             {% include "spaces/partials/_tbody.html" %}
         </tbody>
     </table>
@@ -150,7 +150,7 @@
     {% endif %}
 </div>
 
-<div class="shrink-0 mt-2 text-xs text-gray-500">Zobrazeno: {{ spaces|length }} prostorů</div>
+<div class="shrink-0 mt-2 text-xs text-gray-500 dark:text-gray-400">Zobrazeno: {{ spaces|length }} prostorů</div>
 </div>
 <script>
 if (location.hash) {

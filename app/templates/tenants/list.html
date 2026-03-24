@@ -11,8 +11,8 @@
 {% endif %}
 <div class="flex items-center justify-between mb-3">
     <div>
-        <h1 class="text-xl font-bold text-gray-800">Evidence nájemců</h1>
-        <div class="text-xs text-gray-500 mt-0.5">
+        <h1 class="text-xl font-bold text-gray-800 dark:text-white">Evidence nájemců</h1>
+        <div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
             <span>{{ stats.total }} nájemců</span>
             <span class="ml-2">· {{ stats.linked }} propojených s vlastníkem</span>
         </div>
@@ -21,11 +21,11 @@
         {% set _export_qs = "q=" ~ q ~ "&typ=" ~ typ ~ "&stav=" ~ stav ~ "&sort=" ~ sort ~ "&order=" ~ order %}
         <a href="/najemci/exportovat/xlsx?{{ _export_qs }}" hx-boost="false"
            onclick="var b=this,t=b.textContent;b.textContent='Generuji…';b.classList.add('opacity-50');setTimeout(function(){b.textContent=t;b.classList.remove('opacity-50')},3000)"
-           class="px-2.5 py-1.5 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 text-xs font-medium transition-colors border border-gray-200"
+           class="px-2.5 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 text-xs font-medium transition-colors border border-gray-200 dark:border-gray-600"
            title="Export do Excelu">↓ Excel</a>
         <a href="/najemci/exportovat/csv?{{ _export_qs }}" hx-boost="false"
            onclick="var b=this,t=b.textContent;b.textContent='Generuji…';b.classList.add('opacity-50');setTimeout(function(){b.textContent=t;b.classList.remove('opacity-50')},3000)"
-           class="px-2.5 py-1.5 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 text-xs font-medium transition-colors border border-gray-200"
+           class="px-2.5 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 text-xs font-medium transition-colors border border-gray-200 dark:border-gray-600"
            title="Export do CSV">↓ CSV</a>
         <button hx-get="/najemci/novy-formular" hx-target="#tenant-create-section" hx-swap="innerHTML"
                 class="px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium transition-colors">
@@ -38,33 +38,33 @@
 
 {% set _back = "&back=" ~ (back_url|default('')|urlencode) if back_url else "" %}
 {% set _ubase = "q=" ~ q ~ "&stav=" ~ stav ~ "&sort=" ~ sort ~ "&order=" ~ order ~ _back %}
-<div class="bg-white rounded-lg shadow mb-2">
+<div class="bg-white dark:bg-gray-800 rounded-lg shadow mb-2">
 <!-- Type filter bubbles -->
 <div class="flex gap-2 p-3 pb-2">
-    <a href="/najemci?{{ _ubase }}" class="flex-1 block rounded p-2 text-center hover:bg-gray-50 transition-colors {% if not typ %}ring-2 ring-gray-400{% endif %}">
-        <p class="text-lg font-bold text-gray-800">{{ stats.total }}</p>
-        <p class="text-xs text-gray-500">Vše</p>
+    <a href="/najemci?{{ _ubase }}" class="flex-1 block rounded p-2 text-center hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors {% if not typ %}ring-2 ring-gray-400{% endif %}">
+        <p class="text-lg font-bold text-gray-800 dark:text-white">{{ stats.total }}</p>
+        <p class="text-xs text-gray-500 dark:text-gray-400">Vše</p>
     </a>
-    <a href="/najemci?typ=linked&{{ _ubase }}" class="flex-1 block bg-blue-50 rounded p-2 text-center border border-blue-200 hover:bg-blue-100 transition-colors {% if typ == 'linked' %}ring-2 ring-blue-400{% endif %}">
-        <p class="text-lg font-bold text-blue-600">{{ stats.linked }}</p>
-        <p class="text-xs text-blue-600">Propojení</p>
+    <a href="/najemci?typ=linked&{{ _ubase }}" class="flex-1 block bg-blue-50 dark:bg-blue-900/30 rounded p-2 text-center border border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors {% if typ == 'linked' %}ring-2 ring-blue-400{% endif %}">
+        <p class="text-lg font-bold text-blue-600 dark:text-blue-400">{{ stats.linked }}</p>
+        <p class="text-xs text-blue-600 dark:text-blue-400">Propojení</p>
     </a>
-    <a href="/najemci?typ=standalone&{{ _ubase }}" class="flex-1 block bg-purple-50 rounded p-2 text-center border border-purple-200 hover:bg-purple-100 transition-colors {% if typ == 'standalone' %}ring-2 ring-purple-400{% endif %}">
-        <p class="text-lg font-bold text-purple-600">{{ stats.standalone }}</p>
-        <p class="text-xs text-purple-600">Vlastní</p>
+    <a href="/najemci?typ=standalone&{{ _ubase }}" class="flex-1 block bg-purple-50 dark:bg-purple-900/30 rounded p-2 text-center border border-purple-200 dark:border-purple-800 hover:bg-purple-100 dark:hover:bg-purple-900/50 transition-colors {% if typ == 'standalone' %}ring-2 ring-purple-400{% endif %}">
+        <p class="text-lg font-bold text-purple-600 dark:text-purple-400">{{ stats.standalone }}</p>
+        <p class="text-xs text-purple-600 dark:text-purple-400">Vlastní</p>
     </a>
-    <a href="/najemci?typ=physical&{{ _ubase }}" class="flex-1 block bg-green-50 rounded p-2 text-center border border-green-200 hover:bg-green-100 transition-colors {% if typ == 'physical' %}ring-2 ring-green-400{% endif %}">
-        <p class="text-lg font-bold text-green-600">{{ stats.total - stats.standalone + (stats.standalone if typ != 'legal' else 0) }}</p>
-        <p class="text-xs text-green-600">FO</p>
+    <a href="/najemci?typ=physical&{{ _ubase }}" class="flex-1 block bg-green-50 dark:bg-green-900/30 rounded p-2 text-center border border-green-200 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-900/50 transition-colors {% if typ == 'physical' %}ring-2 ring-green-400{% endif %}">
+        <p class="text-lg font-bold text-green-600 dark:text-green-400">{{ stats.physical }}</p>
+        <p class="text-xs text-green-600 dark:text-green-400">FO</p>
     </a>
-    <a href="/najemci?typ=legal&{{ _ubase }}" class="flex-1 block bg-orange-50 rounded p-2 text-center border border-orange-200 hover:bg-orange-100 transition-colors {% if typ == 'legal' %}ring-2 ring-orange-400{% endif %}">
-        <p class="text-lg font-bold text-orange-600">0</p>
-        <p class="text-xs text-orange-600">PO</p>
+    <a href="/najemci?typ=legal&{{ _ubase }}" class="flex-1 block bg-orange-50 dark:bg-orange-900/30 rounded p-2 text-center border border-orange-200 dark:border-orange-800 hover:bg-orange-100 dark:hover:bg-orange-900/50 transition-colors {% if typ == 'legal' %}ring-2 ring-orange-400{% endif %}">
+        <p class="text-lg font-bold text-orange-600 dark:text-orange-400">{{ stats.legal }}</p>
+        <p class="text-xs text-orange-600 dark:text-orange-400">PO</p>
     </a>
 </div>
 
 <!-- Separator -->
-<div class="border-t border-gray-100"></div>
+<div class="border-t border-gray-100 dark:border-gray-700"></div>
 
 <!-- Search -->
 <div class="flex items-center gap-3 px-3 py-2">
@@ -79,14 +79,14 @@
                hx-get="/najemci" hx-trigger="keyup changed delay:300ms"
                hx-target="#tenant-table-body" hx-include="[name='typ'],[name='stav'],[name='sort'],[name='order'],[name='back']"
                hx-push-url="true"
-               class="w-full px-3 py-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs">
+               class="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs">
     </div>
 </div>
 </div>
 
 <!-- Tenant table -->
 </div>
-<div class="flex-1 bg-white rounded-lg shadow overflow-y-auto overflow-x-auto min-h-0">
+<div class="flex-1 bg-white dark:bg-gray-800 rounded-lg shadow overflow-y-auto overflow-x-auto min-h-0">
     <table class="w-full text-xs" style="table-layout:fixed">
         <colgroup>
             <col style="width:22%">
@@ -98,11 +98,11 @@
             <col style="width:10%">
             <col style="width:8%">
         </colgroup>
-        <thead class="bg-gray-50 border-b-2 border-gray-300 sticky top-0 z-10">
+        <thead class="bg-gray-50 dark:bg-gray-700 border-b-2 border-gray-300 dark:border-gray-600 sticky top-0 z-10">
             <tr>
                 {% macro sort_th(label, col, align="left", title="") %}
                 {% set next_order = "desc" if sort == col and order == "asc" else "asc" %}
-                <th class="px-2 py-1.5 text-{{ align }} font-medium {% if sort == col %}text-blue-600{% else %}text-gray-500{% endif %}"{% if title %} title="{{ title }}"{% endif %}>
+                <th class="px-2 py-1.5 text-{{ align }} font-medium {% if sort == col %}text-blue-600 dark:text-blue-400{% else %}text-gray-500 dark:text-gray-400{% endif %}"{% if title %} title="{{ title }}"{% endif %}>
                     <a href="/najemci?sort={{ col }}&order={{ next_order }}&q={{ q }}&typ={{ typ }}&stav={{ stav }}{{ _back }}"
                        class="inline-flex items-center gap-0.5 cursor-pointer hover:text-blue-600 select-none">
                         {{ label }}
@@ -118,15 +118,15 @@
                 {% endmacro %}
                 {{ sort_th("Jméno", "name") }}
                 {{ sort_th("Typ", "type") }}
-                <th class="px-2 py-1.5 text-left font-medium text-gray-500">RČ/IČ</th>
+                <th class="px-2 py-1.5 text-left font-medium text-gray-500 dark:text-gray-400">RČ/IČ</th>
                 {{ sort_th("Telefon", "phone") }}
                 {{ sort_th("Email", "email") }}
                 {{ sort_th("Prostor", "space") }}
                 {{ sort_th("Nájemné", "rent", "right") }}
-                <th class="px-2 py-1.5 text-left font-medium text-gray-500">VS</th>
+                <th class="px-2 py-1.5 text-left font-medium text-gray-500 dark:text-gray-400">VS</th>
             </tr>
         </thead>
-        <tbody id="tenant-table-body" class="divide-y divide-gray-200">
+        <tbody id="tenant-table-body" class="divide-y divide-gray-200 dark:divide-gray-700">
             {% include "tenants/partials/_tbody.html" %}
         </tbody>
     </table>
@@ -137,7 +137,7 @@
     {% endif %}
 </div>
 
-<div class="shrink-0 mt-2 text-xs text-gray-500">Zobrazeno: {{ tenants|length }} nájemců</div>
+<div class="shrink-0 mt-2 text-xs text-gray-500 dark:text-gray-400">Zobrazeno: {{ tenants|length }} nájemců</div>
 </div>
 <script>
 if (location.hash) {

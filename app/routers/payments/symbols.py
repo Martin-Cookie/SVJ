@@ -101,6 +101,7 @@ async def symboly_seznam(
         flash_message = "Variabilní symbol nesmí být prázdný."
 
     # Count by entity type for bubbles
+    total_vs_count = db.query(VariableSymbolMapping).count()
     unit_vs_count = db.query(VariableSymbolMapping).filter(VariableSymbolMapping.unit_id.isnot(None)).count()
     space_vs_count = db.query(VariableSymbolMapping).filter(VariableSymbolMapping.space_id.isnot(None)).count()
 
@@ -116,6 +117,7 @@ async def symboly_seznam(
         "q": q,
         "zdroj": zdroj,
         "entita": entity,
+        "total_vs_count": total_vs_count,
         "unit_vs_count": unit_vs_count,
         "space_vs_count": space_vs_count,
         "list_url": list_url,

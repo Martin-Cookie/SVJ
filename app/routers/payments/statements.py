@@ -357,6 +357,8 @@ SORT_COLUMNS_PAYMENTS = {
     "vs": Payment.vs,
     "protiucet": Payment.counter_account_name,
     "stav": Payment.match_status,
+    "jednotka": None,  # Python-side sort
+    "prostor": None,  # Python-side sort
 }
 
 
@@ -411,6 +413,27 @@ async def vypis_detail(
         query = query.order_by(order_fn(col).nulls_last())
 
     payments = query.all()
+
+    # Python-side sort pro jednotka/prostor
+    if sort in ("jednotka", "prostor"):
+        def _unit_key(p):
+            if p.unit:
+                return p.unit.unit_number or 0
+            for a in (p.allocations or []):
+                if a.unit:
+                    return a.unit.unit_number or 0
+            return 0
+
+        def _space_key(p):
+            if p.space:
+                return p.space.space_number or 0
+            for a in (p.allocations or []):
+                if a.space:
+                    return a.space.space_number or 0
+            return 0
+
+        key_fn = _unit_key if sort == "jednotka" else _space_key
+        payments.sort(key=key_fn, reverse=(order == "desc"))
 
     # Hledání Python-side (diakritika-safe)
     if q:

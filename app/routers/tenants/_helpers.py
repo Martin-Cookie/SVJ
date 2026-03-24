@@ -90,10 +90,22 @@ def _tenant_stats(db: Session):
     linked = db.query(Tenant).filter(Tenant.owner_id.isnot(None)).count()
     standalone = total - linked
 
+    # FO/PO — musíme brát resolved type (z Owner pokud propojený, jinak tenant_type)
+    physical = db.query(Tenant).filter(
+        ((Tenant.owner_id.isnot(None)) & Tenant.owner.has(Owner.owner_type == OwnerType.PHYSICAL))
+        | ((Tenant.owner_id.is_(None)) & (Tenant.tenant_type == OwnerType.PHYSICAL))
+    ).count()
+    legal = db.query(Tenant).filter(
+        ((Tenant.owner_id.isnot(None)) & Tenant.owner.has(Owner.owner_type == OwnerType.LEGAL_ENTITY))
+        | ((Tenant.owner_id.is_(None)) & (Tenant.tenant_type == OwnerType.LEGAL_ENTITY))
+    ).count()
+
     return {
         "total": total,
         "active": active,
         "inactive": total - active,
         "linked": linked,
         "standalone": standalone,
+        "physical": physical,
+        "legal": legal,
     }

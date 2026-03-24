@@ -156,7 +156,7 @@
             <thead class="sticky top-0 z-10 bg-gray-50 dark:bg-gray-700">
                 {% set _sort_base = "/platby/vypisy/" ~ statement.id ~ "?" ~ ("q=" ~ q ~ "&" if q else "") ~ ("stav=" ~ stav ~ "&" if stav else "") ~ ("smer=" ~ smer ~ "&" if smer else "") ~ ("typ=" ~ typ ~ "&" if typ else "") %}
                 <tr>
-                    {% for col_key, col_label in [("datum", "Datum"), ("castka", "Částka"), ("vs", "VS"), ("protiucet", "Protiúčet"), ("stav", "Stav")] %}
+                    {% for col_key, col_label in [("datum", "Datum"), ("castka", "Částka"), ("vs", "VS"), ("protiucet", "Protiúčet"), ("stav", "Stav"), ("jednotka", "Jednotka"), ("prostor", "Prostor")] %}
                     {% set new_order = "desc" if sort == col_key and order == "asc" else "asc" %}
                     <th class="px-2 py-2 text-left font-semibold text-gray-600 dark:text-gray-300 cursor-pointer select-none hover:text-gray-900 dark:hover:text-white whitespace-nowrap"
                         onclick="window.location='{{ _sort_base }}sort={{ col_key }}&order={{ new_order }}{{ _back }}'">
@@ -164,8 +164,6 @@
                         {% if sort == col_key %}<span class="ml-0.5">{{ "▲" if order == "asc" else "▼" }}</span>{% endif %}
                     </th>
                     {% endfor %}
-                    <th class="px-2 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">Jednotka</th>
-                    <th class="px-2 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">Prostor</th>
                     <th class="px-2 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">Zpráva</th>
                 </tr>
             </thead>
