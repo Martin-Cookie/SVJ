@@ -665,7 +665,7 @@ except (AttributeError, KeyError, TypeError):
 app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
 
 # Register routers
-from app.routers import dashboard, owners, units, voting, tax, sync, share_check, settings_page, administration, payments, spaces  # noqa: E402
+from app.routers import dashboard, owners, units, voting, tax, sync, share_check, settings_page, administration, payments, spaces, tenants  # noqa: E402
 
 app.include_router(dashboard.router)
 app.include_router(owners.router, prefix="/vlastnici", tags=["Vlastníci"])
@@ -678,3 +678,4 @@ app.include_router(administration.router, prefix="/sprava", tags=["Administrace"
 app.include_router(settings_page.router, prefix="/nastaveni", tags=["Nastavení"])
 app.include_router(payments.router, prefix="/platby", tags=["Platby"])
 app.include_router(spaces.router, prefix="/prostory", tags=["Prostory"])
+app.include_router(tenants.router, prefix="/najemci", tags=["Nájemci"])

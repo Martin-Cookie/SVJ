@@ -1,0 +1,39 @@
+{% set asr = tenant.active_space_rel %}
+<tr id="tenant-{{ tenant.id }}" class="hover:bg-gray-50">
+    <td class="px-2 py-1.5 overflow-hidden" style="text-overflow:ellipsis;white-space:nowrap">
+        <a href="/najemci/{{ tenant.id }}?back={{ ((list_url or '/najemci') ~ '#tenant-' ~ tenant.id)|urlencode }}" class="font-medium text-blue-600 hover:text-blue-800 hover:underline">{{ tenant.display_name }}</a>
+        {% if tenant.is_linked %}
+        <span class="px-1 py-0.5 text-xs bg-blue-100 text-blue-700 rounded-full ml-1" title="Propojeno s vlastníkem">P</span>
+        {% endif %}
+    </td>
+    <td class="px-2 py-1.5 text-gray-500">
+        {% set rt = tenant.resolved_type %}
+        {% if rt and rt.value == 'legal' %}
+        <span class="px-1.5 py-0.5 text-xs font-medium rounded-full bg-orange-100 text-orange-700">PO</span>
+        {% else %}
+        <span class="px-1.5 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">FO</span>
+        {% endif %}
+    </td>
+    <td class="px-2 py-1.5 text-gray-500 font-mono">
+        {% if tenant.birth_number %}{{ tenant.birth_number }}{% elif tenant.company_id %}{{ tenant.company_id }}{% else %}—{% endif %}
+    </td>
+    <td class="px-2 py-1.5 text-gray-500 overflow-hidden" style="text-overflow:ellipsis;white-space:nowrap">{{ tenant.resolved_phone or '—' }}</td>
+    <td class="px-2 py-1.5 text-gray-500 overflow-hidden" style="text-overflow:ellipsis;white-space:nowrap">{{ tenant.resolved_email or '—' }}</td>
+    <td class="px-2 py-1.5 overflow-hidden" style="text-overflow:ellipsis;white-space:nowrap">
+        {% if asr %}
+        <a href="/prostory/{{ asr.space.id }}?back={{ ((list_url or '/najemci') ~ '#tenant-' ~ tenant.id)|urlencode }}" class="text-blue-600 hover:text-blue-800 hover:underline" title="{{ asr.space.designation }}">{{ asr.space.space_number }} — {{ asr.space.designation }}</a>
+        {% else %}
+        <span class="text-gray-300">—</span>
+        {% endif %}
+    </td>
+    <td class="px-2 py-1.5 text-right font-mono whitespace-nowrap">
+        {% if asr and asr.monthly_rent %}
+        {{ asr.monthly_rent|fmt_num }} Kč
+        {% else %}
+        <span class="text-gray-300">—</span>
+        {% endif %}
+    </td>
+    <td class="px-2 py-1.5 text-gray-500 font-mono">
+        {% if asr and asr.variable_symbol %}{{ asr.variable_symbol }}{% else %}—{% endif %}
+    </td>
+</tr>
