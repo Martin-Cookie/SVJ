@@ -1,0 +1,11 @@
+{% for space in spaces %}
+{% include "spaces/partials/_row.html" %}
+{% endfor %}
+{% if not spaces %}
+<tr>
+    <td colspan="9" class="px-6 py-12 text-center">
+        <svg class="w-8 h-8 text-gray-300 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+        <p class="text-gray-500">{% if q %}Žádné prostory neodpovídají hledání.{% else %}Zatím nejsou evidovány žádné prostory.{% endif %}</p>
+    </td>
+</tr>
+{% endif %}

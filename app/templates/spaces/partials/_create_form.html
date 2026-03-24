@@ -1,0 +1,51 @@
+<div class="bg-white rounded-lg shadow p-4 mb-3 border-l-4 border-green-500">
+    <form hx-post="/prostory/novy" hx-target="#space-create-section" hx-swap="innerHTML">
+        <h3 class="text-sm font-semibold text-gray-700 mb-3">Nový prostor</h3>
+        {% if error|default('') %}
+        <div class="bg-red-50 border border-red-200 rounded-lg p-2 mb-3 text-sm text-red-700">{{ error }}</div>
+        {% endif %}
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+            <div>
+                <label class="text-xs text-gray-500">Číslo prostoru *</label>
+                <input type="text" name="space_number" required class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="text-xs text-gray-500">Označení *</label>
+                <input type="text" name="designation" required class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="text-xs text-gray-500">Sekce</label>
+                <input type="text" name="section" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="text-xs text-gray-500">Podlaží</label>
+                <input type="text" name="floor" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="text-xs text-gray-500">Výměra (m²)</label>
+                <input type="text" name="area" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="text-xs text-gray-500">Stav</label>
+                <select name="status" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+                    <option value="vacant">Volné</option>
+                    <option value="rented">Pronajato</option>
+                    <option value="blocked">Blokované</option>
+                </select>
+            </div>
+            <div>
+                <label class="text-xs text-gray-500">Důvod blokace</label>
+                <input type="text" name="blocked_reason" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="text-xs text-gray-500">Poznámka</label>
+                <input type="text" name="note" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+            </div>
+        </div>
+        <div class="flex gap-2 mt-3">
+            <button type="submit" class="px-3 py-1.5 bg-green-600 text-white rounded text-xs font-medium hover:bg-green-700 transition-colors">Vytvořit</button>
+            <button type="button" onclick="document.getElementById('space-create-section').textContent=''"
+                    class="px-3 py-1.5 bg-gray-200 text-gray-600 rounded text-xs font-medium hover:bg-gray-300 transition-colors">Zrušit</button>
+        </div>
+    </form>
+</div>

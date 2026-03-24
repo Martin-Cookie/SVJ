@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+{% block title %}Prostory - SVJ Správa{% endblock %}
+
+{% block content %}
+<div class="flex flex-col" style="height:calc(100vh - 3rem)">
+<div class="shrink-0">
+{% if back_url %}
+<div class="mb-3">
+    <a href="{{ back_url }}" class="text-sm text-blue-600 hover:text-blue-800">&larr; Zpět na přehled</a>
+</div>
+{% endif %}
+<div class="flex items-center justify-between mb-3">
+    <div>
+        <h1 class="text-xl font-bold text-gray-800">Evidence prostorů</h1>
+        <div class="text-xs text-gray-500 mt-0.5">
+            <span>{{ stats.total }} prostorů</span>
+            {% if stats.total_rent %}
+            <span class="ml-2">· Celkové měsíční nájemné: <span class="font-mono text-gray-700">{{ stats.total_rent|fmt_num }} Kč</span></span>
+            {% endif %}
+        </div>
+    </div>
+    <div class="flex items-center gap-2">
+        {% set _export_qs = "q=" ~ q ~ "&stav=" ~ stav ~ "&sekce=" ~ sekce ~ "&sort=" ~ sort ~ "&order=" ~ order %}
+        <a href="/prostory/exportovat/xlsx?{{ _export_qs }}" hx-boost="false"
+           onclick="var b=this,t=b.textContent;b.textContent='Generuji…';b.classList.add('opacity-50');setTimeout(function(){b.textContent=t;b.classList.remove('opacity-50')},3000)"
+           class="px-2.5 py-1.5 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 text-xs font-medium transition-colors border border-gray-200"
+           title="Export do Excelu">↓ Excel</a>
+        <a href="/prostory/exportovat/csv?{{ _export_qs }}" hx-boost="false"
+           onclick="var b=this,t=b.textContent;b.textContent='Generuji…';b.classList.add('opacity-50');setTimeout(function(){b.textContent=t;b.classList.remove('opacity-50')},3000)"
+           class="px-2.5 py-1.5 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 text-xs font-medium transition-colors border border-gray-200"
+           title="Export do CSV">↓ CSV</a>
+        <button hx-get="/prostory/novy-formular" hx-target="#space-create-section" hx-swap="innerHTML"
+                class="px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium transition-colors">
+            + Nový prostor
+        </button>
+    </div>
+</div>
+
+<div id="space-create-section"></div>
+
+{% set _back = "&back=" ~ (back_url|default('')|urlencode) if back_url else "" %}
+{% set _ubase = "q=" ~ q ~ "&sekce=" ~ sekce ~ "&sort=" ~ sort ~ "&order=" ~ order ~ _back %}
+<div class="bg-white rounded-lg shadow mb-2">
+<!-- Status filter bubbles -->
+<div class="flex gap-2 p-3 pb-2">
+    <a href="/prostory?{{ _ubase }}" class="flex-1 block rounded p-2 text-center hover:bg-gray-50 transition-colors {% if not stav %}ring-2 ring-gray-400{% endif %}">
+        <p class="text-lg font-bold text-gray-800">{{ stats.total }}</p>
+        <p class="text-xs text-gray-500">Vše</p>
+    </a>
+    <a href="/prostory?stav=rented&{{ _ubase }}" class="flex-1 block bg-green-50 rounded p-2 text-center border border-green-200 hover:bg-green-100 transition-colors {% if stav == 'rented' %}ring-2 ring-green-400{% endif %}">
+        <p class="text-lg font-bold text-green-600">{{ stats.rented }}</p>
+        <p class="text-xs text-green-600">Pronajato</p>
+    </a>
+    <a href="/prostory?stav=vacant&{{ _ubase }}" class="flex-1 block bg-yellow-50 rounded p-2 text-center border border-yellow-200 hover:bg-yellow-100 transition-colors {% if stav == 'vacant' %}ring-2 ring-yellow-400{% endif %}">
+        <p class="text-lg font-bold text-yellow-600">{{ stats.vacant }}</p>
+        <p class="text-xs text-yellow-600">Volné</p>
+    </a>
+    <a href="/prostory?stav=blocked&{{ _ubase }}" class="flex-1 block bg-red-50 rounded p-2 text-center border border-red-200 hover:bg-red-100 transition-colors {% if stav == 'blocked' %}ring-2 ring-red-400{% endif %}">
+        <p class="text-lg font-bold text-red-600">{{ stats.blocked }}</p>
+        <p class="text-xs text-red-600">Blokované</p>
+    </a>
+</div>
+
+<!-- Separator -->
+<div class="border-t border-gray-100"></div>
+
+<!-- Search & section filter -->
+<div class="flex items-center gap-3 px-3 py-2">
+    <input type="hidden" name="sort" value="{{ sort }}">
+    <input type="hidden" name="order" value="{{ order }}">
+    <input type="hidden" name="stav" value="{{ stav }}">
+    <input type="hidden" name="back" value="{{ back_url|default('') }}">
+    <div class="flex-1">
+        <input type="text" name="q" value="{{ q }}" placeholder="Hledat označení, sekci, nájemce..."
+               aria-label="Hledat"
+               hx-get="/prostory" hx-trigger="keyup changed delay:300ms"
+               hx-target="#space-table-body" hx-include="[name='stav'],[name='sekce'],[name='sort'],[name='order'],[name='back']"
+               hx-push-url="true"
+               class="w-full px-3 py-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs">
+    </div>
+    {% if stats.sections %}
+    <select name="sekce"
+            hx-get="/prostory" hx-trigger="change"
+            hx-target="#space-table-body" hx-include="[name='q'],[name='stav'],[name='sort'],[name='order'],[name='back']"
+            hx-push-url="true"
+            class="px-3 py-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 text-xs h-[30px]">
+        <option value="">Všechny sekce</option>
+        {% for s in stats.sections %}
+        <option value="{{ s }}" {% if sekce == s %}selected{% endif %}>Sekce {{ s }}</option>
+        {% endfor %}
+    </select>
+    {% endif %}
+</div>
+</div>
+
+<!-- Space table -->
+</div>
+<div class="flex-1 bg-white rounded-lg shadow overflow-y-auto overflow-x-auto min-h-0">
+    <table class="w-full text-xs" style="table-layout:fixed">
+        <colgroup>
+            <col style="width:8%">
+            <col style="width:20%">
+            <col style="width:8%">
+            <col style="width:7%">
+            <col style="width:8%">
+            <col style="width:10%">
+            <col style="width:19%">
+            <col style="width:10%">
+            <col style="width:10%">
+        </colgroup>
+        <thead class="bg-gray-50 border-b-2 border-gray-300 sticky top-0 z-10">
+            <tr>
+                {% macro sort_th(label, col, align="left", title="") %}
+                {% set next_order = "desc" if sort == col and order == "asc" else "asc" %}
+                <th class="px-2 py-1.5 text-{{ align }} font-medium {% if sort == col %}text-blue-600{% else %}text-gray-500{% endif %}"{% if title %} title="{{ title }}"{% endif %}>
+                    <a href="/prostory?sort={{ col }}&order={{ next_order }}&q={{ q }}&stav={{ stav }}&sekce={{ sekce }}{{ _back }}"
+                       class="inline-flex items-center gap-0.5 cursor-pointer hover:text-blue-600 select-none">
+                        {{ label }}
+                        {% if sort == col %}
+                            {% if order == "asc" %}
+                            <svg aria-hidden="true" class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L10 6.414l-3.293 3.293a1 1 0 01-1.414 0z"/></svg>
+                            {% else %}
+                            <svg aria-hidden="true" class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path d="M14.707 10.293a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L10 13.586l3.293-3.293a1 1 0 011.414 0z"/></svg>
+                            {% endif %}
+                        {% endif %}
+                    </a>
+                </th>
+                {% endmacro %}
+                {{ sort_th("Č.", "space_number") }}
+                {{ sort_th("Označení", "designation") }}
+                {{ sort_th("Sekce", "section") }}
+                {{ sort_th("Podlaží", "floor") }}
+                {{ sort_th("Výměra", "area", "right", "Výměra v m²") }}
+                {{ sort_th("Stav", "status") }}
+                {{ sort_th("Nájemce", "tenant") }}
+                {{ sort_th("Nájemné", "rent", "right", "Měsíční nájemné v Kč") }}
+                <th class="px-2 py-1.5 text-left font-medium text-gray-500">VS</th>
+            </tr>
+        </thead>
+        <tbody id="space-table-body" class="divide-y divide-gray-200">
+            {% include "spaces/partials/_tbody.html" %}
+        </tbody>
+    </table>
+    {% if not spaces %}
+    <div class="p-6 text-center text-gray-500 text-sm">
+        Žádné prostory. Klikněte na <strong>+ Nový prostor</strong> pro přidání.
+    </div>
+    {% endif %}
+</div>
+
+<div class="shrink-0 mt-2 text-xs text-gray-500">Zobrazeno: {{ spaces|length }} prostorů</div>
+</div>
+<script>
+if (location.hash) {
+    var el = document.querySelector(location.hash);
+    if (el) el.scrollIntoView({block: 'center'});
+}
+</script>
+{% endblock %}
