@@ -137,7 +137,7 @@ def _symboly_redirect_url(form_data, flash: str = "", chyba: str = "") -> str:
         params.append(f"flash={flash}")
     if chyba:
         params.append(f"chyba={chyba}")
-    for key in ("q", "sort", "order", "zdroj", "back"):
+    for key in ("q", "sort", "order", "zdroj", "entita", "back"):
         val = form_data.get(key, "")
         if val:
             params.append(f"{key}={val}")
