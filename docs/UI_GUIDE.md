@@ -10,9 +10,35 @@ Tento soubor je **jediný zdroj pravdy** pro UI/frontend vzory a konvence. Stack
 
 ### Detail stránka
 1. Šipka zpět (viz [Back link](#back-link) níže)
-2. Titulek: `<h1 class="text-2xl font-bold text-gray-800">`
-3. Badge pod titulem: `<div class="mt-1 flex items-center gap-2">` s `rounded-full` badge
-4. Obsah v grid layoutu pod tím
+2. Titulek: `<h1 class="text-2xl font-bold text-gray-800">` + badge v `flex items-center gap-3`
+3. Badge vedle titulku: `px-2 py-0.5 text-xs font-medium rounded-full` (typ osoby, propojení, RČ/IČ)
+4. **Info karta** — 4-sloupcový grid pod header (viz [Detail entity — info karta](#detail-entity--info-karta))
+5. Scrollovatelný obsah pod info kartou
+
+### Detail entity — info karta (povinný vzor)
+
+Každá entita s identifikací, kontakty a adresami (vlastníci, nájemci) MUSÍ používat tento layout:
+
+```html
+<div class="bg-white rounded-lg shadow mb-3">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-gray-100">
+        <div class="p-3" id="identity-section">{% include "partials/entity_identity_info.html" %}</div>
+        <div class="p-3" id="contact-section">{% include "partials/entity_contact_info.html" %}</div>
+        <div class="p-3" id="perm-address-section">{% include "partials/entity_address_info.html" %}</div>
+        <div class="p-3" id="corr-address-section">{% include "partials/entity_address_info.html" %}</div>
+    </div>
+</div>
+```
+
+**Pravidla:**
+- Každý sloupec = samostatná sekce s vlastním HTMX inline editací (viz [§ 4](#4-inline-editace-infoform-partial-vzor))
+- Sekce heading: `text-sm font-semibold text-gray-700`
+- Data řádky: `space-y-1 text-xs`, každý řádek `flex justify-between` s `text-gray-500` label a `text-gray-900` value
+- Edit tlačítko: `inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-600 border border-blue-300 rounded hover:bg-blue-50` s tužkou SVG (`w-3 h-3`)
+- **Propojená entita** (nájemce→vlastník): zobrazit data read-only + "Vlastník →" link místo edit tlačítka
+- **Nepropojená entita**: zobrazit vlastní data + "Upravit" tlačítko per sekce
+- Adresní sekce jsou parametrické (`prefix="perm"/"corr"`) — jeden partial, dva include s `{% with %}`
+- Prázdné hodnoty vždy `—` (em-dash), nikdy skrývat řádek
 
 ### Back link
 Zpětný odkaz na KAŽDÉ stránce s `back_url` — jednotný styl napříč celým projektem:
@@ -320,9 +346,13 @@ function populateSelect(sel) {
 ### Backend endpointy (3 pro každou sekci)
 | Endpoint | Účel | Vrací |
 |----------|------|-------|
-| `GET /{id}/upravit-formular` | Načtení formuláře | Form partial |
-| `POST /{id}/upravit` | Uložení změn | Info partial s `saved=True` |
-| `GET /{id}/info` | Zobrazení (cancel) | Info partial |
+| `GET /{id}/{sekce}-formular` | Načtení formuláře | Form partial |
+| `POST /{id}/{sekce}-upravit` | Uložení změn | Info partial s `saved=True` |
+| `GET /{id}/{sekce}-info` | Zobrazení (cancel) | Info partial |
+
+Pro adresy (parametrické): `GET /{id}/adresa/{prefix}/formular`, `POST /{id}/adresa/{prefix}/upravit`, `GET /{id}/adresa/{prefix}/info`
+
+Pojmenování sekcí: `identita`, `kontakt`, `adresa/{perm|corr}` (čeština v URL, konzistentní napříč vlastníky i nájemci)
 
 ### Alternativní vzor (administrace — seznam položek)
 

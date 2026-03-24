@@ -94,124 +94,265 @@ async def tenant_create(
     return RedirectResponse(f"/najemci/{tenant.id}", status_code=302)
 
 
-# ── Detail inline edit ────────────────────────────────────────────────
+# ── Per-section inline edit — Identity ───────────────────────────────
 
 
-@router.get("/{tenant_id}/upravit-formular")
-async def tenant_edit_form(
+@router.get("/{tenant_id}/identita-formular")
+async def tenant_identity_form(
     tenant_id: int,
     request: Request,
     db: Session = Depends(get_db),
 ):
-    """Inline edit formulář pro nájemce."""
+    """Formulář editace identifikace nájemce."""
     tenant = db.query(Tenant).options(joinedload(Tenant.owner)).get(tenant_id)
     if not tenant:
         return RedirectResponse("/najemci", status_code=302)
-    return templates.TemplateResponse("tenants/partials/_tenant_info.html", {
-        "request": request,
-        "tenant": tenant,
-        "edit_mode": True,
+    return templates.TemplateResponse("tenants/partials/_tenant_identity_form.html", {
+        "request": request, "tenant": tenant,
     })
 
 
-@router.get("/{tenant_id}/info")
-async def tenant_info(
+@router.get("/{tenant_id}/identita-info")
+async def tenant_identity_info(
     tenant_id: int,
     request: Request,
     db: Session = Depends(get_db),
 ):
-    """Display-only info sekce nájemce."""
+    """Display identifikace nájemce."""
     tenant = db.query(Tenant).options(joinedload(Tenant.owner)).get(tenant_id)
     if not tenant:
         return RedirectResponse("/najemci", status_code=302)
-    return templates.TemplateResponse("tenants/partials/_tenant_info.html", {
-        "request": request,
-        "tenant": tenant,
-        "edit_mode": False,
+    return templates.TemplateResponse("tenants/partials/_tenant_identity_info.html", {
+        "request": request, "tenant": tenant,
     })
 
 
-@router.post("/{tenant_id}/upravit")
-async def tenant_update(
+@router.post("/{tenant_id}/identita-upravit")
+async def tenant_identity_update(
     tenant_id: int,
     request: Request,
-    first_name: str = Form(""),
-    last_name: str = Form(""),
-    title: str = Form(""),
     tenant_type: str = Form("physical"),
+    title: str = Form(""),
+    last_name: str = Form(""),
+    first_name_physical: str = Form(""),
+    first_name_legal: str = Form(""),
     birth_number: str = Form(""),
     company_id: str = Form(""),
-    phone: str = Form(""),
-    phone_landline: str = Form(""),
-    phone_secondary: str = Form(""),
-    email: str = Form(""),
-    email_secondary: str = Form(""),
-    perm_street: str = Form(""),
-    perm_city: str = Form(""),
-    perm_zip: str = Form(""),
-    corr_street: str = Form(""),
-    corr_city: str = Form(""),
-    corr_zip: str = Form(""),
-    note: str = Form(""),
     db: Session = Depends(get_db),
 ):
-    """Uložení úprav nájemce (pouze pro nepropojené nájemce)."""
+    """Uložení identifikace nájemce."""
     tenant = db.query(Tenant).options(joinedload(Tenant.owner)).get(tenant_id)
     if not tenant:
         return RedirectResponse("/najemci", status_code=302)
-
-    # Propojený nájemce — nelze editovat (data z Owner)
     if tenant.is_linked:
-        return templates.TemplateResponse("tenants/partials/_tenant_info.html", {
-            "request": request, "tenant": tenant, "edit_mode": False,
+        return templates.TemplateResponse("tenants/partials/_tenant_identity_info.html", {
+            "request": request, "tenant": tenant,
             "error": "Propojený nájemce — upravte údaje v detailu vlastníka.",
         })
 
-    first_name = first_name.strip()
+    is_legal = tenant_type == "legal"
+    first_name = first_name_legal.strip() if is_legal else first_name_physical.strip()
     last_name = last_name.strip()
+
     if not first_name and not last_name:
-        return templates.TemplateResponse("tenants/partials/_tenant_info.html", {
-            "request": request, "tenant": tenant, "edit_mode": True,
+        return templates.TemplateResponse("tenants/partials/_tenant_identity_form.html", {
+            "request": request, "tenant": tenant,
             "error": "Jméno nebo příjmení je povinné.",
         })
 
-    if email.strip() and not is_valid_email(email.strip()):
-        return templates.TemplateResponse("tenants/partials/_tenant_info.html", {
-            "request": request, "tenant": tenant, "edit_mode": True,
-            "error": "Neplatný formát emailu.",
-        })
-
+    tenant.tenant_type = OwnerType.LEGAL_ENTITY if is_legal else OwnerType.PHYSICAL
     tenant.first_name = first_name or None
     tenant.last_name = last_name or None
     tenant.title = title.strip() or None
     tenant.name_with_titles = build_name_with_titles(title.strip(), first_name, last_name)
     tenant.name_normalized = strip_diacritics(f"{last_name} {first_name}".strip())
-    tenant.tenant_type = OwnerType.LEGAL_ENTITY if tenant_type == "legal" else OwnerType.PHYSICAL
     tenant.birth_number = birth_number.strip() or None
     tenant.company_id = company_id.strip() or None
-    tenant.phone = phone.strip() or None
-    tenant.phone_landline = phone_landline.strip() or None
-    tenant.phone_secondary = phone_secondary.strip() or None
-    tenant.email = email.strip() or None
-    tenant.email_secondary = email_secondary.strip() or None
-    tenant.perm_street = perm_street.strip() or None
-    tenant.perm_city = perm_city.strip() or None
-    tenant.perm_zip = perm_zip.strip() or None
-    tenant.corr_street = corr_street.strip() or None
-    tenant.corr_city = corr_city.strip() or None
-    tenant.corr_zip = corr_zip.strip() or None
-    tenant.note = note.strip() or None
     tenant.updated_at = utcnow()
     db.commit()
 
-    if request.headers.get("HX-Request"):
-        return templates.TemplateResponse("tenants/partials/_tenant_info.html", {
-            "request": request,
-            "tenant": tenant,
-            "edit_mode": False,
-            "saved": True,
+    return templates.TemplateResponse("tenants/partials/_tenant_identity_info.html", {
+        "request": request, "tenant": tenant, "saved": True,
+    })
+
+
+# ── Per-section inline edit — Contacts ───────────────────────────────
+
+
+@router.get("/{tenant_id}/kontakt-formular")
+async def tenant_contact_form(
+    tenant_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Formulář editace kontaktů nájemce."""
+    tenant = db.query(Tenant).options(joinedload(Tenant.owner)).get(tenant_id)
+    if not tenant:
+        return RedirectResponse("/najemci", status_code=302)
+    return templates.TemplateResponse("tenants/partials/_tenant_contact_form.html", {
+        "request": request, "tenant": tenant,
+    })
+
+
+@router.get("/{tenant_id}/kontakt-info")
+async def tenant_contact_info(
+    tenant_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Display kontaktů nájemce."""
+    tenant = db.query(Tenant).options(joinedload(Tenant.owner)).get(tenant_id)
+    if not tenant:
+        return RedirectResponse("/najemci", status_code=302)
+    return templates.TemplateResponse("tenants/partials/_tenant_contact_info.html", {
+        "request": request, "tenant": tenant,
+    })
+
+
+@router.post("/{tenant_id}/kontakt-upravit")
+async def tenant_contact_update(
+    tenant_id: int,
+    request: Request,
+    email: str = Form(""),
+    email_secondary: str = Form(""),
+    phone: str = Form(""),
+    phone_secondary: str = Form(""),
+    phone_landline: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    """Uložení kontaktů nájemce."""
+    tenant = db.query(Tenant).options(joinedload(Tenant.owner)).get(tenant_id)
+    if not tenant:
+        return RedirectResponse("/najemci", status_code=302)
+    if tenant.is_linked:
+        return templates.TemplateResponse("tenants/partials/_tenant_contact_info.html", {
+            "request": request, "tenant": tenant,
+            "error": "Propojený nájemce — upravte údaje v detailu vlastníka.",
         })
-    return RedirectResponse(f"/najemci/{tenant_id}", status_code=302)
+
+    if email.strip() and not is_valid_email(email.strip()):
+        return templates.TemplateResponse("tenants/partials/_tenant_contact_form.html", {
+            "request": request, "tenant": tenant,
+            "error": "Neplatný formát emailu.",
+        })
+    if email_secondary.strip() and not is_valid_email(email_secondary.strip()):
+        return templates.TemplateResponse("tenants/partials/_tenant_contact_form.html", {
+            "request": request, "tenant": tenant,
+            "error": "Neplatný formát sekundárního emailu.",
+        })
+
+    tenant.email = email.strip() or None
+    tenant.email_secondary = email_secondary.strip() or None
+    tenant.phone = phone.strip() or None
+    tenant.phone_secondary = phone_secondary.strip() or None
+    tenant.phone_landline = phone_landline.strip() or None
+    tenant.updated_at = utcnow()
+    db.commit()
+
+    return templates.TemplateResponse("tenants/partials/_tenant_contact_info.html", {
+        "request": request, "tenant": tenant, "saved": True,
+    })
+
+
+# ── Per-section inline edit — Address ────────────────────────────────
+
+
+def _address_ctx(tenant, prefix: str, **extra) -> dict:
+    """Build template context for address partials."""
+    if prefix == "perm":
+        return {
+            "tenant": tenant, "prefix": "perm", "address_label": "Trvalá adresa",
+            "street": tenant.perm_street, "district": tenant.perm_district,
+            "city": tenant.perm_city, "zip": tenant.perm_zip,
+            "country": tenant.perm_country, **extra,
+        }
+    return {
+        "tenant": tenant, "prefix": "corr", "address_label": "Koresp. adresa",
+        "street": tenant.corr_street, "district": tenant.corr_district,
+        "city": tenant.corr_city, "zip": tenant.corr_zip,
+        "country": tenant.corr_country, **extra,
+    }
+
+
+@router.get("/{tenant_id}/adresa/{prefix}/formular")
+async def tenant_address_form(
+    tenant_id: int,
+    prefix: str,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Formulář editace adresy nájemce."""
+    if prefix not in ("perm", "corr"):
+        return RedirectResponse(f"/najemci/{tenant_id}", status_code=302)
+    tenant = db.query(Tenant).options(joinedload(Tenant.owner)).get(tenant_id)
+    if not tenant:
+        return RedirectResponse("/najemci", status_code=302)
+    return templates.TemplateResponse("tenants/partials/_tenant_address_form.html", {
+        "request": request, **_address_ctx(tenant, prefix),
+    })
+
+
+@router.get("/{tenant_id}/adresa/{prefix}/info")
+async def tenant_address_info(
+    tenant_id: int,
+    prefix: str,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Display adresy nájemce."""
+    if prefix not in ("perm", "corr"):
+        return RedirectResponse(f"/najemci/{tenant_id}", status_code=302)
+    tenant = db.query(Tenant).options(joinedload(Tenant.owner)).get(tenant_id)
+    if not tenant:
+        return RedirectResponse("/najemci", status_code=302)
+    return templates.TemplateResponse("tenants/partials/_tenant_address_info.html", {
+        "request": request, **_address_ctx(tenant, prefix),
+    })
+
+
+@router.post("/{tenant_id}/adresa/{prefix}/upravit")
+async def tenant_address_update(
+    tenant_id: int,
+    prefix: str,
+    request: Request,
+    street: str = Form(""),
+    district: str = Form(""),
+    city: str = Form(""),
+    zip: str = Form(""),
+    country: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    """Uložení adresy nájemce."""
+    if prefix not in ("perm", "corr"):
+        return RedirectResponse(f"/najemci/{tenant_id}", status_code=302)
+    tenant = db.query(Tenant).options(joinedload(Tenant.owner)).get(tenant_id)
+    if not tenant:
+        return RedirectResponse("/najemci", status_code=302)
+    if tenant.is_linked:
+        return templates.TemplateResponse("tenants/partials/_tenant_address_info.html", {
+            "request": request, **_address_ctx(tenant, prefix),
+            "error": "Propojený nájemce — upravte údaje v detailu vlastníka.",
+        })
+
+    if prefix == "perm":
+        tenant.perm_street = street.strip() or None
+        tenant.perm_district = district.strip() or None
+        tenant.perm_city = city.strip() or None
+        tenant.perm_zip = zip.strip() or None
+        tenant.perm_country = country.strip() or None
+    else:
+        tenant.corr_street = street.strip() or None
+        tenant.corr_district = district.strip() or None
+        tenant.corr_city = city.strip() or None
+        tenant.corr_zip = zip.strip() or None
+        tenant.corr_country = country.strip() or None
+
+    tenant.updated_at = utcnow()
+    db.commit()
+
+    return templates.TemplateResponse("tenants/partials/_tenant_address_info.html", {
+        "request": request, **_address_ctx(tenant, prefix, saved=True),
+    })
 
 
 # ── Link/Unlink owner ────────────────────────────────────────────────
@@ -260,9 +401,22 @@ async def tenant_unlink_owner(
         tenant.name_normalized = tenant.name_normalized or o.name_normalized
         tenant.tenant_type = tenant.tenant_type or o.owner_type
         tenant.phone = tenant.phone or o.phone
+        tenant.phone_secondary = tenant.phone_secondary or o.phone_secondary
+        tenant.phone_landline = tenant.phone_landline or o.phone_landline
         tenant.email = tenant.email or o.email
+        tenant.email_secondary = tenant.email_secondary or o.email_secondary
         tenant.birth_number = tenant.birth_number or o.birth_number
         tenant.company_id = tenant.company_id or o.company_id
+        tenant.perm_street = tenant.perm_street or o.perm_street
+        tenant.perm_district = tenant.perm_district or o.perm_district
+        tenant.perm_city = tenant.perm_city or o.perm_city
+        tenant.perm_zip = tenant.perm_zip or o.perm_zip
+        tenant.perm_country = tenant.perm_country or o.perm_country
+        tenant.corr_street = tenant.corr_street or o.corr_street
+        tenant.corr_district = tenant.corr_district or o.corr_district
+        tenant.corr_city = tenant.corr_city or o.corr_city
+        tenant.corr_zip = tenant.corr_zip or o.corr_zip
+        tenant.corr_country = tenant.corr_country or o.corr_country
 
     tenant.owner_id = None
     tenant.updated_at = utcnow()
