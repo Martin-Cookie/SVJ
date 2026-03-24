@@ -218,6 +218,7 @@ async def space_import_confirm(
     filename: str = Form(""),
     mapping_json: str = Form(""),
     import_mode: str = Form("append"),
+    owner_overrides_json: str = Form(""),
     db: Session = Depends(get_db),
 ):
     """Step 3: Confirm preview and save to DB."""
@@ -232,6 +233,15 @@ async def space_import_confirm(
             mapping = json.loads(mapping_json)
         except json.JSONDecodeError:
             logger.debug("Failed to parse space mapping JSON for confirm", exc_info=True)
+
+    # Parse owner overrides (space_number → owner_id)
+    owner_overrides = None
+    if owner_overrides_json:
+        try:
+            raw = json.loads(owner_overrides_json)
+            owner_overrides = {int(k): int(v) for k, v in raw.items() if v}
+        except (json.JSONDecodeError, ValueError):
+            logger.debug("Failed to parse owner overrides JSON", exc_info=True)
 
     # Replace mode: delete all existing spaces, tenants, contracts first
     if import_mode == "replace":
@@ -248,7 +258,8 @@ async def space_import_confirm(
         db.query(Space).delete()
         db.flush()
 
-    result = import_spaces_from_excel(db, file_path, mapping=mapping)
+    result = import_spaces_from_excel(db, file_path, mapping=mapping,
+                                      owner_overrides=owner_overrides)
 
     # Log the import
     log = ImportLog(

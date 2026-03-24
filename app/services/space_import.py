@@ -130,7 +130,7 @@ def _match_owner(db: Session, tenant_name: str):
 def _match_owner_candidates(db: Session, tenant_name: str) -> list:
     """Find all matching Owner candidates for preview display.
 
-    Returns list of unique display_name strings (deduplicated).
+    Returns list of dicts {id, name} (deduplicated by display_name).
     """
     if not tenant_name:
         return []
@@ -138,7 +138,7 @@ def _match_owner_candidates(db: Session, tenant_name: str) -> list:
     # Exact match
     owner = db.query(Owner).filter(Owner.name_normalized == name_norm).first()
     if owner:
-        return [owner.display_name]
+        return [{"id": owner.id, "name": owner.display_name}]
     # Partial match — surname
     parts = name_norm.split()
     if not parts:
@@ -155,7 +155,7 @@ def _match_owner_candidates(db: Session, tenant_name: str) -> list:
     for c in candidates:
         if c.display_name not in seen:
             seen.add(c.display_name)
-            result.append(c.display_name)
+            result.append({"id": c.id, "name": c.display_name})
     return result
 
 
@@ -278,8 +278,13 @@ def preview_spaces_from_excel(file_path: str, mapping: dict, db: Session = None)
     }
 
 
-def import_spaces_from_excel(db: Session, file_path: str, mapping: dict):
+def import_spaces_from_excel(db: Session, file_path: str, mapping: dict,
+                             owner_overrides: dict | None = None):
     """Parse Excel and save Space + Tenant + SpaceTenant records to DB.
+
+    Args:
+        owner_overrides: dict mapping space_number (int) → owner_id (int).
+            When provided, uses the specified owner instead of auto-matching.
 
     Returns dict with keys:
         spaces_created, tenants_created, contracts_created,
@@ -376,8 +381,12 @@ def import_spaces_from_excel(db: Session, file_path: str, mapping: dict):
 
         # Create Tenant + SpaceTenant if tenant_name provided and not blocked
         if tenant_name and not is_blocked:
-            # Try to match to existing Owner
-            owner = _match_owner(db, tenant_name)
+            # Try to match to existing Owner (user override takes priority)
+            owner = None
+            if owner_overrides and space_number in owner_overrides:
+                owner = db.query(Owner).filter_by(id=owner_overrides[space_number]).first()
+            if not owner:
+                owner = _match_owner(db, tenant_name)
 
             # Build name fields
             name_norm = strip_diacritics(tenant_name)
