@@ -115,6 +115,12 @@ def _match_owner(db: Session, tenant_name: str):
             ).all()
             if len(candidates) == 1:
                 return candidates[0]
+            # Multiple candidates — if all share the same name_normalized,
+            # they are duplicates of the same person → return first
+            if len(candidates) > 1:
+                unique_names = {c.name_normalized for c in candidates}
+                if len(unique_names) == 1:
+                    return candidates[0]
     return None
 
 
