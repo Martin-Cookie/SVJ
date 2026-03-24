@@ -97,9 +97,58 @@
                 <p class="text-xs text-gray-500">{{ active_rel.note }}</p>
             </div>
             {% endif %}
+
+            <!-- Terminate button -->
+            <div class="border-t border-gray-100 pt-3">
+                <form method="post" action="/prostory/{{ space.id }}/ukoncit-najem" onsubmit="return confirm('Opravdu ukončit nájem?')">
+                    <button type="submit" class="px-3 py-1.5 bg-red-100 text-red-700 rounded text-xs font-medium hover:bg-red-200 transition-colors">Ukončit nájem</button>
+                </form>
+            </div>
         </div>
         {% else %}
-        <p class="text-sm text-gray-400">Žádný aktivní nájemce.</p>
+        <!-- No active tenant — show assignment form -->
+        <form method="post" action="/prostory/{{ space.id }}/pridat-najemce">
+            <div class="space-y-3">
+                <div>
+                    <label class="text-xs text-gray-500 block mb-1">Nájemce *</label>
+                    <select name="tenant_id" required class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-500">
+                        <option value="">— vyberte nájemce —</option>
+                        {% for t in all_tenants %}
+                        <option value="{{ t.id }}">{{ t.display_name }}{% if t.is_linked %} (vlastník){% endif %}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-xs text-gray-500">Měsíční nájemné (Kč)</label>
+                        <input type="text" name="monthly_rent" value="0" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="text-xs text-gray-500">Variabilní symbol</label>
+                        <input type="text" name="variable_symbol" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+                <div class="grid grid-cols-3 gap-3">
+                    <div>
+                        <label class="text-xs text-gray-500">Č. smlouvy</label>
+                        <input type="text" name="contract_number" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="text-xs text-gray-500">Začátek smlouvy</label>
+                        <input type="date" name="contract_start" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="text-xs text-gray-500">Konec smlouvy</label>
+                        <input type="date" name="contract_end" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+                <div>
+                    <label class="text-xs text-gray-500">Poznámka</label>
+                    <input type="text" name="note" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+                </div>
+                <button type="submit" class="px-3 py-1.5 bg-green-600 text-white rounded text-xs font-medium hover:bg-green-700 transition-colors">Přiřadit nájemce</button>
+            </div>
+        </form>
         {% endif %}
 
         <!-- History -->

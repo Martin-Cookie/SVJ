@@ -10,7 +10,10 @@ from openpyxl.styles import Font
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
-from app.models import Space, SpaceStatus, SpaceTenant, Tenant
+from app.models import (
+    Space, SpaceStatus, SpaceTenant, Tenant,
+    Prescription, PrescriptionYear, SymbolSource, VariableSymbolMapping,
+)
 from app.utils import build_list_url, excel_auto_width, is_htmx_partial, templates, utcnow
 
 from ._helpers import SORT_COLUMNS, _filter_spaces, _space_stats, logger
@@ -220,6 +223,144 @@ async def space_delete(
     return RedirectResponse("/prostory?flash=deleted", status_code=302)
 
 
+# ── Správa nájmů ──────────────────────────────────────────────────────
+
+
+@router.post("/{space_id}/pridat-najemce")
+async def space_assign_tenant(
+    space_id: int,
+    request: Request,
+    tenant_id: int = Form(...),
+    monthly_rent: str = Form("0"),
+    variable_symbol: str = Form(""),
+    contract_number: str = Form(""),
+    contract_start: str = Form(""),
+    contract_end: str = Form(""),
+    note: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    """Přiřadit nájemce k prostoru — vytvoří SpaceTenant + VS mapping + Prescription."""
+    space = db.query(Space).get(space_id)
+    if not space:
+        return RedirectResponse("/prostory", status_code=302)
+
+    tenant = db.query(Tenant).get(tenant_id)
+    if not tenant:
+        return RedirectResponse(f"/prostory/{space_id}?flash=tenant_not_found", status_code=302)
+
+    # Deactivate current tenant if any
+    for st in db.query(SpaceTenant).filter_by(space_id=space_id, is_active=True).all():
+        st.is_active = False
+        st.updated_at = utcnow()
+
+    # Parse rent
+    rent_float = 0.0
+    if monthly_rent.strip():
+        try:
+            rent_float = float(monthly_rent.strip().replace(",", "."))
+        except (ValueError, TypeError):
+            rent_float = 0.0
+
+    # Parse dates
+    from datetime import date as date_type
+    start_date = None
+    end_date = None
+    if contract_start.strip():
+        try:
+            start_date = date_type.fromisoformat(contract_start.strip())
+        except ValueError:
+            pass
+    if contract_end.strip():
+        try:
+            end_date = date_type.fromisoformat(contract_end.strip())
+        except ValueError:
+            pass
+
+    vs = variable_symbol.strip() or None
+
+    # Create SpaceTenant
+    st = SpaceTenant(
+        space_id=space.id,
+        tenant_id=tenant.id,
+        monthly_rent=rent_float,
+        variable_symbol=vs,
+        contract_number=contract_number.strip() or None,
+        contract_start=start_date,
+        contract_end=end_date,
+        note=note.strip() or None,
+        is_active=True,
+        created_at=utcnow(),
+    )
+    db.add(st)
+
+    # Update space status
+    space.status = SpaceStatus.RENTED
+    space.updated_at = utcnow()
+
+    # Auto-create VariableSymbolMapping for VS
+    if vs:
+        existing_vs = db.query(VariableSymbolMapping).filter_by(variable_symbol=vs).first()
+        if not existing_vs:
+            db.add(VariableSymbolMapping(
+                variable_symbol=vs,
+                space_id=space.id,
+                unit_id=None,
+                source=SymbolSource.AUTO,
+                description=f"Prostor {space.space_number} — {space.designation}",
+                is_active=True,
+                created_at=utcnow(),
+            ))
+
+    # Auto-create Prescription if PrescriptionYear exists
+    if rent_float > 0:
+        latest_py = db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).first()
+        if latest_py:
+            existing_presc = db.query(Prescription).filter_by(
+                prescription_year_id=latest_py.id, space_id=space.id
+            ).first()
+            if not existing_presc:
+                db.add(Prescription(
+                    prescription_year_id=latest_py.id,
+                    space_id=space.id,
+                    unit_id=None,
+                    variable_symbol=vs,
+                    space_number=space.space_number,
+                    owner_name=tenant.display_name,
+                    monthly_total=rent_float,
+                    created_at=utcnow(),
+                ))
+            else:
+                # Update existing prescription
+                existing_presc.monthly_total = rent_float
+                existing_presc.variable_symbol = vs
+                existing_presc.owner_name = tenant.display_name
+                existing_presc.updated_at = utcnow()
+
+    db.commit()
+    return RedirectResponse(f"/prostory/{space_id}?flash=tenant_assigned", status_code=302)
+
+
+@router.post("/{space_id}/ukoncit-najem")
+async def space_terminate_tenant(
+    space_id: int,
+    db: Session = Depends(get_db),
+):
+    """Ukončit aktivní nájem na prostoru."""
+    space = db.query(Space).get(space_id)
+    if not space:
+        return RedirectResponse("/prostory", status_code=302)
+
+    for st in db.query(SpaceTenant).filter_by(space_id=space_id, is_active=True).all():
+        st.is_active = False
+        st.updated_at = utcnow()
+
+    space.status = SpaceStatus.VACANT
+    space.updated_at = utcnow()
+    db.commit()
+
+    return RedirectResponse(f"/prostory/{space_id}?flash=tenant_terminated", status_code=302)
+
+
 # ── List ──────────────────────────────────────────────────────────────
 
 
@@ -366,6 +507,7 @@ async def space_detail(
     space_id: int,
     request: Request,
     back: str = Query("", alias="back"),
+    flash: str = Query("", alias="flash"),
     db: Session = Depends(get_db),
 ):
     """Detail prostoru s nájemcem a historií."""
@@ -398,12 +540,28 @@ async def space_detail(
     history = [st for st in space.tenants if not st.is_active]
     history.sort(key=lambda st: st.contract_end or st.created_at, reverse=True)
 
+    # All tenants for assignment dropdown
+    all_tenants = db.query(Tenant).options(
+        joinedload(Tenant.owner)
+    ).filter(Tenant.is_active == True).order_by(Tenant.name_normalized).all()  # noqa: E712
+
+    flash_message = None
+    if flash == "tenant_assigned":
+        flash_message = "Nájemce přiřazen."
+    elif flash == "tenant_terminated":
+        flash_message = "Nájem ukončen."
+    elif flash == "tenant_not_found":
+        flash_message = "Nájemce nenalezen."
+        flash_type = "error"
+
     return templates.TemplateResponse("spaces/detail.html", {
         "request": request,
         "active_nav": "spaces",
         "space": space,
         "active_rel": active_rel,
         "history": history,
+        "all_tenants": all_tenants,
         "back_url": back or "/prostory",
         "back_label": back_label,
+        "flash_message": flash_message,
     })
