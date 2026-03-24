@@ -182,7 +182,7 @@ def preview_spaces_from_excel(file_path: str, mapping: dict, db: Session = None)
         monthly_rent = _cell_float(row, fm.get("monthly_rent"))
         vs = _cell(row, fm.get("variable_symbol"))
 
-        is_blocked = _detect_blocked(designation)
+        is_blocked = _detect_blocked(designation) or _detect_blocked(tenant_name)
         if is_blocked:
             blocked_count += 1
             status = "blocked"
@@ -194,7 +194,7 @@ def preview_spaces_from_excel(file_path: str, mapping: dict, db: Session = None)
 
         # Try owner matching for preview
         owner_match = None
-        if db and tenant_name:
+        if db and tenant_name and not is_blocked:
             owner = _match_owner(db, tenant_name)
             if owner:
                 owner_match = owner.display_name
@@ -299,7 +299,7 @@ def import_spaces_from_excel(db: Session, file_path: str, mapping: dict):
         monthly_rent = _cell_float(row, fm.get("monthly_rent")) or 0.0
         vs = _cell(row, fm.get("variable_symbol"))
 
-        is_blocked = _detect_blocked(designation)
+        is_blocked = _detect_blocked(designation) or _detect_blocked(tenant_name)
 
         # Determine status
         if is_blocked:

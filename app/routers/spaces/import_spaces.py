@@ -14,8 +14,8 @@ from app.database import get_db
 from app.models import ActivityAction, ImportLog, Space, log_activity
 from app.services.import_mapping import (
     SPACE_FIELD_DEFS, SPACE_FIELD_GROUPS,
-    build_mapping_context, read_excel_headers, read_excel_sheet_names,
-    validate_space_mapping,
+    build_mapping_context, detect_header_row, read_excel_headers,
+    read_excel_sheet_names, validate_space_mapping,
 )
 from app.services.space_import import import_spaces_from_excel, preview_spaces_from_excel
 from app.utils import UPLOAD_LIMITS, build_import_wizard, is_safe_path, validate_upload
@@ -126,8 +126,19 @@ def _space_mapping_page(
     current_sheet = sheet_name or (sheets[0] if sheets else None)
 
     saved_mapping = _load_space_mapping(db)
-    sr = start_row or (saved_mapping or {}).get("start_row", 2)
-    header_row = max(1, sr - 1)
+
+    # Always auto-detect header row from file content for best results
+    detected_header, detected_start = detect_header_row(
+        file_path, SPACE_FIELD_DEFS, sheet_name=current_sheet,
+    )
+    if start_row:
+        sr = start_row
+    elif saved_mapping and saved_mapping.get("start_row"):
+        sr = saved_mapping["start_row"]
+    else:
+        sr = detected_start
+    # Use detected header_row (it finds the row with best column matches)
+    header_row = detected_header
 
     headers = read_excel_headers(file_path, sheet_name=current_sheet, header_row=header_row)
 

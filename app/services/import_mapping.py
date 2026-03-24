@@ -578,6 +578,76 @@ CONTACT_FIELD_DEFS: dict[str, dict] = {
 
 
 # ---------------------------------------------------------------------------
+# Auto-detect header / start row
+# ---------------------------------------------------------------------------
+
+
+def detect_header_row(
+    file_path: str,
+    field_defs: dict[str, dict],
+    sheet_name: str | None = None,
+    max_scan: int = 20,
+) -> tuple[int, int]:
+    """Scan first `max_scan` rows to find the best header row for given field_defs.
+
+    Returns (header_row, start_row) — 1-based row numbers.
+    Heuristic: pick the row whose headers produce the most auto-detect matches.
+    """
+    best_header = 1
+    best_data = 2
+    best_matches = -1
+
+    wb = load_workbook(file_path, read_only=True, data_only=True)
+    ws = wb[sheet_name] if sheet_name and sheet_name in wb.sheetnames else wb.active
+
+    rows_cache: list[list] = []
+    for row in ws.iter_rows(min_row=1, max_row=max_scan, values_only=True):
+        rows_cache.append(list(row))
+    wb.close()
+
+    for idx, row_data in enumerate(rows_cache):
+        # Skip rows with <2 non-empty cells
+        non_empty = [c for c in row_data if c is not None and str(c).strip()]
+        if len(non_empty) < 2:
+            continue
+        # Skip rows where the first cell is a very long text (likely title/description)
+        first_val = str(row_data[0]).strip() if row_data[0] is not None else ""
+        if len(first_val) > 60:
+            continue
+
+        headers = [
+            str(c).strip() if c is not None else f"Sloupec {i + 1}"
+            for i, c in enumerate(row_data)
+        ]
+        result = auto_detect_mapping(headers, field_defs)
+        matched = sum(1 for v in result.values() if v["col"] is not None)
+
+        if matched > best_matches:
+            best_matches = matched
+            best_header = idx + 1  # 1-based
+            # Find first data row after header: skip sub-header rows
+            # (rows that are all-text with no numbers — likely header continuation)
+            best_data = idx + 2
+            for sub_idx in range(idx + 1, len(rows_cache)):
+                sub_row = rows_cache[sub_idx]
+                sub_non_empty = [c for c in sub_row if c is not None and str(c).strip()]
+                if not sub_non_empty:
+                    best_data = sub_idx + 2  # skip empty rows too
+                    continue
+                # If any cell is a number, this is likely a data row
+                has_number = any(
+                    isinstance(c, (int, float)) for c in sub_row if c is not None
+                )
+                if has_number:
+                    best_data = sub_idx + 1  # 1-based
+                    break
+                # All text, short values → likely sub-header, skip
+                best_data = sub_idx + 2
+
+    return best_header, best_data
+
+
+# ---------------------------------------------------------------------------
 # Auto-detection logic
 # ---------------------------------------------------------------------------
 
@@ -636,8 +706,8 @@ def auto_detect_mapping(
                 # Exact match
                 if norm_header == norm_candidate:
                     score = 100
-                # Header contains candidate
-                elif norm_candidate in norm_header:
+                # Header contains candidate (reject if header is way longer — likely false positive)
+                elif norm_candidate in norm_header and len(norm_header) <= len(norm_candidate) * 3:
                     score = 80
                 # Candidate contains header (for short headers like "email")
                 elif norm_header in norm_candidate and len(norm_header) >= 3:
