@@ -277,12 +277,10 @@ async def space_import_confirm(
                  description=f"{result['spaces_created']} prostorů, {result['tenants_created']} nájemců")
     db.commit()
 
-    return templates.TemplateResponse("spaces/space_import_result.html", {
-        "request": request,
-        "active_nav": "spaces",
-        **build_import_wizard(4),
-        "result": result,
-    })
+    return RedirectResponse(
+        f"/prostory?flash=import_ok&imported={result['spaces_created']}&tenants={result['tenants_created']}",
+        status_code=302,
+    )
 
 
 @router.post("/import/{log_id}/smazat")

@@ -392,8 +392,14 @@ async def space_list(
     stats = _space_stats(db)
 
     flash_message = None
+    flash_type = None
     if flash == "deleted":
         flash_message = "Prostor byl smazán."
+    elif flash == "import_ok":
+        imported = request.query_params.get("imported", "?")
+        tenants = request.query_params.get("tenants", "?")
+        flash_message = f"Import dokončen: {imported} prostorů, {tenants} nájemců."
+        flash_type = "success"
 
     return templates.TemplateResponse("spaces/list.html", {
         "request": request,
@@ -408,6 +414,7 @@ async def space_list(
         "order": order,
         "stats": stats,
         "flash_message": flash_message,
+        "flash_type": flash_type,
     })
 
 
