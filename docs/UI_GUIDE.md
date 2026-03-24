@@ -446,6 +446,23 @@ Vzor pro "přidat novou položku" bez přechodu na jinou stránku:
 2. **Uložit** a **Zrušit** se zobrazí na stejném místě (nahoře) — nahradí tlačítko Přidat
 3. Po uložení/zrušení se Přidat vrátí zpět (HTMX swap nebo toggle)
 
+### Zelený pruh — vizuální odlišení přidávacího formuláře
+
+Každý standalone formulář pro přidání nové entity (vlastník, jednotka, prostor, nájemce, VS, zůstatek) MUSÍ mít **zelený levý pruh** `border-l-4 border-green-500`. Vizuálně odlišuje přidávací formulář od okolního obsahu a signalizuje uživateli „zde se vytváří nová položka".
+
+```html
+<!-- Standalone přidávací formulář -->
+<div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-3 border-l-4 border-green-500">
+    <form ...>
+        <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Nový ...</h3>
+        <!-- fields -->
+    </form>
+</div>
+```
+
+- **Kde ANO**: samostatné karty pro přidání entity (vlastníci, jednotky, prostory, nájemci, VS, zůstatky)
+- **Kde NE**: malé inline formuláře uvnitř existující karty (výbor, číselníky, adresy SVJ) — ty používají `border-t border-gray-200` jako separator
+
 ```html
 <div class="flex items-center justify-between mb-4">
     <h2 class="text-lg font-semibold text-gray-700">Nadpis</h2>
