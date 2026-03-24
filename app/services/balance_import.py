@@ -78,17 +78,18 @@ def preview_balance_import(
             )
         row["matched_owner"] = matched_owner
 
-        # Všichni vlastníci na jednotce — jen pokud je SJM (společné jmění)
+        # Vlastníci pro náhled — u SJM jen pár odpovídající Excel jménu
         unit_owners = []
         if unit:
             ou_list = owners_by_unit.get(unit.id, [])
-            is_sjm = any("SJM" in (ou.ownership_type or "").upper() for ou in ou_list)
-            if is_sjm:
-                for ou in ou_list:
+            sjm_ous = [ou for ou in ou_list if "SJM" in (ou.ownership_type or "").upper()]
+            if sjm_ous and owner_name:
+                excel_norm = strip_diacritics(owner_name or "")
+                for ou in sjm_ous:
                     o = owner_by_id.get(ou.owner_id)
-                    if o:
+                    if o and o.name_normalized and o.name_normalized.split()[0] in excel_norm:
                         unit_owners.append(o)
-            elif matched_owner:
+            if not unit_owners and matched_owner:
                 unit_owners = [matched_owner]
         row["unit_owners"] = unit_owners
 
