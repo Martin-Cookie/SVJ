@@ -124,6 +124,38 @@ def _match_owner(db: Session, tenant_name: str):
     return None
 
 
+def _match_owner_candidates(db: Session, tenant_name: str) -> list:
+    """Find all matching Owner candidates for preview display.
+
+    Returns list of unique display_name strings (deduplicated).
+    """
+    if not tenant_name:
+        return []
+    name_norm = strip_diacritics(tenant_name)
+    # Exact match
+    owner = db.query(Owner).filter(Owner.name_normalized == name_norm).first()
+    if owner:
+        return [owner.display_name]
+    # Partial match — surname
+    parts = name_norm.split()
+    if not parts:
+        return []
+    surname = parts[0]
+    if len(surname) < 3:
+        return []
+    candidates = db.query(Owner).filter(
+        Owner.name_normalized.like(f"{surname}%")
+    ).all()
+    # Deduplicate by display_name (multiple OwnerUnit records for same person)
+    seen = set()
+    result = []
+    for c in candidates:
+        if c.display_name not in seen:
+            seen.add(c.display_name)
+            result.append(c.display_name)
+    return result
+
+
 def preview_spaces_from_excel(file_path: str, mapping: dict, db: Session = None):
     """Parse Excel and return preview dict without saving to DB.
 
@@ -200,10 +232,11 @@ def preview_spaces_from_excel(file_path: str, mapping: dict, db: Session = None)
 
         # Try owner matching for preview
         owner_match = None
+        owner_candidates = []
         if db and tenant_name and not is_blocked:
-            owner = _match_owner(db, tenant_name)
-            if owner:
-                owner_match = owner.display_name
+            owner_candidates = _match_owner_candidates(db, tenant_name)
+            if len(owner_candidates) == 1:
+                owner_match = owner_candidates[0]
 
         preview_rows.append({
             "row": row_idx,
@@ -221,6 +254,7 @@ def preview_spaces_from_excel(file_path: str, mapping: dict, db: Session = None)
             "monthly_rent": monthly_rent or 0,
             "variable_symbol": vs or "",
             "owner_match": owner_match,
+            "owner_candidates": owner_candidates,
         })
 
     try:
