@@ -371,7 +371,6 @@ async def tax_detail(
     q: str = Query("", alias="q"),
     sort: str = Query("unit_number", alias="sort"),
     order: str = Query("asc", alias="order"),
-    stranka: int = Query(1, alias="stranka"),
     db: Session = Depends(get_db),
 ):
     """Detail daňové session s dokumenty, párováním a filtrováním."""
@@ -457,23 +456,8 @@ async def tax_detail(
     sort_fn = SORT_KEYS.get(sort, SORT_KEYS["unit_number"])
     documents.sort(key=sort_fn, reverse=(order == "desc"))
 
-    # Pagination
-    per_page = 100
-    total_filtered = len(documents)
-    total_pages = max(1, (total_filtered + per_page - 1) // per_page)
-    stranka = max(1, min(stranka, total_pages))
-    start = (stranka - 1) * per_page
-    documents = documents[start:start + per_page]
-
     is_locked = session.send_status in (SendStatus.READY, SendStatus.SENDING, SendStatus.PAUSED, SendStatus.COMPLETED) if session.send_status else False
     list_url = build_list_url(request)
-
-    pagination = {
-        "current_page": stranka,
-        "total_pages": total_pages,
-        "total_filtered": total_filtered,
-        "per_page": per_page,
-    }
 
     # HTMX partial response — skip stats, missing units, owners (not in tbody)
     if is_partial:
@@ -483,7 +467,6 @@ async def tax_detail(
             "is_locked": is_locked,
             "list_url": list_url,
             "unit_by_number": _unit_by_number(db),
-            **pagination,
         })
 
     # --- Full page: stats + missing units + owners ---
@@ -538,7 +521,6 @@ async def tax_detail(
         "unit_by_number": _unit_by_number(db),
         "missing_list": missing_list,
         **stats,
-        **pagination,
         **_tax_wizard(session, 2, has_documents=len(documents) > 0),
     })
 

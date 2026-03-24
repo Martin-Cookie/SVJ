@@ -260,29 +260,6 @@
             </tbody>
         </table>
         {% endif %}
-        {% if total_pages is defined and total_pages > 1 %}
-        <div class="px-4 py-3 border-t border-gray-200 flex items-center justify-between text-sm">
-            <span class="text-gray-500">{{ total_filtered }} dokumentů, stránka {{ current_page }}/{{ total_pages }}</span>
-            <div class="flex items-center gap-1">
-                {% set _pbase = "/dane/" ~ session.id ~ "?filtr=" ~ filtr ~ "&q=" ~ (q|urlencode) ~ "&sort=" ~ sort ~ "&order=" ~ order ~ "&back=" ~ (back_url|default('')|urlencode) %}
-                {% if current_page > 1 %}
-                <a href="{{ _pbase }}&stranka={{ current_page - 1 }}" class="px-2.5 py-1 border border-gray-300 rounded text-gray-600 hover:bg-gray-50">&laquo;</a>
-                {% endif %}
-                {% for p in range(1, total_pages + 1) %}
-                    {% if p == current_page %}
-                    <span class="px-2.5 py-1 bg-blue-600 text-white rounded text-xs font-medium">{{ p }}</span>
-                    {% elif p <= 3 or p >= total_pages - 1 or (p >= current_page - 1 and p <= current_page + 1) %}
-                    <a href="{{ _pbase }}&stranka={{ p }}" class="px-2.5 py-1 border border-gray-300 rounded text-gray-600 hover:bg-gray-50 text-xs">{{ p }}</a>
-                    {% elif p == 4 or p == total_pages - 2 %}
-                    <span class="px-1 text-gray-400">...</span>
-                    {% endif %}
-                {% endfor %}
-                {% if current_page < total_pages %}
-                <a href="{{ _pbase }}&stranka={{ current_page + 1 }}" class="px-2.5 py-1 border border-gray-300 rounded text-gray-600 hover:bg-gray-50">&raquo;</a>
-                {% endif %}
-            </div>
-        </div>
-        {% endif %}
     </div>
 </div>
 
