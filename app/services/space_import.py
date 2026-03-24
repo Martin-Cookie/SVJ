@@ -8,6 +8,7 @@ Optionally auto-creates VariableSymbolMapping + Prescription.
 from __future__ import annotations
 
 import logging
+import re
 from datetime import date, datetime
 
 from openpyxl import load_workbook
@@ -60,8 +61,10 @@ def _cell_float(row: tuple, idx) -> float:
     raw = _cell(row, idx)
     if not raw:
         return None
+    # Strip common unit suffixes (m², m2, Kč, CZK)
+    cleaned = re.sub(r'\s*(m²|m2|kč|czk)\s*$', '', raw, flags=re.IGNORECASE)
     try:
-        return float(raw.replace(",", ".").replace(" ", ""))
+        return float(cleaned.replace(",", ".").replace(" ", ""))
     except (ValueError, TypeError):
         return None
 
@@ -219,6 +222,9 @@ def preview_spaces_from_excel(file_path: str, mapping: dict, db: Session = None)
         contract_start = _cell_date(row, fm.get("contract_start"))
         monthly_rent = _cell_float(row, fm.get("monthly_rent"))
         vs = _cell(row, fm.get("variable_symbol"))
+        # Fallback: use contract_number as VS when no VS column mapped
+        if not vs and contract_number:
+            vs = contract_number
 
         is_blocked = _detect_blocked(designation) or _detect_blocked(tenant_name)
         if is_blocked:
@@ -338,6 +344,9 @@ def import_spaces_from_excel(db: Session, file_path: str, mapping: dict):
         contract_start = _cell_date(row, fm.get("contract_start"))
         monthly_rent = _cell_float(row, fm.get("monthly_rent")) or 0.0
         vs = _cell(row, fm.get("variable_symbol"))
+        # Fallback: use contract_number as VS when no VS column mapped
+        if not vs and contract_number:
+            vs = contract_number
 
         is_blocked = _detect_blocked(designation) or _detect_blocked(tenant_name)
 

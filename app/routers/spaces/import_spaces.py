@@ -194,6 +194,8 @@ async def space_import_preview(
 
     preview = preview_spaces_from_excel(file_path, mapping=mapping, db=db)
 
+    space_count = db.query(Space).count()
+
     return templates.TemplateResponse("spaces/space_import_preview.html", {
         "request": request,
         "active_nav": "spaces",
@@ -202,6 +204,7 @@ async def space_import_preview(
         "file_path": file_path,
         "filename": filename,
         "mapping_json": json.dumps(mapping, ensure_ascii=False) if mapping else "",
+        "space_count": space_count,
     })
 
 
@@ -214,6 +217,7 @@ async def space_import_confirm(
     file_path: str = Form(...),
     filename: str = Form(""),
     mapping_json: str = Form(""),
+    import_mode: str = Form("append"),
     db: Session = Depends(get_db),
 ):
     """Step 3: Confirm preview and save to DB."""
@@ -228,6 +232,21 @@ async def space_import_confirm(
             mapping = json.loads(mapping_json)
         except json.JSONDecodeError:
             logger.debug("Failed to parse space mapping JSON for confirm", exc_info=True)
+
+    # Replace mode: delete all existing spaces, tenants, contracts first
+    if import_mode == "replace":
+        from app.models import SpaceTenant, Tenant, VariableSymbolMapping, Prescription
+        # Delete in FK order
+        db.query(SpaceTenant).delete()
+        db.query(Tenant).delete()
+        db.query(VariableSymbolMapping).filter(
+            VariableSymbolMapping.space_id.isnot(None)
+        ).delete(synchronize_session=False)
+        db.query(Prescription).filter(
+            Prescription.space_id.isnot(None)
+        ).delete(synchronize_session=False)
+        db.query(Space).delete()
+        db.flush()
 
     result = import_spaces_from_excel(db, file_path, mapping=mapping)
 

@@ -19,12 +19,26 @@
         <h1 class="text-xl font-bold text-gray-800 dark:text-gray-100">Náhled importu prostorů — {{ filename }}</h1>
         <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{ preview.spaces_count }} prostorů | {{ preview.with_tenant_count }} s nájemcem | {{ preview.blocked_count }} blokovaných</p>
     </div>
-    <div class="flex gap-2">
-        <form action="/prostory/import/potvrdit" method="post" hx-boost="false"
-              data-confirm="Importovat {{ preview.spaces_count }} prostorů?\nExistující prostory nebudou přepsány.">
+    <div class="flex items-center gap-3">
+        {% if space_count > 0 %}
+        <div class="flex items-center gap-2 text-xs">
+            <span class="text-gray-500 dark:text-gray-400">Režim:</span>
+            <label class="flex items-center gap-1 cursor-pointer">
+                <input type="radio" name="import_mode_toggle" value="append" checked onchange="setImportMode('append')" class="text-blue-600">
+                <span class="text-gray-700 dark:text-gray-300">Doplnit</span>
+            </label>
+            <label class="flex items-center gap-1 cursor-pointer">
+                <input type="radio" name="import_mode_toggle" value="replace" onchange="setImportMode('replace')" class="text-red-600">
+                <span class="text-gray-700 dark:text-gray-300">Nahradit vše</span>
+            </label>
+        </div>
+        {% endif %}
+        <form id="import-form" action="/prostory/import/potvrdit" method="post" hx-boost="false"
+              data-confirm="Importovat {{ preview.spaces_count }} prostorů?{% if space_count > 0 %}&#10;Existující prostory nebudou přepsány.{% endif %}">
             <input type="hidden" name="file_path" value="{{ file_path }}">
             <input type="hidden" name="filename" value="{{ filename }}">
             <input type="hidden" name="mapping_json" value="{{ mapping_json|default('', true)|e }}">
+            <input type="hidden" name="import_mode" id="import-mode" value="append">
             <button type="submit" class="px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-xs font-medium transition-colors">Potvrdit a importovat</button>
         </form>
         <a href="/prostory/import" class="px-3 py-1.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-xs font-medium">Zrušit</a>
@@ -196,6 +210,17 @@ function sortPreview(col, type) {
         th.classList.toggle('text-blue-600', i === col);
         th.classList.toggle('text-gray-500', i !== col);
     });
+}
+
+function setImportMode(mode) {
+    document.getElementById('import-mode').value = mode;
+    var form = document.getElementById('import-form');
+    var count = {{ preview.spaces_count }};
+    if (mode === 'replace') {
+        form.dataset.confirm = 'NAHRADIT existující prostory a importovat ' + count + ' nových?\n\nVšechny stávající prostory, nájemci a nájmy budou SMAZÁNY.';
+    } else {
+        form.dataset.confirm = 'Importovat ' + count + ' prostorů?\nExistující prostory nebudou přepsány.';
+    }
 }
 </script>
 {% endblock %}
