@@ -78,6 +78,15 @@ def preview_balance_import(
             )
         row["matched_owner"] = matched_owner
 
+        # Všichni aktivní vlastníci na jednotce (pro zobrazení SJM v náhledu)
+        unit_owners = []
+        if unit:
+            for ou in owners_by_unit.get(unit.id, []):
+                o = owner_by_id.get(ou.owner_id)
+                if o:
+                    unit_owners.append(o)
+        row["unit_owners"] = unit_owners
+
         # VS ověření
         vs = row.get("variable_symbol")
         vs_ok = True
