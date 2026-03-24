@@ -189,6 +189,7 @@ async def symbol_pridat(
 async def symbol_upravit(
     request: Request,
     mapping_id: int,
+    variable_symbol: str = Form(""),
     entity_type: str = Form("unit"),
     unit_id: int = Form(0),
     space_id: int = Form(0),
@@ -200,6 +201,14 @@ async def symbol_upravit(
     mapping = db.query(VariableSymbolMapping).get(mapping_id)
     if not mapping:
         return RedirectResponse(_symboly_redirect_url(form_data, chyba="nenalezeno"), status_code=302)
+
+    # Aktualizace VS pokud se změnil
+    vs_clean = variable_symbol.strip()
+    if vs_clean and vs_clean != mapping.variable_symbol:
+        existing = db.query(VariableSymbolMapping).filter_by(variable_symbol=vs_clean).first()
+        if existing:
+            return RedirectResponse(_symboly_redirect_url(form_data, chyba="duplicita"), status_code=302)
+        mapping.variable_symbol = vs_clean
 
     if entity_type == "space" and space_id:
         mapping.space_id = space_id

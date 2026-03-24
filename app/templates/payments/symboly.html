@@ -174,16 +174,10 @@ function toggleEditRow(id) {
     tr.className = 'border-b border-gray-100 dark:border-gray-700 bg-blue-50 dark:bg-blue-900/20';
     tr.setAttribute('data-edit-row', id);
 
-    // Buňka 1: VS (read-only)
-    var td1 = document.createElement('td');
-    td1.className = 'px-3 py-2 font-mono font-medium text-gray-900 dark:text-white align-middle';
-    td1.textContent = vs;
-    tr.appendChild(td1);
-
-    // Buňka 2-4: formulář (colspan=3)
-    var td2 = document.createElement('td');
-    td2.colSpan = 3;
-    td2.className = 'px-3 py-2 align-middle';
+    // Jedna buňka s formulářem přes celý řádek
+    var td = document.createElement('td');
+    td.colSpan = 5;
+    td.className = 'px-3 py-2 align-middle';
     var form = document.createElement('form');
     form.method = 'post';
     form.action = '/platby/symboly/' + id + '/upravit';
@@ -195,6 +189,12 @@ function toggleEditRow(id) {
         inp.type = 'hidden'; inp.name = k; inp.value = hiddens[k];
         form.appendChild(inp);
     }
+    // VS input
+    var vsInp = document.createElement('input');
+    vsInp.type = 'text'; vsInp.name = 'variable_symbol'; vsInp.value = vs;
+    vsInp.required = true; vsInp.maxLength = 20;
+    vsInp.className = 'h-8 w-36 px-2 text-xs font-mono border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white';
+    form.appendChild(vsInp);
     // Typ entity select
     var typSel = document.createElement('select');
     typSel.name = 'entity_type';
@@ -229,7 +229,7 @@ function toggleEditRow(id) {
     var descInp = document.createElement('input');
     descInp.type = 'text'; descInp.name = 'description'; descInp.value = desc;
     descInp.placeholder = 'Poznámka';
-    descInp.className = 'h-8 px-2 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white w-40';
+    descInp.className = 'h-8 px-2 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white flex-1';
     form.appendChild(descInp);
     // Buttons
     var btnSave = document.createElement('button');
@@ -243,13 +243,8 @@ function toggleEditRow(id) {
     btnCancel.textContent = 'Zrušit';
     btnCancel.onclick = function() { toggleEditRow(id); };
     form.appendChild(btnCancel);
-    td2.appendChild(form);
-    tr.appendChild(td2);
-
-    // Buňka 5: prázdná (Akce)
-    var td3 = document.createElement('td');
-    td3.className = 'align-middle';
-    tr.appendChild(td3);
+    td.appendChild(form);
+    tr.appendChild(td);
 
     view.after(tr);
     view.classList.add('hidden');
