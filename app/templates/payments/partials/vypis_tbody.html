@@ -25,10 +25,33 @@
         {# Multi-unit SUGGESTED — více badge + potvrdit/odmítnout #}
         <span class="inline-flex items-center gap-1 flex-wrap">
             {% for a in p.allocations %}
+            {% if a.space %}
+            <span class="px-1.5 py-0.5 text-xs bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 rounded-full" title="Prostor {{ a.space.space_number }}">
+                P {{ a.space.space_number }}
+            </span>
+            {% elif a.unit %}
             <span class="px-1.5 py-0.5 text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full" title="VS: {{ unit_vs.get(a.unit.id, '—') }} · Předpis: {{ unit_monthly.get(a.unit.id, 0)|fmt_num }} Kč/měs">
                 č. {{ a.unit.unit_number }}
             </span>
+            {% endif %}
             {% endfor %}
+            {% if not locked %}
+            <form method="post" action="/platby/vypisy/{{ statement.id }}/potvrdit/{{ p.id }}" hx-boost="false" class="inline">
+                {{ filter_hidden() }}
+                <button type="submit" class="px-1 py-0.5 text-xs text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300" title="Potvrdit návrh">✓</button>
+            </form>
+            <form method="post" action="/platby/vypisy/{{ statement.id }}/odmitnout/{{ p.id }}" hx-boost="false" class="inline">
+                {{ filter_hidden() }}
+                <button type="submit" class="px-1 py-0.5 text-xs text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300" title="Odmítnout návrh">✕</button>
+            </form>
+            {% endif %}
+        </span>
+        {% elif p.match_status.value == 'suggested' and p.space %}
+        {# Single-space SUGGESTED — fialový badge s tlačítky potvrdit/odmítnout #}
+        <span class="inline-flex items-center gap-1">
+            <span class="px-2 py-0.5 text-xs bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 rounded-full" title="Prostor {{ p.space.space_number }}">
+                P {{ p.space.space_number }}
+            </span>
             {% if not locked %}
             <form method="post" action="/platby/vypisy/{{ statement.id }}/potvrdit/{{ p.id }}" hx-boost="false" class="inline">
                 {{ filter_hidden() }}
@@ -58,14 +81,24 @@
             {% endif %}
         </span>
         {% elif p.allocations|length > 1 %}
-        {# Multi-unit potvrzené — zelené badge #}
+        {# Multi-unit/space potvrzené — zelené/fialové badge #}
         <span class="inline-flex items-center gap-1 flex-wrap">
             {% for a in p.allocations %}
+            {% if a.space %}
+            <a href="/prostory/{{ a.space.id }}?back={{ (list_url ~ '#p-' ~ p.id)|urlencode }}" class="px-1.5 py-0.5 text-xs bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 rounded-full hover:bg-purple-200" title="Prostor {{ a.space.space_number }}">
+                P {{ a.space.space_number }}
+            </a>
+            {% elif a.unit %}
             <a href="/jednotky/{{ a.unit.id }}?back={{ (list_url ~ '#p-' ~ p.id)|urlencode }}" class="px-1.5 py-0.5 text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full hover:bg-green-200" title="VS: {{ unit_vs.get(a.unit.id, '—') }} · Předpis: {{ unit_monthly.get(a.unit.id, 0)|fmt_num }} Kč/měs">
                 č. {{ a.unit.unit_number }}
             </a>
+            {% endif %}
             {% endfor %}
         </span>
+        {% elif p.space %}
+        <a href="/prostory/{{ p.space.id }}?back={{ (list_url ~ '#p-' ~ p.id)|urlencode }}" class="px-2 py-0.5 text-xs bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 rounded-full hover:bg-purple-200" title="Prostor {{ p.space.space_number }}">
+            P {{ p.space.space_number }}
+        </a>
         {% elif p.unit %}
         <a href="/jednotky/{{ p.unit.id }}?back={{ (list_url ~ '#p-' ~ p.id)|urlencode }}" class="px-2 py-0.5 text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full hover:bg-green-200" title="VS: {{ unit_vs.get(p.unit.id, '—') }} · Předpis: {{ unit_monthly.get(p.unit.id, 0)|fmt_num }} Kč/měs">
             č. {{ p.unit.unit_number }}

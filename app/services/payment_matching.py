@@ -18,6 +18,7 @@ from app.models import (
     VariableSymbolMapping, Prescription, Payment, PaymentAllocation,
     PaymentDirection, PaymentMatchStatus, Unit, OwnerUnit,
     PrescriptionYear, Owner,
+    Space, SpaceTenant, Tenant,
 )
 from app.utils import strip_diacritics
 
@@ -249,9 +250,9 @@ def _find_multi_unit_match(amount: float, candidates: list[dict]) -> Optional[li
     return None
 
 
-def _create_allocation(db: Session, payment: Payment, unit_id: int,
+def _create_allocation(db: Session, payment: Payment, unit_id: Optional[int],
                        owner_id: Optional[int], prescription_id: Optional[int],
-                       amount: float) -> None:
+                       amount: float, space_id: Optional[int] = None) -> None:
     """Vytvořit PaymentAllocation záznam (dual-write)."""
     db.add(PaymentAllocation(
         payment_id=payment.id,
@@ -259,6 +260,7 @@ def _create_allocation(db: Session, payment: Payment, unit_id: int,
         owner_id=owner_id,
         prescription_id=prescription_id,
         amount=amount,
+        space_id=space_id,
     ))
 
 
@@ -309,6 +311,7 @@ def _extract_unit_from_vs(vs: str, known_vs_map: dict[str, int],
 def _phase1_vs_match(db: Session, payments: list, ctx: dict) -> int:
     """Fáze 1: Párování přes variabilní symbol (exaktní shoda z VS mapování).
 
+    Podporuje unit_id i space_id z VariableSymbolMapping.
     Vrací počet napárovaných plateb.
     """
     vs_map = ctx["vs_map"]
@@ -320,12 +323,18 @@ def _phase1_vs_match(db: Session, payments: list, ctx: dict) -> int:
         if not payment.vs:
             continue
 
-        unit_id = vs_map.get(payment.vs)
-        if not unit_id:
+        vs_info = vs_map.get(payment.vs)
+        if not vs_info:
+            continue
+
+        unit_id = vs_info.get("unit_id")
+        space_id = vs_info.get("space_id")
+        if not unit_id and not space_id:
             continue
 
         payment.unit_id = unit_id
-        payment.owner_id = owner_by_unit.get(unit_id)
+        payment.space_id = space_id
+        payment.owner_id = owner_by_unit.get(unit_id) if unit_id else None
         payment.match_status = PaymentMatchStatus.AUTO_MATCHED
 
         prescription = prescriptions_by_vs.get(payment.vs)
@@ -337,6 +346,7 @@ def _phase1_vs_match(db: Session, payments: list, ctx: dict) -> int:
         _create_allocation(
             db, payment, unit_id, payment.owner_id,
             payment.prescription_id, payment.amount,
+            space_id=space_id,
         )
         matched += 1
 
@@ -350,11 +360,15 @@ def _phase2_name_match(db: Session, payments: list, ctx: dict) -> int:
     Vrací počet navržených (SUGGESTED) plateb.
     """
     auto_matched_unit_ids = ctx["auto_matched_unit_ids"]
+    auto_matched_space_ids = ctx.get("auto_matched_space_ids", set())
     all_prescriptions = ctx["all_prescriptions"]
     prescriptions_by_unit = ctx["prescriptions_by_unit"]
+    prescriptions_by_space = ctx.get("prescriptions_by_space", {})
     owner_by_unit = ctx["owner_by_unit"]
     all_owners = ctx["all_owners"]
     active_owner_units = ctx["active_owner_units"]
+    active_space_tenants = ctx.get("active_space_tenants", [])
+    all_tenants = ctx.get("all_tenants", {})
 
     still_unmatched = [
         p for p in payments
@@ -372,13 +386,14 @@ def _phase2_name_match(db: Session, payments: list, ctx: dict) -> int:
             if presc.unit_id in auto_matched_unit_ids:
                 continue
             norm = strip_diacritics(presc.owner_name)
-            key = (norm, presc.unit_id)
+            key = (norm, "unit", presc.unit_id)
             if key not in seen_keys:
                 seen_keys.add(key)
                 name_lookup.append({
                     "name_norm": norm,
                     "words": set(norm.split()),
                     "unit_id": presc.unit_id,
+                    "space_id": None,
                     "owner_id": owner_by_unit.get(presc.unit_id),
                     "monthly": presc.monthly_total,
                     "prescription_id": presc.id,
@@ -390,7 +405,7 @@ def _phase2_name_match(db: Session, payments: list, ctx: dict) -> int:
         owner = all_owners.get(ou.owner_id)
         if not owner or not owner.name_normalized:
             continue
-        key = (owner.name_normalized, ou.unit_id)
+        key = (owner.name_normalized, "unit", ou.unit_id)
         if key not in seen_keys:
             seen_keys.add(key)
             presc = prescriptions_by_unit.get(ou.unit_id)
@@ -398,7 +413,29 @@ def _phase2_name_match(db: Session, payments: list, ctx: dict) -> int:
                 "name_norm": owner.name_normalized,
                 "words": set(owner.name_normalized.split()),
                 "unit_id": ou.unit_id,
+                "space_id": None,
                 "owner_id": ou.owner_id,
+                "monthly": presc.monthly_total if presc else None,
+                "prescription_id": presc.id if presc else None,
+            })
+
+    # Přidat nájemce prostorů do name lookup
+    for st in active_space_tenants:
+        if st.space_id in auto_matched_space_ids:
+            continue
+        tenant = all_tenants.get(st.tenant_id)
+        if not tenant or not tenant.name_normalized:
+            continue
+        key = (tenant.name_normalized, "space", st.space_id)
+        if key not in seen_keys:
+            seen_keys.add(key)
+            presc = prescriptions_by_space.get(st.space_id)
+            name_lookup.append({
+                "name_norm": tenant.name_normalized,
+                "words": set(tenant.name_normalized.split()),
+                "unit_id": None,
+                "space_id": st.space_id,
+                "owner_id": None,
                 "monthly": presc.monthly_total if presc else None,
                 "prescription_id": presc.id if presc else None,
             })
@@ -420,24 +457,32 @@ def _phase2_name_match(db: Session, payments: list, ctx: dict) -> int:
                 break
 
         if best:
-            # Single-unit match
-            payment.unit_id = best["unit_id"]
-            payment.owner_id = owner_by_unit.get(best["unit_id"])
+            # Single match (unit or space)
+            payment.unit_id = best.get("unit_id")
+            payment.space_id = best.get("space_id")
+            payment.owner_id = owner_by_unit.get(best["unit_id"]) if best.get("unit_id") else None
             payment.match_status = PaymentMatchStatus.SUGGESTED
             payment.assigned_month = payment.date.month if payment.date else None
 
-            presc = prescriptions_by_unit.get(best["unit_id"])
+            if best.get("unit_id"):
+                presc = prescriptions_by_unit.get(best["unit_id"])
+            elif best.get("space_id"):
+                presc = prescriptions_by_space.get(best["space_id"])
+            else:
+                presc = None
             if presc:
                 payment.prescription_id = presc.id
 
             _create_allocation(
-                db, payment, best["unit_id"], payment.owner_id,
+                db, payment, best.get("unit_id"), payment.owner_id,
                 payment.prescription_id, payment.amount,
+                space_id=best.get("space_id"),
             )
             suggested += 1
         else:
-            # Zkusit multi-unit match (součet předpisů více jednotek)
-            multi = _find_multi_unit_match(payment.amount, candidates)
+            # Zkusit multi-unit match (součet předpisů více jednotek) — jen pro jednotky
+            unit_candidates = [c for c in candidates if c.get("unit_id")]
+            multi = _find_multi_unit_match(payment.amount, unit_candidates)
             if multi:
                 payment.unit_id = None
                 payment.owner_id = multi[0].get("owner_id")
@@ -454,18 +499,25 @@ def _phase2_name_match(db: Session, payments: list, ctx: dict) -> int:
                 suggested += 1
             elif len(candidates) == 1:
                 best = candidates[0]
-                payment.unit_id = best["unit_id"]
-                payment.owner_id = owner_by_unit.get(best["unit_id"])
+                payment.unit_id = best.get("unit_id")
+                payment.space_id = best.get("space_id")
+                payment.owner_id = owner_by_unit.get(best["unit_id"]) if best.get("unit_id") else None
                 payment.match_status = PaymentMatchStatus.SUGGESTED
                 payment.assigned_month = payment.date.month if payment.date else None
 
-                presc = prescriptions_by_unit.get(best["unit_id"])
+                if best.get("unit_id"):
+                    presc = prescriptions_by_unit.get(best["unit_id"])
+                elif best.get("space_id"):
+                    presc = prescriptions_by_space.get(best["space_id"])
+                else:
+                    presc = None
                 if presc:
                     payment.prescription_id = presc.id
 
                 _create_allocation(
-                    db, payment, best["unit_id"], payment.owner_id,
+                    db, payment, best.get("unit_id"), payment.owner_id,
                     payment.prescription_id, payment.amount,
+                    space_id=best.get("space_id"),
                 )
                 suggested += 1
 
@@ -569,10 +621,11 @@ def match_payments(db: Session, statement_id: int, year: int) -> dict:
     # Načti sdílená data pro všechny fáze
     vs_map = {}
     for m in db.query(VariableSymbolMapping).filter_by(is_active=True).all():
-        vs_map[m.variable_symbol] = m.unit_id
+        vs_map[m.variable_symbol] = {"unit_id": m.unit_id, "space_id": m.space_id}
 
     prescriptions_by_vs = {}
     prescriptions_by_unit = {}
+    prescriptions_by_space = {}
     all_prescriptions = []
     py = db.query(PrescriptionYear).filter_by(year=year).first()
     if py:
@@ -581,6 +634,8 @@ def match_payments(db: Session, statement_id: int, year: int) -> dict:
                 prescriptions_by_vs[p.variable_symbol] = p
             if p.unit_id:
                 prescriptions_by_unit[p.unit_id] = p
+            if p.space_id:
+                prescriptions_by_space[p.space_id] = p
             all_prescriptions.append(p)
 
     all_units = db.query(Unit).all()
@@ -591,6 +646,10 @@ def match_payments(db: Session, statement_id: int, year: int) -> dict:
     active_owner_units = db.query(OwnerUnit).filter(OwnerUnit.valid_to.is_(None)).all()
     for ou in active_owner_units:
         owner_by_unit[ou.unit_id] = ou.owner_id
+
+    # Nájemci prostorů pro name matching
+    all_tenants = {t.id: t for t in db.query(Tenant).all()}
+    active_space_tenants = db.query(SpaceTenant).filter_by(is_active=True).all()
 
     payments = (
         db.query(Payment)
@@ -604,21 +663,29 @@ def match_payments(db: Session, statement_id: int, year: int) -> dict:
         "vs_map": vs_map,
         "prescriptions_by_vs": prescriptions_by_vs,
         "prescriptions_by_unit": prescriptions_by_unit,
+        "prescriptions_by_space": prescriptions_by_space,
         "all_prescriptions": all_prescriptions,
         "unit_by_number": unit_by_number,
         "all_owners": all_owners,
+        "all_tenants": all_tenants,
         "owner_by_unit": owner_by_unit,
         "active_owner_units": active_owner_units,
+        "active_space_tenants": active_space_tenants,
         "auto_matched_unit_ids": set(),  # naplní se po fázi 1
+        "auto_matched_space_ids": set(),  # naplní se po fázi 1
     }
 
     # Fáze 1: VS exaktní shoda
     matched = _phase1_vs_match(db, payments, ctx)
 
-    # Sbírej auto-matched unit_ids pro vyloučení z fází 2 a 3
+    # Sbírej auto-matched unit/space ids pro vyloučení z fází 2 a 3
     ctx["auto_matched_unit_ids"] = {
         p.unit_id for p in payments
         if p.match_status == PaymentMatchStatus.AUTO_MATCHED and p.unit_id
+    }
+    ctx["auto_matched_space_ids"] = {
+        p.space_id for p in payments
+        if p.match_status == PaymentMatchStatus.AUTO_MATCHED and p.space_id
     }
 
     # Fáze 2: Jméno + částka

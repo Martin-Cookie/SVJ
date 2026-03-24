@@ -382,8 +382,10 @@ async def vypis_detail(
         .filter_by(statement_id=statement_id)
         .options(
             joinedload(Payment.unit),
+            joinedload(Payment.space),
             joinedload(Payment.owner),
             joinedload(Payment.allocations).joinedload(PA.unit),
+            joinedload(Payment.allocations).joinedload(PA.space),
         )
     )
 
