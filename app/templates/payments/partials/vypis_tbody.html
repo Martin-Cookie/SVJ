@@ -20,39 +20,19 @@
             {{ match_labels.get(p.match_status.value, p.match_status.value) }}
         </span>
     </td>
+    {# ── Sloupec Jednotka ── #}
     <td class="px-2 py-1.5">
-        {% if p.match_status.value == 'suggested' and p.allocations|length > 1 %}
-        {# Multi-unit SUGGESTED — více badge + potvrdit/odmítnout #}
+        {# Collect unit allocations #}
+        {% set unit_allocs = p.allocations|selectattr('unit')|list %}
+        {% set has_suggest_buttons = p.match_status.value == 'suggested' and not locked %}
+        {% if p.match_status.value == 'suggested' and unit_allocs %}
         <span class="inline-flex items-center gap-1 flex-wrap">
-            {% for a in p.allocations %}
-            {% if a.space %}
-            <span class="px-1.5 py-0.5 text-xs bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 rounded-full" title="Prostor {{ a.space.space_number }}">
-                P {{ a.space.space_number }}
-            </span>
-            {% elif a.unit %}
+            {% for a in unit_allocs %}
             <span class="px-1.5 py-0.5 text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full" title="VS: {{ unit_vs.get(a.unit.id, '—') }} · Předpis: {{ unit_monthly.get(a.unit.id, 0)|fmt_num }} Kč/měs">
                 č. {{ a.unit.unit_number }}
             </span>
-            {% endif %}
             {% endfor %}
-            {% if not locked %}
-            <form method="post" action="/platby/vypisy/{{ statement.id }}/potvrdit/{{ p.id }}" hx-boost="false" class="inline">
-                {{ filter_hidden() }}
-                <button type="submit" class="px-1 py-0.5 text-xs text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300" title="Potvrdit návrh">✓</button>
-            </form>
-            <form method="post" action="/platby/vypisy/{{ statement.id }}/odmitnout/{{ p.id }}" hx-boost="false" class="inline">
-                {{ filter_hidden() }}
-                <button type="submit" class="px-1 py-0.5 text-xs text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300" title="Odmítnout návrh">✕</button>
-            </form>
-            {% endif %}
-        </span>
-        {% elif p.match_status.value == 'suggested' and p.space %}
-        {# Single-space SUGGESTED — fialový badge s tlačítky potvrdit/odmítnout #}
-        <span class="inline-flex items-center gap-1">
-            <span class="px-2 py-0.5 text-xs bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 rounded-full" title="Prostor {{ p.space.space_number }}">
-                P {{ p.space.space_number }}
-            </span>
-            {% if not locked %}
+            {% if has_suggest_buttons and not (p.allocations|selectattr('space')|list) %}
             <form method="post" action="/platby/vypisy/{{ statement.id }}/potvrdit/{{ p.id }}" hx-boost="false" class="inline">
                 {{ filter_hidden() }}
                 <button type="submit" class="px-1 py-0.5 text-xs text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300" title="Potvrdit návrh">✓</button>
@@ -64,12 +44,11 @@
             {% endif %}
         </span>
         {% elif p.match_status.value == 'suggested' and p.unit %}
-        {# Single-unit SUGGESTED — modrý badge s tlačítky potvrdit/odmítnout #}
         <span class="inline-flex items-center gap-1">
             <span class="px-2 py-0.5 text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full" title="VS: {{ unit_vs.get(p.unit.id, '—') }} · Předpis: {{ unit_monthly.get(p.unit.id, 0)|fmt_num }} Kč/měs">
                 č. {{ p.unit.unit_number }}
             </span>
-            {% if not locked %}
+            {% if has_suggest_buttons and not p.space %}
             <form method="post" action="/platby/vypisy/{{ statement.id }}/potvrdit/{{ p.id }}" hx-boost="false" class="inline">
                 {{ filter_hidden() }}
                 <button type="submit" class="px-1 py-0.5 text-xs text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300" title="Potvrdit návrh">✓</button>
@@ -80,25 +59,14 @@
             </form>
             {% endif %}
         </span>
-        {% elif p.allocations|length > 1 %}
-        {# Multi-unit/space potvrzené — zelené/fialové badge #}
+        {% elif unit_allocs|length > 0 %}
         <span class="inline-flex items-center gap-1 flex-wrap">
-            {% for a in p.allocations %}
-            {% if a.space %}
-            <a href="/prostory/{{ a.space.id }}?back={{ (list_url ~ '#p-' ~ p.id)|urlencode }}" class="px-1.5 py-0.5 text-xs bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 rounded-full hover:bg-purple-200" title="Prostor {{ a.space.space_number }}">
-                P {{ a.space.space_number }}
-            </a>
-            {% elif a.unit %}
+            {% for a in unit_allocs %}
             <a href="/jednotky/{{ a.unit.id }}?back={{ (list_url ~ '#p-' ~ p.id)|urlencode }}" class="px-1.5 py-0.5 text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full hover:bg-green-200" title="VS: {{ unit_vs.get(a.unit.id, '—') }} · Předpis: {{ unit_monthly.get(a.unit.id, 0)|fmt_num }} Kč/měs">
                 č. {{ a.unit.unit_number }}
             </a>
-            {% endif %}
             {% endfor %}
         </span>
-        {% elif p.space %}
-        <a href="/prostory/{{ p.space.id }}?back={{ (list_url ~ '#p-' ~ p.id)|urlencode }}" class="px-2 py-0.5 text-xs bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 rounded-full hover:bg-purple-200" title="Prostor {{ p.space.space_number }}">
-            P {{ p.space.space_number }}
-        </a>
         {% elif p.unit %}
         <a href="/jednotky/{{ p.unit.id }}?back={{ (list_url ~ '#p-' ~ p.id)|urlencode }}" class="px-2 py-0.5 text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full hover:bg-green-200" title="VS: {{ unit_vs.get(p.unit.id, '—') }} · Předpis: {{ unit_monthly.get(p.unit.id, 0)|fmt_num }} Kč/měs">
             č. {{ p.unit.unit_number }}
@@ -134,6 +102,60 @@
         <span class="text-gray-400">—</span>
         {% endif %}
     </td>
+    {# ── Sloupec Prostor ── #}
+    <td class="px-2 py-1.5">
+        {% set space_allocs = p.allocations|selectattr('space')|list %}
+        {% set has_suggest_buttons = p.match_status.value == 'suggested' and not locked %}
+        {% if p.match_status.value == 'suggested' and space_allocs %}
+        <span class="inline-flex items-center gap-1 flex-wrap">
+            {% for a in space_allocs %}
+            <span class="px-1.5 py-0.5 text-xs bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 rounded-full" title="Prostor {{ a.space.space_number }} · {{ a.space.designation }}">
+                P {{ a.space.space_number }}
+            </span>
+            {% endfor %}
+            {% if has_suggest_buttons and not (p.allocations|selectattr('unit')|list) %}
+            <form method="post" action="/platby/vypisy/{{ statement.id }}/potvrdit/{{ p.id }}" hx-boost="false" class="inline">
+                {{ filter_hidden() }}
+                <button type="submit" class="px-1 py-0.5 text-xs text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300" title="Potvrdit návrh">✓</button>
+            </form>
+            <form method="post" action="/platby/vypisy/{{ statement.id }}/odmitnout/{{ p.id }}" hx-boost="false" class="inline">
+                {{ filter_hidden() }}
+                <button type="submit" class="px-1 py-0.5 text-xs text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300" title="Odmítnout návrh">✕</button>
+            </form>
+            {% endif %}
+        </span>
+        {% elif p.match_status.value == 'suggested' and p.space %}
+        <span class="inline-flex items-center gap-1">
+            <span class="px-2 py-0.5 text-xs bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 rounded-full" title="Prostor {{ p.space.space_number }} · {{ p.space.designation }}">
+                P {{ p.space.space_number }}
+            </span>
+            {% if has_suggest_buttons and not p.unit %}
+            <form method="post" action="/platby/vypisy/{{ statement.id }}/potvrdit/{{ p.id }}" hx-boost="false" class="inline">
+                {{ filter_hidden() }}
+                <button type="submit" class="px-1 py-0.5 text-xs text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300" title="Potvrdit návrh">✓</button>
+            </form>
+            <form method="post" action="/platby/vypisy/{{ statement.id }}/odmitnout/{{ p.id }}" hx-boost="false" class="inline">
+                {{ filter_hidden() }}
+                <button type="submit" class="px-1 py-0.5 text-xs text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300" title="Odmítnout návrh">✕</button>
+            </form>
+            {% endif %}
+        </span>
+        {% elif space_allocs|length > 0 %}
+        <span class="inline-flex items-center gap-1 flex-wrap">
+            {% for a in space_allocs %}
+            <a href="/prostory/{{ a.space.id }}?back={{ (list_url ~ '#p-' ~ p.id)|urlencode }}" class="px-1.5 py-0.5 text-xs bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 rounded-full hover:bg-purple-200" title="Prostor {{ a.space.space_number }} · {{ a.space.designation }}">
+                P {{ a.space.space_number }}
+            </a>
+            {% endfor %}
+        </span>
+        {% elif p.space %}
+        <a href="/prostory/{{ p.space.id }}?back={{ (list_url ~ '#p-' ~ p.id)|urlencode }}" class="px-2 py-0.5 text-xs bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 rounded-full hover:bg-purple-200" title="Prostor {{ p.space.space_number }} · {{ p.space.designation }}">
+            P {{ p.space.space_number }}
+        </a>
+        {% else %}
+        <span class="text-gray-400">—</span>
+        {% endif %}
+    </td>
     <td class="px-2 py-1.5 text-gray-400 dark:text-gray-500 max-w-[200px] truncate" title="{{ p.message or p.note or '' }}">
         {{ p.message or p.note or "" }}
     </td>
@@ -141,6 +163,6 @@
 {% endfor %}
 {% if not payments %}
 <tr>
-    <td colspan="7" class="px-3 py-8 text-center text-xs text-gray-400 dark:text-gray-500">Žádné platby nenalezeny.</td>
+    <td colspan="8" class="px-3 py-8 text-center text-xs text-gray-400 dark:text-gray-500">Žádné platby nenalezeny.</td>
 </tr>
 {% endif %}
