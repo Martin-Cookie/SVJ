@@ -8,11 +8,14 @@ from fastapi.responses import RedirectResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import PrescriptionYear, Unit
+from app.models import PrescriptionYear, Unit, Space
 from app.services.payment_overview import (
     compute_debtor_list,
     compute_payment_matrix,
     compute_unit_payment_detail,
+    compute_space_debtor_list,
+    compute_space_payment_matrix,
+    compute_space_payment_detail,
 )
 from app.utils import build_list_url, excel_auto_width, is_htmx_partial, strip_diacritics, utcnow
 
@@ -50,7 +53,9 @@ async def platby_prehled(
     back: str = Query("", alias="back"),
     db: Session = Depends(get_db),
 ):
-    """Matice plateb — jednotky × měsíce."""
+    """Matice plateb — jednotky/prostory × měsíce."""
+    entita = request.query_params.get("entita", "")
+
     # Výchozí rok = nejnovější PrescriptionYear
     if not rok:
         latest = db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).first()
@@ -58,37 +63,72 @@ async def platby_prehled(
 
     years = [y.year for y in db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).all()]
 
-    matrix = compute_payment_matrix(db, rok, space_type=typ)
-    rows = matrix["units"]
+    if entita == "prostory":
+        matrix = compute_space_payment_matrix(db, rok)
+        rows = matrix["rows"]
 
-    # Search
-    if q:
-        q_ascii = strip_diacritics(q)
-        rows = [
-            r for r in rows
-            if q_ascii in strip_diacritics(str(r["unit"].unit_number))
-            or q_ascii in strip_diacritics(r["owner"].display_name if r["owner"] else "")
-            or q_ascii in strip_diacritics(r["prescription"].owner_name or "")
-            or q_ascii in strip_diacritics(r["prescription"].variable_symbol or "")
-            or q_ascii in strip_diacritics(r["prescription"].section or "")
-        ]
+        if q:
+            q_ascii = strip_diacritics(q)
+            rows = [
+                r for r in rows
+                if q_ascii in strip_diacritics(str(r["space"].space_number))
+                or q_ascii in strip_diacritics(r["space"].designation or "")
+                or q_ascii in strip_diacritics(
+                    r["tenant_rel"].tenant.display_name if r.get("tenant_rel") and r["tenant_rel"].tenant else ""
+                )
+            ]
 
-    # Sort
-    sort_key = sort if sort in SORT_COLUMNS_MATRIX else "cislo"
-    reverse = order == "desc"
-    sort_fns = {
-        "cislo": lambda r: r["unit"].unit_number or 0,
-        "sekce": lambda r: (r["prescription"].section or "").lower(),
-        "vlastnik": lambda r: strip_diacritics(r["owner"].display_name if r["owner"] else r["prescription"].owner_name or ""),
-        "predpis": lambda r: r["monthly"],
-        "prevod": lambda r: r.get("opening", 0),
-        "celkem": lambda r: r["total_paid"],
-        "dluh": lambda r: r["debt"],
-    }
-    # Měsíční sloupce m1–m12
-    for mi in range(1, 13):
-        sort_fns[f"m{mi}"] = (lambda m: lambda r: r["months"].get(m, {}).get("paid", 0))(mi)
-    rows.sort(key=sort_fns.get(sort_key, sort_fns["cislo"]), reverse=reverse)
+        sort_key = sort if sort in SORT_COLUMNS_MATRIX else "cislo"
+        reverse = order == "desc"
+        sort_fns = {
+            "cislo": lambda r: r["space"].space_number or "",
+            "sekce": lambda r: "",
+            "vlastnik": lambda r: strip_diacritics(
+                r["tenant_rel"].tenant.display_name if r.get("tenant_rel") and r["tenant_rel"].tenant else ""
+            ),
+            "predpis": lambda r: r["monthly"],
+            "prevod": lambda r: r.get("opening", 0),
+            "celkem": lambda r: r["total_paid"],
+            "dluh": lambda r: r["debt"],
+        }
+        for mi in range(1, 13):
+            sort_fns[f"m{mi}"] = (lambda m: lambda r: r["months"].get(m, {}).get("paid", 0))(mi)
+        rows.sort(key=sort_fns.get(sort_key, sort_fns["cislo"]), reverse=reverse)
+
+        total_units = len(matrix["rows"])
+        space_types = []
+    else:
+        matrix = compute_payment_matrix(db, rok, space_type=typ)
+        rows = matrix["units"]
+
+        if q:
+            q_ascii = strip_diacritics(q)
+            rows = [
+                r for r in rows
+                if q_ascii in strip_diacritics(str(r["unit"].unit_number))
+                or q_ascii in strip_diacritics(r["owner"].display_name if r["owner"] else "")
+                or q_ascii in strip_diacritics(r["prescription"].owner_name or "")
+                or q_ascii in strip_diacritics(r["prescription"].variable_symbol or "")
+                or q_ascii in strip_diacritics(r["prescription"].section or "")
+            ]
+
+        sort_key = sort if sort in SORT_COLUMNS_MATRIX else "cislo"
+        reverse = order == "desc"
+        sort_fns = {
+            "cislo": lambda r: r["unit"].unit_number or 0,
+            "sekce": lambda r: (r["prescription"].section or "").lower(),
+            "vlastnik": lambda r: strip_diacritics(r["owner"].display_name if r["owner"] else r["prescription"].owner_name or ""),
+            "predpis": lambda r: r["monthly"],
+            "prevod": lambda r: r.get("opening", 0),
+            "celkem": lambda r: r["total_paid"],
+            "dluh": lambda r: r["debt"],
+        }
+        for mi in range(1, 13):
+            sort_fns[f"m{mi}"] = (lambda m: lambda r: r["months"].get(m, {}).get("paid", 0))(mi)
+        rows.sort(key=sort_fns.get(sort_key, sort_fns["cislo"]), reverse=reverse)
+
+        total_units = len(matrix["units"])
+        space_types = matrix["space_types"]
 
     list_url = build_list_url(request)
 
@@ -102,14 +142,15 @@ async def platby_prehled(
         "q": q,
         "sort": sort_key,
         "order": order,
+        "entita": entita,
         "back_url": back,
         "list_url": list_url,
         "month_names": MONTH_NAMES,
         "months_with_data": matrix["months_with_data"],
-        "space_types": matrix["space_types"],
+        "space_types": space_types,
         "total_prescribed": matrix["total_prescribed"],
         "total_paid": matrix["total_paid"],
-        "total_units": len(matrix["units"]),
+        "total_units": total_units,
         "active_tab": "prehled",
         **(compute_nav_stats(db) if not is_htmx_partial(request) else {}),
     }
@@ -242,35 +283,81 @@ async def platby_dluznici(
     back: str = Query("", alias="back"),
     db: Session = Depends(get_db),
 ):
-    """Seznam dlužníků."""
+    """Seznam dlužníků — jednotky nebo prostory."""
+    entita = request.query_params.get("entita", "")
+
     if not rok:
         latest = db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).first()
         rok = latest.year if latest else utcnow().year
 
     years = [y.year for y in db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).all()]
 
-    debtors, months_with_data = compute_debtor_list(db, rok)
+    if entita == "prostory":
+        debtors, months_with_data = compute_space_debtor_list(db, rok)
 
-    if q:
-        q_ascii = strip_diacritics(q)
-        debtors = [
-            r for r in debtors
-            if q_ascii in strip_diacritics(str(r["unit"].unit_number))
-            or q_ascii in strip_diacritics(r["owner"].display_name if r["owner"] else "")
-            or q_ascii in strip_diacritics(r["prescription"].owner_name or "")
-        ]
+        # Compute months_unpaid for sorting
+        for r in debtors:
+            r["months_unpaid"] = sum(
+                1 for m in range(1, 13)
+                if r["months"].get(m, {}).get("status") in ("unpaid", "partial")
+                and m in months_with_data
+            )
 
-    sort_key = sort if sort in SORT_COLUMNS_DEBTORS else "dluh"
-    reverse = order == "desc"
-    sort_fns = {
-        "cislo": lambda r: r["unit"].unit_number or 0,
-        "vlastnik": lambda r: strip_diacritics(r["owner"].display_name if r["owner"] else r["prescription"].owner_name or ""),
-        "predpis": lambda r: r["monthly"],
-        "zaplaceno": lambda r: r["total_paid"],
-        "dluh": lambda r: r["debt"],
-        "mesice": lambda r: r["months_unpaid"],
-    }
-    debtors.sort(key=sort_fns.get(sort_key, sort_fns["dluh"]), reverse=reverse)
+        if q:
+            q_ascii = strip_diacritics(q)
+            debtors = [
+                r for r in debtors
+                if q_ascii in strip_diacritics(str(r["space"].space_number))
+                or q_ascii in strip_diacritics(r["space"].designation or "")
+                or q_ascii in strip_diacritics(
+                    r["tenant_rel"].tenant.display_name if r.get("tenant_rel") and r["tenant_rel"].tenant else ""
+                )
+            ]
+
+        sort_key = sort if sort in SORT_COLUMNS_DEBTORS else "dluh"
+        reverse = order == "desc"
+        sort_fns = {
+            "cislo": lambda r: r["space"].space_number or "",
+            "vlastnik": lambda r: strip_diacritics(
+                r["tenant_rel"].tenant.display_name if r.get("tenant_rel") and r["tenant_rel"].tenant else ""
+            ),
+            "predpis": lambda r: r["monthly"],
+            "zaplaceno": lambda r: r["total_paid"],
+            "dluh": lambda r: r["debt"],
+            "mesice": lambda r: r["months_unpaid"],
+        }
+        debtors.sort(key=sort_fns.get(sort_key, sort_fns["dluh"]), reverse=reverse)
+    else:
+        debtors, months_with_data = compute_debtor_list(db, rok)
+
+        # Compute months_unpaid for sorting
+        for r in debtors:
+            r["months_unpaid"] = sum(
+                1 for m in range(1, 13)
+                if r["months"].get(m, {}).get("status") in ("unpaid", "partial")
+                and m in months_with_data
+            )
+
+        if q:
+            q_ascii = strip_diacritics(q)
+            debtors = [
+                r for r in debtors
+                if q_ascii in strip_diacritics(str(r["unit"].unit_number))
+                or q_ascii in strip_diacritics(r["owner"].display_name if r["owner"] else "")
+                or q_ascii in strip_diacritics(r["prescription"].owner_name or "")
+            ]
+
+        sort_key = sort if sort in SORT_COLUMNS_DEBTORS else "dluh"
+        reverse = order == "desc"
+        sort_fns = {
+            "cislo": lambda r: r["unit"].unit_number or 0,
+            "vlastnik": lambda r: strip_diacritics(r["owner"].display_name if r["owner"] else r["prescription"].owner_name or ""),
+            "predpis": lambda r: r["monthly"],
+            "zaplaceno": lambda r: r["total_paid"],
+            "dluh": lambda r: r["debt"],
+            "mesice": lambda r: r["months_unpaid"],
+        }
+        debtors.sort(key=sort_fns.get(sort_key, sort_fns["dluh"]), reverse=reverse)
 
     list_url = build_list_url(request)
 
@@ -283,6 +370,7 @@ async def platby_dluznici(
         "q": q,
         "sort": sort_key,
         "order": order,
+        "entita": entita,
         "back_url": back,
         "list_url": list_url,
         "months_with_data": months_with_data,
@@ -317,7 +405,15 @@ async def dluznici_export(
         latest = db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).first()
         rok = latest.year if latest else utcnow().year
 
-    debtors, _ = compute_debtor_list(db, rok)
+    debtors, months_with_data_export = compute_debtor_list(db, rok)
+
+    # Compute months_unpaid for sorting/export
+    for r in debtors:
+        r["months_unpaid"] = sum(
+            1 for m in range(1, 13)
+            if r["months"].get(m, {}).get("status") in ("unpaid", "partial")
+            and m in months_with_data_export
+        )
 
     if q:
         q_ascii = strip_diacritics(q)
@@ -416,6 +512,58 @@ async def platby_jednotka(
         "active_nav": "platby",
         "active_tab": "prehled",
         "unit": unit,
+        "detail": detail,
+        "rok": rok,
+        "years": years,
+        "back_url": back_url,
+        "back_label": back_label,
+        "hide_nav_back": True,
+        "month_names": MONTH_NAMES,
+        **(compute_nav_stats(db) if not is_htmx_partial(request) else {}),
+    })
+
+
+# ── Detail plateb prostoru ──────────────────────────────────────────
+
+
+@router.get("/prostor/{space_id}")
+async def platby_prostor(
+    space_id: int,
+    request: Request,
+    rok: int = Query(0),
+    back: str = Query("", alias="back"),
+    db: Session = Depends(get_db),
+):
+    """Platební detail jednoho prostoru."""
+    space = db.query(Space).get(space_id)
+    if not space:
+        return RedirectResponse("/platby/prehled?entita=prostory", status_code=302)
+
+    if not rok:
+        latest = db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).first()
+        rok = latest.year if latest else utcnow().year
+
+    years = [y.year for y in db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).all()]
+
+    detail = compute_space_payment_detail(db, space_id, rok)
+    if not detail:
+        return RedirectResponse("/platby/prehled?entita=prostory", status_code=302)
+
+    back_url = back or "/platby/prehled?entita=prostory"
+    if "/platby/prehled" in back_url:
+        back_label = "Zpět na matici plateb"
+    elif "/platby/dluznici" in back_url:
+        back_label = "Zpět na dlužníky"
+    elif "/prostory/" in back_url:
+        back_label = "Zpět na detail prostoru"
+    else:
+        back_label = "Zpět na platby"
+
+    return templates.TemplateResponse("payments/prostor_platby.html", {
+        "request": request,
+        "active_nav": "platby",
+        "active_tab": "prehled",
+        "space": space,
         "detail": detail,
         "rok": rok,
         "years": years,

@@ -11,7 +11,7 @@
                     Dlužníci {{ rok }}
                 </h1>
                 <p class="text-xs text-gray-500 dark:text-gray-400">
-                    {{ debtors|length }} {% if debtors|length == 1 %}jednotka{% elif debtors|length < 5 %}jednotky{% else %}jednotek{% endif %} s dluhem ·
+                    {{ debtors|length }} {% if entita == 'prostory' %}{% if debtors|length == 1 %}prostor{% elif debtors|length < 5 %}prostory{% else %}prostorů{% endif %}{% else %}{% if debtors|length == 1 %}jednotka{% elif debtors|length < 5 %}jednotky{% else %}jednotek{% endif %}{% endif %} s dluhem ·
                     Celkový dluh: <span class="font-semibold text-red-600 dark:text-red-400">{{ total_debt|fmt_num }} Kč</span>
                 </p>
             </div>
@@ -21,6 +21,7 @@
                     <input type="hidden" name="q" value="{{ q }}">
                     <input type="hidden" name="sort" value="{{ sort }}">
                     <input type="hidden" name="order" value="{{ order }}">
+                    <input type="hidden" name="entita" value="{{ entita }}">
                     <button type="submit" class="px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600">
                         <svg class="w-3.5 h-3.5 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                         Excel
@@ -37,19 +38,34 @@
             </div>
         </div>
 
+        <!-- Filtr bubliny — entita -->
+        {% set _base_e = "/platby/dluznici?rok=" ~ rok ~ "&sort=" ~ sort ~ "&order=" ~ order ~ ("&q=" ~ q if q else "") %}
+        {% set _back = "&back=" ~ (back_url|default('')|urlencode) if back_url else "" %}
+        <div class="flex flex-wrap gap-2 mb-2">
+            <a href="{{ _base_e }}{{ _back }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
+                {% if not entita %}bg-blue-600 text-white ring-2 ring-blue-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
+                Jednotky
+            </a>
+            <a href="{{ _base_e }}&entita=prostory{{ _back }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
+                {% if entita == 'prostory' %}bg-purple-600 text-white ring-2 ring-purple-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
+                Prostory
+            </a>
+        </div>
+
         <!-- Hledání -->
         <div class="mb-3">
-            <input type="text" name="q" value="{{ q }}" placeholder="Hledat č. jednotky, vlastníka..."
+            <input type="text" name="q" value="{{ q }}" placeholder="{% if entita == 'prostory' %}Hledat č. prostoru, nájemce...{% else %}Hledat č. jednotky, vlastníka...{% endif %}"
                 aria-label="Hledat"
                 hx-get="/platby/dluznici"
                 hx-trigger="keyup changed delay:300ms"
                 hx-target="#dluznici-tbody"
-                hx-include="[name='sort'],[name='order'],[name='rok'],[name='back']"
+                hx-include="[name='sort'],[name='order'],[name='rok'],[name='back'],[name='entita']"
                 class="w-full sm:w-72 px-3 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500">
             <input type="hidden" name="sort" value="{{ sort }}">
             <input type="hidden" name="order" value="{{ order }}">
             <input type="hidden" name="rok" value="{{ rok }}">
             <input type="hidden" name="back" value="{{ back_url }}">
+            <input type="hidden" name="entita" value="{{ entita }}">
         </div>
     </div>
 
@@ -57,10 +73,15 @@
     <div class="flex-1 overflow-y-auto overflow-x-hidden min-h-0 bg-white dark:bg-gray-800 rounded-lg shadow">
         <table class="w-full text-xs">
             <thead class="sticky top-0 z-10 bg-gray-50 dark:bg-gray-700">
-                {% set _sort_base = "/platby/dluznici?rok=" ~ rok ~ "&" ~ ("q=" ~ q ~ "&" if q else "") %}
+                {% set _sort_base = "/platby/dluznici?rok=" ~ rok ~ "&" ~ ("q=" ~ q ~ "&" if q else "") ~ ("entita=" ~ entita ~ "&" if entita else "") %}
                 {% set _back = "&back=" ~ (back_url|default('')|urlencode) if back_url else "" %}
                 <tr>
-                    {% for col_key, col_label in [("cislo", "Č. jednotky"), ("vlastnik", "Vlastník"), ("predpis", "Předpis/měs"), ("zaplaceno", "Zaplaceno"), ("dluh", "Dluh"), ("mesice", "Měsíce")] %}
+                    {% if entita == 'prostory' %}
+                    {% set _dcols = [("cislo", "Č. prostoru"), ("vlastnik", "Nájemce"), ("predpis", "Předpis/měs"), ("zaplaceno", "Zaplaceno"), ("dluh", "Dluh"), ("mesice", "Měsíce")] %}
+                    {% else %}
+                    {% set _dcols = [("cislo", "Č. jednotky"), ("vlastnik", "Vlastník"), ("predpis", "Předpis/měs"), ("zaplaceno", "Zaplaceno"), ("dluh", "Dluh"), ("mesice", "Měsíce")] %}
+                    {% endif %}
+                    {% for col_key, col_label in _dcols %}
                     {% set new_order = "desc" if sort == col_key and order == "asc" else "asc" %}
                     <th class="px-3 py-2 {% if col_key in ['predpis', 'zaplaceno', 'dluh'] %}text-right{% elif col_key == 'mesice' %}text-center{% else %}text-left{% endif %} font-semibold text-gray-600 dark:text-gray-300 cursor-pointer select-none hover:text-gray-900 dark:hover:text-white whitespace-nowrap"
                         onclick="window.location='{{ _sort_base }}sort={{ col_key }}&order={{ new_order }}{{ _back }}'">
