@@ -82,14 +82,15 @@
         </div>
 
         <!-- Filtr bubliny — zdroj -->
+        {% set _zdroj_base = _base ~ ("&entita=" ~ entita if entita else "") %}
         <div class="flex flex-wrap gap-2 mb-2">
-            <a href="{{ _base }}{{ _back }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
+            <a href="{{ _zdroj_base }}{{ _back }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
                 {% if not zdroj %}bg-green-600 text-white ring-2 ring-green-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
                 Vše <span class="ml-1 text-xs opacity-75">{{ mappings|length if not zdroj else '' }}</span>
             </a>
             {% set source_labels = {"auto": "Automaticky", "manual": "Ručně", "legacy": "Historicky"} %}
             {% for src in sources %}
-            <a href="{{ _base }}&zdroj={{ src }}{{ _back }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
+            <a href="{{ _zdroj_base }}&zdroj={{ src }}{{ _back }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
                 {% if zdroj == src %}bg-green-600 text-white ring-2 ring-green-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
                 {{ source_labels.get(src, src) }}
             </a>
@@ -103,11 +104,12 @@
                 hx-get="/platby/symboly"
                 hx-trigger="keyup changed delay:300ms"
                 hx-target="#symboly-tbody"
-                hx-include="[name='sort'],[name='order'],[name='zdroj'],[name='back']"
+                hx-include="[name='sort'],[name='order'],[name='zdroj'],[name='entita'],[name='back']"
                 class="w-full sm:w-72 px-3 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500">
             <input type="hidden" name="sort" value="{{ sort }}">
             <input type="hidden" name="order" value="{{ order }}">
             <input type="hidden" name="zdroj" value="{{ zdroj }}">
+            <input type="hidden" name="entita" value="{{ entita }}">
             <input type="hidden" name="back" value="{{ back_url }}">
         </div>
     </div>
@@ -116,7 +118,7 @@
     <div class="flex-1 overflow-y-auto overflow-x-hidden min-h-0 bg-white dark:bg-gray-800 rounded-lg shadow">
         <table class="w-full text-xs">
             <thead class="sticky top-0 z-10 bg-gray-50 dark:bg-gray-700">
-                {% set _sort_base = "/platby/symboly?" ~ ("q=" ~ q ~ "&" if q else "") ~ ("zdroj=" ~ zdroj ~ "&" if zdroj else "") %}
+                {% set _sort_base = "/platby/symboly?" ~ ("q=" ~ q ~ "&" if q else "") ~ ("zdroj=" ~ zdroj ~ "&" if zdroj else "") ~ ("entita=" ~ entita ~ "&" if entita else "") %}
                 <tr>
                     {% for col_key, col_label in [("vs", "Variabilní symbol"), ("jednotka", "Entita"), ("zdroj", "Zdroj"), ("popis", "Popis")] %}
                     {% set new_order = "desc" if sort == col_key and order == "asc" else "asc" %}
