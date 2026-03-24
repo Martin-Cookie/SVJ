@@ -1,0 +1,43 @@
+<tr class="border-b border-gray-100 dark:border-gray-700 bg-blue-50 dark:bg-blue-900/20" data-edit-row="{{ m.id }}">
+    <td colspan="5" class="px-3 py-2 align-middle">
+        <form method="post" action="/platby/symboly/{{ m.id }}/upravit" class="flex items-center gap-2 flex-wrap" hx-boost="false">
+            <input type="hidden" name="q" value="{{ q }}">
+            <input type="hidden" name="sort" value="{{ sort }}">
+            <input type="hidden" name="order" value="{{ order }}">
+            <input type="hidden" name="zdroj" value="{{ zdroj }}">
+            <input type="hidden" name="entita" value="{{ entita }}">
+            <input type="hidden" name="back" value="{{ back_url }}">
+            <!-- VS -->
+            <input type="text" name="variable_symbol" value="{{ m.variable_symbol }}" required maxlength="20"
+                class="h-8 w-36 px-2 text-xs font-mono border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+            <!-- Typ entity -->
+            {% set entity_type = 'space' if m.space_id else 'unit' %}
+            <select name="entity_type" onchange="this.closest('form').querySelector('[name=unit_id]').style.display=this.value==='unit'?'':'none';this.closest('form').querySelector('[name=space_id]').style.display=this.value==='space'?'':'none'"
+                class="h-8 px-2 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                <option value="unit" {% if entity_type == 'unit' %}selected{% endif %}>Jednotka</option>
+                <option value="space" {% if entity_type == 'space' %}selected{% endif %}>Prostor</option>
+            </select>
+            <!-- Jednotka -->
+            <select name="unit_id" class="h-8 px-2 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                {% if entity_type == 'space' %}style="display:none"{% endif %}>
+                {% for u in units %}
+                <option value="{{ u.id }}" {% if m.unit_id == u.id %}selected{% endif %}>č. {{ u.unit_number }}</option>
+                {% endfor %}
+            </select>
+            <!-- Prostor -->
+            <select name="space_id" class="h-8 px-2 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                {% if entity_type != 'space' %}style="display:none"{% endif %}>
+                {% for sp in spaces %}
+                <option value="{{ sp.id }}" {% if m.space_id == sp.id %}selected{% endif %}>{{ sp.space_number }} — {{ sp.designation }}</option>
+                {% endfor %}
+            </select>
+            <!-- Popis -->
+            <input type="text" name="description" value="{{ m.description or '' }}" placeholder="Poznámka"
+                class="h-8 px-2 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white flex-1">
+            <!-- Tlačítka -->
+            <button type="submit" class="h-8 px-2 text-xs bg-blue-600 text-white rounded hover:bg-blue-700">Uložit</button>
+            <button type="button" class="h-8 px-2 text-xs bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300"
+                hx-get="/platby/symboly/{{ m.id }}/info?q={{ q }}&sort={{ sort }}&order={{ order }}&zdroj={{ zdroj }}&entita={{ entita }}&back={{ back_url|default('')|urlencode }}&list_url={{ list_url|default('')|urlencode }}" hx-target="closest tr" hx-swap="outerHTML">Zrušit</button>
+        </form>
+    </td>
+</tr>

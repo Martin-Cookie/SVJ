@@ -189,6 +189,67 @@ async def symbol_pridat(
     return RedirectResponse(_symboly_redirect_url(form_data, flash="ok"), status_code=302)
 
 
+@router.get("/symboly/{mapping_id}/upravit-formular")
+async def symbol_edit_form(
+    request: Request,
+    mapping_id: int,
+    db: Session = Depends(get_db),
+):
+    """Vrátí HTMX partial s editačním řádkem."""
+    mapping = db.query(VariableSymbolMapping).options(
+        joinedload(VariableSymbolMapping.unit),
+        joinedload(VariableSymbolMapping.space),
+    ).get(mapping_id)
+    if not mapping:
+        return RedirectResponse("/platby/symboly", status_code=302)
+
+    units = db.query(Unit).order_by(Unit.unit_number).all()
+    spaces = db.query(Space).order_by(Space.space_number).all()
+
+    return templates.TemplateResponse("payments/partials/_symboly_edit_row.html", {
+        "request": request,
+        "m": mapping,
+        "units": units,
+        "spaces": spaces,
+        "q": request.query_params.get("q", ""),
+        "sort": request.query_params.get("sort", "vs"),
+        "order": request.query_params.get("order", "asc"),
+        "zdroj": request.query_params.get("zdroj", ""),
+        "entita": request.query_params.get("entita", ""),
+        "back_url": request.query_params.get("back", ""),
+        "list_url": request.query_params.get("list_url", "/platby/symboly"),
+    })
+
+
+@router.get("/symboly/{mapping_id}/info")
+async def symbol_info_row(
+    request: Request,
+    mapping_id: int,
+    db: Session = Depends(get_db),
+):
+    """Vrátí HTMX partial se zobrazovacím řádkem (pro cancel)."""
+    mapping = db.query(VariableSymbolMapping).options(
+        joinedload(VariableSymbolMapping.unit),
+        joinedload(VariableSymbolMapping.space),
+    ).get(mapping_id)
+    if not mapping:
+        return RedirectResponse("/platby/symboly", status_code=302)
+
+    list_url = request.query_params.get("list_url", "/platby/symboly")
+
+    return templates.TemplateResponse("payments/partials/_symboly_view_row.html", {
+        "request": request,
+        "m": mapping,
+        "q": request.query_params.get("q", ""),
+        "sort": request.query_params.get("sort", "vs"),
+        "order": request.query_params.get("order", "asc"),
+        "zdroj": request.query_params.get("zdroj", ""),
+        "entita": request.query_params.get("entita", ""),
+        "back_url": request.query_params.get("back", ""),
+        "list_url": list_url,
+    })
+
+
 @router.post("/symboly/{mapping_id}/upravit")
 async def symbol_upravit(
     request: Request,

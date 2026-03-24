@@ -137,119 +137,12 @@
         </table>
     </div>
 </div>
-{# Sdílený template s options pro jednotky a prostory — 1× místo N× #}
-<template id="unit-options-tpl">
-    {% for u in units %}
-    <option value="{{ u.id }}">č. {{ u.unit_number }}</option>
-    {% endfor %}
-</template>
-<template id="space-options-tpl">
-    {% for sp in spaces %}
-    <option value="{{ sp.id }}">{{ sp.space_number }} — {{ sp.designation }}</option>
-    {% endfor %}
-</template>
 {% include "payments/partials/_scroll_restore.html" %}
 <script>
 function toggleEntitySelect() {
     var t = document.getElementById('add-entity-type').value;
     document.getElementById('add-unit-sel').classList.toggle('hidden', t !== 'unit');
     document.getElementById('add-space-sel').classList.toggle('hidden', t !== 'space');
-}
-</script>
-<script>
-function toggleEditRow(id) {
-    var view = document.querySelector('[data-view-row="'+id+'"]');
-    if (!view) return;
-    var edit = document.querySelector('[data-edit-row="'+id+'"]');
-    if (edit) {
-        view.classList.toggle('hidden');
-        edit.classList.toggle('hidden');
-        return;
-    }
-    var vs = view.querySelector('.font-mono').textContent.trim();
-    var entityType = view.getAttribute('data-entity-type') || 'unit';
-    var unitId = view.getAttribute('data-unit-id') || '';
-    var spaceId = view.getAttribute('data-space-id') || '';
-    var desc = view.getAttribute('data-description') || '';
-
-    var tr = document.createElement('tr');
-    tr.className = 'border-b border-gray-100 dark:border-gray-700 bg-blue-50 dark:bg-blue-900/20';
-    tr.setAttribute('data-edit-row', id);
-
-    // Jedna buňka s formulářem přes celý řádek
-    var td = document.createElement('td');
-    td.colSpan = 5;
-    td.className = 'px-3 py-2 align-middle';
-    var form = document.createElement('form');
-    form.method = 'post';
-    form.action = '/platby/symboly/' + id + '/upravit';
-    form.className = 'flex items-center gap-2 flex-wrap';
-    form.setAttribute('hx-boost', 'false');
-    var hiddens = {q: '{{ q }}', sort: '{{ sort }}', order: '{{ order }}', zdroj: '{{ zdroj }}', entita: '{{ entita }}', back: '{{ back_url }}'};
-    for (var k in hiddens) {
-        var inp = document.createElement('input');
-        inp.type = 'hidden'; inp.name = k; inp.value = hiddens[k];
-        form.appendChild(inp);
-    }
-    // VS input
-    var vsInp = document.createElement('input');
-    vsInp.type = 'text'; vsInp.name = 'variable_symbol'; vsInp.value = vs;
-    vsInp.required = true; vsInp.maxLength = 20;
-    vsInp.className = 'h-8 w-36 px-2 text-xs font-mono border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white';
-    form.appendChild(vsInp);
-    // Typ entity select
-    var typSel = document.createElement('select');
-    typSel.name = 'entity_type';
-    typSel.className = 'h-8 px-2 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white';
-    var optUnit = document.createElement('option'); optUnit.value = 'unit'; optUnit.textContent = 'Jednotka';
-    var optSpace = document.createElement('option'); optSpace.value = 'space'; optSpace.textContent = 'Prostor';
-    typSel.appendChild(optUnit); typSel.appendChild(optSpace);
-    typSel.value = entityType;
-    form.appendChild(typSel);
-    // Jednotka select
-    var unitSel = document.createElement('select');
-    unitSel.name = 'unit_id';
-    unitSel.className = 'h-8 px-2 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white';
-    unitSel.appendChild(document.getElementById('unit-options-tpl').content.cloneNode(true));
-    if (unitId) unitSel.value = unitId;
-    if (entityType === 'space') unitSel.style.display = 'none';
-    form.appendChild(unitSel);
-    // Prostor select
-    var spaceSel = document.createElement('select');
-    spaceSel.name = 'space_id';
-    spaceSel.className = 'h-8 px-2 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white';
-    spaceSel.appendChild(document.getElementById('space-options-tpl').content.cloneNode(true));
-    if (spaceId) spaceSel.value = spaceId;
-    if (entityType !== 'space') spaceSel.style.display = 'none';
-    form.appendChild(spaceSel);
-    // Toggle entity type
-    typSel.onchange = function() {
-        unitSel.style.display = this.value === 'unit' ? '' : 'none';
-        spaceSel.style.display = this.value === 'space' ? '' : 'none';
-    };
-    // Description
-    var descInp = document.createElement('input');
-    descInp.type = 'text'; descInp.name = 'description'; descInp.value = desc;
-    descInp.placeholder = 'Poznámka';
-    descInp.className = 'h-8 px-2 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white flex-1';
-    form.appendChild(descInp);
-    // Buttons
-    var btnSave = document.createElement('button');
-    btnSave.type = 'submit';
-    btnSave.className = 'h-8 px-2 text-xs bg-blue-600 text-white rounded hover:bg-blue-700';
-    btnSave.textContent = 'Uložit';
-    form.appendChild(btnSave);
-    var btnCancel = document.createElement('button');
-    btnCancel.type = 'button';
-    btnCancel.className = 'h-8 px-2 text-xs bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300';
-    btnCancel.textContent = 'Zrušit';
-    btnCancel.onclick = function() { toggleEditRow(id); };
-    form.appendChild(btnCancel);
-    td.appendChild(form);
-    tr.appendChild(td);
-
-    view.after(tr);
-    view.classList.add('hidden');
 }
 </script>
 {% endblock %}
