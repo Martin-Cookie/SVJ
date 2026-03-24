@@ -1,6 +1,6 @@
 import csv
 import io
-from datetime import datetime
+from datetime import date as date_type, datetime
 from io import BytesIO
 
 from fastapi import APIRouter, Depends, Form, Query, Request
@@ -155,7 +155,7 @@ async def space_create(
                 rent_float = 0.0
 
         # Parse contract start
-        from datetime import date as date_type
+
         start_date = None
         if contract_start.strip():
             try:
@@ -656,6 +656,7 @@ async def space_detail(
     ).filter(Tenant.is_active == True).order_by(Tenant.name_normalized).all()  # noqa: E712
 
     flash_message = None
+    flash_type = None
     if flash == "tenant_assigned":
         flash_message = "Nájemce přiřazen."
     elif flash == "tenant_terminated":
@@ -674,4 +675,5 @@ async def space_detail(
         "back_url": back or "/prostory",
         "back_label": back_label,
         "flash_message": flash_message,
+        "flash_type": flash_type,
     })

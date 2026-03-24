@@ -91,6 +91,8 @@ async def symboly_seznam(
     chyba = request.query_params.get("chyba", "")
     if flash_param == "ok":
         flash_message = "Variabilní symbol přidán."
+    elif flash_param == "upraveno":
+        flash_message = "Variabilní symbol upraven."
     elif flash_param == "smazano":
         flash_message = "Variabilní symbol smazán."
     elif chyba == "duplicita":
@@ -204,7 +206,9 @@ async def symbol_upravit(
 
     # Aktualizace VS pokud se změnil
     vs_clean = variable_symbol.strip()
-    if vs_clean and vs_clean != mapping.variable_symbol:
+    if not vs_clean:
+        return RedirectResponse(_symboly_redirect_url(form_data, chyba="prazdny"), status_code=302)
+    if vs_clean != mapping.variable_symbol:
         existing = db.query(VariableSymbolMapping).filter_by(variable_symbol=vs_clean).first()
         if existing:
             return RedirectResponse(_symboly_redirect_url(form_data, chyba="duplicita"), status_code=302)

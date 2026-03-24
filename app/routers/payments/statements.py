@@ -460,19 +460,14 @@ async def vypis_detail(
             bubble_counts["vydej"] += cnt
 
     # Typ bubble counts (celkové počty bez stav/smer filtrů)
-    typ_counts = {"vse": 0, "jednotky": 0, "prostory": 0}
-    typ_raw = (
-        db.query(Payment.unit_id, Payment.space_id, func.count())
-        .filter_by(statement_id=statement_id)
-        .group_by(Payment.unit_id.isnot(None), Payment.space_id.isnot(None))
-        .all()
-    )
-    for unit_id, space_id, cnt in typ_raw:
-        typ_counts["vse"] += cnt
-        if unit_id:
-            typ_counts["jednotky"] += cnt
-        if space_id:
-            typ_counts["prostory"] += cnt
+    all_count = db.query(func.count()).filter(Payment.statement_id == statement_id).scalar() or 0
+    unit_count = db.query(func.count()).filter(
+        Payment.statement_id == statement_id, Payment.unit_id.isnot(None)
+    ).scalar() or 0
+    space_count = db.query(func.count()).filter(
+        Payment.statement_id == statement_id, Payment.space_id.isnot(None)
+    ).scalar() or 0
+    typ_counts = {"vse": all_count, "jednotky": unit_count, "prostory": space_count}
 
     # Flash zprávy
     flash_message = ""

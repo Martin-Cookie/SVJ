@@ -3,6 +3,8 @@
 import enum
 from datetime import datetime
 
+from app.utils import utcnow
+
 from sqlalchemy import (
     Boolean, Column, Date, DateTime, Enum, Float,
     ForeignKey, Index, Integer, String, Text,
@@ -37,8 +39,8 @@ class Space(Base):
     status = Column(Enum(SpaceStatus), nullable=False, default=SpaceStatus.VACANT, index=True)
     blocked_reason = Column(String(200), nullable=True)
     note = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 
     tenants = relationship("SpaceTenant", back_populates="space", cascade="all, delete-orphan")
 
@@ -99,8 +101,8 @@ class Tenant(Base):
     is_active = Column(Boolean, default=True, index=True)
     note = Column(Text, nullable=True)
     data_source = Column(String(50), default="manual")
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 
     # Relationships
     owner = relationship("Owner")
@@ -178,8 +180,8 @@ class SpaceTenant(Base):
 
     is_active = Column(Boolean, nullable=False, default=True, index=True)
     note = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 
     space = relationship("Space", back_populates="tenants")
     tenant = relationship("Tenant", back_populates="spaces")

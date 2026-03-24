@@ -243,19 +243,30 @@ async def space_import_confirm(
         except (json.JSONDecodeError, ValueError):
             logger.debug("Failed to parse owner overrides JSON", exc_info=True)
 
-    # Replace mode: delete all existing spaces, tenants, contracts first
+    # Replace mode: delete spaces + related records (preserves manually created tenants without space)
     if import_mode == "replace":
         from app.models import SpaceTenant, Tenant, VariableSymbolMapping, Prescription
-        # Delete in FK order
-        db.query(SpaceTenant).delete()
-        db.query(Tenant).delete()
-        db.query(VariableSymbolMapping).filter(
-            VariableSymbolMapping.space_id.isnot(None)
-        ).delete(synchronize_session=False)
-        db.query(Prescription).filter(
-            Prescription.space_id.isnot(None)
-        ).delete(synchronize_session=False)
-        db.query(Space).delete()
+        # IDs prostorů k smazání
+        space_ids = [s.id for s in db.query(Space.id).all()]
+        if space_ids:
+            # Delete in FK order — jen záznamy svázané s prostory
+            db.query(SpaceTenant).filter(SpaceTenant.space_id.in_(space_ids)).delete(synchronize_session=False)
+            # Smazat nájemce bez vlastníka (standalone) kteří mají vazbu jen na prostory
+            orphan_tenant_ids = [
+                t.id for t in db.query(Tenant).filter(
+                    Tenant.owner_id.is_(None),
+                    ~Tenant.id.in_(db.query(SpaceTenant.tenant_id))
+                ).all()
+            ]
+            if orphan_tenant_ids:
+                db.query(Tenant).filter(Tenant.id.in_(orphan_tenant_ids)).delete(synchronize_session=False)
+            db.query(VariableSymbolMapping).filter(
+                VariableSymbolMapping.space_id.in_(space_ids)
+            ).delete(synchronize_session=False)
+            db.query(Prescription).filter(
+                Prescription.space_id.in_(space_ids)
+            ).delete(synchronize_session=False)
+            db.query(Space).delete()
         db.flush()
 
     result = import_spaces_from_excel(db, file_path, mapping=mapping,

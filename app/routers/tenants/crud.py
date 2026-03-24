@@ -259,18 +259,15 @@ async def tenant_contact_update(
 
 def _address_ctx(tenant, prefix: str, **extra) -> dict:
     """Build template context for address partials."""
-    if prefix == "perm":
-        return {
-            "tenant": tenant, "prefix": "perm", "address_label": "Trvalá adresa",
-            "street": tenant.perm_street, "district": tenant.perm_district,
-            "city": tenant.perm_city, "zip": tenant.perm_zip,
-            "country": tenant.perm_country, **extra,
-        }
+    label = "Trvalá adresa" if prefix == "perm" else "Koresp. adresa"
     return {
-        "tenant": tenant, "prefix": "corr", "address_label": "Koresp. adresa",
-        "street": tenant.corr_street, "district": tenant.corr_district,
-        "city": tenant.corr_city, "zip": tenant.corr_zip,
-        "country": tenant.corr_country, **extra,
+        "tenant": tenant, "prefix": prefix, "address_label": label,
+        "street": getattr(tenant, f"{prefix}_street"),
+        "district": getattr(tenant, f"{prefix}_district"),
+        "city": getattr(tenant, f"{prefix}_city"),
+        "zip": getattr(tenant, f"{prefix}_zip"),
+        "country": getattr(tenant, f"{prefix}_country"),
+        **extra,
     }
 
 
@@ -611,6 +608,7 @@ async def tenant_detail(
     owners = db.query(Owner).filter(Owner.is_active == True).order_by(Owner.name_normalized).all()  # noqa: E712
 
     flash_message = None
+    flash_type = None
     if flash == "linked":
         flash_message = "Nájemce propojen s vlastníkem."
     elif flash == "unlinked":
@@ -626,4 +624,5 @@ async def tenant_detail(
         "back_url": back or "/najemci",
         "back_label": back_label,
         "flash_message": flash_message,
+        "flash_type": flash_type,
     })

@@ -82,12 +82,12 @@ def preview_balance_import(
         unit_owners = []
         if unit:
             ou_list = owners_by_unit.get(unit.id, [])
-            sjm_ous = [ou for ou in ou_list if "SJM" in (ou.ownership_type or "").upper()]
+            sjm_ous = [ou for ou in ou_list if (ou.ownership_type or "").strip().upper() == "SJM"]
             if sjm_ous and owner_name:
-                excel_norm = strip_diacritics(owner_name or "")
+                excel_words = set(strip_diacritics(owner_name or "").split())
                 for ou in sjm_ous:
                     o = owner_by_id.get(ou.owner_id)
-                    if o and o.name_normalized and o.name_normalized.split()[0] in excel_norm:
+                    if o and o.name_normalized and o.name_normalized.split()[0] in excel_words:
                         unit_owners.append(o)
             if not unit_owners and matched_owner:
                 unit_owners = [matched_owner]
