@@ -11,10 +11,13 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.models import (
-    Space, SpaceStatus, SpaceTenant, Tenant,
+    OwnerType, Space, SpaceStatus, SpaceTenant, Tenant,
     Prescription, PrescriptionYear, SymbolSource, VariableSymbolMapping,
 )
-from app.utils import build_list_url, excel_auto_width, is_htmx_partial, templates, utcnow
+from app.utils import (
+    build_list_url, build_name_with_titles, excel_auto_width,
+    is_htmx_partial, is_valid_email, strip_diacritics, templates, utcnow,
+)
 
 from ._helpers import SORT_COLUMNS, _filter_spaces, _space_stats, logger
 
@@ -29,6 +32,7 @@ async def space_create_form(request: Request):
     """Formulář pro vytvoření nového prostoru."""
     return templates.TemplateResponse("spaces/partials/_create_form.html", {
         "request": request,
+        "form_data": {},
     })
 
 
@@ -43,30 +47,43 @@ async def space_create(
     status: str = Form("vacant"),
     blocked_reason: str = Form(""),
     note: str = Form(""),
+    tenant_name: str = Form(""),
+    tenant_phone: str = Form(""),
+    tenant_email: str = Form(""),
+    contract_number: str = Form(""),
+    contract_start: str = Form(""),
+    monthly_rent: str = Form(""),
+    variable_symbol: str = Form(""),
     db: Session = Depends(get_db),
 ):
-    """Vytvoření nového prostoru."""
+    """Vytvoření nového prostoru s volitelným nájemcem."""
+    form_data = {
+        "space_number": space_number, "designation": designation,
+        "section": section, "floor": floor, "area": area,
+        "status": status, "blocked_reason": blocked_reason, "note": note,
+        "tenant_name": tenant_name, "tenant_phone": tenant_phone,
+        "tenant_email": tenant_email, "contract_number": contract_number,
+        "contract_start": contract_start, "monthly_rent": monthly_rent,
+        "variable_symbol": variable_symbol,
+    }
+
+    def _err(msg):
+        return templates.TemplateResponse("spaces/partials/_create_form.html", {
+            "request": request, "error": msg, "form_data": form_data,
+        })
+
     # Parse space_number
     try:
         space_number_int = int(space_number)
     except (ValueError, TypeError):
-        return templates.TemplateResponse("spaces/partials/_create_form.html", {
-            "request": request,
-            "error": "Číslo prostoru musí být celé číslo.",
-        })
+        return _err("Číslo prostoru musí být celé číslo.")
     if space_number_int < 1 or space_number_int > 99999:
-        return templates.TemplateResponse("spaces/partials/_create_form.html", {
-            "request": request,
-            "error": "Číslo prostoru musí být v rozsahu 1–99999.",
-        })
+        return _err("Číslo prostoru musí být v rozsahu 1–99999.")
 
     # Uniqueness
     existing = db.query(Space).filter(Space.space_number == space_number_int).first()
     if existing:
-        return templates.TemplateResponse("spaces/partials/_create_form.html", {
-            "request": request,
-            "error": f"Prostor s číslem {space_number_int} již existuje.",
-        })
+        return _err(f"Prostor s číslem {space_number_int} již existuje.")
 
     # Parse optional numerics
     floor_int = None
@@ -74,23 +91,26 @@ async def space_create(
         try:
             floor_int = int(floor.strip())
         except (ValueError, TypeError):
-            return templates.TemplateResponse("spaces/partials/_create_form.html", {
-                "request": request,
-                "error": "Podlaží musí být celé číslo.",
-            })
+            return _err("Podlaží musí být celé číslo.")
 
     area_float = None
     if area.strip():
         try:
             area_float = float(area.strip())
         except (ValueError, TypeError):
-            return templates.TemplateResponse("spaces/partials/_create_form.html", {
-                "request": request,
-                "error": "Výměra musí být číslo.",
-            })
+            return _err("Výměra musí být číslo.")
 
+    # Validate tenant email if provided
+    if tenant_email.strip() and not is_valid_email(tenant_email.strip()):
+        return _err("Neplatný formát emailu nájemce.")
+
+    # If tenant_name provided, auto-set status to rented
+    tenant_name = tenant_name.strip()
     space_status = SpaceStatus(status) if status in [s.value for s in SpaceStatus] else SpaceStatus.VACANT
+    if tenant_name and space_status == SpaceStatus.VACANT:
+        space_status = SpaceStatus.RENTED
 
+    now = utcnow()
     space = Space(
         space_number=space_number_int,
         designation=designation.strip(),
@@ -100,9 +120,92 @@ async def space_create(
         status=space_status,
         blocked_reason=blocked_reason.strip() or None,
         note=note.strip() or None,
-        created_at=utcnow(),
+        created_at=now,
     )
     db.add(space)
+    db.flush()
+
+    # Create tenant + contract if tenant_name provided
+    if tenant_name:
+        parts = tenant_name.split()
+        last_name = parts[0] if parts else None
+        first_name = " ".join(parts[1:]) if len(parts) > 1 else None
+
+        tenant = Tenant(
+            first_name=first_name,
+            last_name=last_name,
+            name_with_titles=build_name_with_titles(None, first_name, last_name),
+            name_normalized=strip_diacritics(tenant_name),
+            tenant_type=OwnerType.PHYSICAL,
+            phone=tenant_phone.strip() or None,
+            email=tenant_email.strip() or None,
+            data_source="manual",
+            is_active=True,
+            created_at=now,
+        )
+        db.add(tenant)
+        db.flush()
+
+        # Parse rent
+        rent_float = 0.0
+        if monthly_rent.strip():
+            try:
+                rent_float = float(monthly_rent.strip().replace(",", "."))
+            except (ValueError, TypeError):
+                rent_float = 0.0
+
+        # Parse contract start
+        from datetime import date as date_type
+        start_date = None
+        if contract_start.strip():
+            try:
+                start_date = date_type.fromisoformat(contract_start.strip())
+            except ValueError:
+                pass
+
+        vs = variable_symbol.strip() or None
+
+        st = SpaceTenant(
+            space_id=space.id,
+            tenant_id=tenant.id,
+            monthly_rent=rent_float,
+            variable_symbol=vs,
+            contract_number=contract_number.strip() or None,
+            contract_start=start_date,
+            is_active=True,
+            created_at=now,
+        )
+        db.add(st)
+        db.flush()
+
+        # Auto-create VS mapping
+        if vs:
+            existing_vs = db.query(VariableSymbolMapping).filter_by(variable_symbol=vs).first()
+            if not existing_vs:
+                db.add(VariableSymbolMapping(
+                    variable_symbol=vs,
+                    space_id=space.id,
+                    unit_id=None,
+                    source=SymbolSource.MANUAL,
+                    description=f"Ruční vytvoření prostoru {space_number_int}",
+                    created_at=now,
+                ))
+
+        # Auto-create Prescription
+        if rent_float > 0:
+            latest_py = db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).first()
+            if latest_py:
+                db.add(Prescription(
+                    prescription_year_id=latest_py.id,
+                    space_id=space.id,
+                    unit_id=None,
+                    variable_symbol=vs,
+                    monthly_total=rent_float,
+                    owner_name=tenant_name,
+                    created_at=now,
+                    updated_at=now,
+                ))
+
     db.commit()
 
     if request.headers.get("HX-Request"):
