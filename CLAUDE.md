@@ -9,7 +9,7 @@
 
 ## URL konvence
 
-- Všechny URL cesty používají **české slugy bez diakritiky**: `/vlastnici`, `/jednotky`, `/hlasovani`, `/dane`, `/synchronizace`, `/sprava`, `/nastaveni`
+- Všechny URL cesty používají **české slugy bez diakritiky**: `/vlastnici`, `/jednotky`, `/prostory`, `/najemci`, `/hlasovani`, `/dane`, `/synchronizace`, `/sprava`, `/nastaveni`
 - Sub-endpointy: `/nova` (create), `/smazat` (delete), `/upravit` (edit), `/pridat` (add), `/potvrdit` (confirm), `/odebrat` (remove), `/exportovat` (export), `/aktualizovat` (update)
 - Nikdy nepoužívat angličtinu v URL cestách
 
@@ -363,6 +363,8 @@
   - `voting/` — `session.py`, `ballots.py`, `import_votes.py`, `_helpers.py`
   - `tax/` — `session.py`, `processing.py`, `matching.py`, `sending.py`, `_helpers.py`
   - `payments/` — `prescriptions.py`, `symbols.py`, `statements.py`, `balances.py`, `overview.py`, `settlement.py`, `_helpers.py`
+  - `spaces/` — `crud.py`, `import_spaces.py`, `_helpers.py`
+  - `tenants/` — `crud.py`, `_helpers.py`
   - `administration/` — `info.py`, `board.py`, `code_lists.py`, `backups.py`, `bulk.py`, `_helpers.py`
   - `sync/` — `session.py`, `contacts.py`, `exchange.py`, `_helpers.py`
 

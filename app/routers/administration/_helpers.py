@@ -9,6 +9,7 @@ from app.config import settings
 from app.models import (
     SvjInfo, SvjAddress, BoardMember, CodeListItem,
     Unit, OwnerUnit, Owner, Proxy,
+    Space, SpaceTenant, Tenant,
     Voting, VotingItem, Ballot, BallotVote,
     TaxSession, TaxDocument, TaxDistribution,
     SyncSession, SyncRecord,
@@ -82,6 +83,11 @@ _PURGE_CATEGORIES = {
         "description": "Kontroly podílů SČD — relace, záznamy, mapování sloupců",
         "models": [ShareCheckRecord, ShareCheckSession, ShareCheckColumnMapping],
     },
+    "spaces": {
+        "label": "Prostory a nájemci",
+        "description": "Prostory, nájemci, nájemní vztahy",
+        "models": [SpaceTenant, Tenant, Space],
+    },
     "payments": {
         "label": "Evidence plateb",
         "description": "Předpisy, VS mapování, výpisy, platby, zůstatky, vyúčtování",
@@ -142,7 +148,7 @@ _PURGE_CATEGORIES = {
 }
 
 _PURGE_ORDER = [
-    "owners", "votings", "tax", "sync", "share_check", "payments",
+    "owners", "spaces", "votings", "tax", "sync", "share_check", "payments",
     "email_logs", "import_logs", "activity_logs",
     "svj_info", "board", "code_lists", "email_templates",
     "backups", "restore_log",
@@ -154,6 +160,7 @@ _PURGE_GROUPS = [
     {"cat_keys": ["votings"]},
     {"cat_keys": ["tax"]},
     {"cat_keys": ["sync"]},
+    {"cat_keys": ["spaces"]},
     {"cat_keys": ["share_check"]},
     {"cat_keys": ["payments"]},
     {"label": "Logy", "cat_keys": ["email_logs", "import_logs", "activity_logs"]},

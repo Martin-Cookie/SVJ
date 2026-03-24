@@ -273,7 +273,30 @@ Modul pro správu předpisů, bankovních výpisů, variabilních symbolů a př
 - **Dashboard integrace** — 5. karta na hlavním dashboardu (napárované platby, výpisy)
 - **Badge v detailu jednotky** — "Zaplaceno ✓" (zelený) nebo "Dluh X Kč" (červený/žlutý)
 
-### F. Kontroly (`/synchronizace`)
+### F. Prostory a nájemci (`/prostory`, `/najemci`)
+
+Evidence pronajímaných společných prostorů SVJ (sklady, nebytové prostory, kočárkárny) a jejich nájemců.
+
+- **Prostory** — CRUD s řaditelnými sloupci, hledáním, filtry (stav, sekce), bubliny (pronajato/volné/blokované), export Excel/CSV
+- **Nájemci** — CRUD s propojením na vlastníky (Tenant ↔ Owner), resolved properties (jméno, telefon, email se čtou z Owner pokud propojený)
+- **Nájemní vztahy** (SpaceTenant) — přiřazení nájemce k prostoru s detaily smlouvy (číslo, datum, nájemné, VS, PDF příloha)
+- **Platební integrace**:
+  - Auto-vytvoření `VariableSymbolMapping` (space_id) při přiřazení nájemce s VS
+  - Auto-vytvoření `Prescription` (space_id) při přiřazení nájemce s nájemným
+  - VS stránka zobrazuje prostory i jednotky (filtr bubliny Jednotky/Prostory)
+  - Matice plateb + dlužníci s přepínačem entity (jednotky/prostory)
+  - Detail plateb prostoru (`/platby/prostor/{id}`)
+  - Matching engine: VS + name matching rozšířeno pro prostory (Tenant.name_normalized)
+  - Bankovní výpisy: zobrazení `P {číslo}` badge pro space matche
+- **Import z Excelu** — 4-krokový wizard (upload → mapování → náhled → potvrzení):
+  - Auto-detekce sloupců (11 polí: číslo, označení, sekce, podlaží, výměra, nájemce, telefon, email, smlouva, nájemné, VS)
+  - Auto-detekce blokovaných prostorů (klíčová slova: kočárkárna, ústředna, trezor, kotelna atd.)
+  - Propojení nájemců na vlastníky (Owner matching v náhledu)
+  - Additivní import (existující prostory se nepřepisují)
+- **Dashboard** — stat karta Prostory (pronajato/volné/blokované + expirace smluv ≤3 měsíce)
+- **Purge** — kategorie "Prostory a nájemci" v administraci
+
+### G. Kontroly (`/synchronizace`)
 
 Sloučená stránka se dvěma sekcemi — Kontrola vlastníků (nahoře) a Kontrola podílů (dole). Každá sekce má upload formulář a historii kontrol s nezávislým vyhledáváním.
 
@@ -316,7 +339,7 @@ Sloučená stránka se dvěma sekcemi — Kontrola vlastníků (nahoře) a Kontr
   - Zachování filtru a scroll pozice při navigaci zpět z výměny (filtr + #sync-{id} anchor)
   - Logování změn do ImportLog
 
-### G. Administrace SVJ (`/sprava`)
+### H. Administrace SVJ (`/sprava`)
 
 - Informace o SVJ (název, typ budovy, celkový počet podílů) — read-only pohled + inline editace
 - Správa adres SVJ — přidání, editace, smazání s řazením abecedně
@@ -409,7 +432,7 @@ Sloučená stránka se dvěma sekcemi — Kontrola vlastníků (nahoře) a Kontr
 - Historie kontrol s vyhledáváním a řazením (soubor, datum, shoda, rozdíly) s HTMX partial
 - Stará URL `/kontrola-podilu` automaticky přesměruje na `/synchronizace#kontrola-podilu`
 
-### H. Nastavení (`/nastaveni`)
+### I. Nastavení (`/nastaveni`)
 
 - SMTP konfigurace — read-only přehled (4-sloupcový grid) + inline editace (HTMX)
 - Historie odeslaných emailů (posledních 100):
@@ -886,10 +909,11 @@ wheels/                        # Offline Python balíčky (gitignored)
 | POST | `/platby/vypisy/{id}/preparovat` | Přepárování plateb (reset AUTO + SUGGESTED, zachová MANUAL) |
 | POST | `/platby/vypisy/{id}/zamknout` | Zamčení/odemčení párování výpisu |
 | POST | `/platby/vypisy/{id}/smazat` | Smazání výpisu (zamčený výpis nelze smazat) |
-| GET | `/platby/prehled` | Matice plateb (jednotky × měsíce) |
-| GET | `/platby/dluznici` | Seznam dlužníků |
+| GET | `/platby/prehled` | Matice plateb (jednotky × měsíce, přepínač entity) |
+| GET | `/platby/dluznici` | Seznam dlužníků (přepínač entity) |
 | POST | `/platby/dluznici/exportovat` | Export dlužníků (xlsx) |
 | GET | `/platby/jednotka/{unit_id}` | Platební detail jedné jednotky |
+| GET | `/platby/prostor/{space_id}` | Platební detail jednoho prostoru |
 | GET | `/platby/vyuctovani` | Seznam vyúčtování (rok, filtry, search, sort) |
 | GET | `/platby/vyuctovani/{id}` | Detail vyúčtování (položky, platby, stav) |
 | POST | `/platby/vyuctovani/generovat` | Generování vyúčtování pro rok |
@@ -897,6 +921,40 @@ wheels/                        # Offline Python balíčky (gitignored)
 | POST | `/platby/vyuctovani/hromadny-stav` | Hromadná změna stavu vyúčtování |
 | GET | `/platby/vyuctovani/exportovat/{fmt}` | Export vyúčtování (xlsx souhrn / xlsx s položkami) |
 | POST | `/platby/vyuctovani/smazat-rok` | Smazání všech vyúčtování roku |
+
+### Prostory (`/prostory`)
+
+| Metoda | Cesta | Popis |
+|--------|-------|-------|
+| GET | `/prostory` | Seznam prostorů (řazení, hledání, filtry stav/sekce) |
+| GET | `/prostory/{id}` | Detail prostoru (info + aktuální nájemce + historie) |
+| GET | `/prostory/novy-formular` | HTMX: formulář pro nový prostor |
+| POST | `/prostory/novy` | Vytvoření prostoru |
+| GET | `/prostory/{id}/upravit-formular` | HTMX: editační formulář |
+| GET | `/prostory/{id}/info` | HTMX: info karta prostoru |
+| POST | `/prostory/{id}/upravit` | Úprava prostoru |
+| POST | `/prostory/{id}/smazat` | Smazání prostoru |
+| POST | `/prostory/{id}/pridat-najemce` | Přiřazení nájemce (+ VS mapping + Prescription) |
+| POST | `/prostory/{id}/ukoncit-najem` | Ukončení nájmu |
+| GET | `/prostory/exportovat/{fmt}` | Export prostorů (xlsx/csv) |
+| GET | `/prostory/import` | Import prostorů — upload stránka |
+| POST | `/prostory/import` | Import — upload souboru |
+| POST | `/prostory/import/mapovani` | Import — mapování sloupců |
+| POST | `/prostory/import/nahled` | Import — náhled dat |
+| POST | `/prostory/import/potvrdit` | Import — potvrzení importu |
+| POST | `/prostory/import/{log_id}/smazat` | Smazání záznamu importu |
+
+### Nájemci (`/najemci`)
+
+| Metoda | Cesta | Popis |
+|--------|-------|-------|
+| GET | `/najemci` | Seznam nájemců |
+| GET | `/najemci/{id}` | Detail nájemce (propojení s Owner read-only) |
+| POST | `/najemci/novy` | Vytvoření nájemce |
+| POST | `/najemci/{id}/upravit` | Úprava nájemce |
+| POST | `/najemci/{id}/smazat` | Smazání nájemce |
+| POST | `/najemci/{id}/propojit` | Propojení s existujícím vlastníkem |
+| POST | `/najemci/{id}/odpojit` | Odpojení od vlastníka |
 
 ### Nastavení (`/nastaveni`)
 
@@ -929,6 +987,9 @@ LIBREOFFICE_PATH=/Applications/LibreOffice.app/Contents/MacOS/soffice
 - **Unit** — jednotka (číslo KN jako INTEGER, budova, sekce, plocha, podíl SČD, orientation_number)
 - **OwnerUnit** — vazba vlastník-jednotka (typ vlastnictví, podíl, hlasovací váha, valid_from, valid_to); valid_to=NULL = aktuálně platný, valid_to=datum = historický záznam
 - **Proxy** — plná moc pro hlasování
+- **Space** — prostor SVJ (číslo, označení, sekce, podlaží, výměra, stav: rented/vacant/blocked)
+- **Tenant** — nájemce (identity vlastní nebo z Owner přes owner_id FK; resolved properties)
+- **SpaceTenant** — nájemní vztah (smlouva, nájemné, VS, is_active, contract_path)
 - **Voting** (partial_owner_mode, import_column_mapping) → VotingItem → Ballot (scan_path, voted_by_proxy, shared_owners_text) → BallotVote
 - **TaxSession** → TaxDocument → TaxDistribution
 - **SyncSession** → SyncRecord (cascade delete)

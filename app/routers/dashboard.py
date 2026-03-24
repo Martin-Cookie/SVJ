@@ -5,7 +5,7 @@ from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import ActivityLog, EmailLog, Owner, OwnerUnit, PrescriptionYear, SvjInfo, Unit, Voting, BankStatement, Payment, PaymentDirection, PaymentMatchStatus
+from app.models import ActivityLog, EmailLog, Owner, OwnerUnit, PrescriptionYear, Space, SpaceStatus, SpaceTenant, SvjInfo, Unit, Voting, BankStatement, Payment, PaymentDirection, PaymentMatchStatus
 from app.models.voting import Ballot, BallotStatus, BallotVote
 from app.models.tax import TaxDocument, TaxSession, TaxDistribution, EmailDeliveryStatus
 from app.utils import strip_diacritics, templates
@@ -287,6 +287,29 @@ async def home(
     except Exception:
         pass
 
+    # Space stats
+    space_total = db.query(Space).count()
+    space_status_counts = dict(
+        db.query(Space.status, func.count(Space.id))
+        .group_by(Space.status).all()
+    )
+    space_rented = space_status_counts.get(SpaceStatus.RENTED, 0)
+    space_vacant = space_status_counts.get(SpaceStatus.VACANT, 0)
+    space_blocked = space_status_counts.get(SpaceStatus.BLOCKED, 0)
+
+    # Contracts expiring within 3 months
+    from datetime import timedelta
+    expiry_cutoff = datetime.utcnow().date() + timedelta(days=90)
+    expiring_contracts = (
+        db.query(SpaceTenant)
+        .filter(
+            SpaceTenant.is_active == True,
+            SpaceTenant.contract_end.isnot(None),
+            SpaceTenant.contract_end <= expiry_cutoff,
+        )
+        .count()
+    )
+
     ctx = {
         "request": request,
         "active_nav": "dashboard",
@@ -308,6 +331,11 @@ async def home(
         "unmatched_payments": unmatched_payments,
         "total_income": total_income,
         "debtor_count": debtor_count,
+        "space_total": space_total,
+        "space_rented": space_rented,
+        "space_vacant": space_vacant,
+        "space_blocked": space_blocked,
+        "expiring_contracts": expiring_contracts,
     }
 
     if request.headers.get("HX-Request") and not request.headers.get("HX-Boosted"):
