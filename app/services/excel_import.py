@@ -292,6 +292,10 @@ def preview_owners_from_excel(file_path: str, mapping: dict | None = None) -> di
 
         last = parsed["last_name"] or ""
         first = parsed["first_name"] or ""
+        # Deduplicate for legal entities (cadastral exports often duplicate company name)
+        if owner_type == OwnerType.LEGAL_ENTITY and last and first:
+            if _normalize_name(first) == _normalize_name(last):
+                last = ""
         preview_rows.append({
             "row": row_idx,
             "name": build_name_with_titles(parsed["title"], first, last),
@@ -367,11 +371,20 @@ def import_owners_from_excel(db: Session, file_path: str, mapping: dict | None =
             else:
                 birth_number = birth_or_ic.strip()
 
+        # For legal entities: company name goes into first_name only.
+        # If both fields contain the same value (common in cadastral exports),
+        # clear last_name to avoid duplicate display (e.g. "Movie s.r.o. Movie s.r.o.").
+        first_name = first_row["first_name"]
+        last_name = first_row["last_name"]
+        if owner_type == OwnerType.LEGAL_ENTITY and last_name and first_name:
+            if _normalize_name(first_name) == _normalize_name(last_name):
+                last_name = None
+
         # Build names
         name_with_titles = build_name_with_titles(
-            first_row["title"], first_row["first_name"], first_row["last_name"]
+            first_row["title"], first_name, last_name
         )
-        name_normalized = _build_name_normalized(first_row["first_name"], first_row["last_name"])
+        name_normalized = _build_name_normalized(first_name, last_name)
 
         # Pick best email/phone from all rows for this owner
         email = None
@@ -389,8 +402,8 @@ def import_owners_from_excel(db: Session, file_path: str, mapping: dict | None =
                 phone_landline = r["phone_landline"]
 
         owner = Owner(
-            first_name=first_row["first_name"],
-            last_name=first_row["last_name"],
+            first_name=first_name,
+            last_name=last_name,
             title=first_row["title"],
             name_with_titles=name_with_titles,
             name_normalized=name_normalized,
