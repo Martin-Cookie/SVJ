@@ -15,6 +15,13 @@
         {% endif %}
     </td>
     <td class="px-2 py-1.5 text-right text-gray-700 dark:text-gray-300 whitespace-nowrap">{{ r.monthly|fmt_num }}</td>
+    {% set _op = r.opening or 0 %}
+    <td class="px-1 py-1.5 text-center whitespace-nowrap
+        {% if _op > 0 %}bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400
+        {% elif _op < 0 %}bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400
+        {% else %}text-gray-300 dark:text-gray-600{% endif %}">
+        {% if _op > 0 %}{{ _op|fmt_num }}{% elif _op < 0 %}{{ _op|fmt_num }}{% elif _op == 0 %}—{% endif %}
+    </td>
     {% for m in range(1, 13) %}
     {% set cell = r.months[m] %}
     <td class="px-1 py-1.5 text-center whitespace-nowrap
@@ -37,6 +44,6 @@
 {% endfor %}
 {% if not rows %}
 <tr>
-    <td colspan="18" class="px-3 py-8 text-center text-xs text-gray-400 dark:text-gray-500">Žádné předpisy nenalezeny.</td>
+    <td colspan="19" class="px-3 py-8 text-center text-xs text-gray-400 dark:text-gray-500">Žádné předpisy nenalezeny.</td>
 </tr>
 {% endif %}

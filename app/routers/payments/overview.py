@@ -31,6 +31,7 @@ SORT_COLUMNS_MATRIX = {
     "sekce": None,
     "vlastnik": None,
     "predpis": None,
+    "prevod": None,
     "celkem": None,
     "dluh": None,
     # Měsíční sloupce m1–m12
@@ -80,6 +81,7 @@ async def platby_prehled(
         "sekce": lambda r: (r["prescription"].section or "").lower(),
         "vlastnik": lambda r: strip_diacritics(r["owner"].display_name if r["owner"] else r["prescription"].owner_name or ""),
         "predpis": lambda r: r["monthly"],
+        "prevod": lambda r: r.get("opening", 0),
         "celkem": lambda r: r["total_paid"],
         "dluh": lambda r: r["debt"],
     }
@@ -167,7 +169,7 @@ async def matice_export(
     ws.title = f"Matice plateb {rok}"
 
     month_labels = ["Led", "Úno", "Bře", "Dub", "Kvě", "Čer", "Čvc", "Srp", "Zář", "Říj", "Lis", "Pro"]
-    headers = ["Č. jedn.", "Sekce", "Vlastník", "Předpis/měs"]
+    headers = ["Č. jedn.", "Sekce", "Vlastník", "Předpis/měs", "Převod"]
     for m in months_with_data:
         headers.append(month_labels[m - 1])
     headers += ["Celkem", "Dluh"]
@@ -185,7 +187,8 @@ async def matice_export(
         ws.cell(row=i, column=2, value=r["prescription"].section or "")
         ws.cell(row=i, column=3, value=owner_name)
         ws.cell(row=i, column=4, value=r["monthly"])
-        col = 5
+        ws.cell(row=i, column=5, value=r.get("opening", 0))
+        col = 6
         for m in months_with_data:
             paid = r["months"].get(m, {}).get("paid", 0)
             cell = ws.cell(row=i, column=col, value=paid)
