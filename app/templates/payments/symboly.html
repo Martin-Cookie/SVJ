@@ -27,10 +27,26 @@
                         class="w-40 px-3 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
                 </div>
                 <div>
+                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Typ</label>
+                    <select name="entity_type" id="add-entity-type" onchange="toggleEntitySelect()"
+                        class="w-28 px-3 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                        <option value="unit">Jednotka</option>
+                        <option value="space">Prostor</option>
+                    </select>
+                </div>
+                <div id="add-unit-sel">
                     <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Jednotka</label>
-                    <select name="unit_id" required class="w-32 px-3 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                    <select name="unit_id" class="w-32 px-3 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
                         {% for unit in units %}
                         <option value="{{ unit.id }}">{{ unit.unit_number }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div id="add-space-sel" class="hidden">
+                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Prostor</label>
+                    <select name="space_id" class="w-32 px-3 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                        {% for sp in spaces %}
+                        <option value="{{ sp.id }}">{{ sp.space_number }} — {{ sp.designation }}</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -43,9 +59,26 @@
             </form>
         </div>
 
-        <!-- Filtr bubliny — zdroj -->
+        <!-- Filtr bubliny — typ entity -->
         {% set _base = "/platby/symboly?sort=" ~ sort ~ "&order=" ~ order ~ ("&q=" ~ q if q else "") %}
         {% set _back = "&back=" ~ (back_url|default('')|urlencode) if back_url else "" %}
+        {% set _entity_base = _base ~ ("&zdroj=" ~ zdroj if zdroj else "") ~ _back %}
+        <div class="flex flex-wrap gap-2 mb-2">
+            <a href="{{ _entity_base }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
+                {% if not entita %}bg-blue-600 text-white ring-2 ring-blue-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
+                Vše <span class="ml-1 text-xs opacity-75">{{ mappings|length if not entita else '' }}</span>
+            </a>
+            <a href="{{ _entity_base }}&entita=jednotky" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
+                {% if entita == 'jednotky' %}bg-blue-600 text-white ring-2 ring-blue-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
+                Jednotky <span class="ml-1 text-xs opacity-75">{{ unit_vs_count }}</span>
+            </a>
+            <a href="{{ _entity_base }}&entita=prostory" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
+                {% if entita == 'prostory' %}bg-blue-600 text-white ring-2 ring-blue-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
+                Prostory <span class="ml-1 text-xs opacity-75">{{ space_vs_count }}</span>
+            </a>
+        </div>
+
+        <!-- Filtr bubliny — zdroj -->
         <div class="flex flex-wrap gap-2 mb-2">
             <a href="{{ _base }}{{ _back }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
                 {% if not zdroj %}bg-green-600 text-white ring-2 ring-green-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
@@ -82,7 +115,7 @@
             <thead class="sticky top-0 z-10 bg-gray-50 dark:bg-gray-700">
                 {% set _sort_base = "/platby/symboly?" ~ ("q=" ~ q ~ "&" if q else "") ~ ("zdroj=" ~ zdroj ~ "&" if zdroj else "") %}
                 <tr>
-                    {% for col_key, col_label in [("vs", "Variabilní symbol"), ("jednotka", "Jednotka"), ("zdroj", "Zdroj"), ("popis", "Popis")] %}
+                    {% for col_key, col_label in [("vs", "Variabilní symbol"), ("jednotka", "Entita"), ("zdroj", "Zdroj"), ("popis", "Popis")] %}
                     {% set new_order = "desc" if sort == col_key and order == "asc" else "asc" %}
                     <th class="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300 cursor-pointer select-none hover:text-gray-900 dark:hover:text-white"
                         onclick="window.location='{{ _sort_base }}sort={{ col_key }}&order={{ new_order }}{{ _back }}'">
@@ -99,13 +132,25 @@
         </table>
     </div>
 </div>
-{# Sdílený template s options pro jednotky — 1× místo 527× #}
+{# Sdílený template s options pro jednotky a prostory — 1× místo N× #}
 <template id="unit-options-tpl">
     {% for u in units %}
     <option value="{{ u.id }}">č. {{ u.unit_number }}</option>
     {% endfor %}
 </template>
+<template id="space-options-tpl">
+    {% for sp in spaces %}
+    <option value="{{ sp.id }}">{{ sp.space_number }} — {{ sp.designation }}</option>
+    {% endfor %}
+</template>
 {% include "payments/partials/_scroll_restore.html" %}
+<script>
+function toggleEntitySelect() {
+    var t = document.getElementById('add-entity-type').value;
+    document.getElementById('add-unit-sel').classList.toggle('hidden', t !== 'unit');
+    document.getElementById('add-space-sel').classList.toggle('hidden', t !== 'space');
+}
+</script>
 <script>
 function toggleEditRow(id) {
     var view = document.querySelector('[data-view-row="'+id+'"]');
