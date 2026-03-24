@@ -20,6 +20,7 @@ from app.models.payment import (
     SymbolSource, BalanceSource, PrescriptionCategory,
     ImportStatus, PaymentDirection, PaymentMatchStatus, SettlementStatus,
 )
+from app.models.space import Space, Tenant, SpaceTenant, SpaceStatus
 
 __all__ = [
     "Owner", "Unit", "OwnerUnit", "OwnerType", "Proxy",
@@ -40,4 +41,5 @@ __all__ = [
     "Settlement", "SettlementItem",
     "SymbolSource", "BalanceSource", "PrescriptionCategory",
     "ImportStatus", "PaymentDirection", "PaymentMatchStatus", "SettlementStatus",
+    "Space", "Tenant", "SpaceTenant", "SpaceStatus",
 ]

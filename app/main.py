@@ -307,6 +307,22 @@ def _ensure_indexes():
         ("ix_settlements_unit_id", "settlements", "unit_id"),
         ("ix_settlements_status", "settlements", "status"),
         ("ix_settlement_items_settlement_id", "settlement_items", "settlement_id"),
+        # space.py
+        ("ix_spaces_section", "spaces", "section"),
+        ("ix_spaces_status", "spaces", "status"),
+        ("ix_tenants_owner_id", "tenants", "owner_id"),
+        ("ix_tenants_is_active", "tenants", "is_active"),
+        ("ix_tenants_name_normalized", "tenants", "name_normalized"),
+        ("ix_space_tenants_space_id", "space_tenants", "space_id"),
+        ("ix_space_tenants_tenant_id", "space_tenants", "tenant_id"),
+        ("ix_space_tenants_is_active", "space_tenants", "is_active"),
+        ("ix_space_tenants_variable_symbol", "space_tenants", "variable_symbol"),
+        # space_id on payment tables
+        ("ix_variable_symbol_mappings_space_id", "variable_symbol_mappings", "space_id"),
+        ("ix_prescriptions_space_id", "prescriptions", "space_id"),
+        ("ix_payments_space_id", "payments", "space_id"),
+        ("ix_payment_allocations_space_id", "payment_allocations", "space_id"),
+        ("ix_unit_balances_space_id", "unit_balances", "space_id"),
     ]
     import re
     _SAFE_IDENT = re.compile(r'^"?[a-z_][a-z0-9_]*"?$')
@@ -437,6 +453,29 @@ def _migrate_unit_balances_owner():
             logger.info("Added balance_import_mapping column to svj_info")
 
 
+def _migrate_spaces_tables():
+    """Add space_id columns to payment tables + space_import_mapping to svj_info."""
+    _SPACE_COLUMNS = [
+        ("variable_symbol_mappings", "space_id", "INTEGER REFERENCES spaces(id)"),
+        ("prescriptions", "space_id", "INTEGER REFERENCES spaces(id)"),
+        ("payments", "space_id", "INTEGER REFERENCES spaces(id)"),
+        ("payment_allocations", "space_id", "INTEGER REFERENCES spaces(id)"),
+        ("unit_balances", "space_id", "INTEGER REFERENCES spaces(id)"),
+    ]
+    with engine.connect() as conn:
+        for table, col, col_type in _SPACE_COLUMNS:
+            cols = [r[1] for r in conn.execute(text(f"PRAGMA table_info('{table}')")).fetchall()]
+            if col not in cols:
+                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {col_type}"))
+                logger.info("Added %s column to %s", col, table)
+        # space_import_mapping on svj_info
+        svj_cols = [r[1] for r in conn.execute(text("PRAGMA table_info('svj_info')")).fetchall()]
+        if "space_import_mapping" not in svj_cols:
+            conn.execute(text("ALTER TABLE svj_info ADD COLUMN space_import_mapping TEXT"))
+            logger.info("Added space_import_mapping column to svj_info")
+        conn.commit()
+
+
 _ALL_MIGRATIONS = [
     ("units table", _migrate_units_table),
     ("owner_units history", _migrate_owner_units_history),
@@ -449,6 +488,7 @@ _ALL_MIGRATIONS = [
     ("payment_allocations migration", _migrate_payment_allocations),
     ("bank_statement locked_at", _migrate_bank_statement_locked),
     ("unit_balances owner columns", _migrate_unit_balances_owner),
+    ("spaces tables migration", _migrate_spaces_tables),
     ("index creation", _ensure_indexes),
     ("code list seeding", _seed_code_lists),
     ("email template seeding", _seed_email_templates),
@@ -516,7 +556,7 @@ async def lifespan(app: FastAPI):
     # Ensure data directories exist
     for d in [settings.upload_dir, settings.generated_dir, settings.temp_dir]:
         d.mkdir(parents=True, exist_ok=True)
-    for sub in ["excel", "word_templates", "scanned_ballots", "tax_pdfs", "csv", "share_check"]:
+    for sub in ["excel", "word_templates", "scanned_ballots", "tax_pdfs", "csv", "share_check", "contracts"]:
         (settings.upload_dir / sub).mkdir(exist_ok=True)
     for sub in ["ballots", "exports"]:
         (settings.generated_dir / sub).mkdir(exist_ok=True)

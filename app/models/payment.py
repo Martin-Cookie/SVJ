@@ -65,7 +65,8 @@ class VariableSymbolMapping(Base):
 
     id = Column(Integer, primary_key=True)
     variable_symbol = Column(String(20), nullable=False, unique=True, index=True)
-    unit_id = Column(Integer, ForeignKey("units.id"), nullable=False, index=True)
+    unit_id = Column(Integer, ForeignKey("units.id"), nullable=True, index=True)
+    space_id = Column(Integer, ForeignKey("spaces.id"), nullable=True, index=True)
     source = Column(Enum(SymbolSource), default=SymbolSource.MANUAL, index=True)
     description = Column(Text, nullable=True)
     is_active = Column(Boolean, default=True)
@@ -73,6 +74,7 @@ class VariableSymbolMapping(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     unit = relationship("Unit")
+    space = relationship("Space")
 
 
 # ── Počáteční zůstatky ────────────────────────────────────────────────
@@ -82,7 +84,8 @@ class UnitBalance(Base):
     __tablename__ = "unit_balances"
 
     id = Column(Integer, primary_key=True)
-    unit_id = Column(Integer, ForeignKey("units.id"), nullable=False, index=True)
+    unit_id = Column(Integer, ForeignKey("units.id"), nullable=True, index=True)
+    space_id = Column(Integer, ForeignKey("spaces.id"), nullable=True, index=True)
     year = Column(Integer, nullable=False, index=True)
     opening_amount = Column(Float, default=0.0)  # kladné=dluh, záporné=přeplatek
     source = Column(Enum(BalanceSource), default=BalanceSource.MANUAL)
@@ -93,6 +96,7 @@ class UnitBalance(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     unit = relationship("Unit")
+    space = relationship("Space")
     owner = relationship("Owner")
 
     __table_args__ = (
@@ -126,6 +130,7 @@ class Prescription(Base):
     id = Column(Integer, primary_key=True)
     prescription_year_id = Column(Integer, ForeignKey("prescription_years.id"), nullable=False, index=True)
     unit_id = Column(Integer, ForeignKey("units.id"), nullable=True, index=True)
+    space_id = Column(Integer, ForeignKey("spaces.id"), nullable=True, index=True)
     variable_symbol = Column(String(20), nullable=True, index=True)
     space_number = Column(Integer, nullable=True)
     section = Column(String(10), nullable=True)
@@ -138,6 +143,7 @@ class Prescription(Base):
     prescription_year = relationship("PrescriptionYear", back_populates="prescriptions")
     items = relationship("PrescriptionItem", back_populates="prescription", cascade="all, delete-orphan")
     unit = relationship("Unit")
+    space = relationship("Space")
 
 
 class PrescriptionItem(Base):
@@ -200,6 +206,7 @@ class Payment(Base):
     match_status = Column(Enum(PaymentMatchStatus), default=PaymentMatchStatus.UNMATCHED, index=True)
     prescription_id = Column(Integer, ForeignKey("prescriptions.id"), nullable=True, index=True)
     unit_id = Column(Integer, ForeignKey("units.id"), nullable=True, index=True)
+    space_id = Column(Integer, ForeignKey("spaces.id"), nullable=True, index=True)
     owner_id = Column(Integer, ForeignKey("owners.id"), nullable=True, index=True)
     assigned_month = Column(Integer, nullable=True)  # 1-12
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -208,6 +215,7 @@ class Payment(Base):
     statement = relationship("BankStatement", back_populates="payments")
     prescription = relationship("Prescription")
     unit = relationship("Unit")
+    space = relationship("Space")
     owner = relationship("Owner")
     allocations = relationship("PaymentAllocation", back_populates="payment", cascade="all, delete-orphan")
 
@@ -232,13 +240,15 @@ class PaymentAllocation(Base):
 
     id = Column(Integer, primary_key=True)
     payment_id = Column(Integer, ForeignKey("payments.id", ondelete="CASCADE"), nullable=False, index=True)
-    unit_id = Column(Integer, ForeignKey("units.id"), nullable=False, index=True)
+    unit_id = Column(Integer, ForeignKey("units.id"), nullable=True, index=True)
+    space_id = Column(Integer, ForeignKey("spaces.id"), nullable=True, index=True)
     owner_id = Column(Integer, ForeignKey("owners.id"), nullable=True, index=True)
     prescription_id = Column(Integer, ForeignKey("prescriptions.id"), nullable=True, index=True)
     amount = Column(Float, nullable=False)
 
     payment = relationship("Payment", back_populates="allocations")
     unit = relationship("Unit")
+    space = relationship("Space")
     owner = relationship("Owner")
     prescription = relationship("Prescription")
 
