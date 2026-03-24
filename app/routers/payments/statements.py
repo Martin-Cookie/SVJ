@@ -796,6 +796,7 @@ async def vypis_preparovat(
         Payment.match_status.in_([PaymentMatchStatus.AUTO_MATCHED, PaymentMatchStatus.SUGGESTED]),
     ).update({
         Payment.unit_id: None,
+        Payment.space_id: None,
         Payment.owner_id: None,
         Payment.prescription_id: None,
         Payment.match_status: PaymentMatchStatus.UNMATCHED,

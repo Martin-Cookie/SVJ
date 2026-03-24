@@ -497,6 +497,30 @@ def _migrate_spaces_tables():
             conn.execute(text("CREATE INDEX IF NOT EXISTS ix_vsm_unit_id ON variable_symbol_mappings(unit_id)"))
             conn.execute(text("CREATE INDEX IF NOT EXISTS ix_vsm_space_id ON variable_symbol_mappings(space_id)"))
             logger.info("Recreated variable_symbol_mappings with nullable unit_id")
+        # Fix unit_id NOT NULL → nullable on payment_allocations (needed for space-only allocations)
+        pa_cols = conn.execute(text("PRAGMA table_info('payment_allocations')")).fetchall()
+        pa_unit_col = next((c for c in pa_cols if c[1] == "unit_id"), None)
+        if pa_unit_col and pa_unit_col[3] == 1:  # notnull=1 → needs fix
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS _pa_new (
+                    id INTEGER PRIMARY KEY,
+                    payment_id INTEGER NOT NULL REFERENCES payments(id) ON DELETE CASCADE,
+                    unit_id INTEGER REFERENCES units(id),
+                    space_id INTEGER REFERENCES spaces(id),
+                    owner_id INTEGER REFERENCES owners(id),
+                    prescription_id INTEGER REFERENCES prescriptions(id),
+                    amount FLOAT NOT NULL
+                )
+            """))
+            conn.execute(text("INSERT INTO _pa_new SELECT id, payment_id, unit_id, space_id, owner_id, prescription_id, amount FROM payment_allocations"))
+            conn.execute(text("DROP TABLE payment_allocations"))
+            conn.execute(text("ALTER TABLE _pa_new RENAME TO payment_allocations"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_pa_payment_id ON payment_allocations(payment_id)"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_pa_unit_id ON payment_allocations(unit_id)"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_pa_space_id ON payment_allocations(space_id)"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_pa_owner_id ON payment_allocations(owner_id)"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_pa_prescription_id ON payment_allocations(prescription_id)"))
+            logger.info("Recreated payment_allocations with nullable unit_id")
         conn.commit()
 
 
