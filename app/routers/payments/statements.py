@@ -369,6 +369,7 @@ async def vypis_detail(
     q: str = "",
     stav: str = "",
     smer: str = "",
+    typ: str = "",
     db: Session = Depends(get_db),
 ):
     """Detail bankovního výpisu — seznam plateb."""
@@ -389,7 +390,7 @@ async def vypis_detail(
         )
     )
 
-    # Filtry (stav, směr v SQL)
+    # Filtry (stav, směr, typ v SQL)
     if stav:
         query = query.filter(Payment.match_status == stav)
 
@@ -397,6 +398,11 @@ async def vypis_detail(
         query = query.filter(Payment.direction == PaymentDirection.INCOME)
     elif smer == "vydej":
         query = query.filter(Payment.direction == PaymentDirection.EXPENSE)
+
+    if typ == "jednotky":
+        query = query.filter(Payment.unit_id.isnot(None))
+    elif typ == "prostory":
+        query = query.filter(Payment.space_id.isnot(None))
 
     # Řazení
     col = SORT_COLUMNS_PAYMENTS.get(sort, Payment.date)
@@ -422,10 +428,17 @@ async def vypis_detail(
     total_expense = sum(p.amount for p in payments if p.direction == PaymentDirection.EXPENSE)
     matched_count = sum(1 for p in payments if p.match_status != PaymentMatchStatus.UNMATCHED)
 
-    # Bubble counts (celkové počty bez filtrů)
+    # Bubble counts (celkové počty bez filtrů — ale respektují typ filtr)
+    typ_filter = []
+    if typ == "jednotky":
+        typ_filter.append(Payment.unit_id.isnot(None))
+    elif typ == "prostory":
+        typ_filter.append(Payment.space_id.isnot(None))
+
     all_payments_for_counts = (
         db.query(Payment.match_status, Payment.direction, func.count())
         .filter_by(statement_id=statement_id)
+        .filter(*typ_filter)
         .group_by(Payment.match_status, Payment.direction)
         .all()
     )
@@ -445,6 +458,21 @@ async def vypis_detail(
             bubble_counts["prijem"] += cnt
         else:
             bubble_counts["vydej"] += cnt
+
+    # Typ bubble counts (celkové počty bez stav/smer filtrů)
+    typ_counts = {"vse": 0, "jednotky": 0, "prostory": 0}
+    typ_raw = (
+        db.query(Payment.unit_id, Payment.space_id, func.count())
+        .filter_by(statement_id=statement_id)
+        .group_by(Payment.unit_id.isnot(None), Payment.space_id.isnot(None))
+        .all()
+    )
+    for unit_id, space_id, cnt in typ_raw:
+        typ_counts["vse"] += cnt
+        if unit_id:
+            typ_counts["jednotky"] += cnt
+        if space_id:
+            typ_counts["prostory"] += cnt
 
     # Flash zprávy
     flash_message = ""
@@ -530,7 +558,9 @@ async def vypis_detail(
         "q": q,
         "stav": stav,
         "smer": smer,
+        "typ": typ,
         "bubble_counts": bubble_counts,
+        "typ_counts": typ_counts,
         "list_url": list_url,
         "back_url": back_url,
         "flash_message": flash_message,
@@ -553,7 +583,7 @@ def _detail_redirect_url(statement_id: int, form_data, flash: str = "", anchor: 
     params = []
     if flash:
         params.append(f"flash={flash}")
-    for key in ("q", "sort", "order", "stav", "smer", "back"):
+    for key in ("q", "sort", "order", "stav", "smer", "typ", "back"):
         val = form_data.get(key, "")
         if val:
             params.append(f"{key}={val}")

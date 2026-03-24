@@ -3,7 +3,7 @@
 {% set locked = statement.locked_at if statement is defined else None %}
 {# Macro pro sdílené hidden inputy filtrů — eliminuje duplicitu (N14) #}
 {% macro filter_hidden() %}
-<input type="hidden" name="q" value="{{ q }}"><input type="hidden" name="sort" value="{{ sort }}"><input type="hidden" name="order" value="{{ order }}"><input type="hidden" name="stav" value="{{ stav }}"><input type="hidden" name="smer" value="{{ smer }}"><input type="hidden" name="back" value="{{ back_url }}">
+<input type="hidden" name="q" value="{{ q }}"><input type="hidden" name="sort" value="{{ sort }}"><input type="hidden" name="order" value="{{ order }}"><input type="hidden" name="stav" value="{{ stav }}"><input type="hidden" name="smer" value="{{ smer }}"><input type="hidden" name="typ" value="{{ typ }}"><input type="hidden" name="back" value="{{ back_url }}">
 {% endmacro %}
 {% for p in payments %}
 <tr class="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors" id="p-{{ p.id }}">
