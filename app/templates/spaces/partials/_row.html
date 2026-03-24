@@ -19,9 +19,9 @@
     <td class="px-2 py-1.5 overflow-hidden" style="text-overflow:ellipsis;white-space:nowrap">
         {% if at %}
         {% if at.tenant.is_linked %}
-        <a href="/vlastnici/{{ at.tenant.owner_id }}?back={{ ((list_url or '/prostory') ~ '#space-' ~ space.id)|urlencode }}" class="text-blue-600 hover:text-blue-800 hover:underline" title="{{ at.tenant.resolved_email }}{% if at.tenant.resolved_phone %} · {{ at.tenant.resolved_phone }}{% endif %}">{{ at.tenant.display_name }}</a>
+        <a href="/vlastnici/{{ at.tenant.owner_id }}?back={{ ((list_url or '/prostory') ~ '#space-' ~ space.id)|urlencode }}" class="text-blue-600 hover:text-blue-800 hover:underline inline-flex items-center gap-1" title="Vlastník: {{ at.tenant.display_name }}{% if at.tenant.resolved_email %} · {{ at.tenant.resolved_email }}{% endif %}{% if at.tenant.resolved_phone %} · {{ at.tenant.resolved_phone }}{% endif %}"><svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>{{ at.tenant.display_name }}</a>
         {% else %}
-        <a href="/najemci/{{ at.tenant.id }}?back={{ ((list_url or '/prostory') ~ '#space-' ~ space.id)|urlencode }}" class="text-blue-600 hover:text-blue-800 hover:underline" title="{{ at.tenant.resolved_email }}{% if at.tenant.resolved_phone %} · {{ at.tenant.resolved_phone }}{% endif %}">{{ at.tenant.display_name }}</a>
+        <a href="/najemci/{{ at.tenant.id }}?back={{ ((list_url or '/prostory') ~ '#space-' ~ space.id)|urlencode }}" class="text-gray-700 hover:text-gray-900 hover:underline dark:text-gray-300 dark:hover:text-gray-100" title="{{ at.tenant.resolved_email }}{% if at.tenant.resolved_phone %} · {{ at.tenant.resolved_phone }}{% endif %}">{{ at.tenant.display_name }}</a>
         {% endif %}
         {% else %}
         <span class="text-gray-300">—</span>
