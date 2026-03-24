@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import json
 import logging
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
-from app.models import Space, SpaceStatus, SpaceTenant, Tenant
+from app.models import Space, SpaceStatus, SpaceTenant, SvjInfo, Tenant
 from app.utils import strip_diacritics, templates
 
 logger = logging.getLogger(__name__)
@@ -96,3 +97,22 @@ def _space_stats(db: Session):
         "sections": sections,
         "total_rent": total_rent,
     }
+
+
+def _load_space_mapping(db: Session):
+    """Load saved space import mapping from SvjInfo."""
+    info = db.query(SvjInfo).first()
+    if info and info.space_import_mapping:
+        try:
+            return json.loads(info.space_import_mapping)
+        except (json.JSONDecodeError, TypeError):
+            pass
+    return None
+
+
+def _save_space_mapping(db: Session, mapping: dict):
+    """Save space import mapping to SvjInfo."""
+    info = db.query(SvjInfo).first()
+    if info:
+        info.space_import_mapping = json.dumps(mapping, ensure_ascii=False)
+        db.commit()

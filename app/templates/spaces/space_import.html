@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Import prostorů{% endblock %}
+
+{% block content %}
+<div class="flex flex-col" style="height:calc(100vh - 3rem)">
+<div class="shrink-0">
+    <div class="mb-3">
+        <a href="/prostory" class="text-sm text-blue-600 hover:text-blue-800">&larr; Zpět na prostory</a>
+    </div>
+
+    {% include "partials/wizard_stepper.html" %}
+
+    <h1 class="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4">Import prostorů z Excelu</h1>
+
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 max-w-2xl mb-6">
+        <h2 class="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3">Nahrát soubor</h2>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">
+            Import vytvoří nové prostory (existující nebudou přepsány).
+            {% if space_count > 0 %}
+            Aktuálně v evidenci: <strong>{{ space_count }}</strong> prostorů.
+            {% endif %}
+        </p>
+        <form action="/prostory/import" method="post" enctype="multipart/form-data" hx-boost="false">
+            <input type="file" name="file" accept=".xlsx" required hx-disable
+                   class="file-input block w-full text-xs text-gray-700 dark:text-gray-300
+                   file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0
+                   file:text-xs file:font-medium file:bg-blue-50 file:text-blue-700
+                   hover:file:bg-blue-100 dark:file:bg-blue-900 dark:file:text-blue-300
+                   cursor-pointer mb-3">
+            <button type="submit" class="px-4 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs font-medium transition-colors">
+                Nahrát a mapovat sloupce
+            </button>
+        </form>
+    </div>
+
+    {% if imports %}
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 max-w-2xl">
+        <h2 class="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3">Historie importů</h2>
+        <div class="space-y-2">
+            {% for imp in imports %}
+            <div class="flex items-center justify-between text-xs border-b border-gray-100 dark:border-gray-700 pb-2">
+                <div>
+                    <span class="font-medium text-gray-800 dark:text-gray-200">{{ imp.filename }}</span>
+                    <span class="text-gray-500 dark:text-gray-400 ml-2">{{ imp.created_at.strftime('%d.%m.%Y %H:%M') }}</span>
+                    <span class="text-gray-500 dark:text-gray-400 ml-2">{{ imp.rows_imported }} prostorů</span>
+                    {% if imp.rows_skipped > 0 %}
+                    <span class="text-yellow-600 dark:text-yellow-400 ml-1">({{ imp.rows_skipped }} chyb)</span>
+                    {% endif %}
+                </div>
+                <form method="post" action="/prostory/import/{{ imp.id }}/smazat" hx-boost="false"
+                      data-confirm="Smazat záznam o importu?">
+                    <button type="submit" class="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300" title="Smazat záznam">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                    </button>
+                </form>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+</div>
+{% endblock %}

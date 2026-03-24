@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+{% block title %}Náhled importu prostorů{% endblock %}
+
+{% block content %}
+<div class="flex flex-col" style="height:calc(100vh - 3rem)">
+<div class="shrink-0">
+<div class="mb-3">
+    <a href="/prostory/import" class="text-sm text-blue-600 hover:text-blue-800">&larr; Zpět na import</a>
+</div>
+
+{% include "partials/wizard_stepper.html" %}
+<form id="back-to-mapping-form" action="/prostory/import/mapovani" method="post" class="hidden" hx-boost="false">
+    <input type="hidden" name="file_path" value="{{ file_path }}">
+    <input type="hidden" name="filename" value="{{ filename }}">
+</form>
+
+<div class="flex items-center justify-between mb-3">
+    <div>
+        <h1 class="text-xl font-bold text-gray-800 dark:text-gray-100">Náhled importu prostorů — {{ filename }}</h1>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{ preview.spaces_count }} prostorů | {{ preview.with_tenant_count }} s nájemcem | {{ preview.blocked_count }} blokovaných</p>
+    </div>
+    <div class="flex gap-2">
+        <form action="/prostory/import/potvrdit" method="post" hx-boost="false"
+              data-confirm="Importovat {{ preview.spaces_count }} prostorů?\nExistující prostory nebudou přepsány.">
+            <input type="hidden" name="file_path" value="{{ file_path }}">
+            <input type="hidden" name="filename" value="{{ filename }}">
+            <input type="hidden" name="mapping_json" value="{{ mapping_json|default('', true)|e }}">
+            <button type="submit" class="px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-xs font-medium transition-colors">Potvrdit a importovat</button>
+        </form>
+        <a href="/prostory/import" class="px-3 py-1.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-xs font-medium">Zrušit</a>
+    </div>
+</div>
+
+<!-- Filter bubbles -->
+<div class="grid grid-cols-5 gap-2 mb-3">
+    <a href="#" onclick="filterPreview('all');return false" class="filter-bubble block bg-white dark:bg-gray-800 rounded-lg shadow p-2 text-center hover:ring-2 hover:ring-gray-300 ring-2 ring-gray-400" data-filter="all">
+        <p class="text-lg font-bold text-gray-800 dark:text-gray-100">{{ preview.spaces_count }}</p>
+        <p class="text-xs text-gray-500 dark:text-gray-400">Vše</p>
+    </a>
+    <a href="#" onclick="filterPreview('rented');return false" class="filter-bubble block bg-green-50 dark:bg-green-900/30 rounded-lg shadow p-2 text-center border border-green-200 dark:border-green-800 hover:ring-2 hover:ring-green-300" data-filter="rented">
+        <p class="text-lg font-bold text-green-600 dark:text-green-400">{{ preview.with_tenant_count }}</p>
+        <p class="text-xs text-green-600 dark:text-green-400">Pronajato</p>
+    </a>
+    <a href="#" onclick="filterPreview('vacant');return false" class="filter-bubble block bg-gray-50 dark:bg-gray-700/30 rounded-lg shadow p-2 text-center border border-gray-200 dark:border-gray-600 hover:ring-2 hover:ring-gray-300" data-filter="vacant">
+        <p class="text-lg font-bold text-gray-600 dark:text-gray-400">{{ preview.spaces_count - preview.with_tenant_count - preview.blocked_count }}</p>
+        <p class="text-xs text-gray-600 dark:text-gray-400">Volné</p>
+    </a>
+    <a href="#" onclick="filterPreview('blocked');return false" class="filter-bubble block bg-red-50 dark:bg-red-900/30 rounded-lg shadow p-2 text-center border border-red-200 dark:border-red-800 hover:ring-2 hover:ring-red-300" data-filter="blocked">
+        <p class="text-lg font-bold text-red-600 dark:text-red-400">{{ preview.blocked_count }}</p>
+        <p class="text-xs text-red-600 dark:text-red-400">Blokované</p>
+    </a>
+    <a href="#" onclick="filterPreview('error');return false" class="filter-bubble block bg-yellow-50 dark:bg-yellow-900/30 rounded-lg shadow p-2 text-center border border-yellow-200 dark:border-yellow-800 hover:ring-2 hover:ring-yellow-300" data-filter="error">
+        <p class="text-lg font-bold {% if preview.errors %}text-yellow-600 dark:text-yellow-400{% else %}text-gray-500 dark:text-gray-400{% endif %}">{{ preview.errors|length }}</p>
+        <p class="text-xs text-yellow-600 dark:text-yellow-400">Chyby</p>
+    </a>
+</div>
+
+<!-- Errors -->
+{% if preview.errors %}
+<div id="errors-section" role="alert" class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-3 hidden">
+    <h3 class="text-sm font-semibold text-red-800 dark:text-red-300 mb-2">Chyby při parsování:</h3>
+    <ul class="text-sm text-red-700 dark:text-red-400 list-disc list-inside">
+        {% for error in preview.errors %}
+        <li>{{ error }}</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+
+<!-- Preview table -->
+</div>
+<div class="flex-1 bg-white dark:bg-gray-800 rounded-lg shadow overflow-y-auto overflow-x-auto min-h-0">
+    <table id="preview-table" class="w-full text-xs" style="table-layout:fixed">
+        <colgroup>
+            <col style="width:5%">
+            <col style="width:7%">
+            <col style="width:18%">
+            <col style="width:7%">
+            <col style="width:6%">
+            <col style="width:7%">
+            <col style="width:18%">
+            <col style="width:10%">
+            <col style="width:10%">
+            <col style="width:12%">
+        </colgroup>
+        <thead class="bg-gray-50 dark:bg-gray-700 border-b-2 border-gray-300 dark:border-gray-600 sticky top-0 z-10">
+            <tr>
+                <th class="px-2 py-2 text-left font-medium text-gray-500 dark:text-gray-400 cursor-pointer hover:text-blue-600 select-none" onclick="sortPreview(0,'num')">Řádek <span class="sort-arrow"></span></th>
+                <th class="px-2 py-2 text-left font-medium text-gray-500 dark:text-gray-400 cursor-pointer hover:text-blue-600 select-none" onclick="sortPreview(1,'num')">Č. <span class="sort-arrow"></span></th>
+                <th class="px-2 py-2 text-left font-medium text-gray-500 dark:text-gray-400 cursor-pointer hover:text-blue-600 select-none" onclick="sortPreview(2,'str')">Označení <span class="sort-arrow"></span></th>
+                <th class="px-2 py-2 text-left font-medium text-gray-500 dark:text-gray-400 cursor-pointer hover:text-blue-600 select-none" onclick="sortPreview(3,'str')">Sekce <span class="sort-arrow"></span></th>
+                <th class="px-2 py-2 text-left font-medium text-gray-500 dark:text-gray-400 cursor-pointer hover:text-blue-600 select-none" onclick="sortPreview(4,'num')">Podlaží <span class="sort-arrow"></span></th>
+                <th class="px-2 py-2 text-left font-medium text-gray-500 dark:text-gray-400 cursor-pointer hover:text-blue-600 select-none" onclick="sortPreview(5,'str')">Stav <span class="sort-arrow"></span></th>
+                <th class="px-2 py-2 text-left font-medium text-gray-500 dark:text-gray-400 cursor-pointer hover:text-blue-600 select-none" onclick="sortPreview(6,'str')">Nájemce <span class="sort-arrow"></span></th>
+                <th class="px-2 py-2 text-right font-medium text-gray-500 dark:text-gray-400 cursor-pointer hover:text-blue-600 select-none" onclick="sortPreview(7,'num')">Nájemné <span class="sort-arrow"></span></th>
+                <th class="px-2 py-2 text-left font-medium text-gray-500 dark:text-gray-400 cursor-pointer hover:text-blue-600 select-none" onclick="sortPreview(8,'str')">VS <span class="sort-arrow"></span></th>
+                <th class="px-2 py-2 text-left font-medium text-gray-500 dark:text-gray-400">Vlastník?</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+            {% for row in preview.preview_rows %}
+            <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 preview-row" data-status="{{ row.status }}">
+                <td class="px-2 py-1.5 text-gray-500 dark:text-gray-400">{{ row.row }}</td>
+                <td class="px-2 py-1.5 font-medium text-gray-900 dark:text-gray-100">{{ row.space_number }}</td>
+                <td class="px-2 py-1.5 text-gray-700 dark:text-gray-300 overflow-hidden" style="text-overflow:ellipsis;white-space:nowrap" title="{{ row.designation }}">{{ row.designation }}</td>
+                <td class="px-2 py-1.5 text-gray-500 dark:text-gray-400" data-sort="{{ row.section or 'zzz' }}">{{ row.section }}</td>
+                <td class="px-2 py-1.5 text-gray-500 dark:text-gray-400">{{ row.floor if row.floor is not none else "—" }}</td>
+                <td class="px-2 py-1.5">
+                    {% if row.status == 'blocked' %}
+                    <span class="px-2 py-0.5 text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300 rounded-full">Blokovaný</span>
+                    {% elif row.status == 'rented' %}
+                    <span class="px-2 py-0.5 text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300 rounded-full">Pronajato</span>
+                    {% else %}
+                    <span class="px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 rounded-full">Volný</span>
+                    {% endif %}
+                </td>
+                <td class="px-2 py-1.5 text-gray-700 dark:text-gray-300 overflow-hidden" style="text-overflow:ellipsis;white-space:nowrap" title="{{ row.tenant_name }}">{{ row.tenant_name or "—" }}</td>
+                <td class="px-2 py-1.5 text-gray-500 dark:text-gray-400 text-right font-mono whitespace-nowrap">{{ row.monthly_rent|fmt_num if row.monthly_rent else "—" }}</td>
+                <td class="px-2 py-1.5 font-mono text-gray-500 dark:text-gray-400">{{ row.variable_symbol or "—" }}</td>
+                <td class="px-2 py-1.5">
+                    {% if row.owner_match %}
+                    <span class="px-2 py-0.5 text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300 rounded-full" title="Nalezena shoda s vlastníkem: {{ row.owner_match }}">{{ row.owner_match|truncate(15) }}</span>
+                    {% elif row.tenant_name %}
+                    <span class="text-gray-400 dark:text-gray-500">—</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="shrink-0 mt-2 text-xs text-gray-500 dark:text-gray-400" id="visible-count">Zobrazeno: {{ preview.preview_rows|length }} řádků</div>
+</div>
+
+<script>
+var activeFilter = 'all';
+
+function filterPreview(type) {
+    activeFilter = type;
+    var errSection = document.getElementById('errors-section');
+
+    if (type === 'error') {
+        if (errSection) errSection.classList.remove('hidden');
+        document.querySelectorAll('.preview-row').forEach(function(r) { r.style.display = 'none'; });
+        document.getElementById('visible-count').textContent = 'Chyby: ' + {{ preview.errors|length }};
+    } else {
+        if (errSection) errSection.classList.add('hidden');
+        var visible = 0;
+        document.querySelectorAll('.preview-row').forEach(function(r) {
+            var show = type === 'all' || r.dataset.status === type;
+            r.style.display = show ? '' : 'none';
+            if (show) visible++;
+        });
+        document.getElementById('visible-count').textContent = 'Zobrazeno: ' + visible + ' řádků';
+    }
+
+    document.querySelectorAll('.filter-bubble').forEach(function(b) {
+        var isActive = b.dataset.filter === type;
+        b.classList.toggle('ring-2', isActive);
+        if (b.dataset.filter === 'all') b.classList.toggle('ring-gray-400', isActive);
+        else if (b.dataset.filter === 'rented') b.classList.toggle('ring-green-400', isActive);
+        else if (b.dataset.filter === 'vacant') b.classList.toggle('ring-gray-400', isActive);
+        else if (b.dataset.filter === 'blocked') b.classList.toggle('ring-red-400', isActive);
+        else if (b.dataset.filter === 'error') b.classList.toggle('ring-yellow-400', isActive);
+    });
+}
+
+var previewSortCol = -1, previewSortAsc = true;
+function sortPreview(col, type) {
+    var table = document.getElementById('preview-table');
+    var tbody = table.querySelector('tbody');
+    var rows = Array.from(tbody.querySelectorAll('tr'));
+    if (previewSortCol === col) { previewSortAsc = !previewSortAsc; } else { previewSortCol = col; previewSortAsc = true; }
+    rows.sort(function(a, b) {
+        var aCell = a.cells[col], bCell = b.cells[col];
+        var aText = aCell.dataset.sort || aCell.textContent.trim();
+        var bText = bCell.dataset.sort || bCell.textContent.trim();
+        if (type === 'num') {
+            var aNum = parseFloat(aText.replace(/\s/g, '').replace(',', '.')) || 0;
+            var bNum = parseFloat(bText.replace(/\s/g, '').replace(',', '.')) || 0;
+            return previewSortAsc ? aNum - bNum : bNum - aNum;
+        }
+        return previewSortAsc ? aText.localeCompare(bText, 'cs') : bText.localeCompare(aText, 'cs');
+    });
+    rows.forEach(function(row) { tbody.appendChild(row); });
+    table.querySelectorAll('.sort-arrow').forEach(function(s) { s.textContent = ''; });
+    var arrow = table.querySelectorAll('thead th')[col].querySelector('.sort-arrow');
+    if (arrow) arrow.textContent = previewSortAsc ? ' \u25B2' : ' \u25BC';
+    table.querySelectorAll('thead th').forEach(function(th, i) {
+        th.classList.toggle('text-blue-600', i === col);
+        th.classList.toggle('text-gray-500', i !== col);
+    });
+}
+</script>
+{% endblock %}

@@ -767,6 +767,155 @@ BALANCE_FIELD_DEFS: dict[str, dict] = {
 }
 
 
+# ---------------------------------------------------------------------------
+# Space field definitions — 10 fields in 3 groups
+# ---------------------------------------------------------------------------
+
+SPACE_FIELD_GROUPS = [
+    {
+        "key": "space",
+        "label": "Prostor",
+        "color": "purple",
+        "fields": [
+            "space_number", "designation", "section", "floor", "area",
+        ],
+    },
+    {
+        "key": "tenant",
+        "label": "Nájemce",
+        "color": "green",
+        "fields": [
+            "tenant_name", "phone", "email",
+        ],
+    },
+    {
+        "key": "contract",
+        "label": "Smlouva",
+        "color": "orange",
+        "fields": [
+            "contract_number", "contract_start", "monthly_rent", "variable_symbol",
+        ],
+    },
+]
+
+SPACE_FIELD_DEFS: dict[str, dict] = {
+    # --- Prostor ---
+    "space_number": {
+        "label": "Číslo prostoru",
+        "required": True,
+        "description": "Identifikátor prostoru — povinné",
+        "candidates": [
+            "cislo prostoru", "prostor", "cislo", "c.p.", "cp", "space number",
+            "oznaceni prostoru", "id prostoru", "mistnost", "cislo mistnosti",
+        ],
+    },
+    "designation": {
+        "label": "Označení / účel",
+        "required": False,
+        "description": "Název nebo účel prostoru (sklad, dílna, nebytový prostor)",
+        "candidates": [
+            "oznaceni", "ucel", "nazev", "popis", "designation", "typ",
+            "ucel uzivani", "druh", "typ prostoru", "popis prostoru",
+        ],
+    },
+    "section": {
+        "label": "Sekce / vchod",
+        "required": False,
+        "candidates": [
+            "sekce", "vchod", "blok", "section", "cast domu",
+        ],
+    },
+    "floor": {
+        "label": "Podlaží",
+        "required": False,
+        "candidates": [
+            "podlazi", "patro", "floor", "np", "poschodie",
+        ],
+    },
+    "area": {
+        "label": "Výměra (m²)",
+        "required": False,
+        "candidates": [
+            "vymera", "plocha", "m2", "area", "vymera m2", "podlahova plocha",
+        ],
+    },
+    # --- Nájemce ---
+    "tenant_name": {
+        "label": "Jméno nájemce",
+        "required": False,
+        "description": "Jméno nájemce — pokud vyplněno, automaticky se vytvoří nájemce",
+        "candidates": [
+            "najemce", "jmeno najemce", "nazev najemce", "najemnik",
+            "tenant", "tenant name", "firma", "nazev firmy",
+            "prijmeni jmeno", "jmeno prijmeni",
+        ],
+    },
+    "phone": {
+        "label": "Telefon nájemce",
+        "required": False,
+        "candidates": [
+            "telefon", "tel", "phone", "mobil", "gsm", "kontakt",
+        ],
+    },
+    "email": {
+        "label": "Email nájemce",
+        "required": False,
+        "candidates": [
+            "email", "e-mail", "mail", "email najemce",
+        ],
+    },
+    # --- Smlouva ---
+    "contract_number": {
+        "label": "Číslo smlouvy",
+        "required": False,
+        "candidates": [
+            "cislo smlouvy", "smlouva", "contract", "contract number",
+            "c. smlouvy", "c.s.",
+        ],
+    },
+    "contract_start": {
+        "label": "Začátek smlouvy",
+        "required": False,
+        "candidates": [
+            "zacatek smlouvy", "platnost od", "od", "datum smlouvy",
+            "contract start", "zacatek", "od data",
+        ],
+    },
+    "monthly_rent": {
+        "label": "Měsíční nájemné (Kč)",
+        "required": False,
+        "candidates": [
+            "najemne", "mesicni najemne", "rent", "monthly rent",
+            "castka", "najemne kc", "mesicni castka",
+        ],
+    },
+    "variable_symbol": {
+        "label": "Variabilní symbol",
+        "required": False,
+        "candidates": [
+            "variabilni symbol", "vs", "variable symbol", "var. symbol",
+            "var symbol",
+        ],
+    },
+}
+
+
+def validate_space_mapping(mapping: dict):
+    """Validate space import mapping. Returns error message or None."""
+    if not isinstance(mapping, dict) or "fields" not in mapping:
+        return "Neplatný formát mapování"
+
+    fields = mapping["fields"]
+    if not isinstance(fields, dict):
+        return "Neplatný formát mapování polí"
+
+    for field_key, fdef in SPACE_FIELD_DEFS.items():
+        if fdef.get("required") and field_key not in fields:
+            return f"Chybí povinné pole: {fdef['label']}"
+
+    return None
+
+
 def validate_balance_mapping(mapping: dict) -> str | None:
     """Validate balance import mapping. Returns error message or None."""
     if not isinstance(mapping, dict) or "fields" not in mapping:
