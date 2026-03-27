@@ -10,9 +10,11 @@ import smtplib
 import socket
 
 logger = logging.getLogger(__name__)
+from email.header import Header
 from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from email.utils import formataddr
 from pathlib import Path
 
 from sqlalchemy.orm import Session
@@ -53,9 +55,9 @@ def _build_message(
 ) -> tuple[MIMEMultipart, list[str]]:
     """Build a MIME message for a single recipient. Returns (msg, attachment_paths)."""
     msg = MIMEMultipart()
-    msg["From"] = f"{settings.smtp_from_name} <{settings.smtp_from_email}>"
-    msg["To"] = f"{to_name} <{to_addr}>"
-    msg["Subject"] = subject
+    msg["From"] = formataddr((str(Header(settings.smtp_from_name, "utf-8")), settings.smtp_from_email))
+    msg["To"] = formataddr((str(Header(to_name, "utf-8")), to_addr))
+    msg["Subject"] = Header(subject, "utf-8")
 
     # Plain text z formuláře (bez HTML tagů) → konverze \n na <br>
     html = body_html
