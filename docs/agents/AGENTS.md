@@ -21,6 +21,11 @@
 | **Release Agent** | `Přečti RELEASE-AGENT.md a připrav release. Nejdřív proveď pre-release kontrolu, pak po schválení připrav balíček.` |
 | **Backup Agent** | `Přečti BACKUP-AGENT.md a proveď kontrolu integrity zálohovacího systému. Testuj na kopiích dat.` |
 
+### Přenos na jiný Mac
+| Agent | Příkaz |
+|-------|--------|
+| **USB Deploy** | `Přečti docs/agents/USB-DEPLOY.md a proveď přenos aplikace na USB. Cíl: /Volumes/NAZEV_USB` |
+
 ### Jednorázově / podle potřeby
 | Agent | Příkaz | Kdy |
 |-------|--------|-----|
@@ -45,6 +50,9 @@ Před vydáním:
   3. Doc Sync (dokumentace aktuální?)
   4. Test Agent (finální testování)
   5. Release Agent (kontrola + tag)
+
+Přenos na jiný Mac:
+  1. USB Deploy Agent (příprava + troubleshooting)
 
 Jednorázově:
   - Business Logic Agent (extrakce know-how)
