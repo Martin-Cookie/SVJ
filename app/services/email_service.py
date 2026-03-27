@@ -22,14 +22,23 @@ from app.models.common import EmailLog, EmailStatus
 from app.utils import strip_diacritics, utcnow
 
 
+def _create_smtp(host: str, port: int, use_tls: bool, timeout: int = 30) -> smtplib.SMTP:
+    """Create SMTP connection with SSL (port 465) or STARTTLS support."""
+    if port == 465:
+        server = smtplib.SMTP_SSL(host, port, timeout=timeout)
+    else:
+        server = smtplib.SMTP(host, port, timeout=timeout)
+        if use_tls:
+            server.starttls()
+    return server
+
+
 def create_smtp_connection():
     """Create and return an authenticated SMTP connection for batch reuse."""
     if settings.smtp_host in ("smtp.example.com", ""):
         return None
 
-    server = smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=30)
-    if settings.smtp_use_tls:
-        server.starttls()
+    server = _create_smtp(settings.smtp_host, settings.smtp_port, settings.smtp_use_tls, timeout=30)
     if settings.smtp_user:
         server.login(settings.smtp_user, settings.smtp_password)
     return server
@@ -116,9 +125,7 @@ def send_email(
     server = smtp_server
     if own_server:
         try:
-            server = smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=10)
-            if settings.smtp_use_tls:
-                server.starttls()
+            server = _create_smtp(settings.smtp_host, settings.smtp_port, settings.smtp_use_tls, timeout=10)
             if settings.smtp_user:
                 server.login(settings.smtp_user, settings.smtp_password)
         except smtplib.SMTPAuthenticationError:

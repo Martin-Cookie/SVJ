@@ -193,9 +193,12 @@ async def test_smtp_connection(request: Request):
                 "settings": settings,
                 "smtp_test_error": "SMTP server není nakonfigurován.",
             })
-        server = smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=10)
-        if settings.smtp_use_tls:
-            server.starttls()
+        if settings.smtp_port == 465:
+            server = smtplib.SMTP_SSL(settings.smtp_host, settings.smtp_port, timeout=10)
+        else:
+            server = smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=10)
+            if settings.smtp_use_tls:
+                server.starttls()
         if settings.smtp_user:
             server.login(settings.smtp_user, settings.smtp_password)
         server.quit()

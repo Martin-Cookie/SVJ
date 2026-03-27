@@ -199,17 +199,17 @@ if [ "$NEEDS_INSTALL" -eq 1 ]; then
     echo ""
     echo -e "${BOLD}Instaluji závislosti...${RESET}"
 
-    # Zkusit offline instalaci z wheels, pokud selže → online
+    # Zkusit offline instalaci z wheels, pokud selže → online z requirements.txt
     if [ -d "$PROJECT_DIR/wheels" ] && [ "$(ls "$PROJECT_DIR/wheels/"*.whl 2>/dev/null | wc -l)" -gt 0 ]; then
         echo "  (offline režim z přibalených wheels...)"
         "$VENV_DIR/bin/pip" install --no-index --find-links "$PROJECT_DIR/wheels" "$PROJECT_DIR/wheels"/*.whl 2>/dev/null
         if [ $? -ne 0 ]; then
             echo -e "  ${YELLOW}Offline instalace selhala (jiná verze Pythonu?), zkouším online...${RESET}"
-            "$VENV_DIR/bin/pip" install fastapi "uvicorn[standard]" jinja2 python-multipart sqlalchemy pydantic-settings openpyxl python-docx docxtpl pdfplumber Pillow
+            "$VENV_DIR/bin/pip" install -r "$PROJECT_DIR/requirements.txt"
         fi
     else
         echo "  (online režim...)"
-        "$VENV_DIR/bin/pip" install fastapi "uvicorn[standard]" jinja2 python-multipart sqlalchemy pydantic-settings openpyxl python-docx docxtpl pdfplumber Pillow
+        "$VENV_DIR/bin/pip" install -r "$PROJECT_DIR/requirements.txt"
     fi
 
     if [ $? -ne 0 ]; then

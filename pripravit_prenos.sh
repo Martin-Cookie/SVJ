@@ -98,9 +98,7 @@ mkdir -p "$PROJECT_DIR/wheels"
 PYTHON_VERSION=$(python3 --version 2>&1 | grep -oE '[0-9]+\.[0-9]+')
 echo -e "  Python verze: $PYTHON_VERSION"
 
-pip3 download -d "$PROJECT_DIR/wheels" \
-    fastapi "uvicorn[standard]" jinja2 python-multipart sqlalchemy \
-    pydantic-settings openpyxl python-docx docxtpl pdfplumber Pillow \
+pip3 download -d "$PROJECT_DIR/wheels" -r "$PROJECT_DIR/requirements.txt" \
     2>&1 | tail -3
 
 WHEEL_COUNT=$(ls "$PROJECT_DIR/wheels/"*.whl 2>/dev/null | wc -l | tr -d ' ')
