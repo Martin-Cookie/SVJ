@@ -1,5 +1,7 @@
 from datetime import datetime
 
+from app.utils import utcnow
+
 from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import relationship
 
@@ -19,8 +21,8 @@ class SvjInfo(Base):
     contact_import_mapping = Column(Text, nullable=True)  # JSON — last used contact import column mapping
     balance_import_mapping = Column(Text, nullable=True)   # JSON — last used balance import column mapping
     space_import_mapping = Column(Text, nullable=True)     # JSON — last used space import column mapping
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 
     addresses = relationship("SvjAddress", back_populates="svj_info",
                              order_by="SvjAddress.address", cascade="all, delete-orphan")
@@ -47,7 +49,7 @@ class BoardMember(Base):
     phone = Column(String(50), nullable=True)
     group = Column(String(50), nullable=False, default="board", index=True)
     order = Column(Integer, default=0)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
 
 
 class CodeListItem(Base):
@@ -61,7 +63,7 @@ class CodeListItem(Base):
     # "space_type" | "section" | "room_count" | "ownership_type"
     value = Column(String(200), nullable=False)
     order = Column(Integer, default=0)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
 
 
 class EmailTemplate(Base):
@@ -72,4 +74,4 @@ class EmailTemplate(Base):
     subject_template = Column(String(500), nullable=False)
     body_template = Column(Text, nullable=False)
     order = Column(Integer, default=0)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)

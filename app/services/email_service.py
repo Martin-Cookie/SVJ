@@ -8,8 +8,6 @@ import html as html_module
 import logging
 import smtplib
 import socket
-
-logger = logging.getLogger(__name__)
 from email.header import Header
 from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
@@ -23,8 +21,10 @@ from app.config import settings
 from app.models.common import EmailLog, EmailStatus
 from app.utils import strip_diacritics, utcnow
 
+logger = logging.getLogger(__name__)
 
-def _create_smtp(host: str, port: int, use_tls: bool, timeout: int = 30) -> smtplib.SMTP:
+
+def _create_smtp(host: str, port: int, use_tls: bool, timeout: int = 30) -> smtplib.SMTP | smtplib.SMTP_SSL:
     """Create SMTP connection with SSL (port 465) or STARTTLS support."""
     if port == 465:
         server = smtplib.SMTP_SSL(host, port, timeout=timeout)

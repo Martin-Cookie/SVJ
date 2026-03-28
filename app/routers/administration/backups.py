@@ -157,6 +157,7 @@ async def backup_restore_existing(filename: str):
         # Track existing backups to find safety backup name
         existing = set(p.name for p in BACKUP_DIR.glob("*.zip")) if BACKUP_DIR.is_dir() else set()
 
+        engine.dispose()
         restore_backup(
             str(file_path), str(DB_PATH), str(UPLOADS_DIR),
             str(GENERATED_DIR), str(BACKUP_DIR),
@@ -207,6 +208,7 @@ async def backup_restore(file: UploadFile = File(...)):
         # Track which backups exist before restore (to find the safety backup name)
         existing = set(p.name for p in BACKUP_DIR.glob("*.zip")) if BACKUP_DIR.is_dir() else set()
 
+        engine.dispose()
         restore_backup(
             str(temp_path), str(DB_PATH), str(UPLOADS_DIR),
             str(GENERATED_DIR), str(BACKUP_DIR),
@@ -356,6 +358,7 @@ async def backup_restore_folder(files: List[UploadFile] = File(...)):
             return RedirectResponse("/sprava/zalohy?chyba=neplatny", status_code=302)
 
         # Use service function with safety backup + rollback on failure
+        engine.dispose()
         restore_from_directory(
             tmp, str(DB_PATH), str(UPLOADS_DIR), str(GENERATED_DIR), str(BACKUP_DIR),
         )

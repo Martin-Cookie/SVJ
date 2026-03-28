@@ -219,6 +219,7 @@ document.addEventListener('submit', function(e) {
     e.preventDefault();
     var action = form.action;
     var method = form.method || 'POST';
+    var hiddens = Array.from(form.querySelectorAll('input[type="hidden"]'));
     svjConfirm(msg.replace(/\\n/g, '\n'), function() {
         // If original form is still in DOM, submit it directly
         if (document.body.contains(form)) {
@@ -230,6 +231,7 @@ document.addEventListener('submit', function(e) {
             tmp.method = method;
             tmp.action = action;
             tmp.style.display = 'none';
+            hiddens.forEach(function(h) { tmp.appendChild(h.cloneNode(true)); });
             document.body.appendChild(tmp);
             tmp.submit();
         }

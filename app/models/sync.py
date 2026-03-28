@@ -1,6 +1,8 @@
 import enum
 from datetime import datetime
 
+from app.utils import utcnow
+
 from sqlalchemy import (
     Boolean, Column, DateTime, Enum, Float, ForeignKey, Integer, String, Text,
 )
@@ -37,7 +39,7 @@ class SyncSession(Base):
     total_differences = Column(Integer, default=0)
     total_missing = Column(Integer, default=0)
     is_finalized = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
 
     records = relationship(
         "SyncRecord", back_populates="session", cascade="all, delete-orphan"

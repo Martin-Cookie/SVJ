@@ -8,7 +8,7 @@ from app.database import get_db
 from app.models import ActivityLog, EmailLog, Owner, OwnerUnit, PrescriptionYear, Space, SpaceStatus, SpaceTenant, SvjInfo, Unit, Voting, BankStatement, Payment, PaymentDirection, PaymentMatchStatus
 from app.models.voting import Ballot, BallotStatus, BallotVote
 from app.models.tax import TaxDocument, TaxSession, TaxDistribution, EmailDeliveryStatus
-from app.utils import strip_diacritics, templates
+from app.utils import strip_diacritics, templates, utcnow
 
 router = APIRouter()
 
@@ -299,7 +299,7 @@ async def home(
 
     # Contracts expiring within 3 months
     from datetime import timedelta
-    expiry_cutoff = datetime.utcnow().date() + timedelta(days=90)
+    expiry_cutoff = utcnow().date() + timedelta(days=90)
     expiring_contracts = (
         db.query(SpaceTenant)
         .filter(

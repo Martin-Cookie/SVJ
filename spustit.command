@@ -134,7 +134,7 @@ else
 fi
 
 # --- 8. Síťové připojení (pokud chybí wheels) ---
-if [ ! -d "$PROJECT_DIR/wheels" ] || [ "$WHEEL_COUNT" -eq 0 ]; then
+if [ ! -d "$PROJECT_DIR/wheels" ] || [ "${WHEEL_COUNT:-0}" -eq 0 ]; then
     if ping -c 1 -W 2 pypi.org &>/dev/null; then
         echo -e "  ${GREEN}✓${RESET} Internet: dostupný (pro stažení závislostí)"
     else

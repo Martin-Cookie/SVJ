@@ -1,6 +1,8 @@
 import enum
 from datetime import datetime
 
+from app.utils import utcnow
+
 from sqlalchemy import (
     Boolean, Column, DateTime, Date, Enum, Float, ForeignKey, Integer, String, Text,
 )
@@ -45,8 +47,8 @@ class Voting(Base):
     quorum_threshold = Column(Float, default=0.5)
     partial_owner_mode = Column(String(20), default="shared")  # shared / separate
     import_column_mapping = Column(Text, nullable=True)  # JSON string
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 
     items = relationship(
         "VotingItem", back_populates="voting", cascade="all, delete-orphan",
@@ -90,7 +92,7 @@ class Ballot(Base):
     sent_at = Column(DateTime, nullable=True)
     received_at = Column(DateTime, nullable=True)
     processed_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
 
     voting = relationship("Voting", back_populates="ballots")
     owner = relationship("Owner", back_populates="ballots")

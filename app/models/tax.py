@@ -1,6 +1,8 @@
 import enum
 from datetime import datetime
 
+from app.utils import utcnow
+
 from sqlalchemy import (
     Boolean, Column, DateTime, Enum, Float, ForeignKey, Integer, String, Text,
 )
@@ -40,7 +42,7 @@ class TaxSession(Base):
     year = Column(Integer, nullable=True)
     email_subject = Column(String(500), nullable=True)
     email_body = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
 
     # Send workflow
     send_batch_size = Column(Integer, default=10)
@@ -66,7 +68,7 @@ class TaxDocument(Base):
     unit_letter = Column(String(5), nullable=True)
     file_path = Column(String(500), nullable=False)
     extracted_owner_name = Column(String(300), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
 
     session = relationship("TaxSession", back_populates="documents")
     distributions = relationship(

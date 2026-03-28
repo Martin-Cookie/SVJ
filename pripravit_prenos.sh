@@ -81,7 +81,11 @@ if [ -f "$DB_FILE" ]; then
             exit 0
         fi
     fi
-    sqlite3 "$DB_FILE" "PRAGMA wal_checkpoint(TRUNCATE);"
+    if command -v sqlite3 &>/dev/null; then
+        sqlite3 "$DB_FILE" "PRAGMA wal_checkpoint(TRUNCATE);"
+    else
+        echo -e "  ${YELLOW}⚠ sqlite3 nenalezen — přeskakuji WAL checkpoint${RESET}"
+    fi
     echo -e "  ${GREEN}✓${RESET} WAL sloučen do hlavní DB"
     DB_SIZE=$(du -h "$DB_FILE" | cut -f1)
     echo -e "  Velikost DB: $DB_SIZE"
