@@ -3,7 +3,7 @@
 }
 .htmx-request .htmx-indicator,
 .htmx-request.htmx-indicator {
-    display: inline-block;
+    display: inline-flex;
 }
 
 /* Disable submit buttons during HTMX requests */

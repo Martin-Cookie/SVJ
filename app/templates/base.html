@@ -20,7 +20,7 @@
 <body class="bg-gray-50 min-h-screen" hx-boost="true">
     <div class="flex min-h-screen">
         <!-- Mobile hamburger -->
-        <button id="sidebar-toggle" onclick="toggleSidebar()" class="md:hidden fixed top-3 left-3 z-50 p-2 bg-gray-800 text-white rounded-lg shadow-lg">
+        <button id="sidebar-toggle" onclick="toggleSidebar()" class="md:hidden fixed top-3 left-3 z-50 p-2 bg-gray-800 text-white rounded-lg shadow-lg" aria-label="Otevřít menu">
             <svg id="hamburger-icon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
             </svg>
@@ -29,9 +29,9 @@
             </svg>
         </button>
         <!-- Mobile overlay -->
-        <div id="sidebar-overlay" onclick="toggleSidebar()" class="hidden fixed inset-0 bg-black/50 z-30 md:hidden"></div>
+        <div id="sidebar-overlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/50 z-30 md:hidden opacity-0 pointer-events-none transition-opacity duration-300"></div>
         <!-- Sidebar -->
-        <nav id="sidebar" class="w-44 bg-gray-800 text-white fixed h-full overflow-y-auto flex-col z-40 hidden md:flex">
+        <nav id="sidebar" class="w-44 bg-gray-800 text-white fixed h-full overflow-y-auto flex-col z-40 flex -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out">
             <div class="px-3 py-4">
                 <div class="text-lg font-bold">SVJ Správa</div>
                 <p class="text-gray-500 text-xs mt-0.5">Automatizace</p>
@@ -248,12 +248,20 @@
         var ov = document.getElementById('sidebar-overlay');
         var hi = document.getElementById('hamburger-icon');
         var ci = document.getElementById('close-icon');
-        var open = sb.classList.contains('hidden');
-        sb.classList.toggle('hidden', !open);
-        sb.classList.toggle('flex', open);
-        ov.classList.toggle('hidden', !open);
-        hi.classList.toggle('hidden', open);
-        ci.classList.toggle('hidden', !open);
+        var isOpen = !sb.classList.contains('-translate-x-full');
+        if (isOpen) {
+            sb.classList.add('-translate-x-full');
+            ov.classList.add('opacity-0', 'pointer-events-none');
+            ov.classList.remove('opacity-100', 'pointer-events-auto');
+            hi.classList.remove('hidden');
+            ci.classList.add('hidden');
+        } else {
+            sb.classList.remove('-translate-x-full');
+            ov.classList.remove('opacity-0', 'pointer-events-none');
+            ov.classList.add('opacity-100', 'pointer-events-auto');
+            hi.classList.add('hidden');
+            ci.classList.remove('hidden');
+        }
     }
     </script>
 </body>

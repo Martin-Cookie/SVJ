@@ -98,35 +98,36 @@
 
 {% if voting.status.value != 'draft' %}
 {# Bubble+Search kontejner — OTEVŘENÝ. Zavřít v nadřazené šabloně po search baru. #}
+{% set _bubble_back = "&back=" ~ (back_url|default('')|urlencode) if back_url else "" %}
 <div class="bg-white rounded-lg shadow mb-2">
     <div class="flex gap-2 p-3 pb-2">
-        <a href="/hlasovani/{{ voting.id }}/listky"
+        <a href="/hlasovani/{{ voting.id }}/listky?{{ _bubble_back }}"
            class="block rounded p-2 text-center border border-gray-200 hover:bg-gray-100 transition-colors
                   {% if active_bubble == 'all' %}ring-2 ring-gray-400{% endif %}" style="flex:1">
             <p class="text-lg font-bold text-gray-800">{{ total_ballots }}</p>
             <p class="text-xs text-gray-500 mt-1">Celkem lístků</p>
         </a>
-        <a href="/hlasovani/{{ voting.id }}/listky?stav=generated"
+        <a href="/hlasovani/{{ voting.id }}/listky?stav=generated{{ _bubble_back }}"
            class="block bg-blue-50 rounded p-2 text-center border border-blue-200 hover:bg-blue-100 transition-colors
                   {% if active_bubble == 'generated' %}ring-2 ring-blue-400{% endif %}" style="flex:1">
             <p class="text-lg font-bold text-blue-600">{{ status_counts.get('generated', 0) }}</p>
             <p class="text-xs text-gray-500 mt-1">Zbývá zpracovat</p>
         </a>
         {% if status_counts.get('sent', 0) > 0 %}
-        <a href="/hlasovani/{{ voting.id }}/listky?stav=sent"
+        <a href="/hlasovani/{{ voting.id }}/listky?stav=sent{{ _bubble_back }}"
            class="block bg-yellow-50 rounded p-2 text-center border border-yellow-200 hover:bg-yellow-100 transition-colors
                   {% if active_bubble == 'sent' %}ring-2 ring-yellow-400{% endif %}" style="flex:1">
             <p class="text-lg font-bold text-yellow-600">{{ status_counts.get('sent', 0) }}</p>
             <p class="text-xs text-gray-500 mt-1">Odesláno</p>
         </a>
         {% endif %}
-        <a href="/hlasovani/{{ voting.id }}/listky?stav=processed"
+        <a href="/hlasovani/{{ voting.id }}/listky?stav=processed{{ _bubble_back }}"
            class="block bg-green-50 rounded p-2 text-center border border-green-200 hover:bg-green-100 transition-colors
                   {% if active_bubble == 'processed' %}ring-2 ring-green-400{% endif %}" style="flex:1">
             <p class="text-lg font-bold text-green-600">{{ status_counts.get('processed', 0) }}</p>
             <p class="text-xs text-gray-500 mt-1">Zpracováno</p>
         </a>
-        <a href="/hlasovani/{{ voting.id }}/neodevzdane"
+        <a href="/hlasovani/{{ voting.id }}/neodevzdane?{{ _bubble_back }}"
            class="block bg-orange-50 rounded p-2 text-center border border-orange-200 hover:bg-orange-100 transition-colors
                   {% if active_bubble == 'neodevzdane' %}ring-2 ring-orange-400{% endif %}" style="flex:1">
             <p class="text-lg font-bold text-orange-600">{{ total_ballots - status_counts.get('processed', 0) }}</p>

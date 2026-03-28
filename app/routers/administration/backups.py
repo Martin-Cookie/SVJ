@@ -38,12 +38,18 @@ router = APIRouter()
 
 def _safety_backup() -> str:
     """Create a safety backup and return its filename."""
-    zip_path = create_backup(str(DB_PATH), str(UPLOADS_DIR), str(GENERATED_DIR), str(BACKUP_DIR))
+    zip_path, _ = create_backup(str(DB_PATH), str(UPLOADS_DIR), str(GENERATED_DIR), str(BACKUP_DIR))
     return zip_path.name
 
 
 @router.get("/zalohy")
-async def backups_page(request: Request, chyba: str = Query(""), zprava: str = Query(""), db: Session = Depends(get_db)):
+async def backups_page(
+    request: Request,
+    chyba: str = Query(""),
+    zprava: str = Query(""),
+    wal_warning: str = Query(""),
+    db: Session = Depends(get_db),
+):
     """Stránka správy záloh s historií obnovení."""
     backups = []
     if BACKUP_DIR.is_dir():
@@ -60,6 +66,15 @@ async def backups_page(request: Request, chyba: str = Query(""), zprava: str = Q
     restore_log = read_restore_log(str(BACKUP_DIR))
     backups_total_size = get_backups_total_size(str(BACKUP_DIR))
 
+    # Flash messages
+    flash_message = ""
+    flash_type = ""
+    if zprava == "vytvoreno" and wal_warning:
+        flash_message = "Záloha vytvořena, ale WAL checkpoint hlásí problém. Záloha může být neúplná."
+        flash_type = "warning"
+    elif zprava == "vytvoreno":
+        flash_message = "Záloha úspěšně vytvořena."
+
     return templates.TemplateResponse("administration/backups.html", {
         "request": request,
         "active_nav": "administration",
@@ -69,6 +84,8 @@ async def backups_page(request: Request, chyba: str = Query(""), zprava: str = Q
         "backups_total_size": backups_total_size,
         "chyba": chyba,
         "zprava": zprava,
+        "flash_message": flash_message,
+        "flash_type": flash_type,
     })
 
 
@@ -84,7 +101,7 @@ async def backup_create(filename: str = Form(""), db: Session = Depends(get_db))
         return RedirectResponse("/sprava/zalohy?chyba=prazdna", status_code=302)
 
     name = filename.strip() or None
-    create_backup(str(DB_PATH), str(UPLOADS_DIR), str(GENERATED_DIR), str(BACKUP_DIR), custom_name=name)
+    _, wal_warning = create_backup(str(DB_PATH), str(UPLOADS_DIR), str(GENERATED_DIR), str(BACKUP_DIR), custom_name=name)
 
     # Log activity — backup is file-based, use separate session
     _db = SessionLocal()
@@ -95,6 +112,8 @@ async def backup_create(filename: str = Form(""), db: Session = Depends(get_db))
     finally:
         _db.close()
 
+    if wal_warning:
+        return RedirectResponse(f"/sprava/zalohy?zprava=vytvoreno&wal_warning=1", status_code=302)
     return RedirectResponse("/sprava/zalohy?zprava=vytvoreno", status_code=302)
 
 

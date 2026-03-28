@@ -32,6 +32,30 @@ _DATE_AFTER_NUM = re.compile(
     re.IGNORECASE,
 )
 
+# Footer/closing patterns — stop capturing description when these appear after voting items
+_FOOTER_PATTERN = re.compile(
+    r"(?:"
+    r"^V\s+\w+\s+dne\b"                    # "V Praze dne ...", "V Brně dne ..."
+    r"|^Dne\s+\d"                           # "Dne 19. ledna 2026"
+    r"|^Za\s+výbor\b"                       # "Za výbor SVJ"
+    r"|^Předseda\s"                         # "Předseda výboru"
+    r"|^Podpis[:\s]"                        # "Podpis:", "Podpisy členů"
+    r"|^Příloha\b"                          # "Příloha č. 1"
+    r"|^Přílohy\b"                          # "Přílohy:"
+    r"|^Výsledky\s+hlasování\b"            # "Výsledky hlasování budou"
+    r"|^Výsledek\s+hlasování\b"            # "Výsledek hlasování bude"
+    r"|^Hlasovací\s+lístky?\s"             # "Hlasovací lístek odevzdejte"
+    r"|^Lístek\s+odevzdejte\b"             # "Lístek odevzdejte"
+    r"|^Odevzdejte\b"                       # "Odevzdejte do ..."
+    r"|^Vyplněný\s+lístek\b"               # "Vyplněný lístek odevzdejte"
+    r"|^Poznámka[:\s]"                      # "Poznámka:"
+    r"|^\*{3,}"                             # "***" separators
+    r"|^-{3,}"                              # "---" separators
+    r"|^_{3,}"                              # "___" separators
+    r")",
+    re.IGNORECASE,
+)
+
 
 def extract_voting_items(docx_path: str) -> list[dict]:
     doc = Document(docx_path)
@@ -99,6 +123,9 @@ def extract_voting_items(docx_path: str) -> list[dict]:
             # Skip table-like content and checkbox markers
             if text.startswith(("SOUHLASÍM", "NESOUHLASÍM", "☐", "□")):
                 continue
+            # Stop capturing description when footer/closing text is detected
+            if _FOOTER_PATTERN.search(text):
+                break
             if current_item["description"]:
                 current_item["description"] += "\n"
             current_item["description"] += text

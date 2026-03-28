@@ -134,7 +134,7 @@ class TestLockManagement:
 
 class TestCreateBackup:
     def test_creates_zip_with_db(self, backup_env):
-        zip_path = create_backup(**backup_env)
+        zip_path, _ = create_backup(**backup_env)
         assert zip_path.exists()
         assert zip_path.suffix == ".zip"
 
@@ -144,7 +144,7 @@ class TestCreateBackup:
             assert "manifest.json" in names
 
     def test_zip_contains_uploads(self, backup_env):
-        zip_path = create_backup(**backup_env)
+        zip_path, _ = create_backup(**backup_env)
         with zipfile.ZipFile(zip_path, "r") as zf:
             names = zf.namelist()
             upload_files = [n for n in names if n.startswith("uploads/")]
@@ -152,12 +152,12 @@ class TestCreateBackup:
             assert "uploads/excel/test.xlsx" in names
 
     def test_zip_contains_generated(self, backup_env):
-        zip_path = create_backup(**backup_env)
+        zip_path, _ = create_backup(**backup_env)
         with zipfile.ZipFile(zip_path, "r") as zf:
             assert "generated/report.pdf" in zf.namelist()
 
     def test_manifest_metadata(self, backup_env):
-        zip_path = create_backup(**backup_env)
+        zip_path, _ = create_backup(**backup_env)
         with zipfile.ZipFile(zip_path, "r") as zf:
             manifest = json.loads(zf.read("manifest.json"))
             assert "created_at" in manifest
@@ -166,27 +166,27 @@ class TestCreateBackup:
             assert isinstance(manifest["table_counts"], dict)
 
     def test_custom_name(self, backup_env):
-        zip_path = create_backup(**backup_env, custom_name="my-backup")
+        zip_path, _ = create_backup(**backup_env, custom_name="my-backup")
         assert zip_path.name == "my-backup.zip"
 
     def test_custom_name_with_zip_extension(self, backup_env):
-        zip_path = create_backup(**backup_env, custom_name="my-backup.zip")
+        zip_path, _ = create_backup(**backup_env, custom_name="my-backup.zip")
         assert zip_path.name == "my-backup.zip"
 
     def test_custom_name_sanitized(self, backup_env):
-        zip_path = create_backup(**backup_env, custom_name="bad/name with<>chars")
+        zip_path, _ = create_backup(**backup_env, custom_name="bad/name with<>chars")
         # Only safe chars should remain
         assert "/" not in zip_path.name
         assert "<" not in zip_path.name
 
     def test_empty_custom_name_uses_timestamp(self, backup_env):
-        zip_path = create_backup(**backup_env, custom_name="///")
+        zip_path, _ = create_backup(**backup_env, custom_name="///")
         # Sanitized to empty → falls back to timestamp name
         assert zip_path.name.startswith("svj_backup_")
 
     def test_backup_without_db_file(self, backup_env):
         os.unlink(backup_env["db_path"])
-        zip_path = create_backup(**backup_env)
+        zip_path, _ = create_backup(**backup_env)
         with zipfile.ZipFile(zip_path, "r") as zf:
             assert "svj.db" not in zf.namelist()
             assert "manifest.json" in zf.namelist()
@@ -194,7 +194,7 @@ class TestCreateBackup:
     def test_backup_without_uploads_dir(self, backup_env):
         import shutil
         shutil.rmtree(backup_env["uploads_dir"])
-        zip_path = create_backup(**backup_env)
+        zip_path, _ = create_backup(**backup_env)
         with zipfile.ZipFile(zip_path, "r") as zf:
             upload_files = [n for n in zf.namelist() if n.startswith("uploads/")]
             assert len(upload_files) == 0
@@ -277,13 +277,14 @@ class TestGetBackupsTotalSize:
 class TestRestoreBackup:
     def _make_backup_zip(self, backup_env, custom_name="original_backup"):
         """Helper: create a backup ZIP and return its path."""
-        return create_backup(
+        zip_path, _ = create_backup(
             backup_env["db_path"],
             backup_env["uploads_dir"],
             backup_env["generated_dir"],
             backup_env["backup_dir"],
             custom_name=custom_name,
         )
+        return zip_path
 
     def test_restore_replaces_db(self, backup_env):
         # Create backup of original state (1 owner)
