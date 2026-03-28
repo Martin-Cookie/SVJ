@@ -9,7 +9,7 @@
 
 ## URL konvence
 
-- Všechny URL cesty používají **české slugy bez diakritiky**: `/vlastnici`, `/jednotky`, `/prostory`, `/najemci`, `/hlasovani`, `/dane`, `/synchronizace`, `/sprava`, `/nastaveni`
+- Všechny URL cesty používají **české slugy bez diakritiky**: `/vlastnici`, `/jednotky`, `/prostory`, `/najemci`, `/hlasovani`, `/dane`, `/synchronizace`, `/sprava`, `/nastaveni`, `/platby`, `/kontrola-podilu`
 - Sub-endpointy: `/nova` (create), `/smazat` (delete), `/upravit` (edit), `/pridat` (add), `/potvrdit` (confirm), `/odebrat` (remove), `/exportovat` (export), `/aktualizovat` (update)
 - Nikdy nepoužívat angličtinu v URL cestách
 
@@ -98,9 +98,9 @@
 
 ## Dashboard
 
-- 4 stat karty v jednom řádku: vlastníci, jednotky, hlasování, rozesílání
-- Jednoduché karty (vlastníci, jednotky) — celá karta je `<a>` tag
-- Karty se sub-odkazy (hlasování, rozesílání) — `<div>` wrapper s hlavním `<a>` a per-status linky uvnitř
+- 6 stat karet v jednom řádku: vlastníci, jednotky, hlasování, rozesílání, platby, prostory
+- Jednoduché karty (vlastníci, jednotky, prostory) — celá karta je `<a>` tag
+- Karty se sub-odkazy (hlasování, rozesílání, platby) — `<div>` wrapper s hlavním `<a>` a per-status linky uvnitř
 - Per-status řádky: count badge + `→ název poslední kampaně` (truncate + title tooltip)
 - Přehledové karty zobrazují VŽDY všechny stavy — nikdy nefiltrovat na „jen aktivní"
 - Fixní header (stat karty + search) se scrollovatelnou tabulkou poslední aktivity
@@ -167,7 +167,7 @@
 ## Router vzory
 
 ### Boilerplate
-- Každý router: `router = APIRouter()` + `templates = Jinja2Templates(directory="app/templates")`
+- Každý router: `router = APIRouter()` + `from app.utils import templates` (sdílená singleton instance)
 - Žádné prefixy na `APIRouter()` — všechny prefixy v `main.py` přes `include_router(prefix=...)`
 - Každý `TemplateResponse` musí obsahovat `"active_nav": "module_key"` pro zvýraznění sidebaru
 
@@ -255,7 +255,7 @@
 - Export modelů v `app/models/__init__.py`
 - Odkaz v sidebar (`base.html`) s `active_nav` kontrolou
 - Přidání do README.md (popis modulu + API endpointy)
-- Odkaz v sidebaru (`base.html`): položky bez sekce nahoře (Přehled, Vlastníci, Jednotky, Import), sekce Moduly (doménové funkce), sekce Systém (admin/config). Ikona `w-4 h-4 mr-2` SVG + text label
+- Odkaz v sidebaru (`base.html`): top položky (Přehled, Import z Excelu), sekce Evidence (Vlastníci, Jednotky, Nájemci, Prostory), sekce Moduly (Hlasování, Rozesílání, Kontroly, Platby), sekce Systém (Administrace, Nastavení). Ikona `w-4 h-4 mr-2` SVG + text label
 
 ## Export dat (Excel + CSV)
 
@@ -370,7 +370,7 @@
 
 ## Startup (lifespan)
 
-- `main.py` lifespan: (1) import modelů, (2) `create_all`, (3) `_ALL_MIGRATIONS` list (10 migračních funkcí + `_ensure_indexes()` + `_seed_code_lists()` + `_seed_email_templates()`), (4) `recover_stuck_sending_sessions()`, (5) vytvoření upload/generated/temp adresářů
+- `main.py` lifespan: (1) import modelů, (2) `create_all`, (3) `_ALL_MIGRATIONS` list (12 migračních funkcí + `_ensure_indexes()` + `_seed_code_lists()` + `_seed_email_templates()`), (4) `recover_stuck_sending_sessions()`, (5) vytvoření upload/generated/temp adresářů
 - `_ALL_MIGRATIONS` se sdílí s `run_post_restore_migrations()` — po obnově zálohy se spustí stejné migrace
 - Nové funkce vyžadující adresáře: přidat do lifespan. Nové indexy: přidat do `_ensure_indexes()`. Nové migrace: přidat do `_ALL_MIGRATIONS`
 

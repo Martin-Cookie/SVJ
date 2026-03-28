@@ -35,6 +35,12 @@
         {% endif %}
     </td>
     <td class="px-2 py-1.5 text-gray-500 dark:text-gray-400 font-mono">
-        {% if at and at.variable_symbol %}{{ at.variable_symbol }}{% else %}—{% endif %}
+        {% if at and at.variable_symbol %}
+            {% if '???' in at.variable_symbol %}
+            <span class="text-red-500 dark:text-red-400" title="Neplatný variabilní symbol">{{ at.variable_symbol }}</span>
+            {% else %}
+            {{ at.variable_symbol }}
+            {% endif %}
+        {% else %}—{% endif %}
     </td>
 </tr>

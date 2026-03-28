@@ -12,7 +12,7 @@
                     Předpisy {{ prescription_year.year }}
                 </h1>
                 <p class="text-xs text-gray-500 dark:text-gray-400">
-                    {{ prescription_year.total_units }} předpisů · {{ prescription_year.total_monthly|fmt_num }} Kč/měsíc celkem
+                    <span title="Počet předpisů může být vyšší než počet jednotek — spoluvlastníci mají každý svůj předpis">{{ prescription_year.total_units }} předpisů <span class="cursor-help border-b border-dotted border-gray-400">ⓘ</span></span> · {{ prescription_year.total_monthly|fmt_num }} Kč/měsíc celkem
                     {% if prescription_year.valid_from %} · platné od {{ prescription_year.valid_from.strftime('%d.%m.%Y') }}{% endif %}
                 </p>
             </div>

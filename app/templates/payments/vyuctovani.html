@@ -99,7 +99,7 @@
                     <option value="paid">Zaplaceno</option>
                     <option value="overdue">Po splatnosti</option>
                 </select>
-                <button type="submit" class="px-2.5 py-1 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700">Změnit</button>
+                <button type="submit" data-confirm="Opravdu chcete změnit stav u vybraných vyúčtování?" class="px-2.5 py-1 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700">Změnit</button>
             </form>
             {% if settlements|length > 0 %}
             <form method="post" action="/platby/vyuctovani/hromadny-stav-filtrovane" hx-boost="false" class="flex items-center gap-2"

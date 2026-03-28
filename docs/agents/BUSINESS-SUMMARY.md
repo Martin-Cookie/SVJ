@@ -1,13 +1,13 @@
 # Aplikace pro správu SVJ -- shrnutí pro laika
 
-> Automaticky vygenerováno z kódu dne 2026-03-09.
+> Automaticky vygenerováno z kódu dne 2026-03-27 (aktualizace z 2026-03-09).
 > Technické detaily viz [BUSINESS-LOGIC.md](BUSINESS-LOGIC.md).
 
 ---
 
 ## Co aplikace dělá
 
-Aplikace slouží ke správě **Společenství vlastníků jednotek (SVJ)** -- tedy společenství lidí, kteří vlastní byty či nebytové prostory v jednom domě. Pokrývá všechny hlavní činnosti, které SVJ potřebuje: evidenci vlastníků a jejich bytů, hlasování per rollam, hromadné rozesílání daňových podkladů, synchronizaci dat s externími zdroji, kontrolu podílů a správu SVJ.
+Aplikace slouží ke správě **Společenství vlastníků jednotek (SVJ)** -- tedy společenství lidí, kteří vlastní byty či nebytové prostory v jednom domě. Pokrývá všechny hlavní činnosti, které SVJ potřebuje: evidenci vlastníků a jejich bytů, hlasování per rollam, hromadné rozesílání daňových podkladů, synchronizaci dat s externími zdroji, kontrolu podílů, evidenci plateb a vyúčtování, správu společných prostor a nájemců.
 
 Aplikace běží jako webová stránka na počítači -- není potřeba internet (kromě odesílání emailů). Ovládá se přes prohlížeč (Chrome, Safari, Firefox).
 
@@ -24,7 +24,8 @@ Aplikace běží jako webová stránka na počítači -- není potřeba internet
 - Ke každému vlastníkovi evidovat, které jednotky vlastní a s jakým podílem
 - Rozlišovat spoluvlastnictví manželů (SJM -- "společné jmění manželů") od běžného vlastnictví
 - Uchovávat historii -- když se vlastník změní, starý záznam se nesmaže, ale označí se datem ukončení
-- Hledat vlastníky podle jména, emailu, telefonu, čísla jednotky (včetně české diakritiky)
+- Hledat vlastníky podle jména, emailu, telefonu, RČ, IČ, čísla jednotky (včetně české diakritiky)
+- Detekovat a slučovat duplicitní záznamy (stejná osoba importovaná z více zdrojů)
 
 **Důležité pojmy:**
 - **Jednotka** = byt nebo nebytový prostor (garáž, sklep, ateliér). Každá má unikátní číslo
@@ -98,7 +99,69 @@ Aplikace běží jako webová stránka na počítači -- není potřeba internet
 
 ---
 
-### 5. Kontrola podílů
+### 5. Evidence plateb -- NOVÉ
+
+**Co to je:** Kompletní systém pro správu financí SVJ -- od měsíčních předpisů přes bankovní výpisy až po roční vyúčtování.
+
+**Hlavní části:**
+
+#### Předpisy plateb
+Každá jednotka/prostor má měsíční předpis -- kolik má vlastník/nájemce platit. Předpisy se importují z Word souboru (evidenční listy ze systému DOMSYS). Každý předpis obsahuje položky rozčleněné do kategorií: provozní náklady, fond oprav, služby.
+
+#### Variabilní symboly
+Centrální evidence variabilních symbolů -- každý symbol je přiřazený k jedné jednotce nebo prostoru. Při platbě se podle variabilního symbolu automaticky pozná, kdo platí.
+
+#### Počáteční zůstatky
+Na začátku roku se nahrají z Excelu nedoplatky/přeplatky z minulého období. Tyto zůstatky se pak započítávají do celkového výpočtu dluhů.
+
+#### Bankovní výpisy
+Uživatel nahraje CSV výpis z Fio banky. Aplikace automaticky:
+
+1. **Páruje platby na jednotky** -- nejdřív podle variabilního symbolu (přesná shoda), pak podle jména odesílatele a částky (inteligentní odhad), a nakonec dekódováním VS
+2. **Navrhuje přiřazení** -- platby se statusem "navrženo" musí uživatel potvrdit
+3. **Detekuje multi-unit platby** -- když vlastník zaplatí jednou platbou za více jednotek, aplikace to rozpozná a rozpočítá
+
+**Zamykání výpisů:** Hotově zpracovaný výpis lze zamknout, aby se zabránilo nechtěným změnám.
+
+#### Matice plateb
+Přehledová tabulka (jednotky × měsíce) ukazuje, kdo zaplatil a kdo ne. Každé políčko je zeleně (zaplaceno), žlutě (částečně) nebo červeně (nezaplaceno).
+
+#### Dlužníci
+Automatická detekce jednotek, kde zaplaceno méně než předepsáno. Počet dlužníků se zobrazuje v postranním menu jako červený badge.
+
+**Výpočet dluhu:** Předpis × počet měsíců s daty + počáteční zůstatek - zaplaceno = dluh.
+
+#### Vyúčtování
+Na konci roku aplikace automaticky vygeneruje roční vyúčtování pro každou jednotku:
+- Roční předpis (měsíční × 12)
+- Celkem zaplaceno
+- Počáteční zůstatek
+- **Výsledek:** kladný = nedoplatek, záporný = přeplatek
+
+Vyúčtování obsahuje rozpad po položkách (fond oprav, služby, provozní) s poměrným rozúčtováním.
+
+---
+
+### 6. Správa prostorů a nájemců -- NOVÉ
+
+**Co to je:** Evidence společných prostor SVJ (nebytové prostory, pronajímatelné jednotky) a jejich nájemců.
+
+**Prostory:**
+- Každý prostor má číslo, název, sekci, patro a výměru
+- Tři stavy: **Pronajatý** (má nájemce), **Volný** (nemá nájemce), **Blokovaný** (kočárkárna, kotelna, ústředna -- nerentabilní)
+- Import prostorů z Excelu -- aplikace automaticky rozpozná blokované prostory podle klíčových slov v názvu
+
+**Nájemci:**
+- Nájemce může být propojený s existujícím vlastníkem v domě (pak se kontakty přebírají z evidence vlastníků) nebo samostatná osoba
+- Každý nájemce může mít přiřazený prostor se smlouvou (číslo smlouvy, datum, měsíční nájem, variabilní symbol)
+
+**Propojení s platebním modulem:**
+- Při přiřazení nájemce na prostor se automaticky vytvoří předpis a mapování variabilního symbolu
+- Platby nájemců se párují stejným mechanismem jako platby vlastníků
+
+---
+
+### 7. Kontrola podílů
 
 **Co to je:** Porovnání podílů na společných částech domu (SČD) v evidenci s údaji z externího souboru.
 
@@ -111,7 +174,7 @@ Aplikace běží jako webová stránka na počítači -- není potřeba internet
 
 ---
 
-### 6. Správa SVJ
+### 8. Správa SVJ
 
 **Co to zahrnuje:**
 
@@ -133,31 +196,34 @@ Aplikace běží jako webová stránka na počítači -- není potřeba internet
                             │  (přehled)   │
                             └──────┬───────┘
                                    │
-              ┌────────────────────┼────────────────────┐
-              │                    │                    │
-     ┌────────▼────────┐  ┌───────▼────────┐  ┌───────▼────────┐
-     │    Vlastníci     │  │   Jednotky     │  │    Hlasování   │
-     │  (osoby/firmy)  │  │  (byty/garáže) │  │  (per rollam)  │
-     └────────┬────────┘  └───────┬────────┘  └───────┬────────┘
-              │                    │                    │
-              └─────── M:N ───────┘                    │
-              (vlastnický vztah                        │
-               s podíly a historií)                    │
-                        │                              │
-              ┌─────────┼─────────┐                    │
-              │         │         │                    │
-     ┌────────▼──┐  ┌───▼─────┐  ├────────────────────┘
-     │ Synchron. │  │ Kontrol │  │
-     │ s CSV     │  │ podílů  │  │
-     └───────────┘  └─────────┘  │
-                                 │
-                        ┌────────▼────────┐
-                        │   Rozesílka     │
-                        │ (daň. podklady) │
-                        └─────────────────┘
+        ┌──────────────────────────┼──────────────────────────┐
+        │              │           │           │              │
+┌───────▼────────┐ ┌───▼───────┐ ┌▼──────────┐ ┌▼───────────┐ ┌▼──────────┐
+│   Vlastníci    │ │  Jednotky │ │ Hlasování │ │  Prostory  │ │  Platby   │
+│ (osoby/firmy)  │ │(byty/gar.)│ │(per rollam)│ │(neb.prost.)│ │(předpisy) │
+└───────┬────────┘ └───┬───────┘ └───┬───────┘ └───┬────────┘ └───┬───────┘
+        │              │             │              │              │
+        └──── M:N ─────┘             │              │              │
+        (vlastnický vztah            │         ┌────▼────┐         │
+         s podíly a historií)        │         │ Nájemci │         │
+                  │                  │         └─────────┘         │
+        ┌─────────┼─────────┐       │                             │
+        │         │         │       │          ┌──────────────────┘
+┌───────▼──┐ ┌───▼─────┐   ├───────┘          │
+│ Synchron.│ │ Kontrola│   │            ┌──────▼──────┐
+│ s CSV    │ │ podílů  │   │            │  Bankovní   │
+└──────────┘ └─────────┘   │            │  výpisy     │
+                           │            └──────┬──────┘
+                  ┌────────▼────────┐          │
+                  │   Rozesílka     │   ┌──────▼──────┐
+                  │ (daň. podklady) │   │ Vyúčtování  │
+                  └─────────────────┘   │ + dlužníci  │
+                                        └─────────────┘
 ```
 
 **Základní princip:** Všechno se točí kolem **vlastníků** a **jednotek**. Vlastník může vlastnit více jednotek, jednu jednotku může vlastnit více vlastníků. Tento vztah určuje hlasy pro hlasování, příjemce pro rozesílku, a data pro synchronizaci.
+
+**Nově:** Společné prostory mají vlastní nájemce (propojené nebo nezávislé na vlastnících) a integrují se do platebního systému -- mají své předpisy, variabilní symboly a párování plateb.
 
 ---
 
@@ -171,7 +237,16 @@ Aplikace dokáže "chytře" párovat jména -- například:
 - "Nováková" se spáruje s "Novák" (český stemming příjmení)
 - Drobné překlepy se tolerují (např. "Novák" vs "Nowák" při dostatečně vysoké shodě)
 
-Všude v aplikaci, kde se páruje jméno (import, synchronizace, rozesílka), je nastaven minimální práh shody (typicky 70-90 %), pod který se párování nepovažuje za shodu.
+Všude v aplikaci, kde se páruje jméno (import, synchronizace, rozesílka, párování plateb), je nastaven minimální práh shody (typicky 70-90 %), pod který se párování nepovažuje za shodu.
+
+### Automatické párování plateb
+
+Bankovní platby se párují na jednotky ve třech krocích:
+1. **Přesná shoda variabilního symbolu** -- nejspolehlivější metoda
+2. **Jméno odesílatele + částka** -- pokud VS chybí, ale jméno sedí a částka odpovídá násobku předpisu
+3. **Dekódování VS** -- pokus extrahovat číslo jednotky z formátu variabilního symbolu
+
+Navržené (automaticky napárované) platby se do finančních přehledů počítají **až po potvrzení** uživatelem.
 
 ### Historie vlastnictví
 
@@ -187,6 +262,7 @@ Manželé, kteří vlastní byt ve společném jmění, jsou v systému evidová
 - Před obnovou ze zálohy se automaticky vytvoří "bezpečnostní záloha" aktuálního stavu
 - Pokud obnova ze zálohy selže, automaticky se provede návrat do původního stavu
 - Soubory se ukládají na disk vedle databáze, cesty jsou kontrolovány proti neautorizovanému přístupu
+- Bankovní výpisy lze zamknout, aby se zabránilo nechtěným změnám párování
 
 ### Offline fungování
 
@@ -230,6 +306,23 @@ Aplikace funguje kompletně offline (bez internetu) -- s jedinou výjimkou: odes
    - Přepočítá hlasy (pokud je více nových vlastníků, rozdělí rovnoměrně)
    - Pokud starý vlastník nemá žádnou další jednotku, označí ho jako neaktivního
 
+### Scénář 5: Měsíční zpracování plateb -- NOVÉ
+
+1. Pokladní stáhne CSV výpis z Fio banky za uplynulý měsíc
+2. Nahraje výpis do aplikace
+3. Aplikace automaticky napáruje většinu plateb na jednotky (podle variabilních symbolů)
+4. U zbylých plateb navrhne přiřazení podle jména odesílatele a částky
+5. Pokladní zkontroluje návrhy, potvrdí správné, opraví chybné
+6. V matici plateb je přehledně vidět, kdo zaplatil a kdo dluží
+7. Na konci roku se vygeneruje vyúčtování s nedoplatky/přeplatky
+
+### Scénář 6: Evidence pronájmu společného prostoru -- NOVÉ
+
+1. Předseda nahraje Excel se seznamem prostorů (kočárkárna, ateliéry, sklady)
+2. Aplikace automaticky rozpozná utility prostory (kočárkárna → blokovaná)
+3. U pronajímaných prostorů se vytvoří nájemce, smlouva a variabilní symbol
+4. Platby nájemců se následně párují automaticky stejně jako platby vlastníků
+
 ---
 
 ## Glosář
@@ -238,14 +331,18 @@ Aplikace funguje kompletně offline (bez internetu) -- s jedinou výjimkou: odes
 |-------|------------|
 | **SVJ** | Společenství vlastníků jednotek -- právnická osoba sdružující vlastníky bytů v jednom domě |
 | **Jednotka** | Byt nebo nebytový prostor (garáž, sklep, ateliér) v domě |
+| **Prostor** | Společný/pronajímatelný prostor (kočárkárna, ateliér, sklad) -- na rozdíl od jednotky není v osobním vlastnictví |
 | **Podíl SČD** | Podíl na společných částech domu -- určuje váhu hlasu vlastníka |
 | **SJM** | Společné jmění manželů -- manželé vlastní byt dohromady jako jeden celek |
 | **Per rollam** | Způsob hlasování bez shromáždění (korespondenčně, písemně) |
 | **Kvórum** | Minimální počet hlasů (podílů) potřebný k platnosti hlasování |
+| **Variabilní symbol** | Číselný kód přiřazený jednotce/prostoru, slouží k identifikaci platby |
+| **Předpis** | Měsíční částka, kterou má vlastník/nájemce platit (fond oprav + služby + provozní) |
+| **Vyúčtování** | Roční zúčtování -- porovnání zaplacených záloh s celkovým předpisem |
 | **Fuzzy matching** | Inteligentní párování jmen, které toleruje drobné rozdíly (překlepy, pořadí, tituly) |
 | **Dashboard** | Úvodní stránka s přehledem všech modulů a posledních aktivit |
-| **CSV** | Textový soubor s daty oddělenými čárkami/středníky (export z webu sousede.cz) |
-| **DOCX** | Dokument MS Word (šablona pro hlasovací lístky) |
+| **CSV** | Textový soubor s daty oddělenými čárkami/středníky (export z webu sousede.cz nebo z banky) |
+| **DOCX** | Dokument MS Word (šablona pro hlasovací lístky, evidenční listy předpisů) |
 | **Batch** | Dávka -- emaily se neodesílají všechny najednou, ale po dávkách (např. 10) s pauzou mezi nimi |
 
 ---
@@ -259,3 +356,5 @@ Aplikace funguje kompletně offline (bez internetu) -- s jedinou výjimkou: odes
 5. **Hlasy jsou snapshot** -- po vygenerování lístků se změny podílů/vlastníků nepropisují automaticky
 6. **LibreOffice pro PDF** -- generování PDF lístků vyžaduje nainstalovaný LibreOffice
 7. **Max 5000 souborů** při jednom uploadu (typicky dostatečné i pro velké SVJ)
+8. **Pouze Fio banka** -- import bankovních výpisů podporuje formát Fio CSV (jiné banky vyžadují úpravu)
+9. **Předpisy z DOMSYS** -- import předpisů parsuje specifický formát evidenčních listů ze systému DOMSYS

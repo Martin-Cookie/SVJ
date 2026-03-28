@@ -33,6 +33,19 @@
             </div>
         </div>
 
+        {% if tenant.is_linked %}
+        <!-- Info: data z vlastníka -->
+        <div class="flex items-center gap-2 mb-3 px-3 py-2 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-200 dark:border-blue-800">
+            <svg class="w-4 h-4 text-blue-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <p class="text-xs text-blue-700 dark:text-blue-300">
+                Údaje se načítají z karty vlastníka. Pro úpravy přejděte na
+                <a href="/vlastnici/{{ tenant.owner_id }}?back={{ (('/najemci/' ~ tenant.id ~ '?back=' ~ (back_url|urlencode))|urlencode) }}" class="font-medium underline hover:text-blue-900 dark:hover:text-blue-100">kartu vlastníka</a>.
+            </p>
+        </div>
+        {% endif %}
+
         <!-- Info strip: 4-column grid -->
         <div class="bg-white rounded-lg shadow mb-3">
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-gray-100">

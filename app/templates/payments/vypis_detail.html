@@ -44,7 +44,7 @@
                     <input type="hidden" name="back" value="{{ back_url }}">
                     <button type="submit" class="px-3 py-1.5 text-xs font-medium rounded-lg
                         {% if statement.locked_at %}bg-gray-300 text-gray-500 dark:bg-gray-600 dark:text-gray-400 cursor-not-allowed{% else %}bg-green-600 text-white hover:bg-green-700{% endif %}"
-                        title="{% if statement.locked_at %}Výpis je zamčený{% else %}Znovu napárovat nenapárované platby{% endif %}"
+                        title="{% if statement.locked_at %}Výpis je zamčený{% else %}Znovu spárovat všechny platby s předpisy podle VS{% endif %}"
                         {% if statement.locked_at %}disabled{% endif %}>
                         Přepárovat
                     </button>

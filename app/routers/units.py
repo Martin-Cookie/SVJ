@@ -658,7 +658,7 @@ async def unit_detail(
     elif "/platby" in back:
         back_label = "Zpět na platby"
     elif back:
-        back_label = "Zpět"
+        back_label = "Zpět na seznam jednotek"
     else:
         back_label = "Zpět na seznam jednotek"
 

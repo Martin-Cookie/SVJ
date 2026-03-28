@@ -1,4 +1,4 @@
-# Backup Integrity Report -- 2026-03-09
+# Backup Integrity Report -- 2026-03-27
 
 ## Zalohovaci system
 
@@ -14,10 +14,11 @@
 ## Analyza zalohovaciho kodu
 
 ### Soubory
-- **Service**: `/Users/martinkoci/Projects/SVJ/app/services/backup_service.py` (365 radku)
-- **Router**: `/Users/martinkoci/Projects/SVJ/app/routers/administration.py` (radky 539-605)
-- **Template**: `/Users/martinkoci/Projects/SVJ/app/templates/administration/backups.html`
-- **Post-restore migrace**: `/Users/martinkoci/Projects/SVJ/app/main.py` (radky 309-351)
+
+- **Service**: `app/services/backup_service.py` (415 radku)
+- **Router**: `app/routers/administration/backups.py` (384 radku)
+- **Helpers**: `app/routers/administration/_helpers.py` (cesty DB_PATH, UPLOADS_DIR atd.)
+- **Post-restore migrace**: `app/main.py` (`run_post_restore_migrations`, radky 546-577)
 
 ### Proces vytvoreni zalohy (`create_backup`)
 
@@ -28,7 +29,7 @@
    - `uploads/` -- vsechny upload soubory (Excel, PDF, CSV, DOCX) zachovane s relativnimi cestami
    - `generated/` -- generovane soubory (hlasovaci listky PDF apod.)
    - `.env` -- konfiguracni soubor (SMTP hesla, debug rezim), pokud existuje
-   - `manifest.json` -- metadata (cas vytvoreni, verze aplikace, nazev DB souboru)
+   - `manifest.json` -- metadata: cas vytvoreni, verze aplikace, nazev DB, velikost DB, pocty zaznamu v klicovych tabulkach
 4. **Auto-cleanup** -- po vytvoreni zalohy zavola `cleanup_old_backups()` (ponecha max 10 nejnovejsich ZIP souboru)
 
 ### Router endpoint (`/sprava/zaloha/vytvorit`)
@@ -70,7 +71,9 @@
 #### 3. Obnova z DB souboru (`backup_restore_db_file`)
 - Upload samotneho `svj.db` souboru
 - Validace: `validate_upload()` (max 200 MB, pripona `.db`)
+- SQLite integrity check po zapisu + rollback pri selhani
 - Obnovi POUZE databazi, NE uploads/generated
+- Jako jediny endpoint vola `engine.dispose()` PRED zapisem DB
 
 #### 4. Obnova ze slozky (`backup_restore_folder`)
 - Vyber slozky pres `webkitdirectory` atribut (Finder/File manager)
@@ -91,56 +94,90 @@
    - `zf.testzip()` -- CRC integritni kontrola vsech souboru v archivu
    - Vsechny 3 kontroly probehnou PRED vytvorenim safety backupu
 
-4. **Rollback** (`_rollback_from_safety`):
+4. **SQLite integrity check** -- po zapisu DB souboru se overuje `PRAGMA integrity_check`:
+   - V `restore_backup()` pres `_verify_db_integrity()`
+   - V `restore_from_directory()` pres `_verify_db_integrity()`
+   - V `backup_restore_db_file` primo v endpointu s rollbackem
+
+5. **Rollback** (`_rollback_from_safety`):
    - Pokud obnova selze (exception), automaticky se obnovi data z pojistne zalohy
    - Pokud i rollback selze, loguje KRITICKE chybu (data mohou byt v nekonzistentnim stavu)
+   - Poznámka: rollback NEOBNOVI `.env` soubor
 
-5. **Zip Slip ochrana** (`_restore_directory_from_zip`):
-   - `os.path.realpath()` + kontrola, ze extrahrovany soubor zustava v cilovem adresari
+6. **Zip Slip ochrana** (`_restore_directory_from_zip`):
+   - `os.path.realpath()` + kontrola, ze extrahovany soubor zustava v cilovem adresari
    - Prevence path traversal utoku pres zmanipulovane cesty v ZIP archivu
 
-6. **Post-restore migrace** (`run_post_restore_migrations`):
+7. **Post-restore migrace** (`run_post_restore_migrations`):
    - `engine.dispose()` -- ukonci vsechna stavajici DB spojeni
    - `Base.metadata.create_all()` -- vytvori chybejici tabulky (pokud zaloha je ze starsi verze)
-   - Spusti vsechny migracni funkce (pridani sloupcu, indexu, seed dat)
+   - Spusti vsech 13 migracnich funkci (sloupce, indexy, seed data)
    - Kazda migrace je obalena try/except, selhani jedne neblokuje ostatni
-   - Vraci seznam warninqu pokud nektere migrace selhaly
+   - Vraci seznam warningu pokud nektere migrace selhaly
 
-7. **Restore log** -- JSON soubor (`data/backups/restore_log.json`), prezije obnovu DB. Kazdy zaznam obsahuje: timestamp, source, method, safety_backup.
+8. **Restore log** -- JSON soubor (`data/backups/restore_log.json`), prezije obnovu DB. Kazdy zaznam obsahuje: timestamp, source, method, safety_backup.
 
-8. **Potvrzovaci dialog** -- UI vyzaduje potvrzeni pres `data-confirm` / `svjConfirm()` pred kazdou obnovou
+---
+
+## Test vytvoreni zalohy
+
+- **Datum testu**: 2026-03-27
+- **Endpoint**: `POST /sprava/zaloha/vytvorit` s `filename=test_integrity_check`
+- **Vysledek**: HTTP 302 redirect na `/sprava/zalohy?zprava=vytvoreno`
+- **Velikost zalohy**: 152 428 018 bytu (145 MB)
+- **Obsah ZIP** (1815 souboru):
+  - `svj.db`: 4 898 816 B (komprimovano na 1 180 665 B)
+  - `uploads/`: 1812 souboru (podadresare: csv, excel, share_check, tax_pdfs, temp, word_templates)
+  - `.env`: pritomen (199 B, 7 SMTP klicu)
+  - `manifest.json`: pritomen s table counts
+  - `generated/`: prazdny (zadne generovane soubory v tomto okamziku)
+- **CRC integrita**: OK (vsechny soubory prosly `zf.testzip()`)
+- **SQLite integrita**: `PRAGMA integrity_check` = "ok"
+- **Pocty zaznamu v DB z manifestu**:
+  - owners: 512, units: 508, owner_units: 744, votings: 2
+  - tax_sessions: 3, email_logs: 468, payments: 973
+  - prescription_years: 1, prescriptions: 549, settlements: 530
+- **Pocty zaznamu v DB primo** (38 tabulek, vsechny sedi s manifestem + doplnkove tabulky)
+- **Stazeni**: `GET /sprava/zaloha/test_integrity_check.zip/stahnout` = HTTP 200
+- **Smazani**: `POST /sprava/zaloha/test_integrity_check.zip/smazat` = HTTP 302 (soubor smazan)
+
+---
+
+## Zmeny oproti predchozi kontrole (2026-03-09)
+
+### Opravene problemy z predchoziho reportu
+
+| # | Problem | Stav |
+|---|---------|------|
+| 1 | DB file restore bez rollbacku | OPRAVENO -- endpoint `backup_restore_db_file` nyni ma rollback v `except` bloku (radky 294-300) |
+| 2 | Zadna validace SQLite pri DB file restore | OPRAVENO -- pridana `PRAGMA integrity_check` validace (radky 266-278) s rollbackem pri selhani |
+| 3 | Parameter mismatch `validate_upload` | BYL FALSE POSITIVE -- `UPLOAD_LIMITS` i `validate_upload()` pouzivaji `allowed_extensions`, zadny nesoulad |
+
+### Pretrvavajici problemy
+
+Problemy #5-#10 z predchoziho reportu nebyly reseny (nizsi priorita).
 
 ---
 
 ## Edge cases
 
 ### Poskozena zaloha
-- **ZIP**: `zipfile.is_zipfile()` + `zf.testzip()` detekuji poskozen ZIP archiv i jednotlive soubory. Pokud CRC nesouhlasi, obnova se odmitne PRED jakoukoli zmenou dat.
-- **DB soubor**: Zadna validace integrity SQLite souboru. Poskozeny `svj.db` bude zapsany a `run_post_restore_migrations()` muze selhat.
-- **Slozka**: Kontrola existence `svj.db`, ale bez validace obsahu.
+- **ZIP**: `zipfile.is_zipfile()` + `zf.testzip()` detekuji poskozeny ZIP archiv i jednotlive soubory. Obnova se odmitne PRED jakoukoli zmenou dat. **OK**
+- **DB soubor**: Nyni validovan pres `PRAGMA integrity_check` s rollbackem. **OK**
+- **Slozka**: `restore_from_directory` vola `_verify_db_integrity()` po zapisu DB. **OK**
 
 ### Diskovy prostor
-- **Pred zalohovanim**: Kontrola `2x odhadovana velikost < volne misto`
-- **Pred obnovenim**: Safety backup spotrebuje dalsi misto, ale neni explicitne kontrolovan diskovy prostor pred obnovenim (spoliha se na kontrolu uvnitr `create_backup`)
-
-### USB / jiny pocitac
-- Zalohy jsou portabilni ZIP soubory -- prenositelne mezi pocitaci
-- `.env` soubor je soucasti zalohy -- umozni obnoveni SMTP konfigurace
-- Post-restore migrace zajisti kompatibilitu starsi DB se soucasnym kodem
-- Cesty jsou relativni (krom `config.py` kde jsou absolutni k `__file__`)
+- **Pred zalohovanim**: Kontrola `2x odhadovana velikost < volne misto`. **OK**
+- **Pred obnovenim**: Safety backup spotrebuje dalsi misto. Kontrola diskoveho prostoru probehne uvnitr `create_backup` (safety backup). **OK** (neprime, ale funkcni)
 
 ### Soubehy
-- File-based restore lock prevence soubezneho spusteni
-- Lock ma 10minutovy timeout pro pripad, ze proces spadne uprostred obnovy
-- Lock obsahuje PID a timestamp v JSON formatu
+- File-based restore lock prevence soubezneho spusteni. **OK**
+- Lock ma 10minutovy timeout. **OK**
+- `upload_temp.zip` je chraneny restore lockem proti kolizi. **OK**
 
 ### Ztrata dat pri obnove
-- Existujici uploads/ a generated/ adresare se SMAZOU (`shutil.rmtree`) pred obnovenim novych
-- Pokud zaloha neobsahuje uploads/ slozku, puvodni soubory se ztrati (adresare se vytvori prazdne)
-- Safety backup toto pokryva -- je mozne se vratit zpet
-
-### Obnova DB souboru bez rollbacku
-- Endpoint `backup_restore_db_file` vytvori safety backup, ale pokud `file.write()` selze, NEPROVEDE rollback z safety backupu (na rozdil od `restore_backup` a `restore_from_directory`)
+- Existujici `uploads/` a `generated/` adresare se SMAZOU (`shutil.rmtree`) pred obnovenim novych. **Ocekavane chovani**
+- Safety backup pokryva moznost navratu. **OK**
 
 ---
 
@@ -148,56 +185,53 @@
 
 | # | Problem | Severity | Doporuceni |
 |---|---------|----------|------------|
-| 1 | **DB file restore bez rollbacku** -- endpoint `backup_restore_db_file` (radek 705-740) vytvori safety backup, ale pri selhani zapisu NEPROVEDE automaticky rollback. Pouze loguje exception a presmeruje s chybou. Data mohou zustat v nekonzistentnim stavu (castecne zapsany soubor). | HIGH | Pridat rollback logiku (`_rollback_from_safety`) do except bloku, shodne s `restore_backup` a `restore_from_directory`. |
-| 2 | **Zadna validace integrity SQLite pri obnove z DB souboru** -- endpoint `backup_restore_db_file` prijme libovolny `.db` soubor bez overeni, ze je platna SQLite databaze. Poskozeny nebo nevalidni soubor zpusobi selhani migrace a aplikace muze byt nefunkcni. | HIGH | Pridat `sqlite3.connect(path); conn.execute("PRAGMA integrity_check"); conn.close()` po zapisu DB souboru, pred `run_post_restore_migrations()`. |
-| 3 | **Parameter mismatch v `validate_upload`** -- `UPLOAD_LIMITS` pouziva klic `extensions`, ale `validate_upload()` ma parametr `allowed_extensions`. Volani `validate_upload(file, **UPLOAD_LIMITS["backup"])` by melo vyhodit `TypeError` za behu. | CRITICAL | Prejmenovat parametr `allowed_extensions` na `extensions` ve funkci `validate_upload()` a `validate_uploads()` v `app/utils.py`, nebo prejmenovat klic v `UPLOAD_LIMITS`. POZN: Toto postihuje VSECHNY upload validace v aplikaci, ne jen backup. |
-| 4 | **Temp ZIP neni smazan pri ValueError** -- v `backup_restore` (radky 652-702) se `upload_temp.zip` maze ve `finally` bloku, ale jen pokud `temp_path.is_file()`. Pokud `restore_backup` vyhodi `ValueError` pred smazanim a presmeruje s chybou, temp soubor se smaze spravne (je ve finally). Toto je OK. | LOW | Zadna akce nutna -- finally blok pokryva vsechny cesty. |
-| 5 | **WAL checkpoint warning neni propagan** -- pokud WAL checkpoint selze (radek 86), zaznamena se jen warning do logu. Zaloha muze byt neuplna (nezachyti posledni pending zapisy). Uzivatel o tom nevi. | MEDIUM | Logovat warning do manifest.json nebo zobrazit upozorneni uzivateli. |
-| 6 | **Auto-cleanup muze smazat safety backup** -- `cleanup_old_backups(keep_count=10)` se spousti po KAZDEM `create_backup`, vcetne safety backupu. Pokud uz existuje 10+ zaloh, nova safety zaloha zpusobi smazani nejstarsi. Pri castem restore muze dojit k tomu, ze dulezite stare zalohy se ztrati. | MEDIUM | Safety backup by mel byt oznaceny (prefix `_safety_`) a vyjmut z auto-cleanup, nebo zvysit `keep_count`. |
-| 7 | **Manifest app_version je hardcoded "1.0"** -- `manifest.json` v zaloze obsahuje `"app_version": "1.0"` (radek 109), nemeni se s vyvojem aplikace. Neni mozne zjistit, z jake verze kodu zaloha pochazi. | LOW | Nacitat verzi z `pyproject.toml` nebo konfiguracniho souboru. |
-| 8 | **Slozka restore neloguje safety backup** -- `backup_restore_folder` (radek 801) zavola `log_restore()` bez `safety_backup` parametru, i kdyz `restore_from_directory` safety backup vytvari. | LOW | Pridat sledovani safety backupu shodne s ostatnimi restore endpointy (pomoci `set()` diff pred/po restore). |
-| 9 | **Engine.dispose() timing pri restore** -- `run_post_restore_migrations()` vola `engine.dispose()` AZ PO obnove databaze. Behem obnovy (zapisu noveho `svj.db`) mohou existujici DB spojeni cist/zapisovat do souboru, ktery je prave prepisovan. To muze vest k poskozeni dat nebo SQLite locku. | MEDIUM | Volat `engine.dispose()` PRED zahajenim obnovy, ne az po ni. Alternativne pouzit exclusive lock na DB soubor behem obnovy. |
-| 10 | **Zadne automaticke zalohy** -- system nema scheduled/periodicke zalohovani. Zalohy vznikaji pouze rucne akci uzivatele nebo jako safety backup pred obnovenim. | LOW | Implementovat periodicke zalohovani (napr. pri startu aplikace, pokud posledni zaloha je starsi nez X dni). |
+| 1 | **Engine.dispose() chybi pred ZIP/slozka restore** -- `restore_backup()` a `restore_from_directory()` prepisuji `svj.db` BEZ predchoziho `engine.dispose()`. Aktivni DB spojeni z connection poolu mohou cist/zapisovat do souboru behem prepisu. Endpoint `backup_restore_db_file` toto dela spravne (radek 258). `run_post_restore_migrations()` vola `engine.dispose()` az PO obnove. | HIGH | Pridat `engine.dispose()` pred volanim `restore_backup()` a `restore_from_directory()` v endpointech `backup_restore_existing`, `backup_restore`, a `backup_restore_folder`. |
+| 2 | **Rollback neobnovi `.env` soubor** -- `_rollback_from_safety()` obnovi DB, uploads a generated, ale NE `.env`. Pokud obnova selze po prepisu `.env` (teoreticky posledni krok, takze malo pravdepodobne), puvodni `.env` se ztrati. | LOW | Pridat obnovu `.env` do `_rollback_from_safety()` pokud je v safety ZIP. |
+| 3 | **WAL checkpoint warning neni propagovan** -- pokud WAL checkpoint selze (radek 86 v service), zaznamena se jen warning do logu. Zaloha muze byt neuplna (nezachyti posledni pending zapisy). Uzivatel o tom nevi. | MEDIUM | Logovat warning do manifest.json nebo zobrazit upozorneni uzivateli. |
+| 4 | **Auto-cleanup muze smazat stare dulezite zalohy** -- `cleanup_old_backups(keep_count=10)` se spousti po KAZDEM `create_backup`, vcetne safety backupu. Pri castem restore muze dojit k tomu, ze uzivatelske zalohy se ztrati na ukor safety backupu. | MEDIUM | Safety backup by mel byt oznaceny (prefix `_safety_`) a vyjmut z auto-cleanup, nebo zvysit `keep_count`. |
+| 5 | **Manifest app_version je hardcoded "1.0"** -- `manifest.json` v zaloze obsahuje `"app_version": "1.0"` (radek 109), nemeni se s vyvojem aplikace. Neni mozne zjistit, z jake verze kodu zaloha pochazi. | LOW | Nacitat verzi z `pyproject.toml` nebo konfiguracniho souboru. |
+| 6 | **Slozka restore neloguje safety backup** -- `backup_restore_folder` (radek 363) zavola `log_restore()` bez `safety_backup` parametru, i kdyz `restore_from_directory` safety backup vytvari. | LOW | Pridat sledovani safety backupu shodne s ostatnimi restore endpointy (pomoci `set()` diff pred/po restore). |
+| 7 | **Manifest nesleduje vsechny tabulky** -- `_get_table_counts` sleduje 12 tabulek z celkovych 38. Chybi napr. `spaces`, `tenants`, `board_members`, `code_list_items`, `activity_logs`, `ballots`, `ballot_votes`. | LOW | Pridat dalsi tabulky do seznamu v `_get_table_counts`, nebo dynamicky cist vsechny tabulky z `sqlite_master`. |
+| 8 | **Zadne automaticke zalohy** -- system nema scheduled/periodicke zalohovani. Zalohy vznikaji pouze rucne akci uzivatele nebo jako safety backup pred obnovenim. | LOW | Implementovat periodicke zalohovani (napr. pri startu aplikace, pokud posledni zaloha je starsi nez X dni). |
 
 ---
 
 ## Doporuceni
 
-### Kriticka (opravit okamzite)
-
-1. **Opravit parameter mismatch** (#3) -- `validate_upload` nefunguje spravne s `**UPLOAD_LIMITS`. Prekejmenovat `allowed_extensions` -> `extensions` nebo naopak. Toto postihuje VSECHNY upload operace v aplikaci.
-
 ### Vysoka priorita
 
-2. **Pridat rollback do DB file restore** (#1) -- sjednotit chovani se zbylymi restore metodami.
-3. **Pridat SQLite integrity check** (#2) -- po nahrani `svj.db` souboru overit `PRAGMA integrity_check` pred spustenim migraci.
-4. **Engine dispose pred obnovou** (#9) -- presunout `engine.dispose()` pred zapis noveho DB souboru.
+1. **Pridat `engine.dispose()` pred ZIP/slozka restore** (#1) -- do endpointu `backup_restore_existing` (pred `restore_backup`), `backup_restore` (pred `restore_backup`), a `backup_restore_folder` (pred `restore_from_directory`). Jednoradkova zmena na 3 mistech. Narocnost: nizka (~5 min). Regrese riziko: nizke.
 
 ### Stredni priorita
 
-5. **Safety backup ochrana** (#6) -- oznacit safety backupy prefixem a vyjmout z auto-cleanup.
-6. **WAL checkpoint feedback** (#5) -- informovat uzivatele o neuspesnem WAL checkpoint.
+2. **Safety backup ochrana** (#4) -- oznacit safety backupy prefixem a vyjmout z auto-cleanup.
+3. **WAL checkpoint feedback** (#3) -- informovat uzivatele o neuspesnem WAL checkpoint.
 
 ### Nizka priorita
 
-7. **Dynamicka verze v manifestu** (#7) -- nacitat z `pyproject.toml`.
-8. **Slozka restore safety log** (#8) -- doplnit `safety_backup` do log_restore volani.
-9. **Automaticke zalohy** (#10) -- volitelna funkce pro periodicke zalohovani.
+4. **Rollback .env** (#2), **manifest verze** (#5), **slozka safety log** (#6), **manifest tabulky** (#7), **automaticke zalohy** (#8).
 
 ---
 
 ## Shrnuti
 
 Zaalohovaci system SVJ aplikace je **solidne navrzeny** s nasledujicimi silnymi strankami:
-- Kompletni obsah zalohy (DB + uploads + generated + .env + manifest)
+
+- Kompletni obsah zalohy (DB + uploads + generated + .env + manifest s table counts)
 - WAL checkpoint pred zalohou
 - CRC integritni kontrola ZIP archivu
-- Safety backup + automaticky rollback pri selhani (u ZIP a slozka metod)
+- SQLite integrity check po obnove (vsechny 4 metody)
+- Safety backup + automaticky rollback pri selhani (vsechny 4 metody)
 - Zip Slip ochrana
 - File-based restore lock proti soubehu
-- Post-restore migrace pro kompatibilitu starich zaloh
+- Path traversal ochrana na download i folder restore
+- Post-restore migrace pro kompatibilitu starsich zaloh (13 migraci)
 - Restore log prezivajici obnovu DB
-- Potvrzovaci dialogy v UI
-- Kontrola diskoveho prostoru
+- Kontrola diskoveho prostoru pred zalohovanim
+- 4 metody obnovy (existujici ZIP, nahrany ZIP, DB soubor, slozka)
 
-Hlavni rizikova oblast je **obnova z DB souboru** (endpoint `backup_restore_db_file`), ktery nema rollback a nevaliduje integritu SQLite souboru. Take je nutne opravit parameter mismatch v `validate_upload`, ktery postihuje vsechny upload operace.
+**Oproti predchozi kontrole (2026-03-09) byly opraveny 2 HIGH priority problemy** (rollback a SQLite validace v DB file restore). Jeden z "CRITICAL" nalezu (#3) byl false positive.
+
+**Hlavni zbyva riziko**: `engine.dispose()` se nevola pred obnovenim v 3 ze 4 restore endpointu (chybi u ZIP a slozka metod). Endpoint `backup_restore_db_file` to dela spravne. Oprava je trivialni (1 radek na 3 mistech).
+
+Celkove hodnoceni: **dobry stav** s jednim HIGH priority nalezem k oprave.

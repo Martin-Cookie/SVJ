@@ -540,7 +540,8 @@ app/
 │   ├── bank_import.py         #   Parsování Fio CSV bankovních výpisů
 │   ├── payment_matching.py    #   3-fázové párování plateb (VS, jméno+částka, VS-prefix)
 │   ├── payment_overview.py    #   Matice plateb, dlužníci, detail jednotky
-│   └── settlement_service.py  #   Logika vyúčtování (generování, přepočet)
+│   ├── settlement_service.py  #   Logika vyúčtování (generování, přepočet)
+│   └── space_import.py        #   Import prostorů z Excelu
 ├── templates/                 # Jinja2 šablony
 │   ├── base.html              #   Layout se sidebar navigací
 │   ├── dashboard.html         #   Přehled (statistiky vlastníků, jednotek, podílů)

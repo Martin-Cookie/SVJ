@@ -20,11 +20,11 @@
             <span class="px-2 py-1 text-xs font-medium bg-gray-50 text-gray-700 rounded border border-gray-200">LV: {{ unit.lv_number }}</span>
             {% endif %}
             {% if payment_status == 'ok' %}
-            <a href="/platby/jednotka/{{ unit.id }}?back={{ back_url|urlencode }}" class="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full hover:bg-green-200 transition-colors" title="Platby {{ payment_year }}">✓ Zaplaceno</a>
+            <a href="/platby/jednotka/{{ unit.id }}?back={{ back_url|urlencode }}" class="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full hover:bg-green-200 hover:opacity-80 transition-colors" title="Zobrazit platby jednotky">✓ Zaplaceno</a>
             {% elif payment_status == 'partial' %}
-            <a href="/platby/jednotka/{{ unit.id }}?back={{ back_url|urlencode }}" class="px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full hover:bg-yellow-200 transition-colors" title="Platby {{ payment_year }}">Dluh {{ payment_debt|fmt_num }} Kč</a>
+            <a href="/platby/jednotka/{{ unit.id }}?back={{ back_url|urlencode }}" class="px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full hover:bg-yellow-200 hover:opacity-80 transition-colors" title="Zobrazit platby jednotky">Dluh {{ payment_debt|fmt_num }} Kč</a>
             {% elif payment_status == 'unpaid' %}
-            <a href="/platby/jednotka/{{ unit.id }}?back={{ back_url|urlencode }}" class="px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded-full hover:bg-red-200 transition-colors" title="Platby {{ payment_year }}">Dluh {{ payment_debt|fmt_num }} Kč</a>
+            <a href="/platby/jednotka/{{ unit.id }}?back={{ back_url|urlencode }}" class="px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded-full hover:bg-red-200 hover:opacity-80 transition-colors" title="Zobrazit platby jednotky">Dluh {{ payment_debt|fmt_num }} Kč</a>
             {% endif %}
             {% if opening_balance and opening_balance > 0 %}
             <a href="/platby/zustatky?back={{ back_url|urlencode }}" class="px-2 py-1 text-xs font-medium bg-red-100 text-red-700 rounded-full hover:bg-red-200 transition-colors" title="Počáteční zůstatek {{ balance_year }}">Nedoplatek {{ opening_balance|fmt_num }} Kč</a>
