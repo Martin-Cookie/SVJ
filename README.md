@@ -912,6 +912,8 @@ wheels/                        # Offline Python balíčky (gitignored)
 | GET | `/platby/symboly` | Seznam variabilních symbolů (inline edit, entity type toggle) |
 | POST | `/platby/symboly/pridat` | Přidání VS mapování (Jednotka/Prostor) |
 | POST | `/platby/symboly/{id}/upravit` | Úprava VS mapování (VS, entita, popis) |
+| GET | `/platby/symboly/{id}/upravit-formular` | HTMX partial — inline editační formulář |
+| GET | `/platby/symboly/{id}/info` | HTMX partial — read-only zobrazení |
 | POST | `/platby/symboly/{id}/smazat` | Smazání VS mapování |
 | GET | `/platby/zustatky` | Počáteční zůstatky jednotek |
 | POST | `/platby/zustatky/pridat` | Přidání zůstatku (s vlastníkem) |
@@ -929,6 +931,7 @@ wheels/                        # Offline Python balíčky (gitignored)
 | POST | `/platby/vypisy/import` | Import bankovního výpisu — zpracování CSV |
 | GET | `/platby/vypisy/{id}` | Detail výpisu s platbami (filtry: stav, směr, entita, hledání) |
 | POST | `/platby/vypisy/{id}/prirazeni/{payment_id}` | Ruční přiřazení platby (single/multi-unit) |
+| POST | `/platby/vypisy/{id}/prirazeni-prostor/{payment_id}` | Ruční přiřazení platby k prostoru |
 | POST | `/platby/vypisy/{id}/potvrdit-vse` | Hromadné potvrzení všech SUGGESTED přiřazení |
 | POST | `/platby/vypisy/{id}/potvrdit/{payment_id}` | Potvrzení navrženého přiřazení (SUGGESTED → MANUAL) |
 | POST | `/platby/vypisy/{id}/odmitnout/{payment_id}` | Odmítnutí navrženého přiřazení (SUGGESTED → UNMATCHED) |

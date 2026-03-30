@@ -701,6 +701,39 @@ Každý badge/odkaz na entitu (jednotka, prostor, vlastník, nájemce) MUSÍ mí
 - Částka vždy s filtrem `fmt_num` a suffixem `Kč/měs`
 - Data pro tooltipy (jména vlastníků/nájemců, předpisy, nájemné) se připravují v routeru jako lookup dicty a předávají do šablony
 
+## 12c. Suggestion dropdowny (přiřazení s předvýběrem)
+
+Vzor pro dropdowny kde backend navrhuje předvybranou hodnotu (např. párování plateb → jednotka/prostor):
+
+### Vizuální rozlišení
+- **S návrhem** (pre-selected): `border-green-500 bg-green-50 dark:bg-green-900/20 dark:border-green-600` — dropdown je viditelný rovnou (ne schovaný za tlačítkem)
+- **Bez návrhu**: `border-gray-300 dark:border-gray-600 dark:bg-gray-700` — skrytý za tlačítkem "přiřadit"
+
+### Potvrzovací vzor
+Dropdown NIKDY neodesílá formulář při změně (`onchange`). Vždy vyžaduje explicitní potvrzení:
+```html
+<form class="inline-flex items-center gap-1">
+    <select class="w-64 text-xs border rounded px-1 py-0.5 ...">...</select>
+    <button type="submit" class="px-1.5 py-0.5 bg-green-600 text-white rounded text-xs" title="Potvrdit">✓</button>
+    <button type="button" class="px-1.5 py-0.5 bg-gray-200 text-gray-600 rounded text-xs" title="Zrušit">✕</button>
+</form>
+```
+
+### Pořadí v dropdown options
+Shodné s tooltip pořadím (§ 12b): **Jméno → Identifikátor → Částka**, oddělovač ` · `:
+- Jednotka: `Novák Jan · 501 · 3 041 Kč`
+- Prostor: `Movie s.r.o. · 10 · 1 685 Kč`
+
+### Řazení
+Dropdown je řazen **abecedně podle prvního zobrazeného atributu** (jméno vlastníka/nájemce). Entity bez jména na konec.
+
+### Backend suggest map
+Router buduje `suggest_map: dict[payment_id, entity_id]` přes sdílený helper `_build_suggest_map(payments, name_index)` — porovnání slov z `counter_account_name + note + message` proti indexu jmen.
+
+### Barevné badge pro typ entity
+- Jednotka: `bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300`
+- Prostor: `bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300`
+
 ---
 
 ## 13. Back URL navigace
