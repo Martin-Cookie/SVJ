@@ -31,11 +31,11 @@
         <div id="add-form" class="hidden mb-3 bg-white dark:bg-gray-800 rounded-lg shadow p-4 border-l-4 border-green-500">
             <form method="post" action="/platby/zustatky/pridat" class="flex items-end space-x-3 flex-wrap gap-y-2">
                 <div>
-                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Jednotka</label>
+                    <label for="add-unit-select" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Jednotka</label>
                     <select name="unit_id" id="add-unit-select" required
                         onchange="loadOwnersForUnit(this.value, 'add-owner-select')"
                         class="h-[30px] w-32 px-3 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
-                        <option value="">—</option>
+                        <option value="">Vyberte jednotku</option>
                         {% for unit in units %}
                         <option value="{{ unit.id }}" {% if unit.id in existing_unit_ids %}disabled{% endif %}>
                             {{ unit.unit_number }}{% if unit.id in existing_unit_ids %} (má zůstatek){% endif %}
@@ -44,27 +44,27 @@
                     </select>
                 </div>
                 <div>
-                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Vlastník</label>
+                    <label for="add-owner-select" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Vlastník</label>
                     <select name="owner_id" id="add-owner-select"
                         class="h-[30px] w-48 px-3 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
                         <option value="">— vyberte jednotku —</option>
                     </select>
                 </div>
                 <div>
-                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Rok</label>
-                    <input type="number" name="year" value="{{ rok }}" required min="2020" max="2040"
+                    <label for="add-year" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Rok</label>
+                    <input type="number" name="year" id="add-year" value="{{ rok }}" required min="2020" max="2040"
                         class="h-[30px] w-24 px-3 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
                 </div>
                 <div>
-                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Částka
+                    <label for="add-amount" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Částka
                         <span class="font-normal text-gray-400 dark:text-gray-500 ml-1">kladná = dluh</span>
                     </label>
-                    <input type="number" name="opening_amount" step="0.01" required placeholder="0.00"
+                    <input type="number" name="opening_amount" id="add-amount" step="0.01" required placeholder="0.00"
                         class="h-[30px] w-36 px-3 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
                 </div>
                 <div class="flex-1">
-                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Poznámka</label>
-                    <input type="text" name="note" placeholder="Poznámka..."
+                    <label for="add-note" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Poznámka</label>
+                    <input type="text" name="note" id="add-note" placeholder="Poznámka..."
                         class="h-[30px] w-full px-3 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
                 </div>
                 <button type="submit" class="h-[30px] px-3 bg-green-600 text-white text-xs font-medium rounded-lg hover:bg-green-700">Uložit</button>
