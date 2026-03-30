@@ -69,6 +69,7 @@
 5. **HTMX partial** — search aktualizuje jen `<tbody>` přes partial šablonu, zbytek stránky zůstane
 6. **Sticky header** — `sticky top-0 z-10` na `<thead>`, flex column layout pro fixní filtry/search nad scrollovatelným obsahem
 7. **Náhledy souborů** — pokud tabulka zobrazuje soubory/přílohy (PDF, Excel, CSV), názvy MUSÍ být klikací s `target="_blank"` a `hx-boost="false"` pro náhled/stažení. Vyžaduje: (a) uložení plné cesty souboru v DB, (b) download endpoint s validací cesty v povolených adresářích, (c) `FileResponse` se správným `media_type`
+8. **Export + počet záznamů** — každá stránka s datovou tabulkou MUSÍ mít v hlavičce: (a) počet záznamů (`{{ items|length }} záznamů`), (b) tlačítka ↓ Excel a ↓ CSV se stejným stylem (`bg-gray-100 text-gray-600 border-gray-200`). Export endpoint (`/exportovat/{fmt}`) přijímá `xlsx`/`csv`, respektuje aktivní filtry/bubliny/hledání. Název souboru obsahuje suffix dle filtru (viz § Export dat)
 
 - Klikací entity vyžadují eager loading relací v routeru:
   ```python

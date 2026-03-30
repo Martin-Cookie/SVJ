@@ -1,6 +1,12 @@
+import csv
+import io
 from datetime import datetime
+from io import BytesIO
 
 from fastapi import APIRouter, Depends, Query, Request
+from fastapi.responses import RedirectResponse, Response
+from openpyxl import Workbook
+from openpyxl.styles import Font
 from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
@@ -8,7 +14,7 @@ from app.database import get_db
 from app.models import ActivityLog, EmailLog, Owner, OwnerUnit, PrescriptionYear, Space, SpaceStatus, SpaceTenant, SvjInfo, Unit, Voting, BankStatement, Payment, PaymentDirection, PaymentMatchStatus
 from app.models.voting import Ballot, BallotStatus, BallotVote
 from app.models.tax import TaxDocument, TaxSession, TaxDistribution, EmailDeliveryStatus
-from app.utils import strip_diacritics, templates, utcnow
+from app.utils import excel_auto_width, strip_diacritics, templates, utcnow
 
 router = APIRouter()
 
@@ -190,8 +196,8 @@ async def home(
             tax_by_status[s]["sent"] = sent or 0
 
     # Unified activity: EmailLog + ActivityLog
-    recent_emails = db.query(EmailLog).order_by(EmailLog.created_at.desc()).limit(30).all()
-    recent_activity = db.query(ActivityLog).order_by(ActivityLog.created_at.desc()).limit(30).all()
+    recent_emails = db.query(EmailLog).order_by(EmailLog.created_at.desc()).all()
+    recent_activity = db.query(ActivityLog).order_by(ActivityLog.created_at.desc()).all()
 
     unified = []
     # URL mapování pro entity_type → detail stránka
@@ -227,9 +233,8 @@ async def home(
             "entity": a,
         })
 
-    # Sort combined and limit
+    # Sort combined
     unified.sort(key=lambda x: x["created_at"] or datetime.min, reverse=True)
-    unified = unified[:50]
 
     # Search filtering
     if q:
@@ -342,3 +347,126 @@ async def home(
         return templates.TemplateResponse("partials/dashboard_activity_body.html", ctx)
 
     return templates.TemplateResponse("dashboard.html", ctx)
+
+
+# Module labels for export
+_MODULE_LABELS = {
+    "tax": "Rozesílání", "dane": "Rozesílání", "voting": "Hlasování",
+    "sync": "Synchronizace", "import": "Import", "sprava": "Administrace",
+    "owners": "Vlastníci", "units": "Jednotky", "payments": "Platby",
+    "spaces": "Prostory", "tenants": "Nájemci", "backup": "Zálohy",
+    "settings": "Nastavení", "share_check": "Kontrola podílů",
+}
+
+_STATUS_LABELS = {
+    "sent": "Odesláno", "failed": "Chyba", "pending": "Čeká",
+    "created": "Vytvořeno", "updated": "Aktualizováno", "deleted": "Smazáno",
+    "imported": "Importováno", "exported": "Exportováno", "restored": "Obnoveno",
+    "state_change": "Změna stavu", "status_changed": "Změna stavu",
+    "confirmed": "Potvrzeno", "purged": "Smazáno",
+}
+
+
+@router.get("/exportovat/{fmt}")
+async def dashboard_export(
+    fmt: str,
+    q: str = Query(""),
+    sort: str = Query("date"),
+    order: str = Query("desc"),
+    db: Session = Depends(get_db),
+):
+    """Export přehledu aktivity do Excelu nebo CSV."""
+    if fmt not in ("xlsx", "csv"):
+        return RedirectResponse("/", status_code=302)
+
+    # Build unified activity (same as dashboard view)
+    recent_emails = db.query(EmailLog).order_by(EmailLog.created_at.desc()).all()
+    recent_acts = db.query(ActivityLog).order_by(ActivityLog.created_at.desc()).all()
+
+    unified = []
+    for e in recent_emails:
+        unified.append({
+            "created_at": e.created_at,
+            "module": e.module or "",
+            "description": e.subject or "",
+            "detail": e.recipient_name or e.recipient_email or "",
+            "status": e.status.value if e.status else "",
+        })
+    for a in recent_acts:
+        unified.append({
+            "created_at": a.created_at,
+            "module": a.module or "",
+            "description": a.entity_name or "",
+            "detail": a.description or "",
+            "status": a.action.value if a.action else "",
+        })
+
+    unified.sort(key=lambda x: x["created_at"] or datetime.min, reverse=True)
+
+    if q:
+        q_lower = q.lower()
+        q_ascii = strip_diacritics(q)
+        unified = [
+            item for item in unified
+            if q_lower in item["description"].lower()
+            or q_ascii in strip_diacritics(item["description"])
+            or q_lower in item["detail"].lower()
+            or q_ascii in strip_diacritics(item["detail"])
+            or q_lower in item["module"].lower()
+        ]
+
+    SORT_KEYS = {
+        "date": lambda x: x["created_at"],
+        "module": lambda x: x["module"].lower(),
+        "description": lambda x: strip_diacritics(x["description"]),
+        "detail": lambda x: strip_diacritics(x["detail"]),
+        "status": lambda x: x["status"],
+    }
+    sort_fn = SORT_KEYS.get(sort, SORT_KEYS["date"])
+    unified.sort(key=sort_fn, reverse=(order == "desc"))
+
+    headers = ["Datum", "Modul", "Popis", "Detail", "Stav"]
+    rows = []
+    for item in unified:
+        rows.append([
+            item["created_at"].strftime("%d.%m.%Y %H:%M") if item["created_at"] else "",
+            _MODULE_LABELS.get(item["module"], item["module"]),
+            item["description"],
+            item["detail"],
+            _STATUS_LABELS.get(item["status"], item["status"]),
+        ])
+
+    timestamp = datetime.now().strftime("%Y%m%d")
+    suffix = "_hledani" if q else "_vse"
+    filename = f"aktivita{suffix}_{timestamp}.{fmt}"
+
+    if fmt == "csv":
+        buf = io.StringIO()
+        buf.write("\ufeff")
+        writer = csv.writer(buf, delimiter=";")
+        writer.writerow(headers)
+        writer.writerows(rows)
+        return Response(
+            content=buf.getvalue().encode("utf-8"),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Aktivita"
+    bold = Font(bold=True)
+    for c, h in enumerate(headers, 1):
+        ws.cell(row=1, column=c, value=h).font = bold
+    for ri, row in enumerate(rows, 2):
+        for ci, val in enumerate(row, 1):
+            ws.cell(row=ri, column=ci, value=val)
+    excel_auto_width(ws)
+
+    buf = BytesIO()
+    wb.save(buf)
+    return Response(
+        content=buf.getvalue(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
