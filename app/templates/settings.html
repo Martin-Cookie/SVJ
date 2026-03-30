@@ -15,7 +15,18 @@
 
         <div class="flex items-center justify-between mb-2">
             <h2 class="text-sm font-semibold text-gray-700">Historie odeslaných emailů</h2>
-            <span class="text-xs text-gray-500">{{ email_logs|length }} záznamů</span>
+            <div class="flex items-center gap-2">
+                <span class="text-xs text-gray-500">{{ email_logs|length }} záznamů</span>
+                {% set _export_qs = "q=" ~ (q|default('')|urlencode) ~ "&sort=" ~ sort ~ "&order=" ~ order %}
+                <a href="/nastaveni/exportovat/xlsx?{{ _export_qs }}" hx-boost="false"
+                   onclick="var b=this,t=b.textContent;b.textContent='Generuji…';b.classList.add('opacity-50');setTimeout(function(){b.textContent=t;b.classList.remove('opacity-50')},3000)"
+                   class="px-2.5 py-1.5 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 text-xs font-medium transition-colors border border-gray-200"
+                   title="Export do Excelu">↓ Excel</a>
+                <a href="/nastaveni/exportovat/csv?{{ _export_qs }}" hx-boost="false"
+                   onclick="var b=this,t=b.textContent;b.textContent='Generuji…';b.classList.add('opacity-50');setTimeout(function(){b.textContent=t;b.classList.remove('opacity-50')},3000)"
+                   class="px-2.5 py-1.5 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 text-xs font-medium transition-colors border border-gray-200"
+                   title="Export do CSV">↓ CSV</a>
+            </div>
         </div>
 
         <!-- Search bar -->

@@ -1,11 +1,17 @@
+import csv
+import io
 import logging
 import smtplib
+from datetime import datetime
+from io import BytesIO
 from pathlib import Path
 from typing import Optional
 
 from dotenv import set_key
 from fastapi import APIRouter, Depends, Form, Query, Request
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse, Response
+from openpyxl import Workbook
+from openpyxl.styles import Font
 from sqlalchemy.orm import Session
 
 from sqlalchemy import or_
@@ -13,7 +19,7 @@ from sqlalchemy import or_
 from app.config import settings
 from app.database import get_db
 from app.models import EmailLog, Owner
-from app.utils import build_list_url, is_htmx_partial, is_safe_path, strip_diacritics, templates
+from app.utils import build_list_url, excel_auto_width, is_htmx_partial, is_safe_path, strip_diacritics, templates
 
 logger = logging.getLogger(__name__)
 
@@ -121,6 +127,90 @@ async def settings_view(
     if is_htmx_partial(request):
         return templates.TemplateResponse("partials/settings_email_tbody.html", ctx)
     return templates.TemplateResponse("settings.html", ctx)
+
+
+@router.get("/exportovat/{fmt}")
+async def email_log_export(
+    fmt: str,
+    q: str = Query(""),
+    sort: str = Query("date"),
+    order: str = Query("desc"),
+    db: Session = Depends(get_db),
+):
+    """Export historie odeslaných emailů do Excelu nebo CSV."""
+    if fmt not in ("xlsx", "csv"):
+        return RedirectResponse("/nastaveni", status_code=302)
+
+    query = db.query(EmailLog)
+    if q:
+        q_pattern = f"%{q}%"
+        q_ascii = f"%{strip_diacritics(q)}%"
+        query = query.filter(
+            or_(
+                EmailLog.recipient_email.ilike(q_pattern),
+                EmailLog.recipient_name.ilike(q_pattern),
+                EmailLog.name_normalized.like(q_ascii),
+                EmailLog.subject.ilike(q_pattern),
+                EmailLog.module.ilike(q_pattern),
+            )
+        )
+
+    col = SORT_COLUMNS.get(sort, EmailLog.created_at)
+    if order == "asc":
+        query = query.order_by(col.asc().nulls_last())
+    else:
+        query = query.order_by(col.desc().nulls_last())
+    email_logs = query.all()
+
+    headers = ["Datum", "Modul", "Prijemce", "Email", "Predmet", "Prilohy", "Stav"]
+    status_labels = {"sent": "OK", "failed": "Chyba", "pending": "Čeká"}
+    rows = []
+    for e in email_logs:
+        attachments = ", ".join(a["name"] for a in _parse_attachments(e.attachment_paths))
+        rows.append([
+            e.created_at.strftime("%d.%m.%Y %H:%M") if e.created_at else "",
+            e.module or "",
+            e.recipient_name or "",
+            e.recipient_email or "",
+            e.subject or "",
+            attachments,
+            status_labels.get(e.status.value if e.status else "", e.status.value if e.status else ""),
+        ])
+
+    timestamp = datetime.now().strftime("%Y%m%d")
+    suffix = "_hledani" if q else "_vse"
+    filename = f"emaily{suffix}_{timestamp}.{fmt}"
+
+    if fmt == "csv":
+        buf = io.StringIO()
+        buf.write("\ufeff")
+        writer = csv.writer(buf, delimiter=";")
+        writer.writerow(headers)
+        writer.writerows(rows)
+        return Response(
+            content=buf.getvalue().encode("utf-8"),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Historie emailu"
+    bold = Font(bold=True)
+    for c, h in enumerate(headers, 1):
+        ws.cell(row=1, column=c, value=h).font = bold
+    for ri, row in enumerate(rows, 2):
+        for ci, val in enumerate(row, 1):
+            ws.cell(row=ri, column=ci, value=val)
+    excel_auto_width(ws)
+
+    buf = BytesIO()
+    wb.save(buf)
+    return Response(
+        content=buf.getvalue(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.get("/smtp/formular")
