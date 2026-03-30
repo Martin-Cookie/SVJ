@@ -152,6 +152,27 @@
         <a href="/prostory/{{ p.space.id }}?back={{ (list_url ~ '#p-' ~ p.id)|urlencode }}" class="px-2 py-0.5 text-xs bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 rounded-full hover:bg-purple-200" title="Prostor {{ p.space.space_number }} · {{ p.space.designation }}">
             P {{ p.space.space_number }}
         </a>
+        {% elif p.match_status.value == 'unmatched' and p.direction.value == 'income' and not locked and not p.unit_id %}
+        <span id="space-btn-{{ p.id }}" class="inline-flex items-center gap-1">
+            <button onclick="document.getElementById('space-btn-{{ p.id }}').classList.add('hidden');document.getElementById('space-form-{{ p.id }}').classList.remove('hidden');document.getElementById('space-select-{{ p.id }}').focus()"
+                class="px-2 py-0.5 text-xs bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300 rounded-full hover:bg-yellow-200 cursor-pointer">
+                přiřadit
+            </button>
+        </span>
+        <form id="space-form-{{ p.id }}" method="post" action="/platby/vypisy/{{ statement.id }}/prirazeni-prostor/{{ p.id }}" hx-boost="false" class="hidden inline-flex items-center gap-1">
+            {{ filter_hidden() }}
+            <select id="space-select-{{ p.id }}" name="space_id" required
+                aria-label="Prostor pro přiřazení"
+                onchange="if(this.value)this.form.submit()"
+                class="w-32 px-1.5 py-0.5 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                <option value="">— prostor —</option>
+                {% for s in all_spaces %}
+                <option value="{{ s.space_number }}">{{ s.space_number }} — {{ s.designation }}</option>
+                {% endfor %}
+            </select>
+            <button type="button" onclick="document.getElementById('space-form-{{ p.id }}').classList.add('hidden');document.getElementById('space-btn-{{ p.id }}').classList.remove('hidden')"
+                class="px-1 py-0.5 text-gray-400 hover:text-gray-600 text-xs" title="Zrušit">✕</button>
+        </form>
         {% else %}
         <span class="text-gray-400">—</span>
         {% endif %}

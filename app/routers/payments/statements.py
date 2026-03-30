@@ -14,7 +14,7 @@ from app.database import get_db
 from app.config import settings
 from app.models import (
     BankStatement, Payment, PaymentAllocation, PaymentDirection, PaymentMatchStatus,
-    Unit,
+    Space, Unit,
 )
 from app.utils import build_list_url, is_htmx_partial, is_safe_path, validate_upload, strip_diacritics, utcnow, UPLOAD_LIMITS
 from ._helpers import templates, compute_nav_stats, MONTH_NAMES_LONG
@@ -571,6 +571,7 @@ async def vypis_detail(
         "candidates_map": candidates_map,
         "unit_monthly": unit_monthly,
         "unit_vs": unit_vs,
+        "all_spaces": db.query(Space).order_by(Space.space_number).all(),
         "sort": sort,
         "order": order,
         "q": q,
@@ -709,6 +710,55 @@ async def platba_prirazeni(
                 prescription_id=presc.id if presc else None,
                 amount=alloc_amount,
             ))
+
+    db.commit()
+
+    return RedirectResponse(
+        _detail_redirect_url(statement_id, form_data, "match_ok", anchor=f"p-{payment_id}"),
+        status_code=302,
+    )
+
+
+@router.post("/vypisy/{statement_id}/prirazeni-prostor/{payment_id}")
+async def platba_prirazeni_prostor(
+    request: Request,
+    statement_id: int,
+    payment_id: int,
+    db: Session = Depends(get_db),
+):
+    """Ručně přiřadit platbu k prostoru (číslo prostoru)."""
+    form_data = await request.form()
+
+    statement = db.query(BankStatement).get(statement_id)
+    if statement and statement.locked_at:
+        return RedirectResponse(_detail_redirect_url(statement_id, form_data, "locked"), status_code=302)
+
+    space_num_raw = form_data.get("space_id", "").strip()
+    payment = db.query(Payment).filter_by(id=payment_id, statement_id=statement_id).first()
+    if not payment:
+        return RedirectResponse(_detail_redirect_url(statement_id, form_data), status_code=302)
+
+    # Najít prostor podle čísla
+    space = db.query(Space).filter_by(space_number=space_num_raw).first()
+    if not space:
+        return RedirectResponse(
+            _detail_redirect_url(statement_id, form_data, "match_fail", anchor=f"p-{payment_id}"),
+            status_code=302,
+        )
+
+    # Smazat staré alokace
+    db.query(PaymentAllocation).filter_by(payment_id=payment.id).delete()
+
+    payment.space_id = space.id
+    payment.unit_id = None
+    payment.match_status = PaymentMatchStatus.MANUAL
+
+    db.add(PaymentAllocation(
+        payment_id=payment.id,
+        space_id=space.id,
+        owner_id=payment.owner_id,
+        amount=payment.amount,
+    ))
 
     db.commit()
 
