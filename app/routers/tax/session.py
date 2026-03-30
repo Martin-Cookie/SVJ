@@ -668,7 +668,7 @@ async def tax_export(
             rows.append([doc.filename or "", doc.unit_number or "", doc.extracted_owner_name or "", "", "Nepřiřazeno", "", ""])
         else:
             for dist in doc.distributions:
-                owner_name = dist.owner.display_name if dist.owner else (dist.ad_hoc_name or "")
+                owner_name = dist.owner.display_name if dist.owner else (dist.ad_hoc_name or doc.extracted_owner_name or "")
                 email = dist.email_address_used or (dist.owner.email if dist.owner else dist.ad_hoc_email) or ""
                 match_val = dist.match_status.value if dist.match_status else "unmatched"
                 status_val = dist.email_status.value if dist.email_status else "pending"
