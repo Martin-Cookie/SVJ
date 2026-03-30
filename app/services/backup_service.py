@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 import logging
 import os
@@ -51,14 +53,22 @@ def release_restore_lock(backup_dir: str) -> None:
 # ---- Backup creation ----
 
 
+SAFETY_BACKUP_PREFIX = "_safety_"
+
+
 def create_backup(
     db_path: str,
     uploads_dir: str,
     generated_dir: str,
     backup_dir: str,
     custom_name: str = None,
-) -> Path:
-    """Create a ZIP backup of database + uploads + generated files + .env."""
+    is_safety: bool = False,
+) -> tuple[Path, str | None]:
+    """Create a ZIP backup of database + uploads + generated files + .env.
+
+    Returns (zip_path, wal_warning) where wal_warning is None if WAL
+    checkpoint succeeded without issues.
+    """
     os.makedirs(backup_dir, exist_ok=True)
 
     # Disk space check
@@ -73,17 +83,29 @@ def create_backup(
         zip_name = safe if safe.endswith(".zip") else f"{safe}.zip"
     else:
         timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
-        zip_name = f"svj_backup_{timestamp}.zip"
+        prefix = SAFETY_BACKUP_PREFIX if is_safety else ""
+        zip_name = f"{prefix}svj_backup_{timestamp}.zip"
     zip_path = Path(backup_dir) / zip_name
 
     # WAL checkpoint — flush pending writes into main DB file before backup
+    wal_warning = None
     if os.path.isfile(db_path):
         try:
             conn = sqlite3.connect(db_path)
-            conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+            result = conn.execute("PRAGMA wal_checkpoint(TRUNCATE)").fetchone()
             conn.close()
-        except Exception:
-            logger.warning("WAL checkpoint selhal, záloha může být neúplná")
+            # result = (blocked, wal_pages, checkpointed_pages)
+            # blocked != 0 means checkpoint was blocked by another connection
+            if result and result[0] != 0:
+                wal_warning = (
+                    f"WAL checkpoint byl blokován (stav={result[0]}, "
+                    f"stránky={result[1]}, checkpointováno={result[2]}). "
+                    f"Záloha může být neúplná."
+                )
+                logger.warning("WAL checkpoint blokován: %s", result)
+        except Exception as exc:
+            wal_warning = f"WAL checkpoint selhal: {exc}. Záloha může být neúplná."
+            logger.warning("WAL checkpoint selhal: %s", exc)
 
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
         # Database
@@ -116,7 +138,7 @@ def create_backup(
     # Auto-cleanup old backups
     cleanup_old_backups(backup_dir)
 
-    return zip_path
+    return zip_path, wal_warning
 
 
 def _check_disk_space(db_path: str, uploads_dir: str, generated_dir: str, backup_dir: str) -> None:
@@ -143,12 +165,21 @@ def _check_disk_space(db_path: str, uploads_dir: str, generated_dir: str, backup
 
 
 def cleanup_old_backups(backup_dir: str, keep_count: int = 10) -> int:
-    """Delete oldest backups beyond keep_count. Returns number of deleted backups."""
+    """Delete oldest backups beyond keep_count. Returns number of deleted backups.
+
+    Safety backups (prefixed with ``_safety_``) are excluded from cleanup
+    to prevent accidental deletion of restore rollback points.
+    """
     backup_path = Path(backup_dir)
     if not backup_path.is_dir():
         return 0
 
-    zips = sorted(backup_path.glob("*.zip"), key=lambda p: p.stat().st_mtime, reverse=True)
+    # Exclude safety backups from cleanup — they are restore rollback points
+    zips = sorted(
+        (p for p in backup_path.glob("*.zip") if not p.name.startswith(SAFETY_BACKUP_PREFIX)),
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
     deleted = 0
     for old_zip in zips[keep_count:]:
         try:
@@ -196,7 +227,7 @@ def restore_backup(
             raise ValueError(f"ZIP archiv je poškozený — chyba v souboru: {bad_file}")
 
     # Safety backup before restore
-    safety_path = create_backup(db_path, uploads_dir, generated_dir, backup_dir)
+    safety_path, _ = create_backup(db_path, uploads_dir, generated_dir, backup_dir, is_safety=True)
 
     # Restore with rollback on failure
     try:
@@ -251,7 +282,7 @@ def restore_from_directory(
         raise ValueError("Adresář neobsahuje soubor svj.db.")
 
     # Safety backup before restore
-    safety_path = create_backup(db_path, uploads_dir, generated_dir, backup_dir)
+    safety_path, _ = create_backup(db_path, uploads_dir, generated_dir, backup_dir, is_safety=True)
 
     try:
         # Restore database

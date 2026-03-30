@@ -1,0 +1,40 @@
+<form hx-post="/najemci/{{ tenant.id }}/kontakt-upravit" hx-target="#contact-section" hx-swap="innerHTML">
+    <div class="flex items-center justify-between mb-2">
+        <h2 class="text-sm font-semibold text-gray-700">Kontakty</h2>
+        <div class="flex items-center gap-1">
+            <button type="submit" class="px-2 py-1 text-xs font-medium text-blue-600 border border-blue-300 rounded hover:bg-blue-50 transition-colors">Uložit</button>
+            <button type="button" hx-get="/najemci/{{ tenant.id }}/kontakt-info" hx-target="#contact-section" hx-swap="innerHTML"
+                    class="px-2 py-1 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-xs font-medium">Zrušit</button>
+        </div>
+    </div>
+    {% if error|default('') %}
+    <div class="bg-red-50 border border-red-200 rounded p-2 mb-2 text-xs text-red-700">{{ error }}</div>
+    {% endif %}
+    <div class="space-y-2">
+        <div>
+            <label class="block text-xs text-gray-500 mb-0.5">Email</label>
+            <input type="email" name="email" value="{{ tenant.email or '' }}" placeholder="email@example.com"
+                   class="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div>
+            <label class="block text-xs text-gray-500 mb-0.5">Email 2</label>
+            <input type="email" name="email_secondary" value="{{ tenant.email_secondary or '' }}" placeholder="email@example.com"
+                   class="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div>
+            <label class="block text-xs text-gray-500 mb-0.5">Telefon GSM</label>
+            <input type="text" name="phone" value="{{ tenant.phone or '' }}" placeholder="+420 ..."
+                   class="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div>
+            <label class="block text-xs text-gray-500 mb-0.5">Telefon GSM 2</label>
+            <input type="text" name="phone_secondary" value="{{ tenant.phone_secondary or '' }}" placeholder="+420 ..."
+                   class="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div>
+            <label class="block text-xs text-gray-500 mb-0.5">Telefon pevný</label>
+            <input type="text" name="phone_landline" value="{{ tenant.phone_landline or '' }}" placeholder="+420 ..."
+                   class="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-blue-500">
+        </div>
+    </div>
+</form>

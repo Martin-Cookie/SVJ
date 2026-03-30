@@ -12,8 +12,13 @@
         <a href="{{ back_url|default('/dane') }}" class="text-sm text-blue-600 hover:text-blue-800">&larr; {{ back_label|default('Zpět na rozesílání') }}</a>
 
         {% if wizard_steps is defined and wizard_steps %}
-        <div class="mt-2">
-        {% include "partials/wizard_stepper.html" %}
+        <div class="mt-2 flex items-center justify-between gap-4">
+            <div>{% include "partials/wizard_stepper.html" %}</div>
+            {% if stat_to_confirm > 0 %}
+            <div class="shrink-0 px-3 py-1.5 bg-yellow-50 border border-yellow-200 rounded-lg text-xs text-yellow-800">
+                <span class="font-medium">{{ stat_to_confirm }} dok. čeká na potvrzení.</span> Nepotvrzená přiřazení nebudou v rozesílce.
+            </div>
+            {% endif %}
         </div>
         {% endif %}
 
@@ -48,6 +53,15 @@
                 {% endif %}
             </div>
             <div class="flex items-center gap-2">
+                {% set _export_qs = "filtr=" ~ filtr ~ "&q=" ~ (q|default('')|urlencode) ~ "&sort=" ~ sort ~ "&order=" ~ order %}
+                <a href="/dane/{{ session.id }}/exportovat/xlsx?{{ _export_qs }}" hx-boost="false"
+                   onclick="var b=this,t=b.textContent;b.textContent='Generuji…';b.classList.add('opacity-50');setTimeout(function(){b.textContent=t;b.classList.remove('opacity-50')},3000)"
+                   class="px-2.5 py-1.5 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 text-xs font-medium transition-colors border border-gray-200"
+                   title="Export do Excelu">↓ Excel</a>
+                <a href="/dane/{{ session.id }}/exportovat/csv?{{ _export_qs }}" hx-boost="false"
+                   onclick="var b=this,t=b.textContent;b.textContent='Generuji…';b.classList.add('opacity-50');setTimeout(function(){b.textContent=t;b.classList.remove('opacity-50')},3000)"
+                   class="px-2.5 py-1.5 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 text-xs font-medium transition-colors border border-gray-200"
+                   title="Export do CSV">↓ CSV</a>
                 {% if is_locked %}
                 <a href="/dane/{{ session.id }}/rozeslat?back={{ list_url|urlencode }}"
                    class="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium transition-colors">
@@ -85,7 +99,7 @@
             </div>
         </div>
 
-        {% if stat_to_confirm > 0 %}
+        {% if stat_to_confirm > 0 and not (wizard_steps is defined and wizard_steps) %}
         <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-2">
             <p class="text-sm text-yellow-800"><span class="font-medium">{{ stat_to_confirm }} dokumentů čeká na potvrzení.</span> Nepotvrzená přiřazení nebudou zahrnuta do rozesílky{% if not is_locked %} — potvrďte je níže nebo klikněte na „Potvrdit vše"{% endif %}.</p>
         </div>
@@ -95,37 +109,37 @@
         {% set _back = "&back=" ~ (back_url|default('')|urlencode) if back_url else "" %}
         {% set _qso = "&q=" ~ (q|default('')|urlencode) ~ "&sort=" ~ sort ~ "&order=" ~ order %}
         <div class="bg-white rounded-lg shadow mb-2">
-            <div class="flex gap-2 p-3 pb-2">
+            <div class="flex gap-1.5 p-2">
                 <a href="/dane/{{ session.id }}?filtr={{ _qso }}{{ _back }}" style="flex:1"
-                   class="block rounded p-2 text-center border border-gray-200 hover:bg-gray-100 transition-colors
+                   class="block rounded px-2 py-1 text-center border border-gray-200 hover:bg-gray-100 transition-colors
                           {% if not filtr %}ring-2 ring-gray-400{% endif %}">
-                    <p class="text-lg font-bold text-gray-800">{{ stat_total }}</p>
-                    <p class="text-xs text-gray-500 mt-1">Celkem PDF</p>
+                    <p class="text-sm font-bold text-gray-800">{{ stat_total }}</p>
+                    <p class="text-[10px] text-gray-500">Celkem PDF</p>
                 </a>
                 <a href="/dane/{{ session.id }}?filtr=confirmed{{ _qso }}{{ _back }}" style="flex:1"
-                   class="block bg-green-50 rounded p-2 text-center border border-green-200 hover:bg-green-100 transition-colors
+                   class="block bg-green-50 rounded px-2 py-1 text-center border border-green-200 hover:bg-green-100 transition-colors
                           {% if filtr == 'confirmed' %}ring-2 ring-green-400{% endif %}">
-                    <p class="text-lg font-bold text-green-600">{{ stat_confirmed }}</p>
-                    <p class="text-xs text-gray-500 mt-1">Potvrzeno</p>
+                    <p class="text-sm font-bold text-green-600">{{ stat_confirmed }}</p>
+                    <p class="text-[10px] text-gray-500">Potvrzeno</p>
                 </a>
                 <a href="/dane/{{ session.id }}?filtr=auto{{ _qso }}{{ _back }}" style="flex:1"
-                   class="block bg-yellow-50 rounded p-2 text-center border border-yellow-200 hover:bg-yellow-100 transition-colors
+                   class="block bg-yellow-50 rounded px-2 py-1 text-center border border-yellow-200 hover:bg-yellow-100 transition-colors
                           {% if filtr == 'auto' %}ring-2 ring-yellow-400{% endif %}">
-                    <p class="text-lg font-bold text-yellow-600">{{ stat_to_confirm }}</p>
-                    <p class="text-xs text-gray-500 mt-1">K potvrzení</p>
+                    <p class="text-sm font-bold text-yellow-600">{{ stat_to_confirm }}</p>
+                    <p class="text-[10px] text-gray-500">K potvrzení</p>
                 </a>
                 <a href="/dane/{{ session.id }}?filtr=unmatched{{ _qso }}{{ _back }}" style="flex:1"
-                   class="block bg-red-50 rounded p-2 text-center border border-red-200 hover:bg-red-100 transition-colors
+                   class="block bg-red-50 rounded px-2 py-1 text-center border border-red-200 hover:bg-red-100 transition-colors
                           {% if filtr == 'unmatched' %}ring-2 ring-red-400{% endif %}">
-                    <p class="text-lg font-bold text-red-600">{{ stat_unmatched }}</p>
-                    <p class="text-xs text-gray-500 mt-1">Nepřiřazeno</p>
+                    <p class="text-sm font-bold text-red-600">{{ stat_unmatched }}</p>
+                    <p class="text-[10px] text-gray-500">Nepřiřazeno</p>
                 </a>
                 {% if stat_missing > 0 %}
                 <a href="/dane/{{ session.id }}?filtr=missing{{ _qso }}{{ _back }}" style="flex:1"
-                   class="block bg-orange-50 rounded p-2 text-center border border-orange-200 hover:bg-orange-100 transition-colors
+                   class="block bg-orange-50 rounded px-2 py-1 text-center border border-orange-200 hover:bg-orange-100 transition-colors
                           {% if filtr == 'missing' %}ring-2 ring-orange-400{% endif %}">
-                    <p class="text-lg font-bold text-orange-600">{{ stat_missing }}</p>
-                    <p class="text-xs text-gray-500 mt-1">Bez PDF</p>
+                    <p class="text-sm font-bold text-orange-600">{{ stat_missing }}</p>
+                    <p class="text-[10px] text-gray-500">Bez PDF</p>
                 </a>
                 {% endif %}
             </div>
@@ -158,7 +172,7 @@
                 <input type="hidden" name="sort" value="{{ sort }}">
                 <input type="hidden" name="order" value="{{ order }}">
                 <input type="hidden" name="back" value="{{ back_url|default('') }}">
-                <div class="flex-1">
+                <div class="flex-1 relative">
                     <input type="text" name="q" value="{{ q }}"
                            placeholder="Hledat soubor, jméno z PDF, jednotku, vlastníka..."
                            aria-label="Hledat"
@@ -167,7 +181,9 @@
                            hx-target="#tax-tbody"
                            hx-include="[name='filtr'],[name='sort'],[name='order'],[name='back']"
                            hx-push-url="true"
+                           hx-indicator="#search-spinner"
                            class="w-full px-3 py-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs">
+                    <svg id="search-spinner" class="htmx-indicator absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-500 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
                 </div>
             </div>
         </div>
@@ -254,29 +270,6 @@
                 {% include "partials/tax_table_body.html" %}
             </tbody>
         </table>
-        {% endif %}
-        {% if total_pages is defined and total_pages > 1 %}
-        <div class="px-4 py-3 border-t border-gray-200 flex items-center justify-between text-sm">
-            <span class="text-gray-500">{{ total_filtered }} dokumentů, stránka {{ current_page }}/{{ total_pages }}</span>
-            <div class="flex items-center gap-1">
-                {% set _pbase = "/dane/" ~ session.id ~ "?filtr=" ~ filtr ~ "&q=" ~ (q|urlencode) ~ "&sort=" ~ sort ~ "&order=" ~ order ~ "&back=" ~ (back_url|default('')|urlencode) %}
-                {% if current_page > 1 %}
-                <a href="{{ _pbase }}&stranka={{ current_page - 1 }}" class="px-2.5 py-1 border border-gray-300 rounded text-gray-600 hover:bg-gray-50">&laquo;</a>
-                {% endif %}
-                {% for p in range(1, total_pages + 1) %}
-                    {% if p == current_page %}
-                    <span class="px-2.5 py-1 bg-blue-600 text-white rounded text-xs font-medium">{{ p }}</span>
-                    {% elif p <= 3 or p >= total_pages - 1 or (p >= current_page - 1 and p <= current_page + 1) %}
-                    <a href="{{ _pbase }}&stranka={{ p }}" class="px-2.5 py-1 border border-gray-300 rounded text-gray-600 hover:bg-gray-50 text-xs">{{ p }}</a>
-                    {% elif p == 4 or p == total_pages - 2 %}
-                    <span class="px-1 text-gray-400">...</span>
-                    {% endif %}
-                {% endfor %}
-                {% if current_page < total_pages %}
-                <a href="{{ _pbase }}&stranka={{ current_page + 1 }}" class="px-2.5 py-1 border border-gray-300 rounded text-gray-600 hover:bg-gray-50">&raquo;</a>
-                {% endif %}
-            </div>
-        </div>
         {% endif %}
     </div>
 </div>

@@ -217,6 +217,27 @@ def build_wizard_steps(
     return steps
 
 
+_IMPORT_STEPS = [
+    {"label": "Nahrání"},
+    {"label": "Mapování"},
+    {"label": "Náhled"},
+    {"label": "Výsledek"},
+]
+
+
+def build_import_wizard(current_step: int) -> dict:
+    """Build wizard context for import workflows (4 fixed steps).
+
+    Returns dict with wizard_steps, wizard_current, wizard_total for wizard_stepper.html.
+    """
+    steps = build_wizard_steps(_IMPORT_STEPS, current_step, max_done=current_step - 1)
+    return {
+        "wizard_steps": steps,
+        "wizard_current": current_step,
+        "wizard_total": 4,
+    }
+
+
 def build_name_with_titles(title: Optional[str], first_name: str, last_name: Optional[str]) -> str:
     """Build display name: title + příjmení + jméno."""
     parts = []

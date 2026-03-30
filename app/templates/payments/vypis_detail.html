@@ -44,7 +44,7 @@
                     <input type="hidden" name="back" value="{{ back_url }}">
                     <button type="submit" class="px-3 py-1.5 text-xs font-medium rounded-lg
                         {% if statement.locked_at %}bg-gray-300 text-gray-500 dark:bg-gray-600 dark:text-gray-400 cursor-not-allowed{% else %}bg-green-600 text-white hover:bg-green-700{% endif %}"
-                        title="{% if statement.locked_at %}Výpis je zamčený{% else %}Znovu napárovat nenapárované platby{% endif %}"
+                        title="{% if statement.locked_at %}Výpis je zamčený{% else %}Znovu spárovat všechny platby s předpisy podle VS{% endif %}"
                         {% if statement.locked_at %}disabled{% endif %}>
                         Přepárovat
                     </button>
@@ -79,9 +79,26 @@
             </div>
         </div>
 
-        <!-- Filtr bubliny -->
-        {% set _base = "/platby/vypisy/" ~ statement.id ~ "?sort=" ~ sort ~ "&order=" ~ order ~ ("&q=" ~ q if q else "") ~ ("&smer=" ~ smer if smer else "") %}
+        <!-- Filtr typ (Jednotky / Prostory) -->
         {% set _back = "&back=" ~ (back_url|default('')|urlencode) if back_url else "" %}
+        {% set _typ_base = "/platby/vypisy/" ~ statement.id ~ "?sort=" ~ sort ~ "&order=" ~ order ~ ("&q=" ~ q if q else "") ~ ("&stav=" ~ stav if stav else "") ~ ("&smer=" ~ smer if smer else "") %}
+        <div class="flex flex-wrap gap-2 mb-2">
+            <a href="{{ _typ_base }}{{ _back }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
+                {% if not typ %}bg-gray-700 text-white ring-2 ring-gray-500{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
+                Vše <span class="ml-1 opacity-75">{{ typ_counts.vse }}</span>
+            </a>
+            <a href="{{ _typ_base }}&typ=jednotky{{ _back }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
+                {% if typ == 'jednotky' %}bg-green-600 text-white ring-2 ring-green-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
+                Jednotky <span class="ml-1 opacity-75">{{ typ_counts.jednotky }}</span>
+            </a>
+            <a href="{{ _typ_base }}&typ=prostory{{ _back }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
+                {% if typ == 'prostory' %}bg-purple-600 text-white ring-2 ring-purple-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
+                Prostory <span class="ml-1 opacity-75">{{ typ_counts.prostory }}</span>
+            </a>
+        </div>
+
+        <!-- Filtr bubliny (stav) -->
+        {% set _base = "/platby/vypisy/" ~ statement.id ~ "?sort=" ~ sort ~ "&order=" ~ order ~ ("&q=" ~ q if q else "") ~ ("&smer=" ~ smer if smer else "") ~ ("&typ=" ~ typ if typ else "") %}
         <div class="flex flex-wrap gap-2 mb-2">
             <a href="{{ _base|replace('&stav=' ~ stav, '') }}{{ _back }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
                 {% if not stav %}bg-blue-600 text-white ring-2 ring-blue-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
@@ -104,7 +121,7 @@
                 Nenapárováno <span class="ml-1 opacity-75">{{ bubble_counts.unmatched }}</span>
             </a>
             <span class="text-gray-300 dark:text-gray-600">|</span>
-            {% set _base_smer = "/platby/vypisy/" ~ statement.id ~ "?sort=" ~ sort ~ "&order=" ~ order ~ ("&q=" ~ q if q else "") ~ ("&stav=" ~ stav if stav else "") %}
+            {% set _base_smer = "/platby/vypisy/" ~ statement.id ~ "?sort=" ~ sort ~ "&order=" ~ order ~ ("&q=" ~ q if q else "") ~ ("&stav=" ~ stav if stav else "") ~ ("&typ=" ~ typ if typ else "") %}
             <a href="{{ _base_smer }}&smer=prijem{{ _back }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
                 {% if smer == 'prijem' %}bg-green-600 text-white ring-2 ring-green-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
                 Příjmy <span class="ml-1 opacity-75">{{ bubble_counts.prijem }}</span>
@@ -117,17 +134,22 @@
 
         <!-- Hledání -->
         <div class="mb-2">
+            <div class="relative inline-block w-full sm:w-72">
             <input type="text" name="q" value="{{ q }}" placeholder="Hledat VS, protiúčet, poznámku..."
                 aria-label="Hledat"
                 hx-get="/platby/vypisy/{{ statement.id }}"
                 hx-trigger="keyup changed delay:300ms"
                 hx-target="#platby-tbody"
-                hx-include="[name='sort'],[name='order'],[name='stav'],[name='smer'],[name='back']"
-                class="w-full sm:w-72 px-3 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500">
+                hx-include="[name='sort'],[name='order'],[name='stav'],[name='smer'],[name='typ'],[name='back']"
+                hx-indicator="#search-spinner"
+                class="w-full px-3 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500">
+            <svg id="search-spinner" class="htmx-indicator absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-500 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+            </div>
             <input type="hidden" name="sort" value="{{ sort }}">
             <input type="hidden" name="order" value="{{ order }}">
             <input type="hidden" name="stav" value="{{ stav }}">
             <input type="hidden" name="smer" value="{{ smer }}">
+            <input type="hidden" name="typ" value="{{ typ }}">
             <input type="hidden" name="back" value="{{ back_url }}">
         </div>
     </div>
@@ -136,9 +158,9 @@
     <div class="flex-1 overflow-y-auto overflow-x-hidden min-h-0 bg-white dark:bg-gray-800 rounded-lg shadow">
         <table class="w-full text-xs">
             <thead class="sticky top-0 z-10 bg-gray-50 dark:bg-gray-700">
-                {% set _sort_base = "/platby/vypisy/" ~ statement.id ~ "?" ~ ("q=" ~ q ~ "&" if q else "") ~ ("stav=" ~ stav ~ "&" if stav else "") ~ ("smer=" ~ smer ~ "&" if smer else "") %}
+                {% set _sort_base = "/platby/vypisy/" ~ statement.id ~ "?" ~ ("q=" ~ q ~ "&" if q else "") ~ ("stav=" ~ stav ~ "&" if stav else "") ~ ("smer=" ~ smer ~ "&" if smer else "") ~ ("typ=" ~ typ ~ "&" if typ else "") %}
                 <tr>
-                    {% for col_key, col_label in [("datum", "Datum"), ("castka", "Částka"), ("vs", "VS"), ("protiucet", "Protiúčet"), ("stav", "Stav")] %}
+                    {% for col_key, col_label in [("datum", "Datum"), ("castka", "Částka"), ("vs", "VS"), ("protiucet", "Protiúčet"), ("stav", "Stav"), ("jednotka", "Jednotka"), ("prostor", "Prostor")] %}
                     {% set new_order = "desc" if sort == col_key and order == "asc" else "asc" %}
                     <th class="px-2 py-2 text-left font-semibold text-gray-600 dark:text-gray-300 cursor-pointer select-none hover:text-gray-900 dark:hover:text-white whitespace-nowrap"
                         onclick="window.location='{{ _sort_base }}sort={{ col_key }}&order={{ new_order }}{{ _back }}'">
@@ -146,7 +168,6 @@
                         {% if sort == col_key %}<span class="ml-0.5">{{ "▲" if order == "asc" else "▼" }}</span>{% endif %}
                     </th>
                     {% endfor %}
-                    <th class="px-2 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">Jednotka</th>
                     <th class="px-2 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">Zpráva</th>
                 </tr>
             </thead>

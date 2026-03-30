@@ -18,7 +18,7 @@ from app.services.import_mapping import (
     build_mapping_context, read_excel_headers, read_excel_sheet_names,
     validate_owner_mapping,
 )
-from app.utils import UPLOAD_LIMITS, is_safe_path, validate_upload
+from app.utils import UPLOAD_LIMITS, build_import_wizard, is_safe_path, validate_upload
 
 from ._helpers import (
     _load_owner_mapping,
@@ -141,8 +141,7 @@ def _owner_mapping_page(
     return templates.TemplateResponse("owners/owner_import_mapping.html", {
         "request": request,
         "active_nav": "import",
-        "import_step": 2,
-        "import_step_urls": {1: "/vlastnici/import"},
+        **build_import_wizard(2),
         "file_path": file_path,
         "filename": filename or Path(file_path).name,
         "sheets": sheets,
@@ -189,8 +188,7 @@ async def import_excel_preview(
     return templates.TemplateResponse("owners/import_preview.html", {
         "request": request,
         "active_nav": "import",
-        "import_step": 3,
-        "import_step_urls": {1: "/vlastnici/import", 2: "#back-to-mapping-form"},
+        **build_import_wizard(3),
         "preview": preview,
         "file_path": file_path,
         "filename": filename,

@@ -9,7 +9,7 @@
 
 ## URL konvence
 
-- Všechny URL cesty používají **české slugy bez diakritiky**: `/vlastnici`, `/jednotky`, `/hlasovani`, `/dane`, `/synchronizace`, `/sprava`, `/nastaveni`
+- Všechny URL cesty používají **české slugy bez diakritiky**: `/vlastnici`, `/jednotky`, `/prostory`, `/najemci`, `/hlasovani`, `/dane`, `/synchronizace`, `/sprava`, `/nastaveni`, `/platby`, `/kontrola-podilu`
 - Sub-endpointy: `/nova` (create), `/smazat` (delete), `/upravit` (edit), `/pridat` (add), `/potvrdit` (confirm), `/odebrat` (remove), `/exportovat` (export), `/aktualizovat` (update)
 - Nikdy nepoužívat angličtinu v URL cestách
 
@@ -69,6 +69,7 @@
 5. **HTMX partial** — search aktualizuje jen `<tbody>` přes partial šablonu, zbytek stránky zůstane
 6. **Sticky header** — `sticky top-0 z-10` na `<thead>`, flex column layout pro fixní filtry/search nad scrollovatelným obsahem
 7. **Náhledy souborů** — pokud tabulka zobrazuje soubory/přílohy (PDF, Excel, CSV), názvy MUSÍ být klikací s `target="_blank"` a `hx-boost="false"` pro náhled/stažení. Vyžaduje: (a) uložení plné cesty souboru v DB, (b) download endpoint s validací cesty v povolených adresářích, (c) `FileResponse` se správným `media_type`
+8. **Export + počet záznamů** — každá stránka s datovou tabulkou MUSÍ mít v hlavičce: (a) počet záznamů (`{{ items|length }} záznamů`), (b) tlačítka ↓ Excel a ↓ CSV se stejným stylem (`bg-gray-100 text-gray-600 border-gray-200`). Export endpoint (`/exportovat/{fmt}`) přijímá `xlsx`/`csv`, respektuje aktivní filtry/bubliny/hledání. Název souboru obsahuje suffix dle filtru (viz § Export dat)
 
 - Klikací entity vyžadují eager loading relací v routeru:
   ```python
@@ -98,9 +99,9 @@
 
 ## Dashboard
 
-- 4 stat karty v jednom řádku: vlastníci, jednotky, hlasování, rozesílání
-- Jednoduché karty (vlastníci, jednotky) — celá karta je `<a>` tag
-- Karty se sub-odkazy (hlasování, rozesílání) — `<div>` wrapper s hlavním `<a>` a per-status linky uvnitř
+- 6 stat karet v jednom řádku: vlastníci, jednotky, hlasování, rozesílání, platby, prostory
+- Jednoduché karty (vlastníci, jednotky, prostory) — celá karta je `<a>` tag
+- Karty se sub-odkazy (hlasování, rozesílání, platby) — `<div>` wrapper s hlavním `<a>` a per-status linky uvnitř
 - Per-status řádky: count badge + `→ název poslední kampaně` (truncate + title tooltip)
 - Přehledové karty zobrazují VŽDY všechny stavy — nikdy nefiltrovat na „jen aktivní"
 - Fixní header (stat karty + search) se scrollovatelnou tabulkou poslední aktivity
@@ -167,7 +168,7 @@
 ## Router vzory
 
 ### Boilerplate
-- Každý router: `router = APIRouter()` + `templates = Jinja2Templates(directory="app/templates")`
+- Každý router: `router = APIRouter()` + `from app.utils import templates` (sdílená singleton instance)
 - Žádné prefixy na `APIRouter()` — všechny prefixy v `main.py` přes `include_router(prefix=...)`
 - Každý `TemplateResponse` musí obsahovat `"active_nav": "module_key"` pro zvýraznění sidebaru
 
@@ -255,7 +256,7 @@
 - Export modelů v `app/models/__init__.py`
 - Odkaz v sidebar (`base.html`) s `active_nav` kontrolou
 - Přidání do README.md (popis modulu + API endpointy)
-- Odkaz v sidebaru (`base.html`): položky bez sekce nahoře (Přehled, Vlastníci, Jednotky, Import), sekce Moduly (doménové funkce), sekce Systém (admin/config). Ikona `w-4 h-4 mr-2` SVG + text label
+- Odkaz v sidebaru (`base.html`): top položky (Přehled, Import z Excelu), sekce Evidence (Vlastníci, Jednotky, Nájemci, Prostory), sekce Moduly (Hlasování, Rozesílání, Kontroly, Platby), sekce Systém (Administrace, Nastavení). Ikona `w-4 h-4 mr-2` SVG + text label
 
 ## Export dat (Excel + CSV)
 
@@ -287,7 +288,8 @@
 - Podadresáře: `excel/`, `word_templates/`, `scanned_ballots/`, `tax_pdfs/`, `csv/`, `share_check/`
 - Zápis přes `shutil.copyfileobj(file.file, f)` + `dest.parent.mkdir(parents=True, exist_ok=True)`
 - Multi-step import workflow: Upload → Mapování → Preview → Confirm. Cesta k souboru se předává jako hidden field, ne přes session
-- **Dynamické mapování sloupců** pro importy vlastníků a kontaktů: `import_mapping.py` service definuje pole, auto-detekci z hlaviček a validaci. Uložené mapování v `SvjInfo.owner_import_mapping` / `contact_import_mapping` (JSON). Sdílené UI: `partials/import_mapping_fields.html` (Jinja2 macro) + `partials/import_mapping_js.html` (sdílený JS) + `partials/import_stepper.html` (4-krokový sub-stepper)
+- **Dynamické mapování sloupců** pro importy vlastníků a kontaktů: `import_mapping.py` service definuje pole, auto-detekci z hlaviček a validaci. Uložené mapování v `SvjInfo.owner_import_mapping` / `contact_import_mapping` (JSON). Sdílené UI: `partials/import_mapping_fields.html` (Jinja2 macro) + `partials/import_mapping_js.html` (sdílený JS)
+- **Import wizard stepper**: Všechny import workflows (vlastníci, kontakty, hlasování, zůstatky) používají sdílený kruhový `wizard_stepper.html` (stejný design jako rozesílka). Router předává kontext přes `**build_import_wizard(step)` z `app/utils.py` — vrací `wizard_steps`, `wizard_current`, `wizard_total`
 
 ## Mazání entit se soubory
 
@@ -314,6 +316,7 @@
 - `excel_auto_width(ws, max_width=45)` — auto-šířka sloupců v openpyxl worksheet (pro Excel exporty)
 - `compute_eta(current, total, started_at)` — výpočet progrese (%), uplynulého času a ETA textu. Vrací dict `{pct, elapsed, eta}`
 - `build_wizard_steps(step_defs, current_step, max_done, sending_step=None)` — společná logika wizard stepperu (voting + tax)
+- `build_import_wizard(current_step)` — vrací wizard kontext pro import workflows (4 kroky: Nahrání → Mapování → Náhled → Výsledek)
 - `build_name_with_titles(title, first_name, last_name)` — sestaví zobrazovací jméno: titul + příjmení + jméno
 - `setup_jinja_filters(templates)` — registrace custom Jinja2 filtrů (aktuálně `fmt_num`) na Jinja2Templates instanci
 - `utcnow()` — naive UTC datetime, náhrada za deprecated `datetime.utcnow()` (Python 3.12+)
@@ -361,12 +364,14 @@
   - `voting/` — `session.py`, `ballots.py`, `import_votes.py`, `_helpers.py`
   - `tax/` — `session.py`, `processing.py`, `matching.py`, `sending.py`, `_helpers.py`
   - `payments/` — `prescriptions.py`, `symbols.py`, `statements.py`, `balances.py`, `overview.py`, `settlement.py`, `_helpers.py`
+  - `spaces/` — `crud.py`, `import_spaces.py`, `_helpers.py`
+  - `tenants/` — `crud.py`, `_helpers.py`
   - `administration/` — `info.py`, `board.py`, `code_lists.py`, `backups.py`, `bulk.py`, `_helpers.py`
   - `sync/` — `session.py`, `contacts.py`, `exchange.py`, `_helpers.py`
 
 ## Startup (lifespan)
 
-- `main.py` lifespan: (1) import modelů, (2) `create_all`, (3) `_ALL_MIGRATIONS` list (10 migračních funkcí + `_ensure_indexes()` + `_seed_code_lists()` + `_seed_email_templates()`), (4) `recover_stuck_sending_sessions()`, (5) vytvoření upload/generated/temp adresářů
+- `main.py` lifespan: (1) import modelů, (2) `create_all`, (3) `_ALL_MIGRATIONS` list (12 migračních funkcí + `_ensure_indexes()` + `_seed_code_lists()` + `_seed_email_templates()`), (4) `recover_stuck_sending_sessions()`, (5) vytvoření upload/generated/temp adresářů
 - `_ALL_MIGRATIONS` se sdílí s `run_post_restore_migrations()` — po obnově zálohy se spustí stejné migrace
 - Nové funkce vyžadující adresáře: přidat do lifespan. Nové indexy: přidat do `_ensure_indexes()`. Nové migrace: přidat do `_ALL_MIGRATIONS`
 

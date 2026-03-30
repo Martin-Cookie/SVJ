@@ -52,7 +52,7 @@
 <div class="space-y-4">
     {% for session in sessions %}
     {% set stats = session_stats[session.id] %}
-    <div class="bg-white rounded-lg shadow hover:shadow-md transition-shadow p-6">
+    <div class="bg-white rounded-lg shadow hover:shadow-md transition-shadow p-6{% if session.send_status and session.send_status.value == 'paused' %} border-l-4 border-yellow-400{% endif %}">
         <div class="flex items-center justify-between">
             <div class="flex-1 min-w-0">
                 <a href="/dane/{{ session.id }}?back={{ (list_url or '/dane')|urlencode }}" class="text-lg font-semibold text-blue-600 hover:text-blue-800 truncate">

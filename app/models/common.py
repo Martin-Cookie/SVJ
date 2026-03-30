@@ -1,6 +1,8 @@
 import enum
 from datetime import datetime
 
+from app.utils import utcnow
+
 from sqlalchemy import Column, DateTime, Enum, Integer, String, Text
 from sqlalchemy.orm import Session
 
@@ -28,7 +30,7 @@ class EmailLog(Base):
     attachment_paths = Column(Text, nullable=True)
     name_normalized = Column(String(300), nullable=True, index=True)
     sent_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
 
 
 class ImportLog(Base):
@@ -42,7 +44,7 @@ class ImportLog(Base):
     rows_imported = Column(Integer, default=0)
     rows_skipped = Column(Integer, default=0)
     errors = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
 
 
 class ActivityAction(str, enum.Enum):
@@ -65,7 +67,7 @@ class ActivityLog(Base):
     entity_name = Column(String(300), nullable=True)
     description = Column(String(500), nullable=True)
     module = Column(String(50), nullable=False, index=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
 
 
 def log_activity(db: Session, action: ActivityAction, entity_type: str,

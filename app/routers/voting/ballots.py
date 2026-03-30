@@ -34,6 +34,7 @@ async def ballot_list(
     q: str = Query(""),
     sort: str = Query("owner"),
     order: str = Query("asc"),
+    back: str = Query(""),
     db: Session = Depends(get_db),
 ):
     """Seznam hlasovacích lístků s filtry podle stavu."""
@@ -105,6 +106,12 @@ async def ballot_list(
 
     list_url = build_list_url(request)
 
+    back_url = back or "/hlasovani"
+    back_label = (
+        "Zpět na přehled" if back == "/"
+        else "Zpět na hlasování"
+    )
+
     has_processed = voting.has_processed_ballots
     ctx = {
         "request": request,
@@ -118,6 +125,8 @@ async def ballot_list(
         "sort": sort,
         "order": order,
         "list_url": list_url,
+        "back_url": back_url,
+        "back_label": back_label,
         **_ballot_stats(voting, db),
         **_voting_wizard(voting, 4 if has_processed else 3),
     }
@@ -178,6 +187,7 @@ async def process_page(
     sort: str = Query("owner"),
     order: str = Query("asc"),
     info: str = Query(""),
+    back: str = Query(""),
     db: Session = Depends(get_db),
 ):
     """Stránka zpracování hlasovacích lístků s formuláři hlasů."""
@@ -242,6 +252,9 @@ async def process_page(
     key_fn = sort_keys.get(sort, sort_keys["owner"])
     unprocessed.sort(key=key_fn, reverse=(order == "desc"))
 
+    back_url = back or "/hlasovani"
+    back_label = "Zpět na přehled" if back == "/" else "Zpět na hlasování"
+
     has_processed = voting.has_processed_ballots
     ctx = {
         "request": request,
@@ -253,6 +266,8 @@ async def process_page(
         "sort": sort,
         "order": order,
         "show_close_voting": has_processed,
+        "back_url": back_url,
+        "back_label": back_label,
         **_ballot_stats(voting, db),
         **_voting_wizard(voting, 3),
     }
@@ -459,6 +474,7 @@ async def not_submitted(
     q: str = Query(""),
     sort: str = Query("owner"),
     order: str = Query("asc"),
+    back: str = Query(""),
     db: Session = Depends(get_db),
 ):
     """Seznam neodevzdaných hlasovacích lístků."""
@@ -499,6 +515,9 @@ async def not_submitted(
 
     list_url = build_list_url(request)
 
+    back_url = back or "/hlasovani"
+    back_label = "Zpět na přehled" if back == "/" else "Zpět na hlasování"
+
     has_processed = voting.has_processed_ballots
     ctx = {
         "request": request,
@@ -511,6 +530,8 @@ async def not_submitted(
         "sort": sort,
         "order": order,
         "list_url": list_url,
+        "back_url": back_url,
+        "back_label": back_label,
         **_ballot_stats(voting, db),
         **_voting_wizard(voting, 4 if has_processed else 3),
     }

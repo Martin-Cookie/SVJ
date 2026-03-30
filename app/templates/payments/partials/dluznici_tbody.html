@@ -1,4 +1,47 @@
 {% for r in debtors %}
+{% if entita == 'prostory' %}
+{# ── Řádek prostoru ── #}
+<tr class="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors" id="ds-{{ r.space.id }}">
+    <td class="px-3 py-2 font-medium text-gray-900 dark:text-white whitespace-nowrap">
+        <a href="/platby/prostor/{{ r.space.id }}?rok={{ rok }}&back={{ (list_url ~ '#ds-' ~ r.space.id)|urlencode }}"
+           class="hover:text-blue-600 dark:hover:text-blue-400 hover:underline">
+            {{ r.space.space_number }}
+        </a>
+        {% if r.space.designation %}
+        <span class="text-gray-400 dark:text-gray-500 ml-1 text-xs">{{ r.space.designation }}</span>
+        {% endif %}
+    </td>
+    <td class="px-3 py-2 text-gray-900 dark:text-white max-w-[14rem] truncate" title="{{ r.tenant_rel.tenant.display_name if r.tenant_rel and r.tenant_rel.tenant else '—' }}">
+        {% if r.tenant_rel and r.tenant_rel.tenant %}
+        {% set t = r.tenant_rel.tenant %}
+        {% if t.is_linked %}
+        <a href="/vlastnici/{{ t.owner_id }}?back={{ (list_url ~ '#ds-' ~ r.space.id)|urlencode }}" class="hover:text-blue-600 dark:hover:text-blue-400 hover:underline">{{ t.display_name }}</a>
+        {% else %}
+        <a href="/najemci/{{ t.id }}?back={{ (list_url ~ '#ds-' ~ r.space.id)|urlencode }}" class="hover:text-blue-600 dark:hover:text-blue-400 hover:underline">{{ t.display_name }}</a>
+        {% endif %}
+        {% else %}
+        <span class="text-gray-400">—</span>
+        {% endif %}
+    </td>
+    <td class="px-3 py-2 text-right text-gray-700 dark:text-gray-300 whitespace-nowrap">{{ r.monthly|fmt_num }} Kč</td>
+    <td class="px-3 py-2 text-right text-gray-700 dark:text-gray-300 whitespace-nowrap">{{ r.total_paid|fmt_num }} Kč</td>
+    <td class="px-3 py-2 text-right font-semibold text-red-600 dark:text-red-400 whitespace-nowrap">{{ r.debt|fmt_num }} Kč</td>
+    <td class="px-3 py-2 text-center text-gray-500 dark:text-gray-400 whitespace-nowrap">
+        {% set unpaid_months = [] %}
+        {% for m in range(1, 13) %}
+            {% if r.months[m].status in ['unpaid', 'partial'] and m in months_with_data %}
+                {% if unpaid_months.append(m) %}{% endif %}
+            {% endif %}
+        {% endfor %}
+        {{ unpaid_months|length }}
+    </td>
+    <td class="px-3 py-2 text-right">
+        <a href="/platby/prostor/{{ r.space.id }}?rok={{ rok }}&back={{ (list_url ~ '#ds-' ~ r.space.id)|urlencode }}"
+           class="text-blue-600 dark:text-blue-400 hover:underline">Detail →</a>
+    </td>
+</tr>
+{% else %}
+{# ── Řádek jednotky ── #}
 <tr class="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors" id="d-{{ r.unit.id }}">
     <td class="px-3 py-2 font-medium text-gray-900 dark:text-white whitespace-nowrap">
         <a href="/platby/jednotka/{{ r.unit.id }}?rok={{ rok }}&back={{ (list_url ~ '#d-' ~ r.unit.id)|urlencode }}"
@@ -30,9 +73,12 @@
            class="text-blue-600 dark:text-blue-400 hover:underline">Detail →</a>
     </td>
 </tr>
+{% endif %}
 {% endfor %}
 {% if not debtors %}
 <tr>
-    <td colspan="7" class="px-3 py-8 text-center text-xs text-gray-400 dark:text-gray-500">Žádní dlužníci nenalezeni.</td>
+    <td colspan="7" class="px-3 py-8 text-center text-xs text-gray-400 dark:text-gray-500">
+        {% if entita == 'prostory' %}Žádní dlužníci (prostory) nenalezeni.{% else %}Žádní dlužníci nenalezeni.{% endif %}
+    </td>
 </tr>
 {% endif %}

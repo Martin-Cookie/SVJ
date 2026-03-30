@@ -12,7 +12,8 @@ from sqlalchemy import cast, func, String
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
-from app.models import Owner, OwnerUnit, SvjInfo, Unit, Payment, PaymentAllocation, PaymentDirection, PaymentMatchStatus, Prescription, PrescriptionYear
+from app.models import Owner, OwnerUnit, SvjInfo, Unit, UnitBalance, Payment, PaymentAllocation, PaymentDirection, PaymentMatchStatus, Prescription, PrescriptionYear
+from app.routers.payments._helpers import compute_debt_map
 from app.services.code_list_service import get_all_code_lists
 from app.services.owner_exchange import recalculate_unit_votes
 from app.utils import build_list_url, excel_auto_width, is_htmx_partial, strip_diacritics, templates, utcnow
@@ -472,6 +473,16 @@ async def unit_list(
     """Seznam jednotek s filtry, hledáním a řazením."""
     units = _filter_units(db, q, typ, sekce, sort, order)
 
+    # Debt map — platební dluh (předpis × měsíce + zůstatky - zaplaceno)
+    debt_map = {}
+    latest_py = db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).first()
+    if latest_py:
+        debt_map = compute_debt_map(db, latest_py.year)
+
+    # Python-side sort by debt
+    if sort == "dluh":
+        units.sort(key=lambda u: debt_map.get(u.id, 0), reverse=(order == "desc"))
+
     # Current list URL for back navigation
     list_url = build_list_url(request)
 
@@ -481,6 +492,7 @@ async def unit_list(
             "request": request,
             "units": units,
             "list_url": list_url,
+            "debt_map": debt_map,
         })
 
     # Stats
@@ -513,6 +525,7 @@ async def unit_list(
         "sekce": sekce,
         "sort": sort,
         "order": order,
+        "debt_map": debt_map,
         "stats": {
             "total_units": total_units,
             "total_scd": total_scd,
@@ -645,12 +658,24 @@ async def unit_detail(
     elif "/platby" in back:
         back_label = "Zpět na platby"
     elif back:
-        back_label = "Zpět"
+        back_label = "Zpět na seznam jednotek"
     else:
         back_label = "Zpět na seznam jednotek"
 
+    # Počáteční zůstatek (dluh z importu)
+    opening_balance = 0
+    balance_year = None
+    bal_py = db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).first()
+    if bal_py:
+        balance_year = bal_py.year
+        ob = db.query(func.sum(UnitBalance.opening_amount)).filter(
+            UnitBalance.unit_id == unit.id,
+            UnitBalance.year == bal_py.year,
+        ).scalar()
+        opening_balance = ob or 0
+
     # Platební stav — aktuální rok
-    latest_py = db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).first()
+    latest_py = bal_py
     payment_status = None
     payment_debt = 0
     payment_year = None
@@ -697,4 +722,6 @@ async def unit_detail(
         "payment_status": payment_status,
         "payment_debt": payment_debt,
         "payment_year": payment_year,
+        "opening_balance": opening_balance,
+        "balance_year": balance_year,
     })

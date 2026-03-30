@@ -106,7 +106,7 @@
     <input type="hidden" name="sort" value="{{ sort }}">
     <input type="hidden" name="order" value="{{ order }}">
     <input type="hidden" name="back" value="{{ back_url|default('') }}">
-    <div class="flex-1">
+    <div class="flex-1 relative">
         <input type="text" id="sync-search-q" name="q" value="{{ q }}"
                placeholder="Hledat jednotku, vlastníka, typ..."
                aria-label="Hledat"
@@ -117,7 +117,9 @@
                hx-swap="outerHTML"
                hx-include="[name='filtr'],[name='sort'],[name='order'],[name='back']"
                hx-push-url="true"
+               hx-indicator="#search-spinner"
                class="w-full px-3 py-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs">
+        <svg id="search-spinner" class="htmx-indicator absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-500 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
     </div>
     {% if q %}
     <a href="{{ request.url.path }}?filtr={{ filtr }}{% if sort %}&sort={{ sort }}&order={{ order }}{% endif %}{{ '&back=' ~ (back_url|default('')|urlencode) if back_url else '' }}" class="text-xs text-gray-500 hover:text-gray-700">Zrušit</a>

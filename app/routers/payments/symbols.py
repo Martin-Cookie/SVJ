@@ -6,7 +6,7 @@ from sqlalchemy import asc as sa_asc, desc as sa_desc
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
-from app.models import VariableSymbolMapping, Unit, SymbolSource
+from app.models import VariableSymbolMapping, Unit, Space, SymbolSource
 from app.utils import build_list_url, is_htmx_partial, strip_diacritics
 from ._helpers import templates, logger, compute_nav_stats
 
@@ -32,7 +32,8 @@ async def symboly_seznam(
 ):
     """Seznam VS mapování."""
     query = db.query(VariableSymbolMapping).options(
-        joinedload(VariableSymbolMapping.unit)
+        joinedload(VariableSymbolMapping.unit),
+        joinedload(VariableSymbolMapping.space),
     )
 
     # Filtry
@@ -48,6 +49,13 @@ async def symboly_seznam(
 
     if zdroj:
         query = query.filter(VariableSymbolMapping.source == zdroj)
+
+    # Filtr typ entity
+    entity = request.query_params.get("entita", "")
+    if entity == "jednotky":
+        query = query.filter(VariableSymbolMapping.unit_id.isnot(None))
+    elif entity == "prostory":
+        query = query.filter(VariableSymbolMapping.space_id.isnot(None))
 
     # Řazení
     col = SORT_COLUMNS.get(sort)
@@ -66,8 +74,9 @@ async def symboly_seznam(
             reverse=(order == "desc"),
         )
 
-    # Jednotky pro formulář přidání
+    # Jednotky a prostory pro formulář přidání
     units = db.query(Unit).order_by(Unit.unit_number).all()
+    spaces = db.query(Space).order_by(Space.space_number).all()
 
     # Zdroje pro bubliny
     sources = db.query(VariableSymbolMapping.source).distinct().all()
@@ -82,6 +91,8 @@ async def symboly_seznam(
     chyba = request.query_params.get("chyba", "")
     if flash_param == "ok":
         flash_message = "Variabilní symbol přidán."
+    elif flash_param == "upraveno":
+        flash_message = "Variabilní symbol upraven."
     elif flash_param == "smazano":
         flash_message = "Variabilní symbol smazán."
     elif chyba == "duplicita":
@@ -89,16 +100,26 @@ async def symboly_seznam(
     elif chyba == "prazdny":
         flash_message = "Variabilní symbol nesmí být prázdný."
 
+    # Count by entity type for bubbles
+    total_vs_count = db.query(VariableSymbolMapping).count()
+    unit_vs_count = db.query(VariableSymbolMapping).filter(VariableSymbolMapping.unit_id.isnot(None)).count()
+    space_vs_count = db.query(VariableSymbolMapping).filter(VariableSymbolMapping.space_id.isnot(None)).count()
+
     ctx = {
         "request": request,
         "active_nav": "platby",
         "mappings": mappings,
         "units": units,
+        "spaces": spaces,
         "sources": sources,
         "sort": sort,
         "order": order,
         "q": q,
         "zdroj": zdroj,
+        "entita": entity,
+        "total_vs_count": total_vs_count,
+        "unit_vs_count": unit_vs_count,
+        "space_vs_count": space_vs_count,
         "list_url": list_url,
         "back_url": back_url,
         "flash_message": flash_message,
@@ -120,7 +141,7 @@ def _symboly_redirect_url(form_data, flash: str = "", chyba: str = "") -> str:
         params.append(f"flash={flash}")
     if chyba:
         params.append(f"chyba={chyba}")
-    for key in ("q", "sort", "order", "zdroj", "back"):
+    for key in ("q", "sort", "order", "zdroj", "entita", "back"):
         val = form_data.get(key, "")
         if val:
             params.append(f"{key}={val}")
@@ -132,7 +153,9 @@ def _symboly_redirect_url(form_data, flash: str = "", chyba: str = "") -> str:
 async def symbol_pridat(
     request: Request,
     variable_symbol: str = Form(...),
-    unit_id: int = Form(...),
+    entity_type: str = Form("unit"),
+    unit_id: int = Form(0),
+    space_id: int = Form(0),
     description: str = Form(""),
     db: Session = Depends(get_db),
 ):
@@ -149,21 +172,92 @@ async def symbol_pridat(
     if existing:
         return RedirectResponse(_symboly_redirect_url(form_data, chyba="duplicita"), status_code=302)
 
-    db.add(VariableSymbolMapping(
+    mapping = VariableSymbolMapping(
         variable_symbol=vs_clean,
-        unit_id=unit_id,
         source=SymbolSource.MANUAL,
         description=description.strip() or None,
-    ))
+    )
+    if entity_type == "space" and space_id:
+        mapping.space_id = space_id
+        mapping.unit_id = None
+    else:
+        mapping.unit_id = unit_id if unit_id else None
+        mapping.space_id = None
+
+    db.add(mapping)
     db.commit()
     return RedirectResponse(_symboly_redirect_url(form_data, flash="ok"), status_code=302)
+
+
+@router.get("/symboly/{mapping_id}/upravit-formular")
+async def symbol_edit_form(
+    request: Request,
+    mapping_id: int,
+    db: Session = Depends(get_db),
+):
+    """Vrátí HTMX partial s editačním řádkem."""
+    mapping = db.query(VariableSymbolMapping).options(
+        joinedload(VariableSymbolMapping.unit),
+        joinedload(VariableSymbolMapping.space),
+    ).get(mapping_id)
+    if not mapping:
+        return RedirectResponse("/platby/symboly", status_code=302)
+
+    units = db.query(Unit).order_by(Unit.unit_number).all()
+    spaces = db.query(Space).order_by(Space.space_number).all()
+
+    return templates.TemplateResponse("payments/partials/_symboly_edit_row.html", {
+        "request": request,
+        "m": mapping,
+        "units": units,
+        "spaces": spaces,
+        "q": request.query_params.get("q", ""),
+        "sort": request.query_params.get("sort", "vs"),
+        "order": request.query_params.get("order", "asc"),
+        "zdroj": request.query_params.get("zdroj", ""),
+        "entita": request.query_params.get("entita", ""),
+        "back_url": request.query_params.get("back", ""),
+        "list_url": request.query_params.get("list_url", "/platby/symboly"),
+    })
+
+
+@router.get("/symboly/{mapping_id}/info")
+async def symbol_info_row(
+    request: Request,
+    mapping_id: int,
+    db: Session = Depends(get_db),
+):
+    """Vrátí HTMX partial se zobrazovacím řádkem (pro cancel)."""
+    mapping = db.query(VariableSymbolMapping).options(
+        joinedload(VariableSymbolMapping.unit),
+        joinedload(VariableSymbolMapping.space),
+    ).get(mapping_id)
+    if not mapping:
+        return RedirectResponse("/platby/symboly", status_code=302)
+
+    list_url = request.query_params.get("list_url", "/platby/symboly")
+
+    return templates.TemplateResponse("payments/partials/_symboly_view_row.html", {
+        "request": request,
+        "m": mapping,
+        "q": request.query_params.get("q", ""),
+        "sort": request.query_params.get("sort", "vs"),
+        "order": request.query_params.get("order", "asc"),
+        "zdroj": request.query_params.get("zdroj", ""),
+        "entita": request.query_params.get("entita", ""),
+        "back_url": request.query_params.get("back", ""),
+        "list_url": list_url,
+    })
 
 
 @router.post("/symboly/{mapping_id}/upravit")
 async def symbol_upravit(
     request: Request,
     mapping_id: int,
-    unit_id: int = Form(...),
+    variable_symbol: str = Form(""),
+    entity_type: str = Form("unit"),
+    unit_id: int = Form(0),
+    space_id: int = Form(0),
     description: str = Form(""),
     db: Session = Depends(get_db),
 ):
@@ -173,7 +267,22 @@ async def symbol_upravit(
     if not mapping:
         return RedirectResponse(_symboly_redirect_url(form_data, chyba="nenalezeno"), status_code=302)
 
-    mapping.unit_id = unit_id
+    # Aktualizace VS pokud se změnil
+    vs_clean = variable_symbol.strip()
+    if not vs_clean:
+        return RedirectResponse(_symboly_redirect_url(form_data, chyba="prazdny"), status_code=302)
+    if vs_clean != mapping.variable_symbol:
+        existing = db.query(VariableSymbolMapping).filter_by(variable_symbol=vs_clean).first()
+        if existing:
+            return RedirectResponse(_symboly_redirect_url(form_data, chyba="duplicita"), status_code=302)
+        mapping.variable_symbol = vs_clean
+
+    if entity_type == "space" and space_id:
+        mapping.space_id = space_id
+        mapping.unit_id = None
+    else:
+        mapping.unit_id = unit_id if unit_id else None
+        mapping.space_id = None
     mapping.description = description.strip() or None
     db.commit()
     return RedirectResponse(_symboly_redirect_url(form_data, flash="upraveno"), status_code=302)

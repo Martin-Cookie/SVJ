@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+{% block title %}Nájemce {{ tenant.display_name }} - SVJ Správa{% endblock %}
+
+{% block content %}
+<div class="flex flex-col" style="height:calc(100vh - 3rem)">
+    <!-- Fixed header: back + title + badges + info strip -->
+    <div class="shrink-0">
+        <a href="{{ back_url }}" class="text-sm text-blue-600 hover:text-blue-800">&larr; {{ back_label }}</a>
+
+        <div class="flex items-center gap-3 mt-1 mb-3">
+            <h1 class="text-2xl font-bold text-gray-800">{{ tenant.display_name }}</h1>
+            <div class="flex items-center gap-2">
+                {% set rt = tenant.resolved_type %}
+                {% if rt and rt.value == 'legal' %}
+                <span class="px-2 py-0.5 text-xs font-medium bg-orange-100 text-orange-800 rounded-full">Právnická osoba</span>
+                {% else %}
+                <span class="px-2 py-0.5 text-xs font-medium bg-green-100 text-green-800 rounded-full">Fyzická osoba</span>
+                {% endif %}
+                {% if tenant.is_linked %}
+                <a href="/vlastnici/{{ tenant.owner_id }}?back={{ (('/najemci/' ~ tenant.id ~ '?back=' ~ (back_url|urlencode))|urlencode) }}" class="px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-700 rounded-full hover:bg-blue-200 transition-colors">Propojen s vlastníkem &rarr;</a>
+                {% endif %}
+                {% if tenant.birth_number %}
+                <span class="px-2 py-0.5 text-xs font-medium bg-gray-50 text-gray-700 rounded border border-gray-200">RČ: {{ tenant.birth_number }}</span>
+                {% endif %}
+                {% if tenant.company_id %}
+                <span class="px-2 py-0.5 text-xs font-medium bg-gray-50 text-gray-700 rounded border border-gray-200">IČ: {{ tenant.company_id }}</span>
+                {% endif %}
+                {% if not tenant.is_linked %}
+                <form hx-post="/najemci/{{ tenant.id }}/smazat" hx-confirm="Opravdu smazat nájemce {{ tenant.display_name }}?" class="inline">
+                    <button type="submit" class="px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700 rounded-full hover:bg-red-200 transition-colors">Smazat</button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if tenant.is_linked %}
+        <!-- Info: data z vlastníka -->
+        <div class="flex items-center gap-2 mb-3 px-3 py-2 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-200 dark:border-blue-800">
+            <svg class="w-4 h-4 text-blue-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <p class="text-xs text-blue-700 dark:text-blue-300">
+                Údaje se načítají z karty vlastníka. Pro úpravy přejděte na
+                <a href="/vlastnici/{{ tenant.owner_id }}?back={{ (('/najemci/' ~ tenant.id ~ '?back=' ~ (back_url|urlencode))|urlencode) }}" class="font-medium underline hover:text-blue-900 dark:hover:text-blue-100">kartu vlastníka</a>.
+            </p>
+        </div>
+        {% endif %}
+
+        <!-- Info strip: 4-column grid -->
+        <div class="bg-white rounded-lg shadow mb-3">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-gray-100">
+                <div class="p-3" id="identity-section">
+                    {% include "tenants/partials/_tenant_identity_info.html" %}
+                </div>
+                <div class="p-3" id="contact-section">
+                    {% include "tenants/partials/_tenant_contact_info.html" %}
+                </div>
+                <div class="p-3" id="perm-address-section">
+                    {% with prefix="perm", address_label="Trvalá adresa", street=tenant.perm_street, district=tenant.perm_district, city=tenant.perm_city, zip=tenant.perm_zip, country=tenant.perm_country %}
+                    {% include "tenants/partials/_tenant_address_info.html" %}
+                    {% endwith %}
+                </div>
+                <div class="p-3" id="corr-address-section">
+                    {% with prefix="corr", address_label="Koresp. adresa", street=tenant.corr_street, district=tenant.corr_district, city=tenant.corr_city, zip=tenant.corr_zip, country=tenant.corr_country %}
+                    {% include "tenants/partials/_tenant_address_info.html" %}
+                    {% endwith %}
+                </div>
+            </div>
+        </div>
+
+        {% if tenant.note %}
+        <div class="bg-white rounded-lg shadow p-3 mb-3 text-xs text-gray-600">
+            <span class="font-medium">Poznámka:</span> {{ tenant.note }}
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Scrollable content: spaces + owner linking -->
+    <div class="flex-1 overflow-y-auto overflow-x-hidden min-h-0 space-y-4">
+        <!-- Current space -->
+        <div class="bg-white rounded-lg shadow p-4">
+            <h2 class="text-sm font-semibold text-gray-700 mb-3">Aktuální prostor</h2>
+            {% if active_rel %}
+            <div class="space-y-3">
+                <div class="flex items-center gap-3">
+                    <div class="flex-1">
+                        <p class="text-sm font-medium text-gray-800">
+                            <a href="/prostory/{{ active_rel.space.id }}?back={{ (('/najemci/' ~ tenant.id ~ '?back=' ~ (back_url|urlencode))|urlencode) }}" class="text-blue-600 hover:underline">
+                                Prostor {{ active_rel.space.space_number }} — {{ active_rel.space.designation }}
+                            </a>
+                        </p>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-2 text-xs border-t border-gray-100 pt-3">
+                    <div>
+                        <span class="text-gray-500">Měsíční nájemné:</span>
+                        <span class="font-medium text-gray-800 ml-1">{{ active_rel.monthly_rent|fmt_num }} Kč</span>
+                    </div>
+                    {% if active_rel.variable_symbol %}
+                    <div>
+                        <span class="text-gray-500">VS:</span>
+                        <span class="font-mono text-gray-800 ml-1">{{ active_rel.variable_symbol }}</span>
+                    </div>
+                    {% endif %}
+                    {% if active_rel.contract_number %}
+                    <div>
+                        <span class="text-gray-500">Č. smlouvy:</span>
+                        <span class="text-gray-800 ml-1">{{ active_rel.contract_number }}</span>
+                    </div>
+                    {% endif %}
+                    {% if active_rel.contract_start %}
+                    <div>
+                        <span class="text-gray-500">Od:</span>
+                        <span class="text-gray-800 ml-1">{{ active_rel.contract_start.strftime('%d.%m.%Y') }}</span>
+                    </div>
+                    {% endif %}
+                    {% if active_rel.contract_end %}
+                    <div>
+                        <span class="text-gray-500">Do:</span>
+                        <span class="text-gray-800 ml-1">{{ active_rel.contract_end.strftime('%d.%m.%Y') }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% else %}
+            <p class="text-sm text-gray-400">Žádný aktivní pronájem.</p>
+            {% endif %}
+
+            {% if history %}
+            <div class="mt-4 border-t border-gray-200 pt-4">
+                <h3 class="text-xs font-semibold text-gray-600 mb-2">Historie</h3>
+                <div class="space-y-2">
+                    {% for st in history %}
+                    <div class="flex items-center justify-between text-xs bg-gray-50 rounded p-2">
+                        <a href="/prostory/{{ st.space.id }}?back={{ (('/najemci/' ~ tenant.id ~ '?back=' ~ (back_url|urlencode))|urlencode) }}" class="text-gray-500 hover:text-blue-600 hover:underline">{{ st.space.space_number }} — {{ st.space.designation }}</a>
+                        <div class="text-gray-400">
+                            {% if st.contract_start %}{{ st.contract_start.strftime('%d.%m.%Y') }}{% endif %}
+                            {% if st.contract_end %} – {{ st.contract_end.strftime('%d.%m.%Y') }}{% endif %}
+                            {% if st.monthly_rent %} · {{ st.monthly_rent|fmt_num }} Kč{% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Owner linking -->
+        <div class="bg-white rounded-lg shadow p-4">
+            <h2 class="text-sm font-semibold text-gray-700 mb-3">Propojení s vlastníkem</h2>
+            {% if tenant.is_linked %}
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-700">
+                        Propojen s:
+                        <a href="/vlastnici/{{ tenant.owner_id }}?back={{ (('/najemci/' ~ tenant.id ~ '?back=' ~ (back_url|urlencode))|urlencode) }}" class="text-blue-600 hover:underline font-medium">{{ tenant.owner.display_name }}</a>
+                    </p>
+                    <p class="text-xs text-gray-500 mt-1">Údaje nájemce se čtou z karty vlastníka.</p>
+                </div>
+                <form hx-post="/najemci/{{ tenant.id }}/odpojit" hx-confirm="Zrušit propojení? Údaje vlastníka se zkopírují do karty nájemce.">
+                    <button type="submit" class="px-3 py-1.5 bg-gray-100 text-gray-600 rounded text-xs hover:bg-gray-200 transition-colors border border-gray-200">Odpojit</button>
+                </form>
+            </div>
+            {% else %}
+            <form method="post" action="/najemci/{{ tenant.id }}/propojit">
+                <div class="flex items-end gap-3">
+                    <div class="flex-1">
+                        <label class="text-xs text-gray-500 block mb-1">Vyberte vlastníka</label>
+                        <select name="owner_id" class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-500">
+                            <option value="">— vyberte —</option>
+                            {% for o in owners %}
+                            <option value="{{ o.id }}">{{ o.display_name }}{% if o.email %} ({{ o.email }}){% endif %}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <button type="submit" class="px-3 py-1.5 bg-blue-600 text-white rounded text-xs font-medium hover:bg-blue-700 transition-colors">Propojit</button>
+                </div>
+                <p class="text-xs text-gray-500 mt-2">Po propojení se údaje nájemce budou číst z karty vlastníka.</p>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

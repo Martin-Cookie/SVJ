@@ -1,0 +1,68 @@
+<form hx-post="/najemci/{{ tenant.id }}/identita-upravit" hx-target="#identity-section" hx-swap="innerHTML">
+    <div class="flex items-center justify-between mb-2">
+        <h2 class="text-sm font-semibold text-gray-700">Identifikace</h2>
+        <div class="flex items-center gap-1">
+            <button type="submit" class="px-2 py-1 text-xs font-medium text-blue-600 border border-blue-300 rounded hover:bg-blue-50 transition-colors">Uložit</button>
+            <button type="button" hx-get="/najemci/{{ tenant.id }}/identita-info" hx-target="#identity-section" hx-swap="innerHTML"
+                    class="px-2 py-1 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-xs font-medium">Zrušit</button>
+        </div>
+    </div>
+    {% if error|default('') %}
+    <div class="bg-red-50 border border-red-200 rounded p-2 mb-2 text-xs text-red-700">{{ error }}</div>
+    {% endif %}
+    <div class="space-y-2">
+        <div>
+            <label class="block text-xs text-gray-500 mb-0.5">Typ osoby</label>
+            <select name="tenant_type" id="tenant-identity-type"
+                    onchange="toggleTenantIdentityFields(this.value)"
+                    class="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-blue-500">
+                <option value="physical" {% if not tenant.tenant_type or tenant.tenant_type.value == 'physical' %}selected{% endif %}>Fyzická osoba</option>
+                <option value="legal" {% if tenant.tenant_type and tenant.tenant_type.value == 'legal' %}selected{% endif %}>Právnická osoba</option>
+            </select>
+        </div>
+
+        {# Physical person fields #}
+        <div id="tenant-identity-physical-fields" class="space-y-2 {% if tenant.tenant_type and tenant.tenant_type.value == 'legal' %}hidden{% endif %}">
+            <div>
+                <label class="block text-xs text-gray-500 mb-0.5">Titul</label>
+                <input type="text" name="title" value="{{ tenant.title or '' }}" placeholder="Ing., Mgr., ..."
+                       class="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-xs text-gray-500 mb-0.5">Příjmení</label>
+                <input type="text" name="last_name" value="{{ tenant.last_name or '' }}"
+                       class="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-xs text-gray-500 mb-0.5">Jméno</label>
+                <input type="text" name="first_name_physical" value="{{ tenant.first_name or '' if (not tenant.tenant_type or tenant.tenant_type.value == 'physical') else '' }}"
+                       class="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-xs text-gray-500 mb-0.5">Rodné číslo</label>
+                <input type="text" name="birth_number" value="{{ tenant.birth_number or '' }}" placeholder="000000/0000"
+                       class="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-blue-500">
+            </div>
+        </div>
+
+        {# Legal entity fields #}
+        <div id="tenant-identity-legal-fields" class="space-y-2 {% if not tenant.tenant_type or tenant.tenant_type.value != 'legal' %}hidden{% endif %}">
+            <div>
+                <label class="block text-xs text-gray-500 mb-0.5">Název firmy</label>
+                <input type="text" name="first_name_legal" value="{{ tenant.first_name or '' if tenant.tenant_type and tenant.tenant_type.value == 'legal' else '' }}"
+                       class="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-xs text-gray-500 mb-0.5">IČ</label>
+                <input type="text" name="company_id" value="{{ tenant.company_id or '' }}" placeholder="12345678"
+                       class="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-blue-500">
+            </div>
+        </div>
+    </div>
+</form>
+<script>
+function toggleTenantIdentityFields(val) {
+    document.getElementById('tenant-identity-physical-fields').classList.toggle('hidden', val === 'legal');
+    document.getElementById('tenant-identity-legal-fields').classList.toggle('hidden', val !== 'legal');
+}
+</script>

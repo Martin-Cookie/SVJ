@@ -1,0 +1,46 @@
+{% set at = space.active_tenant_rel %}
+<tr id="space-{{ space.id }}" class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+    <td class="px-2 py-1.5 font-mono">
+        <a href="/prostory/{{ space.id }}?back={{ ((list_url or '/prostory') ~ '#space-' ~ space.id)|urlencode }}" class="font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:underline">{{ space.space_number }}</a>
+    </td>
+    <td class="px-2 py-1.5 text-gray-700 dark:text-gray-300 overflow-hidden" style="text-overflow:ellipsis;white-space:nowrap" title="{{ space.designation or '' }}">{{ space.designation or '—' }}</td>
+    <td class="px-2 py-1.5 text-gray-500 dark:text-gray-400 text-center">{{ space.section or '—' }}</td>
+    <td class="px-2 py-1.5 text-gray-500 dark:text-gray-400 text-center">{{ space.floor if space.floor is not none else '—' }}</td>
+    <td class="px-2 py-1.5 text-gray-700 dark:text-gray-300 text-right font-mono whitespace-nowrap">{% if space.area %}{{ space.area|fmt_num }} m²{% else %}—{% endif %}</td>
+    <td class="px-2 py-1.5">
+        {% if space.status.value == 'rented' %}
+        <span class="px-1.5 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">Pronajato</span>
+        {% elif space.status.value == 'vacant' %}
+        <span class="px-1.5 py-0.5 text-xs font-medium rounded-full bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300">Volné</span>
+        {% elif space.status.value == 'blocked' %}
+        <span class="px-1.5 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300" title="{{ space.blocked_reason or '' }}">Blokované</span>
+        {% endif %}
+    </td>
+    <td class="px-2 py-1.5 overflow-hidden" style="text-overflow:ellipsis;white-space:nowrap">
+        {% if at %}
+        {% if at.tenant.is_linked %}
+        <a href="/vlastnici/{{ at.tenant.owner_id }}?back={{ ((list_url or '/prostory') ~ '#space-' ~ space.id)|urlencode }}" class="text-blue-600 hover:text-blue-800 hover:underline inline-flex items-center gap-1" title="Vlastník: {{ at.tenant.display_name }}{% if at.tenant.resolved_email %} · {{ at.tenant.resolved_email }}{% endif %}{% if at.tenant.resolved_phone %} · {{ at.tenant.resolved_phone }}{% endif %}"><svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>{{ at.tenant.display_name }}</a>
+        {% else %}
+        <a href="/najemci/{{ at.tenant.id }}?back={{ ((list_url or '/prostory') ~ '#space-' ~ space.id)|urlencode }}" class="text-gray-700 hover:text-gray-900 hover:underline dark:text-gray-300 dark:hover:text-gray-100" title="{{ at.tenant.resolved_email }}{% if at.tenant.resolved_phone %} · {{ at.tenant.resolved_phone }}{% endif %}">{{ at.tenant.display_name }}</a>
+        {% endif %}
+        {% else %}
+        <span class="text-gray-300 dark:text-gray-600">—</span>
+        {% endif %}
+    </td>
+    <td class="px-2 py-1.5 text-right font-mono whitespace-nowrap text-gray-700 dark:text-gray-300">
+        {% if at and at.monthly_rent %}
+        {{ at.monthly_rent|fmt_num }} Kč
+        {% else %}
+        <span class="text-gray-300 dark:text-gray-600">—</span>
+        {% endif %}
+    </td>
+    <td class="px-2 py-1.5 text-gray-500 dark:text-gray-400 font-mono">
+        {% if at and at.variable_symbol %}
+            {% if '???' in at.variable_symbol %}
+            <span class="text-red-500 dark:text-red-400" title="Neplatný variabilní symbol">{{ at.variable_symbol }}</span>
+            {% else %}
+            {{ at.variable_symbol }}
+            {% endif %}
+        {% else %}—{% endif %}
+    </td>
+</tr>

@@ -1,0 +1,50 @@
+<div class="bg-white rounded-lg shadow p-4 mb-3 border-l-4 border-green-500">
+    <form hx-post="/najemci/novy" hx-target="#tenant-create-section" hx-swap="innerHTML">
+        <h3 class="text-sm font-semibold text-gray-700 mb-3">Nový nájemce</h3>
+        {% if error|default('') %}
+        <div class="bg-red-50 border border-red-200 rounded-lg p-2 mb-3 text-sm text-red-700">{{ error }}</div>
+        {% endif %}
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+            <div>
+                <label class="text-xs text-gray-500">Titul</label>
+                <input type="text" name="title" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="text-xs text-gray-500">Příjmení *</label>
+                <input type="text" name="last_name" required class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="text-xs text-gray-500">Jméno</label>
+                <input type="text" name="first_name" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="text-xs text-gray-500">Typ</label>
+                <select name="tenant_type" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+                    <option value="physical">Fyzická osoba</option>
+                    <option value="legal">Právnická osoba</option>
+                </select>
+            </div>
+            <div>
+                <label class="text-xs text-gray-500">RČ</label>
+                <input type="text" name="birth_number" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="text-xs text-gray-500">IČ</label>
+                <input type="text" name="company_id" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="text-xs text-gray-500">Telefon</label>
+                <input type="text" name="phone" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="text-xs text-gray-500">Email</label>
+                <input type="text" name="email" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+            </div>
+        </div>
+        <div class="flex gap-2 mt-3">
+            <button type="submit" class="px-3 py-1.5 bg-green-600 text-white rounded text-xs font-medium hover:bg-green-700 transition-colors">Vytvořit</button>
+            <button type="button" onclick="document.getElementById('tenant-create-section').textContent=''"
+                    class="px-3 py-1.5 bg-gray-200 text-gray-600 rounded text-xs font-medium hover:bg-gray-300 transition-colors">Zrušit</button>
+        </div>
+    </form>
+</div>

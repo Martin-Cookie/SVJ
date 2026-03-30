@@ -13,13 +13,42 @@ from sqlalchemy.orm import Session, joinedload
 from app.database import get_db
 from app.config import settings
 from app.models import (
-    BankStatement, Payment, PaymentAllocation, PaymentDirection, PaymentMatchStatus,
-    Unit,
+    BankStatement, Owner, OwnerUnit, Payment, PaymentAllocation, PaymentDirection,
+    PaymentMatchStatus, Space, SpaceTenant, Tenant, Unit,
 )
 from app.utils import build_list_url, is_htmx_partial, is_safe_path, validate_upload, strip_diacritics, utcnow, UPLOAD_LIMITS
 from ._helpers import templates, compute_nav_stats, MONTH_NAMES_LONG
 
 router = APIRouter()
+
+
+def _build_suggest_map(
+    payments: list,
+    name_index: list[tuple[set, int]],
+) -> dict[int, int]:
+    """Vybudovat mapu payment_id → entity_id z name_index (words_set, entity_id).
+
+    Pro každou UNMATCHED příjmovou platbu najde nejlepší shodu dle společných slov
+    v counter_account_name + note + message.
+    """
+    suggest_map: dict[int, int] = {}
+    for p in payments:
+        if p.match_status != PaymentMatchStatus.UNMATCHED or p.direction != PaymentDirection.INCOME:
+            continue
+        text_parts = [p.counter_account_name or "", p.note or "", p.message or ""]
+        sender_words = {w for w in strip_diacritics(" ".join(text_parts)).split() if len(w) > 2}
+        if not sender_words:
+            continue
+        best_id = None
+        best_score = 0
+        for name_words, entity_id in name_index:
+            common = sender_words & name_words
+            if len(common) >= 1 and len(common) > best_score:
+                best_score = len(common)
+                best_id = entity_id
+        if best_id and best_score >= 1:
+            suggest_map[p.id] = best_id
+    return suggest_map
 
 
 # ── Seznam výpisů ──────────────────────────────────────────────────────
@@ -357,6 +386,8 @@ SORT_COLUMNS_PAYMENTS = {
     "vs": Payment.vs,
     "protiucet": Payment.counter_account_name,
     "stav": Payment.match_status,
+    "jednotka": None,  # Python-side sort
+    "prostor": None,  # Python-side sort
 }
 
 
@@ -369,6 +400,7 @@ async def vypis_detail(
     q: str = "",
     stav: str = "",
     smer: str = "",
+    typ: str = "",
     db: Session = Depends(get_db),
 ):
     """Detail bankovního výpisu — seznam plateb."""
@@ -382,12 +414,14 @@ async def vypis_detail(
         .filter_by(statement_id=statement_id)
         .options(
             joinedload(Payment.unit),
+            joinedload(Payment.space),
             joinedload(Payment.owner),
             joinedload(Payment.allocations).joinedload(PA.unit),
+            joinedload(Payment.allocations).joinedload(PA.space),
         )
     )
 
-    # Filtry (stav, směr v SQL)
+    # Filtry (stav, směr, typ v SQL)
     if stav:
         query = query.filter(Payment.match_status == stav)
 
@@ -396,6 +430,11 @@ async def vypis_detail(
     elif smer == "vydej":
         query = query.filter(Payment.direction == PaymentDirection.EXPENSE)
 
+    if typ == "jednotky":
+        query = query.filter(Payment.unit_id.isnot(None))
+    elif typ == "prostory":
+        query = query.filter(Payment.space_id.isnot(None))
+
     # Řazení
     col = SORT_COLUMNS_PAYMENTS.get(sort, Payment.date)
     if col is not None:
@@ -403,6 +442,27 @@ async def vypis_detail(
         query = query.order_by(order_fn(col).nulls_last())
 
     payments = query.all()
+
+    # Python-side sort pro jednotka/prostor
+    if sort in ("jednotka", "prostor"):
+        def _unit_key(p):
+            if p.unit:
+                return p.unit.unit_number or 0
+            for a in (p.allocations or []):
+                if a.unit:
+                    return a.unit.unit_number or 0
+            return 0
+
+        def _space_key(p):
+            if p.space:
+                return p.space.space_number or 0
+            for a in (p.allocations or []):
+                if a.space:
+                    return a.space.space_number or 0
+            return 0
+
+        key_fn = _unit_key if sort == "jednotka" else _space_key
+        payments.sort(key=key_fn, reverse=(order == "desc"))
 
     # Hledání Python-side (diakritika-safe)
     if q:
@@ -420,10 +480,17 @@ async def vypis_detail(
     total_expense = sum(p.amount for p in payments if p.direction == PaymentDirection.EXPENSE)
     matched_count = sum(1 for p in payments if p.match_status != PaymentMatchStatus.UNMATCHED)
 
-    # Bubble counts (celkové počty bez filtrů)
+    # Bubble counts (celkové počty bez filtrů — ale respektují typ filtr)
+    typ_filter = []
+    if typ == "jednotky":
+        typ_filter.append(Payment.unit_id.isnot(None))
+    elif typ == "prostory":
+        typ_filter.append(Payment.space_id.isnot(None))
+
     all_payments_for_counts = (
         db.query(Payment.match_status, Payment.direction, func.count())
         .filter_by(statement_id=statement_id)
+        .filter(*typ_filter)
         .group_by(Payment.match_status, Payment.direction)
         .all()
     )
@@ -443,6 +510,16 @@ async def vypis_detail(
             bubble_counts["prijem"] += cnt
         else:
             bubble_counts["vydej"] += cnt
+
+    # Typ bubble counts (celkové počty bez stav/smer filtrů)
+    all_count = db.query(func.count()).filter(Payment.statement_id == statement_id).scalar() or 0
+    unit_count = db.query(func.count()).filter(
+        Payment.statement_id == statement_id, Payment.unit_id.isnot(None)
+    ).scalar() or 0
+    space_count = db.query(func.count()).filter(
+        Payment.statement_id == statement_id, Payment.space_id.isnot(None)
+    ).scalar() or 0
+    typ_counts = {"vse": all_count, "jednotky": unit_count, "prostory": space_count}
 
     # Flash zprávy
     flash_message = ""
@@ -508,6 +585,56 @@ async def vypis_detail(
                 if presc.variable_symbol:
                     unit_vs[presc.unit_id] = presc.variable_symbol
 
+    # Units + owner names for assignment dropdown
+    all_units_list = db.query(Unit).order_by(Unit.unit_number).all()
+    unit_owner_names = {}  # unit_id → owner display_name
+    active_ous = db.query(OwnerUnit).filter(OwnerUnit.valid_to.is_(None)).all()
+    all_owners = {o.id: o for o in db.query(Owner).all()}
+    for ou in active_ous:
+        owner = all_owners.get(ou.owner_id)
+        if owner and owner.display_name:
+            unit_owner_names[ou.unit_id] = owner.display_name
+    # Řadit podle jména vlastníka (bez diakritiky), jednotky bez vlastníka na konec
+    all_units_list.sort(key=lambda u: strip_diacritics(unit_owner_names.get(u.id, "zzz")))
+
+    # Suggest map: payment_id → unit_id (pre-select based on counterparty name / message)
+    unit_name_index = []  # list of (words_set, unit_id)
+    for ou in active_ous:
+        owner = all_owners.get(ou.owner_id)
+        if owner and owner.name_normalized:
+            words = {w for w in strip_diacritics(owner.name_normalized).split() if len(w) > 2}
+            if words:
+                unit_name_index.append((words, ou.unit_id))
+    unit_suggest_map = _build_suggest_map(payments, unit_name_index)
+
+    # Spaces + tenant names for assignment dropdown
+    all_spaces = db.query(Space).order_by(Space.space_number).all()
+    space_tenant_names = {}
+    active_sts = (
+        db.query(SpaceTenant)
+        .filter_by(is_active=True)
+        .options(joinedload(SpaceTenant.tenant).joinedload(Tenant.owner))
+        .all()
+    )
+    space_monthly = {}  # space_id → monthly_rent
+    space_name_index = []  # (words_set, space_id)
+    for st in active_sts:
+        if st.monthly_rent:
+            space_monthly[st.space_id] = st.monthly_rent
+        if st.tenant:
+            name = st.tenant.display_name
+            if name:
+                space_tenant_names[st.space_id] = name
+                norm = strip_diacritics(name)
+                words = {w for w in norm.split() if len(w) > 2}
+                if words:
+                    space_name_index.append((words, st.space_id))
+    # Řadit podle jména nájemce (bez diakritiky), prostory bez nájemce na konec
+    all_spaces.sort(key=lambda s: strip_diacritics(space_tenant_names.get(s.id, "zzz")))
+
+    # Suggest map: payment_id → space_id (pre-select based on counterparty/message)
+    space_suggest_map = _build_suggest_map(payments, space_name_index)
+
     list_url = build_list_url(request)
     back_url = request.query_params.get("back", "")
 
@@ -523,12 +650,21 @@ async def vypis_detail(
         "candidates_map": candidates_map,
         "unit_monthly": unit_monthly,
         "unit_vs": unit_vs,
+        "all_units_list": all_units_list,
+        "unit_owner_names": unit_owner_names,
+        "unit_suggest_map": unit_suggest_map,
+        "all_spaces": all_spaces,
+        "space_tenant_names": space_tenant_names,
+        "space_monthly": space_monthly,
+        "space_suggest_map": space_suggest_map,
         "sort": sort,
         "order": order,
         "q": q,
         "stav": stav,
         "smer": smer,
+        "typ": typ,
         "bubble_counts": bubble_counts,
+        "typ_counts": typ_counts,
         "list_url": list_url,
         "back_url": back_url,
         "flash_message": flash_message,
@@ -551,7 +687,7 @@ def _detail_redirect_url(statement_id: int, form_data, flash: str = "", anchor: 
     params = []
     if flash:
         params.append(f"flash={flash}")
-    for key in ("q", "sort", "order", "stav", "smer", "back"):
+    for key in ("q", "sort", "order", "stav", "smer", "typ", "back"):
         val = form_data.get(key, "")
         if val:
             params.append(f"{key}={val}")
@@ -668,6 +804,55 @@ async def platba_prirazeni(
     )
 
 
+@router.post("/vypisy/{statement_id}/prirazeni-prostor/{payment_id}")
+async def platba_prirazeni_prostor(
+    request: Request,
+    statement_id: int,
+    payment_id: int,
+    db: Session = Depends(get_db),
+):
+    """Ručně přiřadit platbu k prostoru (číslo prostoru)."""
+    form_data = await request.form()
+
+    statement = db.query(BankStatement).get(statement_id)
+    if statement and statement.locked_at:
+        return RedirectResponse(_detail_redirect_url(statement_id, form_data, "locked"), status_code=302)
+
+    space_num_raw = form_data.get("space_id", "").strip()
+    payment = db.query(Payment).filter_by(id=payment_id, statement_id=statement_id).first()
+    if not payment:
+        return RedirectResponse(_detail_redirect_url(statement_id, form_data), status_code=302)
+
+    # Najít prostor podle čísla
+    space = db.query(Space).filter_by(space_number=space_num_raw).first()
+    if not space:
+        return RedirectResponse(
+            _detail_redirect_url(statement_id, form_data, "match_fail", anchor=f"p-{payment_id}"),
+            status_code=302,
+        )
+
+    # Smazat staré alokace
+    db.query(PaymentAllocation).filter_by(payment_id=payment.id).delete()
+
+    payment.space_id = space.id
+    payment.unit_id = None
+    payment.match_status = PaymentMatchStatus.MANUAL
+
+    db.add(PaymentAllocation(
+        payment_id=payment.id,
+        space_id=space.id,
+        owner_id=payment.owner_id,
+        amount=payment.amount,
+    ))
+
+    db.commit()
+
+    return RedirectResponse(
+        _detail_redirect_url(statement_id, form_data, "match_ok", anchor=f"p-{payment_id}"),
+        status_code=302,
+    )
+
+
 # ── Potvrzení / odmítnutí návrhu ──────────────────────────────────────
 
 
@@ -740,6 +925,7 @@ async def platba_odmitnout(
     payment = db.query(Payment).filter_by(id=payment_id, statement_id=statement_id).first()
     if payment and payment.match_status == PaymentMatchStatus.SUGGESTED:
         payment.unit_id = None
+        payment.space_id = None
         payment.owner_id = None
         payment.prescription_id = None
         payment.match_status = PaymentMatchStatus.UNMATCHED
@@ -794,6 +980,7 @@ async def vypis_preparovat(
         Payment.match_status.in_([PaymentMatchStatus.AUTO_MATCHED, PaymentMatchStatus.SUGGESTED]),
     ).update({
         Payment.unit_id: None,
+        Payment.space_id: None,
         Payment.owner_id: None,
         Payment.prescription_id: None,
         Payment.match_status: PaymentMatchStatus.UNMATCHED,

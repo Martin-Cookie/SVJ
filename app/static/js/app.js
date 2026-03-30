@@ -217,8 +217,24 @@ document.addEventListener('submit', function(e) {
         return;
     }
     e.preventDefault();
+    var action = form.action;
+    var method = form.method || 'POST';
+    var hiddens = Array.from(form.querySelectorAll('input[type="hidden"]'));
     svjConfirm(msg.replace(/\\n/g, '\n'), function() {
-        form.submit();
+        // If original form is still in DOM, submit it directly
+        if (document.body.contains(form)) {
+            form._svjConfirmed = true;
+            form.submit();
+        } else {
+            // Form was replaced (e.g. by HTMX polling) — submit via temporary form
+            var tmp = document.createElement('form');
+            tmp.method = method;
+            tmp.action = action;
+            tmp.style.display = 'none';
+            hiddens.forEach(function(h) { tmp.appendChild(h.cloneNode(true)); });
+            document.body.appendChild(tmp);
+            tmp.submit();
+        }
     });
 }, true);
 

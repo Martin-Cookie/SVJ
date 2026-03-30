@@ -10,9 +10,35 @@ Tento soubor je **jediný zdroj pravdy** pro UI/frontend vzory a konvence. Stack
 
 ### Detail stránka
 1. Šipka zpět (viz [Back link](#back-link) níže)
-2. Titulek: `<h1 class="text-2xl font-bold text-gray-800">`
-3. Badge pod titulem: `<div class="mt-1 flex items-center gap-2">` s `rounded-full` badge
-4. Obsah v grid layoutu pod tím
+2. Titulek: `<h1 class="text-2xl font-bold text-gray-800">` + badge v `flex items-center gap-3`
+3. Badge vedle titulku: `px-2 py-0.5 text-xs font-medium rounded-full` (typ osoby, propojení, RČ/IČ)
+4. **Info karta** — 4-sloupcový grid pod header (viz [Detail entity — info karta](#detail-entity--info-karta))
+5. Scrollovatelný obsah pod info kartou
+
+### Detail entity — info karta (povinný vzor)
+
+Každá entita s identifikací, kontakty a adresami (vlastníci, nájemci) MUSÍ používat tento layout:
+
+```html
+<div class="bg-white rounded-lg shadow mb-3">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-gray-100">
+        <div class="p-3" id="identity-section">{% include "partials/entity_identity_info.html" %}</div>
+        <div class="p-3" id="contact-section">{% include "partials/entity_contact_info.html" %}</div>
+        <div class="p-3" id="perm-address-section">{% include "partials/entity_address_info.html" %}</div>
+        <div class="p-3" id="corr-address-section">{% include "partials/entity_address_info.html" %}</div>
+    </div>
+</div>
+```
+
+**Pravidla:**
+- Každý sloupec = samostatná sekce s vlastním HTMX inline editací (viz [§ 4](#4-inline-editace-infoform-partial-vzor))
+- Sekce heading: `text-sm font-semibold text-gray-700`
+- Data řádky: `space-y-1 text-xs`, každý řádek `flex justify-between` s `text-gray-500` label a `text-gray-900` value
+- Edit tlačítko: `inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-600 border border-blue-300 rounded hover:bg-blue-50` s tužkou SVG (`w-3 h-3`)
+- **Propojená entita** (nájemce→vlastník): zobrazit data read-only + "Vlastník →" link místo edit tlačítka
+- **Nepropojená entita**: zobrazit vlastní data + "Upravit" tlačítko per sekce
+- Adresní sekce jsou parametrické (`prefix="perm"/"corr"`) — jeden partial, dva include s `{% with %}`
+- Prázdné hodnoty vždy `—` (em-dash), nikdy skrývat řádek
 
 ### Back link
 Zpětný odkaz na KAŽDÉ stránce s `back_url` — jednotný styl napříč celým projektem:
@@ -320,9 +346,13 @@ function populateSelect(sel) {
 ### Backend endpointy (3 pro každou sekci)
 | Endpoint | Účel | Vrací |
 |----------|------|-------|
-| `GET /{id}/upravit-formular` | Načtení formuláře | Form partial |
-| `POST /{id}/upravit` | Uložení změn | Info partial s `saved=True` |
-| `GET /{id}/info` | Zobrazení (cancel) | Info partial |
+| `GET /{id}/{sekce}-formular` | Načtení formuláře | Form partial |
+| `POST /{id}/{sekce}-upravit` | Uložení změn | Info partial s `saved=True` |
+| `GET /{id}/{sekce}-info` | Zobrazení (cancel) | Info partial |
+
+Pro adresy (parametrické): `GET /{id}/adresa/{prefix}/formular`, `POST /{id}/adresa/{prefix}/upravit`, `GET /{id}/adresa/{prefix}/info`
+
+Pojmenování sekcí: `identita`, `kontakt`, `adresa/{perm|corr}` (čeština v URL, konzistentní napříč vlastníky i nájemci)
 
 ### Alternativní vzor (administrace — seznam položek)
 
@@ -415,6 +445,23 @@ Vzor pro "přidat novou položku" bez přechodu na jinou stránku:
 1. Tlačítko `+ Přidat` (světle modré) — klik skryje Přidat a odkryje Uložit+Zrušit + formulář
 2. **Uložit** a **Zrušit** se zobrazí na stejném místě (nahoře) — nahradí tlačítko Přidat
 3. Po uložení/zrušení se Přidat vrátí zpět (HTMX swap nebo toggle)
+
+### Zelený pruh — vizuální odlišení přidávacího formuláře
+
+Každý standalone formulář pro přidání nové entity (vlastník, jednotka, prostor, nájemce, VS, zůstatek) MUSÍ mít **zelený levý pruh** `border-l-4 border-green-500`. Vizuálně odlišuje přidávací formulář od okolního obsahu a signalizuje uživateli „zde se vytváří nová položka".
+
+```html
+<!-- Standalone přidávací formulář -->
+<div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-3 border-l-4 border-green-500">
+    <form ...>
+        <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Nový ...</h3>
+        <!-- fields -->
+    </form>
+</div>
+```
+
+- **Kde ANO**: samostatné karty pro přidání entity (vlastníci, jednotky, prostory, nájemci, VS, zůstatky)
+- **Kde NE**: malé inline formuláře uvnitř existující karty (výbor, číselníky, adresy SVJ) — ty používají `border-t border-gray-200` jako separator
 
 ```html
 <div class="flex items-center justify-between mb-4">
@@ -635,6 +682,57 @@ Vždy `rounded-full`, nikdy `rounded`.
 - Záporné: `text-red-600`
 - Kladné: `text-blue-600`
 - Nula: `text-green-600`
+
+---
+
+## 12b. Tooltipy entit (povinný vzor)
+
+Každý badge/odkaz na entitu (jednotka, prostor, vlastník, nájemce) MUSÍ mít `title` tooltip se sjednoceným pořadím:
+
+**Jméno → Identifikátor → Částka**
+
+| Entita | Tooltip formát | Příklad |
+|--------|---------------|---------|
+| Jednotka | `Vlastník: jméno · VS: xxx · Předpis: xxx Kč/měs` | `Vlastník: Novák Jan · VS: 12345 · Předpis: 3 041 Kč/měs` |
+| Prostor | `Nájemce: jméno · Prostor: číslo · označení · Nájem: xxx Kč/měs` | `Nájemce: Movie s.r.o. · Prostor: 10 · B1 02.06 · Nájem: 1 685 Kč/měs` |
+
+- Jméno a částka jsou podmíněné (`{% if ... %}`) — zobrazit jen když existují
+- Oddělovač: ` · ` (mezera-tečka-mezera)
+- Částka vždy s filtrem `fmt_num` a suffixem `Kč/měs`
+- Data pro tooltipy (jména vlastníků/nájemců, předpisy, nájemné) se připravují v routeru jako lookup dicty a předávají do šablony
+
+## 12c. Suggestion dropdowny (přiřazení s předvýběrem)
+
+Vzor pro dropdowny kde backend navrhuje předvybranou hodnotu (např. párování plateb → jednotka/prostor):
+
+### Vizuální rozlišení
+- **S návrhem** (pre-selected): `border-green-500 bg-green-50 dark:bg-green-900/20 dark:border-green-600` — dropdown je viditelný rovnou (ne schovaný za tlačítkem)
+- **Bez návrhu**: `border-gray-300 dark:border-gray-600 dark:bg-gray-700` — skrytý za tlačítkem "přiřadit"
+
+### Potvrzovací vzor
+Dropdown NIKDY neodesílá formulář při změně (`onchange`). Vždy vyžaduje explicitní potvrzení:
+```html
+<form class="inline-flex items-center gap-1">
+    <select class="w-64 text-xs border rounded px-1 py-0.5 ...">...</select>
+    <button type="submit" class="px-1.5 py-0.5 bg-green-600 text-white rounded text-xs" title="Potvrdit">✓</button>
+    <button type="button" class="px-1.5 py-0.5 bg-gray-200 text-gray-600 rounded text-xs" title="Zrušit">✕</button>
+</form>
+```
+
+### Pořadí v dropdown options
+Shodné s tooltip pořadím (§ 12b): **Jméno → Identifikátor → Částka**, oddělovač ` · `:
+- Jednotka: `Novák Jan · 501 · 3 041 Kč`
+- Prostor: `Movie s.r.o. · 10 · 1 685 Kč`
+
+### Řazení
+Dropdown je řazen **abecedně podle prvního zobrazeného atributu** (jméno vlastníka/nájemce). Entity bez jména na konec.
+
+### Backend suggest map
+Router buduje `suggest_map: dict[payment_id, entity_id]` přes sdílený helper `_build_suggest_map(payments, name_index)` — porovnání slov z `counter_account_name + note + message` proti indexu jmen.
+
+### Barevné badge pro typ entity
+- Jednotka: `bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300`
+- Prostor: `bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300`
 
 ---
 

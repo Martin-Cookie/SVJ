@@ -1,0 +1,11 @@
+{% for tenant in tenants %}
+{% include "tenants/partials/_row.html" %}
+{% endfor %}
+{% if not tenants %}
+<tr>
+    <td colspan="8" class="px-6 py-12 text-center">
+        <svg class="w-8 h-8 text-gray-300 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+        <p class="text-gray-500">{% if q %}Žádní nájemci neodpovídají hledání.{% else %}Zatím nejsou evidováni žádní nájemci.{% endif %}</p>
+    </td>
+</tr>
+{% endif %}

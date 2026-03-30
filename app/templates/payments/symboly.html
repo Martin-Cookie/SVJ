@@ -14,46 +14,83 @@
         </div>
 
         <!-- Formulář přidání (skrytý) -->
-        <div id="add-form" class="hidden mb-2 bg-white dark:bg-gray-800 rounded-lg shadow p-3">
+        <div id="add-form" class="hidden mb-2 bg-white dark:bg-gray-800 rounded-lg shadow p-3 border-l-4 border-green-500">
             <form method="post" action="/platby/symboly/pridat" class="flex items-end space-x-3">
                 <input type="hidden" name="q" value="{{ q }}">
                 <input type="hidden" name="sort" value="{{ sort }}">
                 <input type="hidden" name="order" value="{{ order }}">
                 <input type="hidden" name="zdroj" value="{{ zdroj }}">
+                <input type="hidden" name="entita" value="{{ entita }}">
                 <input type="hidden" name="back" value="{{ back_url }}">
                 <div>
-                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Variabilní symbol</label>
-                    <input type="text" name="variable_symbol" required maxlength="20" placeholder="1109800101"
-                        class="w-40 px-3 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                    <label for="add-vs" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Variabilní symbol</label>
+                    <input type="text" name="variable_symbol" id="add-vs" required maxlength="20" placeholder="1109800101"
+                        class="h-8 w-40 px-3 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
                 </div>
                 <div>
-                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Jednotka</label>
-                    <select name="unit_id" required class="w-32 px-3 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                    <label for="add-entity-type" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Typ</label>
+                    <select name="entity_type" id="add-entity-type" onchange="toggleEntitySelect()"
+                        class="h-8 w-28 px-3 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                        <option value="unit">Jednotka</option>
+                        <option value="space">Prostor</option>
+                    </select>
+                </div>
+                <div id="add-unit-sel">
+                    <label for="add-unit-id" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Jednotka</label>
+                    <select name="unit_id" id="add-unit-id" class="h-8 w-32 px-3 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
                         {% for unit in units %}
                         <option value="{{ unit.id }}">{{ unit.unit_number }}</option>
                         {% endfor %}
                     </select>
                 </div>
-                <div class="flex-1">
-                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Popis (nepovinné)</label>
-                    <input type="text" name="description" placeholder="Poznámka..."
-                        class="w-full px-3 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                <div id="add-space-sel" class="hidden">
+                    <label for="add-space-id" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Prostor</label>
+                    <select name="space_id" id="add-space-id" class="h-8 w-32 px-3 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                        {% for sp in spaces %}
+                        <option value="{{ sp.id }}">{{ sp.space_number }} — {{ sp.designation }}</option>
+                        {% endfor %}
+                    </select>
                 </div>
-                <button type="submit" class="px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded-lg hover:bg-green-700">Uložit</button>
+                <div class="flex-1">
+                    <label for="add-description" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Popis (nepovinné)</label>
+                    <input type="text" name="description" id="add-description" placeholder="Poznámka..."
+                        class="h-8 w-full px-3 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                </div>
+                <button type="submit" class="h-8 px-3 bg-green-600 text-white text-xs font-medium rounded-lg hover:bg-green-700">Uložit</button>
+                <button type="button" onclick="document.getElementById('add-form').classList.add('hidden')"
+                    class="h-8 px-3 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 text-xs font-medium rounded-lg hover:bg-gray-300">Zrušit</button>
             </form>
         </div>
 
-        <!-- Filtr bubliny — zdroj -->
+        <!-- Filtr bubliny — typ entity -->
         {% set _base = "/platby/symboly?sort=" ~ sort ~ "&order=" ~ order ~ ("&q=" ~ q if q else "") %}
         {% set _back = "&back=" ~ (back_url|default('')|urlencode) if back_url else "" %}
+        {% set _entity_base = _base ~ ("&zdroj=" ~ zdroj if zdroj else "") ~ _back %}
         <div class="flex flex-wrap gap-2 mb-2">
-            <a href="{{ _base }}{{ _back }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
+            <a href="{{ _entity_base }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
+                {% if not entita %}bg-blue-600 text-white ring-2 ring-blue-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
+                Vše <span class="ml-1 text-xs opacity-75">{{ total_vs_count }}</span>
+            </a>
+            <a href="{{ _entity_base }}&entita=jednotky" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
+                {% if entita == 'jednotky' %}bg-blue-600 text-white ring-2 ring-blue-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
+                Jednotky <span class="ml-1 text-xs opacity-75">{{ unit_vs_count }}</span>
+            </a>
+            <a href="{{ _entity_base }}&entita=prostory" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
+                {% if entita == 'prostory' %}bg-blue-600 text-white ring-2 ring-blue-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
+                Prostory <span class="ml-1 text-xs opacity-75">{{ space_vs_count }}</span>
+            </a>
+        </div>
+
+        <!-- Filtr bubliny — zdroj -->
+        {% set _zdroj_base = _base ~ ("&entita=" ~ entita if entita else "") %}
+        <div class="flex flex-wrap gap-2 mb-2">
+            <a href="{{ _zdroj_base }}{{ _back }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
                 {% if not zdroj %}bg-green-600 text-white ring-2 ring-green-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
                 Vše <span class="ml-1 text-xs opacity-75">{{ mappings|length if not zdroj else '' }}</span>
             </a>
             {% set source_labels = {"auto": "Automaticky", "manual": "Ručně", "legacy": "Historicky"} %}
             {% for src in sources %}
-            <a href="{{ _base }}&zdroj={{ src }}{{ _back }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
+            <a href="{{ _zdroj_base }}&zdroj={{ src }}{{ _back }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
                 {% if zdroj == src %}bg-green-600 text-white ring-2 ring-green-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
                 {{ source_labels.get(src, src) }}
             </a>
@@ -62,16 +99,21 @@
 
         <!-- Hledání -->
         <div class="mb-2">
+            <div class="relative inline-block w-full sm:w-72">
             <input type="text" name="q" value="{{ q }}" placeholder="Hledat VS, popis..."
                 aria-label="Hledat"
                 hx-get="/platby/symboly"
                 hx-trigger="keyup changed delay:300ms"
                 hx-target="#symboly-tbody"
-                hx-include="[name='sort'],[name='order'],[name='zdroj'],[name='back']"
-                class="w-full sm:w-72 px-3 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500">
+                hx-include="[name='sort'],[name='order'],[name='zdroj'],[name='entita'],[name='back']"
+                hx-indicator="#search-spinner"
+                class="w-full px-3 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500">
+            <svg id="search-spinner" class="htmx-indicator absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-500 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+            </div>
             <input type="hidden" name="sort" value="{{ sort }}">
             <input type="hidden" name="order" value="{{ order }}">
             <input type="hidden" name="zdroj" value="{{ zdroj }}">
+            <input type="hidden" name="entita" value="{{ entita }}">
             <input type="hidden" name="back" value="{{ back_url }}">
         </div>
     </div>
@@ -80,9 +122,9 @@
     <div class="flex-1 overflow-y-auto overflow-x-hidden min-h-0 bg-white dark:bg-gray-800 rounded-lg shadow">
         <table class="w-full text-xs">
             <thead class="sticky top-0 z-10 bg-gray-50 dark:bg-gray-700">
-                {% set _sort_base = "/platby/symboly?" ~ ("q=" ~ q ~ "&" if q else "") ~ ("zdroj=" ~ zdroj ~ "&" if zdroj else "") %}
+                {% set _sort_base = "/platby/symboly?" ~ ("q=" ~ q ~ "&" if q else "") ~ ("zdroj=" ~ zdroj ~ "&" if zdroj else "") ~ ("entita=" ~ entita ~ "&" if entita else "") %}
                 <tr>
-                    {% for col_key, col_label in [("vs", "Variabilní symbol"), ("jednotka", "Jednotka"), ("zdroj", "Zdroj"), ("popis", "Popis")] %}
+                    {% for col_key, col_label in [("vs", "Variabilní symbol"), ("jednotka", "Entita"), ("zdroj", "Zdroj"), ("popis", "Popis")] %}
                     {% set new_order = "desc" if sort == col_key and order == "asc" else "asc" %}
                     <th class="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300 cursor-pointer select-none hover:text-gray-900 dark:hover:text-white"
                         onclick="window.location='{{ _sort_base }}sort={{ col_key }}&order={{ new_order }}{{ _back }}'">
@@ -99,90 +141,12 @@
         </table>
     </div>
 </div>
-{# Sdílený template s options pro jednotky — 1× místo 527× #}
-<template id="unit-options-tpl">
-    {% for u in units %}
-    <option value="{{ u.id }}">č. {{ u.unit_number }}</option>
-    {% endfor %}
-</template>
 {% include "payments/partials/_scroll_restore.html" %}
 <script>
-function toggleEditRow(id) {
-    var view = document.querySelector('[data-view-row="'+id+'"]');
-    if (!view) return;
-    var edit = document.querySelector('[data-edit-row="'+id+'"]');
-    if (edit) {
-        view.classList.toggle('hidden');
-        edit.classList.toggle('hidden');
-        return;
-    }
-    // Vytvořit editační řádek dynamicky z template
-    var vs = view.querySelector('.font-mono').textContent.trim();
-    var unitId = view.getAttribute('data-unit-id') || '';
-    var desc = view.getAttribute('data-description') || '';
-    var tr = document.createElement('tr');
-    tr.className = 'border-b border-gray-100 dark:border-gray-700 bg-blue-50 dark:bg-blue-900/20';
-    tr.setAttribute('data-edit-row', id);
-
-    // Buňka 1: VS (text)
-    var td1 = document.createElement('td');
-    td1.className = 'px-3 py-2 font-mono font-medium text-gray-900 dark:text-white';
-    td1.textContent = vs;
-    tr.appendChild(td1);
-
-    // Buňka 2: formulář
-    var td2 = document.createElement('td');
-    td2.colSpan = 3;
-    td2.className = 'px-3 py-2';
-    var form = document.createElement('form');
-    form.method = 'post';
-    form.action = '/platby/symboly/' + id + '/upravit';
-    form.className = 'flex items-center gap-2';
-    form.setAttribute('hx-boost', 'false');
-    // Hidden fields
-    var hiddens = {q: '{{ q }}', sort: '{{ sort }}', order: '{{ order }}', zdroj: '{{ zdroj }}', back: '{{ back_url }}'};
-    for (var k in hiddens) {
-        var inp = document.createElement('input');
-        inp.type = 'hidden'; inp.name = k; inp.value = hiddens[k];
-        form.appendChild(inp);
-    }
-    // Select — klonovat options z template
-    var sel = document.createElement('select');
-    sel.name = 'unit_id';
-    sel.className = 'h-[28px] px-2 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white';
-    sel.setAttribute('aria-label', 'Jednotka');
-    var tpl = document.getElementById('unit-options-tpl');
-    sel.appendChild(tpl.content.cloneNode(true));
-    if (unitId) sel.value = unitId;
-    form.appendChild(sel);
-    // Description input
-    var descInp = document.createElement('input');
-    descInp.type = 'text'; descInp.name = 'description'; descInp.value = desc;
-    descInp.placeholder = 'Poznámka';
-    descInp.className = 'h-[28px] px-2 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white w-40';
-    descInp.setAttribute('aria-label', 'Poznámka');
-    form.appendChild(descInp);
-    // Buttons
-    var btnSave = document.createElement('button');
-    btnSave.type = 'submit';
-    btnSave.className = 'px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700';
-    btnSave.textContent = 'Uložit';
-    form.appendChild(btnSave);
-    var btnCancel = document.createElement('button');
-    btnCancel.type = 'button';
-    btnCancel.className = 'px-2 py-1 text-xs bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300';
-    btnCancel.textContent = 'Zrušit';
-    btnCancel.onclick = function() { toggleEditRow(id); };
-    form.appendChild(btnCancel);
-    td2.appendChild(form);
-    tr.appendChild(td2);
-
-    // Buňka 3: prázdná
-    var td3 = document.createElement('td');
-    tr.appendChild(td3);
-
-    view.after(tr);
-    view.classList.add('hidden');
+function toggleEntitySelect() {
+    var t = document.getElementById('add-entity-type').value;
+    document.getElementById('add-unit-sel').classList.toggle('hidden', t !== 'unit');
+    document.getElementById('add-space-sel').classList.toggle('hidden', t !== 'space');
 }
 </script>
 {% endblock %}

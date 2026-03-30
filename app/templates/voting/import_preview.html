@@ -7,7 +7,7 @@
 {% include "voting/_voting_header.html" %}
 </div><!-- /bubble+search kontejner -->
 
-{% include "partials/import_stepper.html" %}
+{% include "partials/wizard_stepper.html" %}
 <form id="back-to-mapping-form" action="/hlasovani/{{ voting.id }}/import/mapovani" method="post" class="hidden" hx-boost="false">
     <input type="hidden" name="file_path" value="{{ file_path }}">
 </form>

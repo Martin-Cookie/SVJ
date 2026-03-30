@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Import zůstatků{% endblock %}
+{% block content %}
+<div class="flex flex-col" style="height: calc(100vh - 4rem);">
+    {% include "payments/partials/_platby_nav.html" %}
+
+    <div class="max-w-2xl mx-auto w-full py-4">
+        {% include "partials/wizard_stepper.html" %}
+
+        <h1 class="text-lg font-bold text-gray-900 dark:text-white mb-4">Import zůstatků z Excelu</h1>
+
+        {% if error %}
+        <div class="mb-4 p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-700 dark:text-red-300">
+            {{ error }}
+        </div>
+        {% endif %}
+
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <form method="post" action="/platby/zustatky/import" enctype="multipart/form-data" hx-boost="false">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Soubor (Excel .xls/.xlsx)</label>
+                        <input type="file" name="file" accept=".xls,.xlsx" required
+                            class="file-input block w-full text-sm text-gray-500 dark:text-gray-400
+                                file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0
+                                file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700
+                                hover:file:bg-blue-100 dark:file:bg-blue-900 dark:file:text-blue-300">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Rok</label>
+                        <input type="number" name="year" value="{{ default_year }}" required min="2020" max="2040"
+                            class="w-32 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Rok ke kterému se zůstatky vztahují. Existující zůstatky pro tento rok budou přepsány.</p>
+                    </div>
+                    <div class="pt-2">
+                        <button type="submit" class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">
+                            Nahrát a pokračovat →
+                        </button>
+                        <a href="/platby/zustatky" class="ml-3 text-sm text-gray-500 hover:text-gray-700">Zrušit</a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,6 +1,8 @@
 import enum
 from datetime import datetime
 
+from app.utils import utcnow
+
 from sqlalchemy import (
     Boolean, Column, Date, DateTime, Enum, Float, ForeignKey, Index, Integer, String, Text,
 )
@@ -58,8 +60,8 @@ class Owner(Base):
 
     data_source = Column(String(50), default="excel")
     is_active = Column(Boolean, default=True, index=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 
     @property
     def display_name(self) -> str:
@@ -113,7 +115,7 @@ class Unit(Base):
     orientation_number = Column(Integer, nullable=True)
     address = Column(String(200), nullable=True)
     lv_number = Column(Integer, nullable=True, index=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
 
     owners = relationship("OwnerUnit", back_populates="unit", cascade="all, delete-orphan")
 
@@ -156,7 +158,7 @@ class Proxy(Base):
     proxy_holder_name = Column(String(300), nullable=True)
     voting_id = Column(Integer, ForeignKey("votings.id"), nullable=True, index=True)
     is_active = Column(Boolean, default=True, index=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
 
     grantor = relationship("Owner", foreign_keys=[grantor_id], back_populates="given_proxies")
     proxy_holder = relationship(

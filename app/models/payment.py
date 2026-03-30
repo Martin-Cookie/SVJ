@@ -3,6 +3,8 @@
 import enum
 from datetime import datetime
 
+from app.utils import utcnow
+
 from sqlalchemy import (
     Boolean, Column, Date, DateTime, Enum, Float,
     Integer, String, Text, ForeignKey, UniqueConstraint,
@@ -65,14 +67,16 @@ class VariableSymbolMapping(Base):
 
     id = Column(Integer, primary_key=True)
     variable_symbol = Column(String(20), nullable=False, unique=True, index=True)
-    unit_id = Column(Integer, ForeignKey("units.id"), nullable=False, index=True)
+    unit_id = Column(Integer, ForeignKey("units.id"), nullable=True, index=True)
+    space_id = Column(Integer, ForeignKey("spaces.id"), nullable=True, index=True)
     source = Column(Enum(SymbolSource), default=SymbolSource.MANUAL, index=True)
     description = Column(Text, nullable=True)
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 
     unit = relationship("Unit")
+    space = relationship("Space")
 
 
 # ── Počáteční zůstatky ────────────────────────────────────────────────
@@ -82,15 +86,20 @@ class UnitBalance(Base):
     __tablename__ = "unit_balances"
 
     id = Column(Integer, primary_key=True)
-    unit_id = Column(Integer, ForeignKey("units.id"), nullable=False, index=True)
+    unit_id = Column(Integer, ForeignKey("units.id"), nullable=True, index=True)
+    space_id = Column(Integer, ForeignKey("spaces.id"), nullable=True, index=True)
     year = Column(Integer, nullable=False, index=True)
     opening_amount = Column(Float, default=0.0)  # kladné=dluh, záporné=přeplatek
     source = Column(Enum(BalanceSource), default=BalanceSource.MANUAL)
+    owner_id = Column(Integer, ForeignKey("owners.id"), nullable=True, index=True)
+    owner_name = Column(String(300), nullable=True)  # jméno z Excelu / ruční zadání
     note = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 
     unit = relationship("Unit")
+    space = relationship("Space")
+    owner = relationship("Owner")
 
     __table_args__ = (
         UniqueConstraint("unit_id", "year", name="uq_unit_balance_year"),
@@ -110,7 +119,7 @@ class PrescriptionYear(Base):
     source_filename = Column(String(300), nullable=True)
     total_units = Column(Integer, default=0)
     total_monthly = Column(Float, default=0.0)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
 
     prescriptions = relationship(
         "Prescription", back_populates="prescription_year", cascade="all, delete-orphan"
@@ -123,18 +132,20 @@ class Prescription(Base):
     id = Column(Integer, primary_key=True)
     prescription_year_id = Column(Integer, ForeignKey("prescription_years.id"), nullable=False, index=True)
     unit_id = Column(Integer, ForeignKey("units.id"), nullable=True, index=True)
+    space_id = Column(Integer, ForeignKey("spaces.id"), nullable=True, index=True)
     variable_symbol = Column(String(20), nullable=True, index=True)
     space_number = Column(Integer, nullable=True)
     section = Column(String(10), nullable=True)
     space_type = Column(String(50), nullable=True)
     owner_name = Column(String(300), nullable=True)
     monthly_total = Column(Float, default=0.0)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 
     prescription_year = relationship("PrescriptionYear", back_populates="prescriptions")
     items = relationship("PrescriptionItem", back_populates="prescription", cascade="all, delete-orphan")
     unit = relationship("Unit")
+    space = relationship("Space")
 
 
 class PrescriptionItem(Base):
@@ -170,7 +181,7 @@ class BankStatement(Base):
     matched_count = Column(Integer, default=0)
     import_status = Column(Enum(ImportStatus), default=ImportStatus.IMPORTED, index=True)
     locked_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
 
     payments = relationship("Payment", back_populates="statement", cascade="all, delete-orphan")
 
@@ -197,14 +208,16 @@ class Payment(Base):
     match_status = Column(Enum(PaymentMatchStatus), default=PaymentMatchStatus.UNMATCHED, index=True)
     prescription_id = Column(Integer, ForeignKey("prescriptions.id"), nullable=True, index=True)
     unit_id = Column(Integer, ForeignKey("units.id"), nullable=True, index=True)
+    space_id = Column(Integer, ForeignKey("spaces.id"), nullable=True, index=True)
     owner_id = Column(Integer, ForeignKey("owners.id"), nullable=True, index=True)
     assigned_month = Column(Integer, nullable=True)  # 1-12
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 
     statement = relationship("BankStatement", back_populates="payments")
     prescription = relationship("Prescription")
     unit = relationship("Unit")
+    space = relationship("Space")
     owner = relationship("Owner")
     allocations = relationship("PaymentAllocation", back_populates="payment", cascade="all, delete-orphan")
 
@@ -218,7 +231,7 @@ class BankStatementColumnMapping(Base):
     id = Column(Integer, primary_key=True)
     mapping_json = Column(Text, nullable=False)
     used_count = Column(Integer, default=1)
-    last_used_at = Column(DateTime, default=datetime.utcnow)
+    last_used_at = Column(DateTime, default=utcnow)
 
 
 # ── Alokace plateb (multi-unit) ──────────────────────────────────────
@@ -229,13 +242,15 @@ class PaymentAllocation(Base):
 
     id = Column(Integer, primary_key=True)
     payment_id = Column(Integer, ForeignKey("payments.id", ondelete="CASCADE"), nullable=False, index=True)
-    unit_id = Column(Integer, ForeignKey("units.id"), nullable=False, index=True)
+    unit_id = Column(Integer, ForeignKey("units.id"), nullable=True, index=True)
+    space_id = Column(Integer, ForeignKey("spaces.id"), nullable=True, index=True)
     owner_id = Column(Integer, ForeignKey("owners.id"), nullable=True, index=True)
     prescription_id = Column(Integer, ForeignKey("prescriptions.id"), nullable=True, index=True)
     amount = Column(Float, nullable=False)
 
     payment = relationship("Payment", back_populates="allocations")
     unit = relationship("Unit")
+    space = relationship("Space")
     owner = relationship("Owner")
     prescription = relationship("Prescription")
 
@@ -256,8 +271,8 @@ class Settlement(Base):
     pdf_path = Column(String(500), nullable=True)
     status = Column(Enum(SettlementStatus), default=SettlementStatus.GENERATED, index=True)
     penalty_amount = Column(Float, default=0.0)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 
     unit = relationship("Unit")
     owner = relationship("Owner")

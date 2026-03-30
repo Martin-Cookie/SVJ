@@ -1,6 +1,8 @@
 import enum
 from datetime import datetime
 
+from app.utils import utcnow
+
 from sqlalchemy import (
     Column, DateTime, Enum, Float, ForeignKey, Integer, String, Text,
     UniqueConstraint,
@@ -36,7 +38,7 @@ class ShareCheckSession(Base):
     total_differences = Column(Integer, default=0)
     total_missing_db = Column(Integer, default=0)
     total_missing_file = Column(Integer, default=0)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
 
     records = relationship(
         "ShareCheckRecord", back_populates="session", cascade="all, delete-orphan"
@@ -65,7 +67,7 @@ class ShareCheckColumnMapping(Base):
     col_unit = Column(String(100), nullable=False)
     col_share = Column(String(100), nullable=False)
     used_count = Column(Integer, default=1)
-    last_used_at = Column(DateTime, default=datetime.utcnow)
+    last_used_at = Column(DateTime, default=utcnow)
 
     __table_args__ = (
         UniqueConstraint("col_unit", "col_share", name="uq_share_check_mapping"),

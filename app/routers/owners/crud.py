@@ -13,7 +13,8 @@ from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
-from app.models import Owner, OwnerType, OwnerUnit, SvjInfo, Unit
+from app.models import Owner, OwnerType, OwnerUnit, PrescriptionYear, SvjInfo, Unit, UnitBalance
+from app.routers.payments._helpers import compute_debt_map
 from app.services.code_list_service import get_all_code_lists
 from app.services.owner_exchange import recalculate_unit_votes
 from app.services.owner_service import merge_owners
@@ -163,6 +164,24 @@ async def owner_list(
     """Seznam vlastníků s filtry, hledáním a řazením."""
     owners = _filter_owners(db, q, owner_type, vlastnictvi, kontakt, stav, sekce, sort, order)
 
+    # Debt map — platební dluh per owner (přes unit_id → owner)
+    debt_map = {}
+    latest_py = db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).first()
+    if latest_py:
+        unit_debt_map = compute_debt_map(db, latest_py.year)
+        if unit_debt_map:
+            # Mapování unit_id → owner_ids (aktivní vlastníci)
+            ou_rows = db.query(OwnerUnit.unit_id, OwnerUnit.owner_id).filter(
+                OwnerUnit.unit_id.in_(unit_debt_map.keys()),
+                OwnerUnit.valid_to.is_(None),
+            ).all()
+            for unit_id, owner_id in ou_rows:
+                debt_map[owner_id] = debt_map.get(owner_id, 0) + unit_debt_map[unit_id]
+
+    # Python-side sort by debt
+    if sort == "dluh":
+        owners.sort(key=lambda o: debt_map.get(o.id, 0), reverse=(order == "desc"))
+
     # Current list URL for back navigation
     list_url = build_list_url(request)
 
@@ -172,6 +191,7 @@ async def owner_list(
             "request": request,
             "owners": owners,
             "list_url": list_url,
+            "debt_map": debt_map,
         })
 
     # Stats for header
@@ -236,6 +256,7 @@ async def owner_list(
         "sekce": sekce,
         "sort": sort,
         "order": order,
+        "debt_map": debt_map,
         "owner_types": OwnerType,
         "stats": {
             "total_owners": all_owners,
@@ -378,12 +399,23 @@ async def owner_detail(
     svj_info = db.query(SvjInfo).first()
     declared_shares = svj_info.total_shares if svj_info and svj_info.total_shares else 0
 
+    # Platební dluh vlastníka (přes jeho jednotky)
+    owner_debt = 0
+    unit_debt_map = {}
+    bal_py = db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).first()
+    if bal_py:
+        unit_debt_map = compute_debt_map(db, bal_py.year)
+        for ou in owner.current_units:
+            owner_debt += unit_debt_map.get(ou.unit_id, 0)
+
     ctx = {
         "request": request,
         "active_nav": "owners",
         "owner": owner,
         "available_units": available_units,
         "declared_shares": declared_shares,
+        "owner_debt": owner_debt,
+        "unit_debt_map": unit_debt_map,
         "back_url": back or "/vlastnici",
         "back_label": (
             "Zpět na hromadné úpravy" if "/sprava/hromadne" in back
@@ -544,12 +576,15 @@ async def owner_merge(
         })
         # Also refresh units section via OOB (new units were merged in)
         available_units, declared_shares = _owner_units_context(owner, db)
+        _bal_py = db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).first()
+        _udm = compute_debt_map(db, _bal_py.year) if _bal_py else {}
         units_html = templates.TemplateResponse("partials/owner_units_section.html", {
             "request": request,
             "owner": owner,
             "available_units": available_units,
             "declared_shares": declared_shares,
             "code_lists": get_all_code_lists(db),
+            "unit_debt_map": _udm,
         })
         units_oob = (
             f'<div id="owner-units-section" hx-swap-oob="true">'
@@ -744,12 +779,15 @@ async def owner_add_unit(
 
     if request.headers.get("HX-Request"):
         available_units, declared_shares = _owner_units_context(owner, db)
+        _bal_py = db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).first()
+        _udm = compute_debt_map(db, _bal_py.year) if _bal_py else {}
         return templates.TemplateResponse("partials/owner_units_section.html", {
             "request": request,
             "owner": owner,
             "available_units": available_units,
             "declared_shares": declared_shares,
             "code_lists": get_all_code_lists(db),
+            "unit_debt_map": _udm,
         })
     return RedirectResponse(f"/vlastnici/{owner_id}", status_code=302)
 
@@ -773,11 +811,14 @@ async def owner_remove_unit(
 
     if request.headers.get("HX-Request"):
         available_units, declared_shares = _owner_units_context(owner, db)
+        _bal_py = db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).first()
+        _udm = compute_debt_map(db, _bal_py.year) if _bal_py else {}
         return templates.TemplateResponse("partials/owner_units_section.html", {
             "request": request,
             "owner": owner,
             "available_units": available_units,
             "declared_shares": declared_shares,
             "code_lists": get_all_code_lists(db),
+            "unit_debt_map": _udm,
         })
     return RedirectResponse(f"/vlastnici/{owner_id}", status_code=302)

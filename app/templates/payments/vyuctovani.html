@@ -28,11 +28,11 @@
                 <!-- Export -->
                 {% set _export_qs = "rok=" ~ rok ~ "&stav=" ~ stav ~ "&q=" ~ q %}
                 <a href="/platby/vyuctovani/exportovat/xlsx?{{ _export_qs }}" hx-boost="false"
-                   onclick="var b=this,t=b.textContent;b.textContent='Generuji…';b.classList.add('opacity-50');setTimeout(function(){b.textContent=t;b.classList.remove('opacity-50')},3000)"
+                   onclick="var b=this,t=b.textContent;b.textContent='Generuji\u2026';b.classList.add('opacity-50','pointer-events-none');setTimeout(function(){b.textContent=t;b.classList.remove('opacity-50','pointer-events-none')},4000)"
                    class="px-2.5 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 text-xs font-medium transition-colors border border-gray-200 dark:border-gray-600"
                    title="Export souhrn do Excelu">↓ Excel</a>
                 <a href="/platby/vyuctovani/exportovat/xlsx?{{ _export_qs }}&detail=1" hx-boost="false"
-                   onclick="var b=this,t=b.textContent;b.textContent='Generuji…';b.classList.add('opacity-50');setTimeout(function(){b.textContent=t;b.classList.remove('opacity-50')},3000)"
+                   onclick="var b=this,t=b.textContent;b.textContent='Generuji\u2026';b.classList.add('opacity-50','pointer-events-none');setTimeout(function(){b.textContent=t;b.classList.remove('opacity-50','pointer-events-none')},4000)"
                    class="px-2.5 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 text-xs font-medium transition-colors border border-gray-200 dark:border-gray-600"
                    title="Export s položkami do Excelu">↓ Excel + položky</a>
                 <form method="post" action="/platby/vyuctovani/generovat" class="inline" hx-boost="false">
@@ -70,13 +70,17 @@
         <!-- Hledání + hromadné akce -->
         <div class="flex items-center justify-between mb-3 gap-3">
             <div>
+                <div class="relative inline-block w-full sm:w-72">
                 <input type="text" name="q" value="{{ q }}" placeholder="Hledat č. jednotky, vlastníka, VS..."
                     aria-label="Hledat"
                     hx-get="/platby/vyuctovani"
                     hx-trigger="keyup changed delay:300ms"
                     hx-target="#vyuctovani-tbody"
                     hx-include="[name='sort'],[name='order'],[name='rok'],[name='stav'],[name='back']"
-                    class="w-full sm:w-72 px-3 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500">
+                    hx-indicator="#search-spinner"
+                    class="w-full px-3 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500">
+                <svg id="search-spinner" class="htmx-indicator absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-500 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                </div>
                 <input type="hidden" name="sort" value="{{ sort }}">
                 <input type="hidden" name="order" value="{{ order }}">
                 <input type="hidden" name="rok" value="{{ rok }}">
@@ -99,7 +103,7 @@
                     <option value="paid">Zaplaceno</option>
                     <option value="overdue">Po splatnosti</option>
                 </select>
-                <button type="submit" class="px-2.5 py-1 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700">Změnit</button>
+                <button type="submit" data-confirm="Opravdu chcete změnit stav u vybraných vyúčtování?" class="px-2.5 py-1 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700">Změnit</button>
             </form>
             {% if settlements|length > 0 %}
             <form method="post" action="/platby/vyuctovani/hromadny-stav-filtrovane" hx-boost="false" class="flex items-center gap-2"

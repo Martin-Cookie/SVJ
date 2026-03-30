@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Import prostorů dokončen{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <a href="/prostory/import" class="text-sm text-blue-600 hover:text-blue-800">&larr; Zpět na import</a>
+</div>
+
+{% include "partials/wizard_stepper.html" %}
+
+<h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-6">Import prostorů dokončen</h1>
+
+<div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-6 max-w-2xl">
+    <ul class="text-sm text-green-700 dark:text-green-300 space-y-2">
+        <li>Vytvořeno prostorů: <strong>{{ result.spaces_created }}</strong></li>
+        <li>Vytvořeno nájemců: <strong>{{ result.tenants_created }}</strong></li>
+        <li>Vytvořeno nájmů: <strong>{{ result.contracts_created }}</strong></li>
+        {% if result.vs_mappings_created > 0 %}
+        <li>Vytvořeno VS mapování: <strong>{{ result.vs_mappings_created }}</strong></li>
+        {% endif %}
+    </ul>
+    {% if result.errors %}
+    <div class="mt-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded">
+        <h4 class="text-sm font-semibold text-yellow-800 dark:text-yellow-300 mb-1">Upozornění:</h4>
+        <ul class="text-sm text-yellow-700 dark:text-yellow-400 list-disc list-inside">
+            {% for error in result.errors %}
+            <li>{{ error }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+    <div class="mt-6">
+        <a href="/prostory" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium transition-colors">
+            Zobrazit seznam prostorů
+        </a>
+    </div>
+</div>
+{% endblock %}

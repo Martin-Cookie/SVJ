@@ -18,7 +18,11 @@ def read_excel_headers(file_path: str, sheet_name: str | None = None, header_row
     """Read headers from a specific row in an Excel file.
 
     Returns list of header strings (empty cells become "Sloupec N").
+    Supports both .xlsx (openpyxl) and .xls (xlrd) formats.
     """
+    if file_path.lower().endswith(".xls") and not file_path.lower().endswith(".xlsx"):
+        return _read_xls_headers(file_path, sheet_name, header_row)
+
     wb = load_workbook(file_path, read_only=True, data_only=True)
     if sheet_name and sheet_name in wb.sheetnames:
         ws = wb[sheet_name]
@@ -34,8 +38,29 @@ def read_excel_headers(file_path: str, sheet_name: str | None = None, header_row
     return headers
 
 
+def _read_xls_headers(file_path: str, sheet_name: str | None, header_row: int) -> list[str]:
+    """Read headers from .xls file using xlrd."""
+    import xlrd
+    wb = xlrd.open_workbook(file_path)
+    if sheet_name and sheet_name in wb.sheet_names():
+        ws = wb.sheet_by_name(sheet_name)
+    else:
+        ws = wb.sheet_by_index(0)
+    row_idx = header_row - 1  # xlrd is 0-based
+    if row_idx >= ws.nrows:
+        return []
+    return [
+        str(ws.cell_value(row_idx, c)).strip() if ws.cell_value(row_idx, c) != "" else f"Sloupec {c + 1}"
+        for c in range(ws.ncols)
+    ]
+
+
 def read_excel_sheet_names(file_path: str) -> list[str]:
     """Return list of sheet names in an Excel file."""
+    if file_path.lower().endswith(".xls") and not file_path.lower().endswith(".xlsx"):
+        import xlrd
+        wb = xlrd.open_workbook(file_path)
+        return wb.sheet_names()
     wb = load_workbook(file_path, read_only=True)
     names = list(wb.sheetnames)
     wb.close()
@@ -553,6 +578,76 @@ CONTACT_FIELD_DEFS: dict[str, dict] = {
 
 
 # ---------------------------------------------------------------------------
+# Auto-detect header / start row
+# ---------------------------------------------------------------------------
+
+
+def detect_header_row(
+    file_path: str,
+    field_defs: dict[str, dict],
+    sheet_name: str | None = None,
+    max_scan: int = 20,
+) -> tuple[int, int]:
+    """Scan first `max_scan` rows to find the best header row for given field_defs.
+
+    Returns (header_row, start_row) — 1-based row numbers.
+    Heuristic: pick the row whose headers produce the most auto-detect matches.
+    """
+    best_header = 1
+    best_data = 2
+    best_matches = -1
+
+    wb = load_workbook(file_path, read_only=True, data_only=True)
+    ws = wb[sheet_name] if sheet_name and sheet_name in wb.sheetnames else wb.active
+
+    rows_cache: list[list] = []
+    for row in ws.iter_rows(min_row=1, max_row=max_scan, values_only=True):
+        rows_cache.append(list(row))
+    wb.close()
+
+    for idx, row_data in enumerate(rows_cache):
+        # Skip rows with <2 non-empty cells
+        non_empty = [c for c in row_data if c is not None and str(c).strip()]
+        if len(non_empty) < 2:
+            continue
+        # Skip rows where the first cell is a very long text (likely title/description)
+        first_val = str(row_data[0]).strip() if row_data[0] is not None else ""
+        if len(first_val) > 60:
+            continue
+
+        headers = [
+            str(c).strip() if c is not None else f"Sloupec {i + 1}"
+            for i, c in enumerate(row_data)
+        ]
+        result = auto_detect_mapping(headers, field_defs)
+        matched = sum(1 for v in result.values() if v["col"] is not None)
+
+        if matched > best_matches:
+            best_matches = matched
+            best_header = idx + 1  # 1-based
+            # Find first data row after header: skip sub-header rows
+            # (rows that are all-text with no numbers — likely header continuation)
+            best_data = idx + 2
+            for sub_idx in range(idx + 1, len(rows_cache)):
+                sub_row = rows_cache[sub_idx]
+                sub_non_empty = [c for c in sub_row if c is not None and str(c).strip()]
+                if not sub_non_empty:
+                    best_data = sub_idx + 2  # skip empty rows too
+                    continue
+                # If any cell is a number, this is likely a data row
+                has_number = any(
+                    isinstance(c, (int, float)) for c in sub_row if c is not None
+                )
+                if has_number:
+                    best_data = sub_idx + 1  # 1-based
+                    break
+                # All text, short values → likely sub-header, skip
+                best_data = sub_idx + 2
+
+    return best_header, best_data
+
+
+# ---------------------------------------------------------------------------
 # Auto-detection logic
 # ---------------------------------------------------------------------------
 
@@ -611,8 +706,8 @@ def auto_detect_mapping(
                 # Exact match
                 if norm_header == norm_candidate:
                     score = 100
-                # Header contains candidate
-                elif norm_candidate in norm_header:
+                # Header contains candidate (reject if header is way longer — likely false positive)
+                elif norm_candidate in norm_header and len(norm_header) <= len(norm_candidate) * 3:
                     score = 80
                 # Candidate contains header (for short headers like "email")
                 elif norm_header in norm_candidate and len(norm_header) >= 3:
@@ -641,6 +736,270 @@ def auto_detect_mapping(
             }
 
     return result
+
+
+# ---------------------------------------------------------------------------
+# Balance (zůstatky) field definitions — 9 fields in 2 groups
+# ---------------------------------------------------------------------------
+
+BALANCE_FIELD_GROUPS = [
+    {
+        "key": "required",
+        "label": "Povinná pole",
+        "color": "blue",
+        "fields": ["unit_number", "owner_name", "amount"],
+    },
+    {
+        "key": "optional",
+        "label": "Nepovinná pole",
+        "color": "gray",
+        "fields": [
+            "variable_symbol", "deposits", "settlement",
+            "paid", "paid_date", "status",
+        ],
+    },
+]
+
+BALANCE_FIELD_DEFS: dict[str, dict] = {
+    "unit_number": {
+        "label": "Katastrální číslo / č. jednotky",
+        "required": True,
+        "description": "Číslo jednotky pro párování s evidencí",
+        "candidates": [
+            "katastrální číslo", "katastralni cislo", "číslo jednotky",
+            "cislo jednotky", "č. jednotky", "č jednotky", "jednotka",
+            "byt", "unit", "unit_number", "kn", "č.j.",
+        ],
+    },
+    "owner_name": {
+        "label": "Vlastník",
+        "required": True,
+        "description": "Jméno vlastníka / dlužníka",
+        "candidates": [
+            "vlastník", "vlastnik", "jméno", "jmeno", "name", "owner",
+            "dlužník", "dluznik", "majitel",
+        ],
+    },
+    "amount": {
+        "label": "Nedoplatek / částka",
+        "required": True,
+        "description": "Výše nedoplatku (kladné=dluh, záporné=přeplatek)",
+        "candidates": [
+            "nedoplatek", "nedoplatky", "částka", "castka", "dluh",
+            "zůstatek", "zustatek", "amount", "balance", "saldo",
+        ],
+    },
+    "variable_symbol": {
+        "label": "Variabilní symbol",
+        "required": False,
+        "candidates": [
+            "variabilní symbol", "variabilni symbol", "vs",
+            "variable symbol", "var. symbol",
+        ],
+    },
+    "deposits": {
+        "label": "Zálohy",
+        "required": False,
+        "description": "Nedoplatek na zálohách",
+        "candidates": [
+            "zálohy", "zalohy", "záloha", "zaloha", "deposit", "deposits",
+        ],
+    },
+    "settlement": {
+        "label": "Vyúčtování",
+        "required": False,
+        "description": "Nedoplatek na vyúčtování",
+        "candidates": [
+            "vyúčtování", "vyuctovani", "settlement", "vyúčt",
+        ],
+    },
+    "paid": {
+        "label": "Uhrazeno",
+        "required": False,
+        "candidates": [
+            "uhrazeno", "zaplaceno", "paid", "úhrada", "uhrada",
+        ],
+    },
+    "paid_date": {
+        "label": "Datum platby",
+        "required": False,
+        "candidates": [
+            "datum platby", "datum", "date", "datum úhrady", "datum uhrady",
+        ],
+    },
+    "status": {
+        "label": "Stav",
+        "required": False,
+        "candidates": [
+            "stav", "status", "poznámka", "poznamka", "note",
+        ],
+    },
+}
+
+
+# ---------------------------------------------------------------------------
+# Space field definitions — 10 fields in 3 groups
+# ---------------------------------------------------------------------------
+
+SPACE_FIELD_GROUPS = [
+    {
+        "key": "space",
+        "label": "Prostor",
+        "color": "purple",
+        "fields": [
+            "space_number", "designation", "section", "floor", "area",
+        ],
+    },
+    {
+        "key": "tenant",
+        "label": "Nájemce",
+        "color": "green",
+        "fields": [
+            "tenant_name", "phone", "email",
+        ],
+    },
+    {
+        "key": "contract",
+        "label": "Smlouva",
+        "color": "orange",
+        "fields": [
+            "contract_number", "contract_start", "monthly_rent", "variable_symbol",
+        ],
+    },
+]
+
+SPACE_FIELD_DEFS: dict[str, dict] = {
+    # --- Prostor ---
+    "space_number": {
+        "label": "Číslo prostoru",
+        "required": True,
+        "description": "Identifikátor prostoru — povinné",
+        "candidates": [
+            "cislo prostoru", "prostor", "cislo", "c.p.", "cp", "space number",
+            "oznaceni prostoru", "id prostoru", "mistnost", "cislo mistnosti",
+        ],
+    },
+    "designation": {
+        "label": "Označení / účel",
+        "required": False,
+        "description": "Název nebo účel prostoru (sklad, dílna, nebytový prostor)",
+        "candidates": [
+            "oznaceni", "ucel", "nazev", "popis", "designation", "typ",
+            "ucel uzivani", "druh", "typ prostoru", "popis prostoru",
+        ],
+    },
+    "section": {
+        "label": "Sekce / vchod",
+        "required": False,
+        "candidates": [
+            "sekce", "vchod", "blok", "section", "cast domu",
+        ],
+    },
+    "floor": {
+        "label": "Podlaží",
+        "required": False,
+        "candidates": [
+            "podlazi", "patro", "floor", "np", "poschodie",
+        ],
+    },
+    "area": {
+        "label": "Výměra (m²)",
+        "required": False,
+        "candidates": [
+            "vymera", "plocha", "m2", "area", "vymera m2", "podlahova plocha",
+        ],
+    },
+    # --- Nájemce ---
+    "tenant_name": {
+        "label": "Jméno nájemce",
+        "required": False,
+        "description": "Jméno nájemce — pokud vyplněno, automaticky se vytvoří nájemce",
+        "candidates": [
+            "najemce", "jmeno najemce", "nazev najemce", "najemnik",
+            "tenant", "tenant name", "firma", "nazev firmy",
+            "prijmeni jmeno", "jmeno prijmeni",
+        ],
+    },
+    "phone": {
+        "label": "Telefon nájemce",
+        "required": False,
+        "candidates": [
+            "telefon", "tel", "phone", "mobil", "gsm", "kontakt",
+        ],
+    },
+    "email": {
+        "label": "Email nájemce",
+        "required": False,
+        "candidates": [
+            "email", "e-mail", "mail", "email najemce",
+        ],
+    },
+    # --- Smlouva ---
+    "contract_number": {
+        "label": "Číslo smlouvy",
+        "required": False,
+        "candidates": [
+            "cislo smlouvy", "smlouva", "contract", "contract number",
+            "c. smlouvy", "c.s.",
+        ],
+    },
+    "contract_start": {
+        "label": "Začátek smlouvy",
+        "required": False,
+        "candidates": [
+            "zacatek smlouvy", "platnost od", "od", "datum smlouvy",
+            "contract start", "zacatek", "od data",
+        ],
+    },
+    "monthly_rent": {
+        "label": "Měsíční nájemné (Kč)",
+        "required": False,
+        "candidates": [
+            "najemne", "mesicni najemne", "rent", "monthly rent",
+            "castka", "najemne kc", "mesicni castka",
+        ],
+    },
+    "variable_symbol": {
+        "label": "Variabilní symbol",
+        "required": False,
+        "candidates": [
+            "variabilni symbol", "vs", "variable symbol", "var. symbol",
+            "var symbol",
+        ],
+    },
+}
+
+
+def validate_space_mapping(mapping: dict):
+    """Validate space import mapping. Returns error message or None."""
+    if not isinstance(mapping, dict) or "fields" not in mapping:
+        return "Neplatný formát mapování"
+
+    fields = mapping["fields"]
+    if not isinstance(fields, dict):
+        return "Neplatný formát mapování polí"
+
+    for field_key, fdef in SPACE_FIELD_DEFS.items():
+        if fdef.get("required") and field_key not in fields:
+            return f"Chybí povinné pole: {fdef['label']}"
+
+    return None
+
+
+def validate_balance_mapping(mapping: dict) -> str | None:
+    """Validate balance import mapping. Returns error message or None."""
+    if not isinstance(mapping, dict) or "fields" not in mapping:
+        return "Neplatný formát mapování"
+
+    fields = mapping["fields"]
+    if not isinstance(fields, dict):
+        return "Neplatný formát mapování polí"
+
+    for field_key, fdef in BALANCE_FIELD_DEFS.items():
+        if fdef.get("required") and field_key not in fields:
+            return f"Chybí povinné pole: {fdef['label']}"
+
+    return None
 
 
 def validate_owner_mapping(mapping: dict) -> str | None:

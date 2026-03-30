@@ -1,6 +1,7 @@
 # Business logika -- SVJ Management System
 
-> Automaticky extrahováno z kódu dne 2026-03-09
+> Automaticky extrahováno z kódu dne 2026-03-27 (aktualizace z 2026-03-09)
+> 167 commitů od posledního běhu.
 
 ## Obsah
 
@@ -41,10 +42,10 @@ Povolené přechody (whitelist):
 5. **Uzavření** -- Finální export do Excelu
 
 **Kde v kódu:**
-- Wizard: `app/routers/voting/_helpers.py:_voting_wizard()` (řádky 19-69)
-- Generování: `app/routers/voting/session.py:generate_ballots()` (řádky 403-591)
+- Wizard: `app/routers/voting/_helpers.py:_voting_wizard()`
+- Generování: `app/routers/voting/session.py:generate_ballots()`
 - Import hlasů: `app/services/voting_import.py`
-- Stavové přechody: `app/routers/voting/session.py:update_voting_status()` (řádky 594-620)
+- Stavové přechody: `app/routers/voting/session.py:update_voting_status()`
 
 **Důležitý detail -- SJM sdílení lístků:**
 
@@ -57,7 +58,7 @@ V režimu `partial_owner_mode = "shared"` (default) se manželé se SJM na stejn
 5. Primární vlastník = první dle name_normalized (abecední řazení)
 6. Hlasy = součet hlasů VŠECH členů skupiny (ne jen jedné jednotky)
 
-Kde v kódu: `app/routers/voting/session.py:generate_ballots()` (řádky 425-541)
+Kde v kódu: `app/routers/voting/session.py:generate_ballots()`
 
 ---
 
@@ -132,7 +133,7 @@ Pravidlo: Nepotvrzená přiřazení (AUTO_MATCHED) se přeskočí při rozesílc
 - CSV parsing: `app/services/csv_comparator.py:parse_sousede_csv()`
 - Porovnání: `app/services/csv_comparator.py:compare_owners()`
 - Výměna vlastníků: `app/services/owner_exchange.py:execute_exchange()`
-- Router: `app/routers/sync.py`
+- Router: `app/routers/sync/`
 
 ---
 
@@ -143,13 +144,16 @@ Pravidlo: Nepotvrzená přiřazení (AUTO_MATCHED) se přeskočí při rozesílc
 **Kroky:**
 
 1. **Upload** -- Nahrání .xlsx souboru (max 50 MB)
-2. **Preview** -- Parsování dat, detekce unikátních vlastníků a jednotek, zobrazení náhledu
-3. **Confirm** -- Vytvoření záznamů v DB (owners, units, owner_units)
+2. **Mapování** -- Dynamické mapování sloupců (uložené v SvjInfo.owner_import_mapping)
+3. **Preview** -- Parsování dat, detekce unikátních vlastníků a jednotek, zobrazení náhledu
+4. **Confirm** -- Vytvoření záznamů v DB (owners, units, owner_units)
 
 **Dva průchody dat:**
 
 1. **První průchod** -- Seskupení řádků podle `_owner_group_key` (RČ/IČ nebo normalizované jméno)
 2. **Druhý průchod** -- Vytvoření DB záznamů: Owner → flush → Unit (cache) → OwnerUnit
+
+**Deduplikace právnických osob:** Název firmy se deduplikuje přes normalizaci (strip diakritiky, lowercase) -- zabrání vytvoření duplicitních záznamů pro stejnou firmu importovanou z různých řádků.
 
 **Kde v kódu:** `app/services/excel_import.py`
 
@@ -162,8 +166,9 @@ Pravidlo: Nepotvrzená přiřazení (AUTO_MATCHED) se přeskočí při rozesílc
 **Kroky:**
 
 1. **Upload** -- Nahrání .xlsx, sheet "ZU", data od řádku 7
-2. **Preview** -- Matching na DB vlastníky přes normalized name nebo RČ/IČ, detekce změn
-3. **Execute** -- Aplikace vybraných změn s podporou overwrite/skip pro existující hodnoty
+2. **Mapování** -- Dynamické mapování sloupců (uložené v SvjInfo.contact_import_mapping)
+3. **Preview** -- Matching na DB vlastníky přes normalized name nebo RČ/IČ, detekce změn
+4. **Execute** -- Aplikace vybraných změn s podporou overwrite/skip pro existující hodnoty
 
 **Inteligentní routing kontaktů:**
 - Pokud primární email/telefon je prázdný → vyplnit primární
@@ -210,7 +215,7 @@ Pravidlo: Nepotvrzená přiřazení (AUTO_MATCHED) se přeskočí při rozesílc
 - Zip Slip protection při extrakci
 - Post-restore migrace (přidání chybějících sloupců/tabulek)
 
-**Kde v kódu:** `app/services/backup_service.py`, `app/routers/administration.py`
+**Kde v kódu:** `app/services/backup_service.py`, `app/routers/administration/backups.py`
 
 ---
 
@@ -249,6 +254,228 @@ Pravidlo: Nepotvrzená přiřazení (AUTO_MATCHED) se přeskočí při rozesílc
 
 ---
 
+### 1.10 Evidence plateb (Payment Workflow) -- NOVÉ od 2026-03-09
+
+**Účel:** Kompletní správa plateb SVJ -- od předpisů přes bankovní výpisy, automatické párování plateb až po vyúčtování a detekci dlužníků.
+
+**Hlavní sub-moduly:**
+
+#### 1.10.1 Předpisy (Prescriptions)
+
+**Účel:** Import měsíčních předpisů plateb z DOCX evidenčních listů (formát DOMSYS).
+
+**Kroky:**
+1. **Upload DOCX** -- Parsování tabulek (530 tabulek × 25 řádků): extrakce VS, číslo prostoru, sekce, jméno vlastníka, položky předpisu
+2. **Preview** -- Zobrazení naparsovaných předpisů s párováním na jednotky
+3. **Import** -- Uložení PrescriptionYear + Prescription + PrescriptionItem. Podpora přepisu existujícího roku bez opětovného uploadu souboru
+
+**Kategorizace položek předpisu:**
+- **Fond oprav** -- klíčová slova: "fond oprav"
+- **Služby** -- klíčová slova: "vodné", "stočné", "odpad", "výtah", "úklid", "elektřina", "komín" aj.
+- **Provozní** -- vše ostatní (default)
+
+**Auto-vytvoření VS mapování:** Při importu předpisů se automaticky vytvoří VariableSymbolMapping pro všechny nalezené VS.
+
+**Kde v kódu:** `app/services/prescription_import.py`, `app/routers/payments/prescriptions.py`
+
+#### 1.10.2 Variabilní symboly (Variable Symbol Mapping)
+
+**Účel:** Centrální mapování variabilních symbolů na jednotky nebo prostory.
+
+**Pravidla:**
+- VS je unikátní (unique constraint)
+- Může mapovat na unit_id NEBO space_id (ne obojí)
+- Zdroje: AUTO (z importu předpisů/prostorů), MANUAL (ruční), LEGACY (historické)
+- Aktivní/neaktivní flag
+
+**Varování při konfliktu:** Pokud se při importu předpisů detekuje VS, který už mapuje na jinou jednotku, zobrazí se varování.
+
+**Kde v kódu:** `app/routers/payments/symbols.py`, `app/models/payment.py`
+
+#### 1.10.3 Počáteční zůstatky (Opening Balances)
+
+**Účel:** Import počátečních zůstatků (nedoplatků/přeplatků) z Excelu.
+
+**Kroky:**
+1. **Upload** -- Excel (XLSX) nebo starší XLS soubor
+2. **Mapování** -- Dynamické mapování sloupců
+3. **Preview** -- Párování na jednotky (dle čísla) a vlastníky (fuzzy name matching)
+4. **Import** -- Smazat existující zůstatky pro rok, vytvořit nové UnitBalance záznamy
+
+**SJM logika v náhledu:** U SJM spoluvlastníků se v náhledu zobrazuje jen vlastník odpovídající Excel jménu (ne všichni spoluvlastníci na jednotce).
+
+**Duplicitní řádky:** Pokud má Excel více řádků pro stejnou jednotku, částky se sčítají.
+
+**Kde v kódu:** `app/services/balance_import.py`, `app/routers/payments/balances.py`
+
+#### 1.10.4 Bankovní výpisy (Bank Statements)
+
+**Účel:** Import bankovních výpisů z Fio CSV a automatické párování plateb na jednotky.
+
+**Import CSV:**
+- Formát: Fio CSV (UTF-8 s BOM, středník, 19 sloupců)
+- Metadata z prvních 8 řádků: účet, období, zůstatky, součty
+- Hlavičky na řádku 10, transakce od řádku 11
+- Fio má 2× sloupec "Poznámka" (index 11 a 16) -- speciální handling
+
+**Párování plateb (3 fáze):**
+
+1. **Fáze 1: VS exaktní shoda** (`AUTO_MATCHED`)
+   - VS platby → lookup v VariableSymbolMapping → unit_id nebo space_id
+   - Podporuje mapování na jednotky i prostory
+
+2. **Fáze 2: Jméno + částka** (`SUGGESTED`)
+   - Jméno odesílatele vs. jména vlastníků/nájemců na jednotkách/prostorech
+   - Shoda = alespoň jedno slovo > 3 znaky shodné
+   - Bonus za shodu částky s násobkem předpisu (1-12×)
+   - Multi-unit match: kombinace 2-4 jednotek jednoho vlastníka kde suma = platba
+   - Vyloučení auto-matched jednotek z dalších fází
+
+3. **Fáze 3: VS-prefix dekódování** (`SUGGESTED`)
+   - Formát předpisového VS: `prefix(5) + unit_number(3 zero-padded) + suffix(2)`
+   - Skórovací systém: VS dekódování (+3) + jméno (+2) + částka (+3)
+   - Minimální skóre: 5 bodů (jméno + částka musí oba sedět)
+   - VS prefix SVJ: `"1098"` (hardcoded konstanta)
+
+**Zamykání výpisů:**
+- Výpis lze zamknout (`locked_at` timestamp) -- zamčený výpis nelze editovat
+- Všechny mutující endpointy kontrolují `statement.locked_at` a redirectují s flash "locked"
+- Toggle lock/unlock přes POST endpoint
+
+**Kde v kódu:**
+- Import: `app/services/bank_import.py:parse_fio_csv()`
+- Matching: `app/services/payment_matching.py:match_payments()`
+- Router: `app/routers/payments/statements.py`
+
+#### 1.10.5 Platební matice a dlužníci
+
+**Účel:** Přehledová matice plateb (jednotky × měsíce) a detekce dlužníků.
+
+**Výpočet dluhu:**
+```python
+expected = monthly_prescription × months_with_data + opening_balance
+debt = max(0, expected - total_paid)
+```
+
+- `months_with_data` = měsíce kde existuje alespoň 1 napárovaná platba
+- Platby se počítají pouze potvrzené (AUTO_MATCHED + MANUAL), nikdy SUGGESTED ani UNMATCHED
+- Dluh se počítá odděleně pro jednotky a prostory
+
+**Sidebar badge dlužníků:** Globální middleware (`inject_debtor_count`) počítá dlužníky pro všechny full-page requesty (ne HTMX partials).
+
+**Kde v kódu:**
+- Matice: `app/services/payment_overview.py:compute_payment_matrix()`
+- Dlužníci: `app/services/payment_overview.py:compute_debtor_list()`
+- Rychlý count: `app/routers/payments/_helpers.py:_count_debtors_fast()`
+- Debt map: `app/routers/payments/_helpers.py:compute_debt_map()`
+
+#### 1.10.6 Vyúčtování (Settlement)
+
+**Účel:** Automatické generování ročního vyúčtování per jednotka.
+
+**Výpočet:**
+```python
+annual_prescription = monthly_total × 12
+result_amount = annual_prescription + opening_balance - total_paid
+# kladné = nedoplatek, záporné = přeplatek
+```
+
+**SettlementItems:** Rozpad po kategoriích -- poměrné rozúčtování zaplacené částky podle podílu položky na celku:
+```python
+ratio = item.amount / monthly_total
+item_paid = total_paid × ratio
+item_result = item_annual - item_paid
+```
+
+**Stavový diagram:**
+```
+[GENERATED] → [SENT] → [PAID]
+                    → [OVERDUE]
+```
+
+**Upsert:** Opakované generování aktualizuje existující settlements (smaže staré items, přepočítá).
+
+**Kde v kódu:** `app/services/settlement_service.py`, `app/routers/payments/settlement.py`
+
+#### 1.10.7 PaymentAllocation (multi-unit platby)
+
+**Účel:** Jedna platba může být rozpočítána na více jednotek/prostorů (dual-write pattern).
+
+**Pravidla:**
+- Každá napárovaná platba má 1+ PaymentAllocation záznamů
+- Single-unit platba: 1 alokace s celou částkou
+- Multi-unit platba: N alokací, každá s monthly_total příslušné jednotky
+- Při přepárování se staré alokace mažou a vytváří nové
+- Alokace může mapovat na unit_id i/nebo space_id
+
+**Kde v kódu:** `app/services/payment_matching.py:_create_allocation()`
+
+---
+
+### 1.11 Správa prostorů (Spaces) -- NOVÉ od 2026-03-09
+
+**Účel:** Evidence společných prostor SVJ (nebytové prostory, pronajímatelné jednotky).
+
+**CRUD operace:**
+- Seznam s filtry (stav: pronajatý/volný/blokovaný, sekce)
+- Detail s nájemcem, smlouvou, variabilním symbolem
+- Vytvoření s volitelným nájemcem (formulář kombinuje prostor + nájemce + smlouvu)
+- Export do Excelu/CSV
+
+**Stavy prostoru (`SpaceStatus`):**
+```
+VACANT (volný) ←→ RENTED (pronajatý)
+                ↕
+           BLOCKED (blokovaný — kočárkárna, kotelna, ústředna...)
+```
+
+**Auto-detekce blokovaných prostorů:** Klíčová slova v názvu/označení prostoru:
+```
+kocarkarna, ustredna, trezor, kotelna, strojovna, sklad odpadu,
+komora, rozvodna, chodba, schodiste, vytah, zasedaci, spolecna, technick, uklid
+```
+
+**Import prostorů z Excelu:**
+1. **Upload** -- Excel soubor s prostory
+2. **Mapování** -- Dynamické mapování sloupců (číslo prostoru, označení, sekce, patro, výměra, nájemce, smlouva, VS)
+3. **Preview** -- Zobrazení s auto-detekcí blokovaných, párování nájemců na vlastníky (s výběrem z kandidátů)
+4. **Import** -- Vytvoření Space + Tenant + SpaceTenant + auto VariableSymbolMapping + auto Prescription
+
+**Fallback VS z čísla smlouvy:** Pokud není namapovaný sloupec pro VS, použije se číslo smlouvy jako variabilní symbol.
+
+**Owner matching při importu:** Nájemce se páruje na existujícího vlastníka přes:
+1. Exact match na `name_normalized`
+2. Příjmení match (první slovo) -- pokud unikátní kandidát
+3. Ruční override přes `owner_overrides` dict
+
+**Kde v kódu:**
+- Router: `app/routers/spaces/crud.py`, `app/routers/spaces/import_spaces.py`
+- Import: `app/services/space_import.py`
+- Model: `app/models/space.py`
+
+---
+
+### 1.12 Správa nájemců (Tenants) -- NOVÉ od 2026-03-09
+
+**Účel:** Evidence nájemců společných prostor. Nájemce může být propojený s existujícím vlastníkem (owner_id) nebo samostatný.
+
+**Propojení s vlastníkem:**
+- Pokud `owner_id IS NOT NULL`: veškeré identifikační údaje (jméno, kontakty, typ) se resolvují z propojené entity Owner (properties `display_name`, `resolved_phone`, `resolved_email`, `resolved_type`)
+- Pokud `owner_id IS NULL`: nájemce má vlastní identitu (first_name, last_name, tenant_type atd.)
+
+**CRUD operace:**
+- Seznam s filtry (typ: fyzický/právnický, stav: aktivní/neaktivní, propojení: s vlastníkem/bez)
+- Detail s 4-sloupcovým layoutem (stejný design jako vlastníci)
+- Vytvoření, editace, přiřazení/ukončení nájmu na prostoru
+
+**Přiřazení nájmu:** Při přiřazení nájemce na prostor se vytvoří SpaceTenant záznam. Pokud má prostor VS a monthly_rent > 0, automaticky se vytvoří Prescription.
+
+**Ukončení nájmu:** SpaceTenant.is_active = False, prostor se přepne na VACANT.
+
+**Kde v kódu:** `app/routers/tenants/crud.py`, `app/models/space.py`
+
+---
+
 ## 2. Business pravidla
 
 ### 2.1 Kvórum hlasování
@@ -260,7 +487,7 @@ Pravidlo: Nepotvrzená přiřazení (AUTO_MATCHED) se přeskočí při rozesílc
 - `declared_shares` = `SvjInfo.total_shares` (celkový podíl dle prohlášení)
 - Hlasy = `Ballot.total_votes` sumováno přes zpracované lístky s reálnými hlasy
 
-**Kde v kódu:** `app/routers/voting/_helpers.py:_ballot_stats()` (řádky 78-145)
+**Kde v kódu:** `app/routers/voting/_helpers.py:_ballot_stats()`
 
 **Výpočet:**
 ```python
@@ -353,7 +580,7 @@ if "/" in csv_share_raw:
     csv_share = int(csv_share_raw.split("/")[0].strip())
 ```
 
-**Kde v kódu:** `app/services/csv_comparator.py` (řádky 197-207), `app/services/share_check_comparator.py:_parse_share_value()`
+**Kde v kódu:** `app/services/csv_comparator.py`, `app/services/share_check_comparator.py:_parse_share_value()`
 
 ### 2.8 Formátování telefonního čísla
 
@@ -386,13 +613,13 @@ if "/" in csv_share_raw:
 5. Disambiguace při vícero lístcích: name matching (`name_normalized in excel_name`)
 6. SJM re-inclusion: pokud disambiguace vyloučí jednoho z páru SJM (přesně 2 SJM na jednotce), přidej ho zpět
 
-**Kde v kódu:** `app/services/voting_import.py:preview_voting_import()` (řádky 320-345)
+**Kde v kódu:** `app/services/voting_import.py:preview_voting_import()`
 
 ### 2.11 Rozesílka -- přeskočení nepotvrzených přiřazení
 
 **Pravidlo:** Při hromadné rozesílce se přeskočí distribuce se stavem `AUTO_MATCHED` -- musí být `CONFIRMED` nebo `MANUAL`.
 
-**Kde v kódu:** `app/routers/tax/_helpers.py:_build_recipients()` (řádek 214)
+**Kde v kódu:** `app/routers/tax/_helpers.py:_build_recipients()`
 
 ### 2.12 Mazání dat -- pořadí a kaskády
 
@@ -400,21 +627,53 @@ if "/" in csv_share_raw:
 
 ```python
 _PURGE_ORDER = [
-    "owners",       # BallotVote → Ballot → Owner, OwnerUnit, Unit, Proxy
-    "votings",      # BallotVote → Ballot → VotingItem → Voting
-    "tax",          # TaxDistribution → TaxDocument → TaxSession
-    "sync",         # SyncRecord → SyncSession
-    "share_check",  # ShareCheckRecord → ShareCheckSession + ShareCheckColumnMapping
+    "owners", "spaces", "votings", "tax", "sync", "share_check", "payments",
     "email_logs", "import_logs", "activity_logs",
     "svj_info", "board", "code_lists", "email_templates",
-    "backups",      # ZIP soubory na disku
-    "restore_log",  # JSON soubor na disku
+    "backups", "restore_log",
 ]
 ```
 
 **Kaskáda:** Mazání `owners` automaticky maže i `sync` (sync záznamy jsou bez vlastníků bezcenné).
 
-**Kde v kódu:** `app/routers/administration.py` (řádky 976-1076)
+**Kde v kódu:** `app/routers/administration/_helpers.py`, `app/routers/administration/bulk.py`
+
+### 2.13 Párování plateb -- pravidla potvrzení -- NOVÉ
+
+**Pravidlo:** Do přehledů (matice, dlužníci, vyúčtování) se počítají POUZE platby se statusem `AUTO_MATCHED` nebo `MANUAL`. Nikdy `SUGGESTED` ani `UNMATCHED`.
+
+**Důvod:** SUGGESTED platby jsou návrhy, které musí uživatel potvrdit. Bez potvrzení nesmí ovlivnit finanční přehledy.
+
+**Kde v kódu:** Všechny dotazy v `payment_overview.py`, `settlement_service.py`, `_helpers.py` filtrují:
+```python
+Payment.match_status.in_([PaymentMatchStatus.AUTO_MATCHED, PaymentMatchStatus.MANUAL])
+```
+
+### 2.14 Výpočet dluhu -- NOVÉ
+
+**Pravidlo:**
+```python
+expected = monthly_prescription × months_with_data + opening_balance
+debt = max(0, expected - total_paid)
+```
+
+- `months_with_data` = měsíce kde existuje alespoň 1 napárovaná příjmová platba v celém SVJ
+- Dluh je vždy nezáporný (přeplatek = debt 0, ne záporné číslo)
+
+### 2.15 Předpis → položky kategorizace -- NOVÉ
+
+**Pravidlo:** Položky měsíčního předpisu se automaticky kategorizují dle klíčových slov v názvu:
+- **Fond oprav**: název obsahuje "fond oprav"
+- **Služby**: název obsahuje "vodné", "stočné", "odpad", "komun", "elektřina", "společná el", "výtah", "úklid", "ostraha", "komín"
+- **Provozní**: vše ostatní
+
+**Kde v kódu:** `app/services/prescription_import.py:_categorize_item()`
+
+### 2.16 Zamykání bankovních výpisů -- NOVÉ
+
+**Pravidlo:** Zamčený výpis (`locked_at IS NOT NULL`) nelze editovat -- všechny mutující endpointy (přiřazení, přepárování, smazání, hromadný stav) kontrolují lock a redirectují s flash zprávou "locked".
+
+**Kde v kódu:** `app/routers/payments/statements.py` -- každý POST handler kontroluje `statement.locked_at`
 
 ---
 
@@ -439,6 +698,10 @@ _PURGE_ORDER = [
 - `Owner 1:N Ballot` -- hlasovací lístky (cascade delete)
 - `Owner 1:N TaxDistribution` -- daňové distribuce (cascade delete)
 - `Owner 1:N Proxy` -- plné moci (jako grantor i proxy_holder)
+- `Owner 1:N Tenant` -- propojení s nájemci (nullable FK)
+- `Owner 1:N Settlement` -- vyúčtování (nullable FK)
+- `Owner 1:N PaymentAllocation` -- alokace plateb
+- `Owner 1:N UnitBalance` -- počáteční zůstatky
 
 **Temporální aspekt:** Vlastnictví má historii přes `OwnerUnit.valid_from/valid_to`.
 
@@ -455,6 +718,10 @@ _PURGE_ORDER = [
 
 **Relace:**
 - `Unit 1:N OwnerUnit N:1 Owner` -- vlastníci jednotky
+- `Unit 1:N Prescription` -- předpisy plateb
+- `Unit 1:N PaymentAllocation` -- alokace plateb
+- `Unit 1:N Settlement` -- vyúčtování
+- `Unit 1:N UnitBalance` -- počáteční zůstatky
 - Properties: `current_owners` (valid_to IS NULL), `historical_owners` (valid_to IS NOT NULL)
 
 ### 3.3 OwnerUnit (Vlastnický vztah)
@@ -561,6 +828,84 @@ _PURGE_ORDER = [
 
 **ActivityLog** -- Audit log všech akcí (CREATED, UPDATED, DELETED, STATUS_CHANGED, IMPORTED, EXPORTED, RESTORED).
 
+### 3.13 Space (Prostor) -- NOVÉ
+
+**Business účel:** Společný/pronajímatelný prostor v domě SVJ.
+
+**Klíčové atributy:**
+- `space_number` -- unikátní číslo prostoru (INTEGER, unique)
+- `designation` -- název/označení ("Kočárkárna", "Ateliér 3B")
+- `section` -- sekce domu
+- `floor` -- podlaží
+- `area` -- výměra v m²
+- `status` -- RENTED / VACANT / BLOCKED
+- `blocked_reason` -- důvod blokace (pro utility prostory)
+
+**Relace:**
+- `Space 1:N SpaceTenant` -- nájemní vztahy (cascade delete)
+- `Space 1:N Prescription` -- předpisy plateb
+- `Space 1:N PaymentAllocation` -- alokace plateb
+- `Space 1:N VariableSymbolMapping` -- VS mapování
+
+**Property:** `active_tenant_rel` -- vrátí aktivní SpaceTenant nebo None.
+
+### 3.14 Tenant (Nájemce) -- NOVÉ
+
+**Business účel:** Nájemce společného prostoru. Může být propojený s existujícím vlastníkem.
+
+**Klíčové atributy:**
+- `owner_id` -- FK na Owner (nullable) -- propojení s vlastníkem
+- `first_name`, `last_name`, `title` -- identita (použita jen když owner_id IS NULL)
+- `name_normalized` -- pro vyhledávání
+- `tenant_type` -- PHYSICAL / LEGAL_ENTITY (re-use OwnerType enum)
+- Kontakty: `phone`, `email` + sekundární
+- Adresy: trvalá + korespondenční (stejná struktura jako Owner)
+- `data_source` -- `manual`, `import`
+
+**Resolved properties:** Když owner_id je nastaveno, `display_name`, `resolved_phone`, `resolved_email`, `resolved_type` delegují na propojeného Owner.
+
+**Relace:**
+- `Tenant 1:N SpaceTenant` -- nájemní vztahy (cascade delete)
+- `Tenant N:1 Owner` -- volitelné propojení
+
+### 3.15 SpaceTenant (Nájemní vztah) -- NOVÉ
+
+**Business účel:** Vazba nájemce na prostor s detaily smlouvy.
+
+**Klíčové atributy:**
+- `contract_number` -- číslo smlouvy
+- `contract_start`, `contract_end` -- období smlouvy
+- `monthly_rent` -- měsíční nájem
+- `variable_symbol` -- VS pro platby
+- `is_active` -- aktivní/ukončený nájem
+- `contract_path` -- cesta k souboru smlouvy
+
+**Composite index:** `(space_id, tenant_id)` -- optimalizace dotazů.
+
+### 3.16 Payment entities -- NOVÉ
+
+**VariableSymbolMapping** -- Centrální mapování VS → unit_id/space_id. Unique constraint na VS.
+
+**UnitBalance** -- Počáteční zůstatek jednotky/prostoru pro daný rok. Unique constraint na `(unit_id, year)`. Kladné = dluh, záporné = přeplatek.
+
+**PrescriptionYear** -- Rok předpisu (container). Unique constraint na `year`.
+
+**Prescription** -- Měsíční předpis pro jednu jednotku/prostor v daném roce. Může mapovat na unit_id a/nebo space_id.
+
+**PrescriptionItem** -- Položka předpisu (název, částka, kategorie: PROVOZNI/FOND_OPRAV/SLUZBY).
+
+**BankStatement** -- Importovaný bankovní výpis (Fio CSV). Obsahuje metadata (účet, období, zůstatky). `locked_at` pro zamykání.
+
+**Payment** -- Jedna transakce z výpisu. Klíčové: `operation_id` (unique), `direction` (INCOME/EXPENSE), `match_status`, `vs`, `assigned_month`.
+
+**BankStatementColumnMapping** -- Uložené mapování sloupců pro bankovní výpisy.
+
+**PaymentAllocation** -- Alokace platby na jednotku/prostor (dual-write pattern pro multi-unit platby).
+
+**Settlement** -- Roční vyúčtování per jednotka. Status: GENERATED → SENT → PAID / OVERDUE.
+
+**SettlementItem** -- Položka vyúčtování s rozpadem: cost_building (roční), cost_unit (měsíční), paid, result.
+
 ---
 
 ## 4. Edge cases a workaroundy
@@ -605,7 +950,7 @@ Owner.name_normalized.like(search_ascii)  # NE ilike — name_normalized je už 
 
 **Řešení:** Pouze jednotky s přesně 2 SJM vlastníky se párují. Více vlastníků → alternativní seskupení přes identické SJM unit sety (frozenset).
 
-**Kde v kódu:** `app/routers/voting/session.py:generate_ballots()` (řádky 433-481)
+**Kde v kódu:** `app/routers/voting/session.py:generate_ballots()`
 
 ### 4.6 PDF company name split
 
@@ -625,7 +970,7 @@ SP 3 ... GROUP s.r.o.
 
 **Řešení:** Sdílená SMTP connection se vytváří per batch (ne globálně). Pokud vytvoření selže, fallback na per-email connection.
 
-**Kde v kódu:** `app/routers/tax/sending.py:_send_emails_batch()` (řádky 641-646)
+**Kde v kódu:** `app/routers/tax/sending.py:_send_emails_batch()`
 
 ### 4.8 Server restart během odesílání
 
@@ -635,7 +980,7 @@ SP 3 ... GROUP s.r.o.
 1. Na startu `recover_stuck_sending_sessions()` resetuje SENDING → PAUSED
 2. Na send preview stránce: pokud DB=SENDING ale progress dict neexistuje → reset na PAUSED
 
-**Kde v kódu:** `app/routers/tax/_helpers.py:recover_stuck_sending_sessions()`, `app/routers/tax/sending.py:tax_send_preview()` (řádky 155-157)
+**Kde v kódu:** `app/routers/tax/_helpers.py:recover_stuck_sending_sessions()`, `app/routers/tax/sending.py:tax_send_preview()`
 
 ### 4.9 Snapshot warning u hlasování
 
@@ -643,7 +988,7 @@ SP 3 ... GROUP s.r.o.
 
 **Řešení:** Detekce: pro každý lístek porovnej `ballot.total_votes` vs aktuální `sum(ou.votes)` vlastníka. Pokud se liší → warning v UI.
 
-**Kde v kódu:** `app/routers/voting/session.py:voting_detail()` (řádky 293-300)
+**Kde v kódu:** `app/routers/voting/session.py:voting_detail()`
 
 ### 4.10 Čeština v Word šablonách -- date false positives
 
@@ -651,7 +996,7 @@ SP 3 ... GROUP s.r.o.
 
 **Řešení:** `_DATE_AFTER_NUM` regex detekuje české měsíce za číslem a přeskočí takové řádky.
 
-**Kde v kódu:** `app/services/word_parser.py` (řádky 30-33, 84-86)
+**Kde v kódu:** `app/services/word_parser.py`
 
 ### 4.11 Multipart upload limit
 
@@ -662,13 +1007,13 @@ SP 3 ... GROUP s.r.o.
 _StarletteRequest.form.__kwdefaults__["max_files"] = 5000
 ```
 
-**Kde v kódu:** `app/main.py` (řádky 499-505)
+**Kde v kódu:** `app/main.py`
 
 ### 4.12 Email content change invalidates test
 
 **Pravidlo:** Pokud se změní email_subject nebo email_body, `test_email_passed` se resetuje na False. Uživatel musí znovu odeslat testovací email.
 
-**Kde v kódu:** `app/routers/tax/sending.py:save_send_settings()` (řádky 573-575)
+**Kde v kódu:** `app/routers/tax/sending.py:save_send_settings()`
 
 ### 4.13 CSV export UTF-8 BOM
 
@@ -677,6 +1022,46 @@ _StarletteRequest.form.__kwdefaults__["max_files"] = 5000
 **Řešení:** CSV se exportuje s `encoding="utf-8-sig"` (= BOM prefix `\ufeff`).
 
 **Kde v kódu:** `app/services/data_export.py:export_category_csv()`
+
+### 4.14 SMTP SSL pro port 465 -- NOVÉ
+
+**Problém:** Některé SMTP servery (např. Wedos) používají port 465 s nativním SSL místo STARTTLS.
+
+**Řešení:** Detekce portu 465 → `smtplib.SMTP_SSL` místo `smtplib.SMTP` + `starttls()`.
+
+**Kde v kódu:** `app/services/email_service.py:_create_smtp()`, `app/routers/settings_page.py`
+
+### 4.15 RFC 2047 email header encoding -- NOVÉ
+
+**Problém:** České znaky v emailových hlavičkách (From, To, Subject) se nezobrazovaly správně.
+
+**Řešení:** Explicitní RFC 2047 enkódování přes `email.header.Header(text, "utf-8")` a `email.utils.formataddr()`.
+
+**Kde v kódu:** `app/services/email_service.py:_build_message()`
+
+### 4.16 Fio CSV duplicitní "Poznámka" sloupec -- NOVÉ
+
+**Problém:** Fio CSV má 2× sloupec "Poznámka" (index 11 a 16), `csv.reader` nerozlišuje.
+
+**Řešení:** Speciální handling při parsování hlaviček: první "Poznámka" → `poznamka1`, druhá → `poznamka2`.
+
+**Kde v kódu:** `app/services/bank_import.py:parse_fio_csv()`
+
+### 4.17 Deduplikace firmy při importu vlastníků -- NOVÉ
+
+**Problém:** Stejná firma importovaná z více řádků Excelu vytvářela duplicitní Owner záznamy.
+
+**Řešení:** Normalizace názvu firmy (strip diakritiky, lowercase) pro group key při importu.
+
+**Kde v kódu:** `app/services/excel_import.py`
+
+### 4.18 Parsování výměry prostoru z Excelu -- NOVÉ
+
+**Problém:** Excel buňka s výměrou může obsahovat jednotky ("45.5 m²", "45.5m2", "1000 Kč").
+
+**Řešení:** Regex strip suffixů: `re.sub(r'\s*(m²|m2|kč|czk)\s*$', '', raw, flags=re.IGNORECASE)`
+
+**Kde v kódu:** `app/services/space_import.py:_cell_float()`
 
 ---
 
@@ -740,10 +1125,11 @@ _StarletteRequest.form.__kwdefaults__["max_files"] = 5000
 ### 5.7 Email -- SMTP
 
 **Směr:** Export
-**Protokol:** SMTP (smtplib) s TLS
+**Protokol:** SMTP s TLS (STARTTLS) nebo SSL (port 465)
 **Formát:** MIME multipart (HTML body + PDF přílohy)
 **Konfigurace:** `.env` soubor (SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, SMTP_FROM_NAME, SMTP_FROM_EMAIL)
 **Podpora:** Více příjemců (`,` oddělené), SJM vlastníci (`;` oddělené emaily → samostatné emaily)
+**Header encoding:** RFC 2047 pro českou diakritiku (From, To, Subject)
 
 **Kde v kódu:** `app/services/email_service.py`
 
@@ -751,7 +1137,7 @@ _StarletteRequest.form.__kwdefaults__["max_files"] = 5000
 
 **Směr:** Export
 **Formáty:** XLSX (openpyxl) + CSV (UTF-8-sig)
-**Kategorie:** owners, votings, tax, sync, share_check, logs, administration
+**Kategorie:** owners, units, votings, tax, sync, share_check, payments, spaces, tenants, logs, administration
 **Vlastnosti:** Bold hlavička, auto-width sloupců, barevné zvýraznění (zelená PRO, červená PROTI)
 
 **Kde v kódu:** `app/services/data_export.py`, `app/services/excel_export.py`
@@ -764,6 +1150,47 @@ _StarletteRequest.form.__kwdefaults__["max_files"] = 5000
 **Bezpečnost:** WAL checkpoint před zálohou, CRC check při restore, Zip Slip protection
 
 **Kde v kódu:** `app/services/backup_service.py`
+
+### 5.10 DOCX import -- Předpisy (DOMSYS evidenční listy) -- NOVÉ
+
+**Směr:** Import
+**Formát:** DOCX (python-docx) s tabulkami
+**Struktura:** 530 tabulek, každá 25 řádků × 2 sloupce
+**Extrakce:** VS, číslo prostoru, sekce, číslo jednotky, druh jednotky, jméno vlastníka, položky předpisu, CELKEM
+**Datum platnosti:** Parsování českého formátu "platný od 1. ledna 2026"
+
+**Kde v kódu:** `app/services/prescription_import.py:parse_prescription_docx()`
+
+### 5.11 Fio CSV import -- Bankovní výpisy -- NOVÉ
+
+**Směr:** Import
+**Formát:** CSV (UTF-8 s BOM, středník, 19 sloupců)
+**Metadata:** Řádky 1-8 (účet, období, zůstatky, součty příjmů/výdajů)
+**Hlavičky:** Řádek 10 (s autodetekcí pozice)
+**Transakce:** Od řádku 11 (operation_id, datum DD.MM.YYYY, objem s čárkou jako des. oddělovačem)
+**Speciální:** 2× duplicitní sloupec "Poznámka", VS=0 → null
+
+**Kde v kódu:** `app/services/bank_import.py:parse_fio_csv()`
+
+### 5.12 Excel import -- Prostory -- NOVÉ
+
+**Směr:** Import
+**Formát:** XLSX (openpyxl) s dynamickým mapováním sloupců
+**Vytváří:** Space + Tenant + SpaceTenant + VariableSymbolMapping + Prescription
+**Auto-detekce:** Blokované prostory dle klíčových slov, owner matching pro nájemce
+**Fallback:** Contract number → VS když VS sloupec chybí
+
+**Kde v kódu:** `app/services/space_import.py`
+
+### 5.13 Excel import -- Počáteční zůstatky -- NOVÉ
+
+**Směr:** Import
+**Formát:** XLSX nebo XLS (openpyxl + xlrd fallback) s dynamickým mapováním
+**Párování:** Jednotka dle čísla, vlastník dle fuzzy name match na aktivní vlastníky jednotky
+**Pravidla:** Duplicitní řádky pro stejnou jednotku = sčítání, CELKEM řádek = přeskočení
+**Přepis:** Import smaže existující zůstatky pro rok a vytvoří nové
+
+**Kde v kódu:** `app/services/balance_import.py`
 
 ---
 
@@ -790,6 +1217,12 @@ _StarletteRequest.form.__kwdefaults__["max_files"] = 5000
 | LibreOffice timeout | `120 s` | `pdf_generator.py` | Timeout konverze DOCX→PDF |
 | Excel auto-width max | `45` chars | `utils.py` | Max šířka sloupce v exportu |
 | Excel sheet name max | `31` chars | `data_export.py` | Excel limit pro název sheetu |
+| `MIN_WORD_LENGTH` | `3` | `payment_matching.py` | Min délka slova pro name matching |
+| `MIN_COMMON_WORDS` | `2` | `payment_matching.py` | Min shodných slov pro match |
+| `MAX_PRESCRIPTION_RATIO` | `10` | `payment_matching.py` | Max poměr předpis/platba |
+| `MIN_MATCH_SCORE` | `5` | `payment_matching.py` | Min skóre pro VS-prefix match |
+| `VS_PREFIX` | `"1098"` | `payment_matching.py` | VS prefix tohoto SVJ |
+| `BLOCKED_KEYWORDS` | 15 slov | `space_import.py` | Auto-detekce blokovaných prostorů |
 
 ## Appendix: Enum hodnoty s business kontextem
 
@@ -808,3 +1241,11 @@ _StarletteRequest.form.__kwdefaults__["max_files"] = 5000
 | `ShareCheckResolution` | PENDING, UPDATED, SKIPPED | Řešení rozdílu podílů |
 | `EmailStatus` | PENDING, SENT, FAILED | Stav emailového logu |
 | `ActivityAction` | CREATED, UPDATED, DELETED, STATUS_CHANGED, IMPORTED, EXPORTED, RESTORED | Typ aktivity |
+| `SpaceStatus` | RENTED, VACANT, BLOCKED | Stav prostoru |
+| `SymbolSource` | AUTO, MANUAL, LEGACY | Zdroj VS mapování |
+| `BalanceSource` | MANUAL, IMPORT, CARRYOVER | Zdroj zůstatku |
+| `PrescriptionCategory` | PROVOZNI, FOND_OPRAV, SLUZBY | Kategorie položky předpisu |
+| `ImportStatus` | IMPORTED, PROCESSED | Stav importu výpisu |
+| `PaymentDirection` | INCOME, EXPENSE | Směr platby (příjem/výdaj) |
+| `PaymentMatchStatus` | AUTO_MATCHED, SUGGESTED, MANUAL, UNMATCHED | Stav párování platby |
+| `SettlementStatus` | GENERATED, SENT, PAID, OVERDUE | Stav vyúčtování |

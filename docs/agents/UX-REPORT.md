@@ -1,20 +1,47 @@
 # UX Analyza -- Cela aplikace
 
-> Analyzovano: 2026-03-09
-> Rozsah: cela aplikace (dashboard, vlastnici, jednotky, hlasovani, dane/rozesilani, synchronizace, kontroly, sprava, nastaveni)
-> Metoda: analyza zdrojoveho kodu (routery, sablony, modely, services)
+> Analyzovano: 2026-03-27
+> Predchozi analyza: 2026-03-09
+> Rozsah: cela aplikace (dashboard, vlastnici, jednotky, najemci, prostory, hlasovani, dane/rozesilani, synchronizace, kontroly, platby, sprava, nastaveni)
+> Metoda: navigace cele aplikace pres Playwright (snapshots + screenshoty) + analyza z 6 expertnich roli
+
+## Zmeny od posledni analyzy (09.03.2026)
+
+Od posledni analyzy byly pridany/vyrazne zmeneny tyto moduly:
+- **Najemci** -- novy modul pro evidenci najemcu s propojenim na vlastniky a prostory
+- **Prostory** -- novy modul s importem, stavem pronajmu, napojenim na najemce
+- **Platby** -- kompletni modul (predpisy, VS mapovani, vypisy, matice, dluznici, vyuctovani, zustatky)
+- **Administrace** -- novy modul Duplicity, Export dat; rozsirene Smazat data
+- **Dashboard** -- pridana karta Platby a Prostory
+
+### Stav oprav z predchoziho reportu
+
+| # | Nalez | Stav |
+|---|-------|------|
+| #1 Prazdny stav dashboardu | Nezmeneno -- stale bez onboarding bloku |
+| #4 Validace duplicit vlastniku | OPRAVENO -- existuje `/sprava/duplicity` |
+| #5 Email validace pri tvorbe | OPRAVENO -- formular vraci chybu s form_data |
+| #22 Smazat data potvrzeni | OPRAVENO -- DELETE modal s textovym potvrzenim |
+| #24 Administrace popisy karet | OPRAVENO -- karty maji druhy radek s popisem |
+| #25 SMTP heslo placeholder | OPRAVENO -- viditelny placeholder |
+| #27 SMTP test pripojeni | OPRAVENO -- tlacitko "Test pripojeni" existuje |
+| #28 Sidebar mobilni verze | Nezmeneno -- stale bez responsivniho sidebaru |
+| #31 CSV delimiter | Nutno overit v kodu |
+| #35 emails_count | Nutno overit v kodu |
+
+---
 
 ## Souhrn
 
 | Pohled | Kriticke | Dulezite | Drobne |
 |--------|----------|----------|--------|
-| Bezny uzivatel | 2 | 5 | 4 |
-| Business analytik | 1 | 3 | 2 |
-| UI/UX designer | 0 | 4 | 3 |
-| Performance analytik | 1 | 2 | 2 |
-| Error recovery | 2 | 3 | 1 |
-| Data quality | 1 | 3 | 2 |
-| **Celkem** | **7** | **20** | **14** |
+| Bezny uzivatel | 1 | 4 | 3 |
+| Business analytik | 0 | 3 | 2 |
+| UI/UX designer | 1 | 3 | 4 |
+| Performance analytik | 1 | 2 | 1 |
+| Error recovery | 1 | 3 | 2 |
+| Data quality | 0 | 2 | 2 |
+| **Celkem** | **4** | **17** | **14** |
 
 ---
 
@@ -22,434 +49,466 @@
 
 ### Dashboard
 
-#### Nalez #1: Prazdny stav dashboardu nenavadi k akci
+#### Nalez #1: Dashboard posledni aktivita je zaplavena chybami rozesilky
 - **Severity:** DULEZITE
 - **Pohled:** Bezny uzivatel
-- **Co a kde:** Kdyz neni zadna aktivita (prazdna DB), dashboard zobrazi jen stat karty s nulami a zadny guidance. Sekce "Posledni aktivita" se vubec nezobrazi (podminka `{% if recent_activity or q %}`).
-- **Dopad:** Novy uzivatel po instalaci vidi prazdnou stranku a nevi co delat dal.
-- **Reseni:** Pridat onboarding blok pro prazdny stav -- "Zacnete importem dat z Excelu" s odkazem na `/vlastnici/import`, checklist prvnich kroku (1. Import vlastniku, 2. Zkontrolovat podily, 3. Zalozit hlasovani).
-- **Kde v kodu:** `app/templates/dashboard.html:112` -- podminka `{% if recent_activity or q %}`
-- **Narocnost:** nizka ~30 min
-- **Rozhodnuti:** Opravit
-- **Jak otestovat:** Smazat vsechna data (nebo cista DB), otevrit `/` -- melo by ukazat onboarding guide misto prazdna
+- **Co a kde:** Dashboard (`/`) zobrazuje v tabulce "Posledni aktivita" desitky radku se stavem "Chyba" z rozesilky. Vsechny maji stejny modul, stejny popis, lisi se jen jmenem. Uzitecna aktivita (importy, zmeny stavu) je utopena pod stovkami chybovych radku.
+- **Dopad:** Uzivatel po otevreni aplikace vidi jen chyby, nevi co se v aplikaci skutecne deje. Dashboard ztaci svuj ucel.
+- **Reseni:** (1) Seskupit stejne udalosti -- misto 30x "Chyba - Vyuctovani ... - Jmeno" zobrazit "30 chyb pri rozesilce Vyuctovani..." s moznosti rozbaleni. (2) Nebo pridat filtr modulu na aktivitu (bubliny: Vse / Rozesilani / Import / Platby).
+- **Varianty:** A) Seskupeni -- nizka slozitost, zachova detail. B) Filtrovaci bubliny -- stredni slozitost, vetsi flexibilita.
+- **Kde v kodu:** `app/templates/dashboard.html`, `app/routers/dashboard.py` (query pro aktivitu)
+- **Narocnost:** stredni ~1 hod
+- **Zavislosti:** --
+- **Regrese riziko:** nizke
+- **Rozhodnuti:** Potreba rozhodnuti uzivatele
+- **Jak otestovat:** Otevrit `/` -- melo by byt jasne co se deje, ne 50 radku "Chyba"
 
-#### Nalez #2: Dashboard stat karty nemaji tooltip/vysvetleni pro "Podily"
+#### Nalez #2: Dashboard -- chybi filtrovaci bubliny na posledni aktivitu
+- **Severity:** DROBNE
+- **Pohled:** Business analytik
+- **Co a kde:** Tabulka posledni aktivity na dashboardu nema filtrovaci bubliny podle modulu (Rozesilani, Import, Platby, Hlasovani) ani podle stavu (Chyba, Uspech, Info).
+- **Dopad:** Uzivatel nemuze rychle najit konkretni typ aktivity.
+- **Reseni:** Pridat bubliny nad tabulku: Vse / Rozesilani / Import / Hlasovani / Platby + Vse / Chyba / Uspech.
+- **Kde v kodu:** `app/templates/dashboard.html`, `app/routers/dashboard.py`
+- **Narocnost:** stredni ~45 min
+- **Zavislosti:** Souvis s #1
+- **Regrese riziko:** nizke
+- **Rozhodnuti:** Potreba rozhodnuti uzivatele
+- **Jak otestovat:** Na dashboardu by mely byt filtrovaci bubliny nad aktivitou
+
+#### Nalez #3: Dashboard -- chybi prazdny stav pro noveho uzivatele (z reportu #1)
 - **Severity:** DROBNE
 - **Pohled:** Bezny uzivatel
-- **Co a kde:** Na dashboardu se u karet Vlastnici a Jednotky zobrazuje "Podily: shoda" nebo "Delta XY", ale bez kontextu co to znamena.
-- **Dopad:** Uzivatel bez znalosti SVJ terminologie nevi co "podily" znamenaji ani proc je tam delta.
-- **Reseni:** Pridat `title` atribut na radek podilu s vysvetlenim, napr. "Porovnani podilu v evidenci s prohlasenim vlastnika".
-- **Kde v kodu:** `app/templates/dashboard.html:25-27` a `44-46`
-- **Narocnost:** nizka ~5 min
+- **Co a kde:** Stale plati z predchoziho reportu. S prazdnou DB uzivatel vidi jen nulove karty a zadny navod.
+- **Dopad:** Novy uzivatel nevi kde zacit.
+- **Reseni:** Onboarding blok s kroky: 1) Import vlastniku, 2) Kontrola podilu, 3) Zalozit hlasovani.
+- **Kde v kodu:** `app/templates/dashboard.html`
+- **Narocnost:** nizka ~30 min
+- **Zavislosti:** --
+- **Regrese riziko:** nizke
 - **Rozhodnuti:** Opravit
-- **Jak otestovat:** Najet mysi na "Podily: shoda" -- melo by se zobrazit vysvetleni
-
-#### Nalez #3: Tabulka posledni aktivity nema prazdny stav pri hledani
-- **Severity:** DROBNE
-- **Pohled:** UI/UX designer
-- **Co a kde:** Kdyz uzivatel hleda v aktivite a nic se nenajde, tbody je prazdna -- zadna zprava "Zadne vysledky".
-- **Dopad:** Uzivatel nevedi, jestli se neco nacita nebo opravdu nic neni.
-- **Reseni:** Pridat radek s `colspan` v partial `dashboard_activity_body.html` kdyz je `recent_activity` prazdny a `q` neprazdny.
-- **Kde v kodu:** `app/templates/partials/dashboard_activity_body.html`
-- **Narocnost:** nizka ~10 min
-- **Rozhodnuti:** Opravit
-- **Jak otestovat:** Na dashboardu zadat do hledani nesmyslny retezec -- melo by se zobrazit "Zadne vysledky"
 
 ---
 
 ### Vlastnici
 
-#### Nalez #4: Vytvoreni noveho vlastnika -- neni validace duplicit
-- **Severity:** KRITICKE
-- **Pohled:** Data quality
-- **Co a kde:** Endpoint `POST /vlastnici/novy` vytvori vlastnika bez kontroly, zda uz existuje se stejnym jmenem, RC nebo emailem. Zadna deduplikace.
-- **Dopad:** Vzniknou duplicitni zaznamy, ktere pak znesnadnuji praci s daty (spatne soucty hlasu, vice listku pro jednoho cloveka).
-- **Reseni:** Pred vlozenim zkontrolovat: (1) `name_normalized` shoda, (2) `birth_number` shoda, (3) `email` shoda. Pri nalezene shode zobrazit varovani "Vlastnik s podobnym jmenem/RC/emailem uz existuje" s odkazem na existujiciho.
-- **Kde v kodu:** `app/routers/owners.py:53-107`
-- **Narocnost:** stredni ~1 hod
-- **Rozhodnuti:** Opravit
-- **Jak otestovat:** Vytvorit vlastnika "Jan Novak", pak znovu "Jan Novak" -- melo by varovani o duplicite
-
-#### Nalez #5: Email validace pri vytvoreni vlastnika -- ticha ztrata dat
-- **Severity:** DULEZITE
-- **Pohled:** Error recovery
-- **Co a kde:** Kdyz uzivatel zada neplatny email pri vytvoreni vlastnika, system ticho email zahodi (`email_clean = ""`) a presmeruje s `?info=neplatny-email`. Uzivatel musi email zadat znovu rucne v detailu.
-- **Dopad:** Uzivatel muze nevedet, ze email nebyl ulozen -- varovani je jemne a email je proste prazdny.
-- **Reseni:** Misto zahozeni emailu vratit formular s chybou a predvyplnenymi daty, at uzivatel muze email opravit na miste.
-- **Kde v kodu:** `app/routers/owners.py:82-87`
-- **Narocnost:** stredni ~30 min
-- **Rozhodnuti:** Opravit
-- **Jak otestovat:** Zadat noveho vlastnika s emailem "test@" -- melo by zobrazit chybu s predvyplnenym formularem
-
-#### Nalez #6: Seznam vlastniku -- bubliny kontaktu pouzivaji specialni znaky misto textu
+#### Nalez #4: Seznam vlastniku -- sloupec "Dluh" se zobrazuje cervene, ale chybi vysvetleni
 - **Severity:** DROBNE
 - **Pohled:** Bezny uzivatel
-- **Co a kde:** Filtrovaci bubliny pro email/telefon pouzivaji HTML entity (`&#9993;` = obalka, `&#9742;` = telefon) s checkmarkem/krizkem. To je vizualne hure citelne nez text.
-- **Dopad:** Uzivatel musi hadat co bublina znamena, zvlast na mensi obrazovce.
-- **Reseni:** Pridat textovy label pod ikonu nebo pouzit tooltip: "S emailem", "Bez emailu", "S telefonem", "Bez telefonu".
-- **Kde v kodu:** `app/templates/owners/list.html:83-101`
-- **Narocnost:** nizka ~15 min
+- **Co a kde:** V tabulce vlastniku (`/vlastnici`) se u nekterych vlastniku zobrazuje cervena castka v sloupci "Dluh" (napr. "422 Kc", "150 Kc"). Neni jasne za jake obdobi, jak se pocita, ani na co presne se klikne.
+- **Dopad:** Uzivatel vidi cislo ale nema kontext.
+- **Reseni:** Pridat tooltip na castku dluhu s vysvetlenim ("Dluh za rok 2026 = predpis - zaplaceno"). Kliknutim na dluh presmerovat na detail plateb dane jednotky.
+- **Kde v kodu:** `app/templates/owners/list.html` (sloupec Dluh)
+- **Narocnost:** nizka ~20 min
+- **Zavislosti:** --
+- **Regrese riziko:** nizke
 - **Rozhodnuti:** Opravit
-- **Jak otestovat:** Otevrit `/vlastnici` a zkontrolovat, ze filtrovaci bubliny kontaktu jsou srozumitelne
 
-#### Nalez #7: Detail vlastnika -- 4-sloupcovy grid je prilis husty na mensich obrazovkach
-- **Severity:** DROBNE
-- **Pohled:** UI/UX designer
-- **Co a kde:** Detail vlastnika ma info strip `grid-cols-4` (identita, kontakt, trvala adresa, korespondencni adresa) bez responzivniho breakpointu.
-- **Dopad:** Na uzkem okne (< 1200px) jsou sloupce prilis uzke a text se lame spatne.
-- **Reseni:** Pridat breakpointy: `grid-cols-2 lg:grid-cols-4` nebo `grid-cols-1 md:grid-cols-2 lg:grid-cols-4`.
-- **Kde v kodu:** `app/templates/owners/detail.html:38`
-- **Narocnost:** nizka ~10 min
+#### Nalez #5: Detail vlastnika -- neni videt celkovy dluh za vsechny jednotky
+- **Severity:** DULEZITE
+- **Pohled:** Business analytik
+- **Co a kde:** Detail vlastnika (`/vlastnici/{id}`) zobrazuje jednotky s podily a plochou, ale sloupec "Dluh" v tabulce jednotek je prazdny u nekterych -- neni jasne jestli to znamena 0 Kc nebo chybejici data.
+- **Dopad:** Uzivatel musi kazde cislo jednotky rozkliknout zvlast aby zjistil stav plateb.
+- **Reseni:** (1) Zobrazit dluh v tabulce jednotek na detailu vlastnika. (2) Pridat sumacni radek "Celkovy dluh: X Kc" jako je to u podilu SCD.
+- **Kde v kodu:** `app/templates/owners/detail.html`, `app/routers/owners/crud.py`
+- **Narocnost:** stredni ~30 min
+- **Zavislosti:** --
+- **Regrese riziko:** nizke
 - **Rozhodnuti:** Opravit
-- **Jak otestovat:** Zmensit okno prohlizece na < 1200px a otevrit detail vlastnika
 
 ---
 
-### Jednotky
+### Najemci (novy modul)
 
-#### Nalez #8: Vytvoreni jednotky -- ticha ztrata dat u nespravneho cisla plochy
+#### Nalez #6: Najemci -- duplicitni radky pro propojene najemce
 - **Severity:** DULEZITE
-- **Pohled:** Error recovery
-- **Co a kde:** Kdyz uzivatel zada neplatnou plochu nebo podil SCD (napr. text misto cisla), system hodnotu ticho ignoruje (`floor_area_float = None`) a vytvori jednotku bez teto hodnoty. Varovani se sice generuji, ale v HTMX odezve (`warn_html`) mohou byt snadno prehlednuta.
-- **Dopad:** Uzivatel si mysli ze zadal vse spravne, ale data chybi.
-- **Reseni:** (1) Pridat `type="number"` na inputy pro plochu a podil v sablone. (2) Zobrazit varovani vyrazneji -- banner s ikonou misto jemneho textu.
-- **Kde v kodu:** `app/routers/units.py:86-108` (vytvoreni) a `312-328` (uprava)
-- **Narocnost:** nizka ~20 min
-- **Rozhodnuti:** Opravit
-- **Jak otestovat:** Vytvorit jednotku s plochou "abc" -- melo by byt jasne varovani, ne ticha ztrata
+- **Pohled:** UI/UX designer
+- **Co a kde:** V seznamu najemcu (`/najemci`) se propojeni najemci (ti co maji vazbu na vlastnika) zobrazuji 2x -- jednou jako "zakladni" zaznam bez prostoru a jednou jako "prostorovy" zaznam s prostorem. Napr. "Beranek Martin" je v tabulce dvakrat, jednou bez prostoru a jednou s prostorem "9 - B2 01.11".
+- **Dopad:** Tabulka ma 31 radku ale realne je 20 propojeni + 11 vlastnich = az 31 unikatnich, ale vizualne to vypada jako duplicity. Matouci pro uzivatele.
+- **Reseni:** (1) Sloupcit radky -- propojeny najemce zobrazit jednou s jeho prostorem/y. (2) Nebo vizualne seskupit (odsazeni, skupina) aby bylo jasne ze druhy radek patri ke stejne osobe.
+- **Varianty:** A) Sjednotit na 1 radek per najemce. B) Zachovat ale vizualne seskupit. C) Pridat bublinu "Bez prostoru" pro filtraci.
+- **Kde v kodu:** `app/routers/tenants/crud.py`, `app/templates/tenants/list.html`
+- **Narocnost:** stredni ~1 hod
+- **Zavislosti:** --
+- **Regrese riziko:** stredni (zmena struktury dat v tabulce)
+- **Rozhodnuti:** Potreba rozhodnuti uzivatele
+- **Jak otestovat:** Otevrit `/najemci` a zkontrolovat ze kazdy najemce je jen 1x (nebo jasne seskupeny)
 
-#### Nalez #9: Jednotky -- chybi validace unikatnosti cisla budovy
+#### Nalez #7: Najemci detail -- propojeny najemce nema editacni moznosti
+- **Severity:** DULEZITE
+- **Pohled:** Bezny uzivatel
+- **Co a kde:** Detail propojeneho najemce (`/najemci/1`) zobrazuje vsechny udaje z vlastnika (identifikace, kontakty, adresy) ale misto tlacitek "Upravit" ma jen "Vlastnik ->" odkaz. Uzivatel musi prejit na kartu vlastnika pro jakoukoli upravu.
+- **Dopad:** Pokud chce uzivatel zmenit telefon najemce, musi klikat pres 2 stranky.
+- **Reseni:** Budu u propojeneho najemce zobrazit jasnou hlasku "Data se ctou z karty vlastnika. Upravte udaje tam." s vyraznym odkazem na vlastnika. Nebo umoznit primou editaci s propagaci na vlastnika.
+- **Kde v kodu:** `app/templates/tenants/detail.html`
+- **Narocnost:** nizka ~15 min (jasnejsi UX text)
+- **Zavislosti:** --
+- **Regrese riziko:** nizke
+- **Rozhodnuti:** Opravit (text)
+
+#### Nalez #8: Najemci -- "Aktualni prostor" u propojeneho najemce ukazuje "Zadny aktivni pronajem"
+- **Severity:** DULEZITE
+- **Pohled:** Data quality
+- **Co a kde:** Detail najemce Jelinek Roman (ID 1, propojeny s vlastnikem) zobrazuje "Zadny aktivni pronajem" v sekci "Aktualni prostor", prestoze v seznamu najemcu existuje druhy zaznam (ID 21) se stejnym jmenem ktery MA prostor "1 - A 01.06".
+- **Dopad:** Uzivatel nevidime na detailu najemce jeho skutecny pronajem.
+- **Reseni:** Pri zobrazeni detailu propojeneho najemce zobrazit vsechny prostory kde je jako najemce evidovan (vcetne prostoru z jineho zaznamu najemce se stejnym propojenim).
+- **Kde v kodu:** `app/routers/tenants/crud.py` (detail endpoint), `app/templates/tenants/detail.html`
+- **Narocnost:** stredni ~30 min
+- **Zavislosti:** Souvis s #6
+- **Regrese riziko:** nizke
+- **Rozhodnuti:** Opravit
+
+---
+
+### Prostory (novy modul)
+
+#### Nalez #9: Prostory -- "???" jako variabilni symbol u nekterych prostoru
 - **Severity:** DROBNE
 - **Pohled:** Data quality
-- **Co a kde:** Unit cislo je validovane na unikatnost, ale cislo budovy ne. V SVJ muze byt vice budov se stejnym cislem, takze to neni problem, ale chybi upozorneni na podezrele hodnoty (napr. cislo budovy > 99999).
-- **Dopad:** Minorni -- zadny data integrity problem, jen potencialne podivne hodnoty.
-- **Reseni:** Pridat range kontrolu pro cislo budovy (1-99999) jako u cisla jednotky.
-- **Kde v kodu:** `app/routers/units.py:46-57`
-- **Narocnost:** nizka ~10 min
+- **Co a kde:** V tabulce prostoru (`/prostory`) i najemcu (`/najemci`) se u nekterych zaznamu zobrazuje "???" ve sloupci VS (napr. prostor 8, najemce Chvostik). To vypada jako chyba nebo placeholder ktery se zapomnel nahradit.
+- **Dopad:** Uzivatel nevi jestli "???" je chyba v datech nebo skutecna hodnota.
+- **Reseni:** (1) Validovat VS pri importu/zadani -- upozornit na neplatne hodnoty. (2) Zobrazit "???" cervenou barvou s ikonou varovani aby bylo jasne ze je to problem.
+- **Kde v kodu:** `app/templates/spaces/list.html`, data v DB
+- **Narocnost:** nizka ~15 min (vizualni upozorneni)
+- **Zavislosti:** --
+- **Regrese riziko:** nizke
+- **Rozhodnuti:** Opravit (vizualni upozorneni)
+
+#### Nalez #10: Prostory -- chybi bublina "S najemcem" / "Bez najemce"
+- **Severity:** DROBNE
+- **Pohled:** Performance analytik
+- **Co a kde:** Prostory maji bubliny Vse/Pronajato/Volne/Blokovane a dropdown sekci. Ale chybi moznost rychle filtrovat "prostory s platnym najemcem" vs "prostory bez najemce" (ne jen podle stavu).
+- **Dopad:** Minorni -- "Pronajato" je blizky filtr, ale nezahrnuje prostory s najemcem ale bez smlouvy.
+- **Reseni:** Zvazit zda existuji prostory se stavem "Pronajato" ale bez najemce -- pokud ne, neni treba.
+- **Kde v kodu:** `app/routers/spaces/crud.py`
+- **Narocnost:** nizka ~15 min
+- **Zavislosti:** --
+- **Regrese riziko:** nizke
 - **Rozhodnuti:** Drobne, neni priorita
 
 ---
 
 ### Hlasovani
 
-#### Nalez #10: Generovani listku -- zadna zpetna vazba o prubehu
-- **Severity:** DULEZITE
-- **Pohled:** Performance analytik
-- **Co a kde:** Endpoint `POST /{voting_id}/generovat` generuje listky synchronne -- pri 100+ vlastnicich muze trvat vice sekund. Zadny progress indicator, uzivatel nevedi co se deje.
-- **Dopad:** Uzivatel muze kliknout znovu nebo si myslet ze se neco pokazilo.
-- **Reseni:** (1) Pridat loading spinner na tlacitko (disable + text "Generuji..."), (2) Pro vetsi SVJ (500+ vlastniku) zvazit background thread s progress barem jako u dane/import.
-- **Kde v kodu:** `app/routers/voting/session.py:403-591`
-- **Narocnost:** nizka (spinner) ~15 min, stredni (background) ~2 hod
-- **Rozhodnuti:** Hned udelat spinner, background az pokud bude potreba
-- **Jak otestovat:** Kliknout na "Generovat listky" -- melo by zobrazit loading stav
-
-#### Nalez #11: Hromadne zpracovani hlasu -- chybi feedback kolik se zpracovalo
-- **Severity:** DULEZITE
-- **Pohled:** Bezny uzivatel
-- **Co a kde:** Endpoint `POST /{voting_id}/zpracovat-hromadne` zpracuje listky a presmeruje zpet, ale nerekne kolik listku bylo zpracovano.
-- **Dopad:** Uzivatel nevi jestli se operace povedla a kolik listku bylo ovlivneno.
-- **Reseni:** Pridat flash zpravu "Zpracovano X listku" pres query parametr do redirect URL.
-- **Kde v kodu:** `app/routers/voting/ballots.py:316-358`
-- **Narocnost:** nizka ~15 min
-- **Rozhodnuti:** Opravit
-- **Jak otestovat:** Hromadne zpracovat listky -- melo by se zobrazit "Zpracovano 5 listku"
-
-#### Nalez #12: Mazani hlasovani -- nekonzistentni potvrzovaci mechanismus
-- **Severity:** DULEZITE
-- **Pohled:** Error recovery
-- **Co a kde:** Pro koncept/aktivni hlasovani se pouziva `data-confirm` (jednoduchy browser confirm), pro uzavrene se pouziva specialni DELETE modal (nutno napsat "DELETE"). Dva ruzne vzory pro stejnou akci.
-- **Dopad:** Uzivatel muze byt zmaten ruznym chovanim. U aktivniho hlasovani s daty staci jedno kliknuti, ale u uzavreneho je nutne psat DELETE.
-- **Reseni:** Sjednotit -- pouzit DELETE modal pro vsechna hlasovani s daty (ballots > 0), jednoduchy confirm jen pro prazdne koncepty.
-- **Kde v kodu:** `app/templates/voting/index.html:98-109`
-- **Narocnost:** nizka ~20 min
-- **Rozhodnuti:** Potreba rozhodnuti -- mozna je zamerne ruzne
-
-#### Nalez #13: Import hlasu -- navigace zpet po importu chybi
+#### Nalez #11: Hlasovani listky -- chybi back link na strance listku
 - **Severity:** DROBNE
 - **Pohled:** Bezny uzivatel
-- **Co a kde:** Po uspesnem importu hlasu (import_result.html) neni jasny back odkaz ani tlacitko "Zpet na hlasovani" primo v kontextu vysledku.
-- **Dopad:** Uzivatel musi pouzit sidebar nebo browser back.
-- **Reseni:** Pridat tlacitko "Zobrazit vysledky" odkazujici na `/hlasovani/{voting_id}` a "Zpracovat dalsi" na `/hlasovani/{voting_id}/zpracovani`.
-- **Kde v kodu:** `app/templates/voting/import_result.html`
-- **Narocnost:** nizka ~10 min
+- **Co a kde:** Na strance hlasovacich listku (`/hlasovani/2/listky`) je back link "Zpet na hlasovani", ale bubliny (Celkem listku / Zbyva zpracovat / Zpracovano / Neodevzdane) se prepinaji mezi strankami bez zachovani back URL kontextu.
+- **Dopad:** Minorni -- uzivatel se muze ztratit pri preklikavani mezi podstrankami hlasovani.
+- **Reseni:** Overit ze vsechny bubliny a odkazy na podstrankach hlasovani propaguji `back` parametr.
+- **Kde v kodu:** `app/templates/voting/ballots.html`
+- **Narocnost:** nizka ~15 min
+- **Zavislosti:** --
+- **Regrese riziko:** nizke
 - **Rozhodnuti:** Opravit
-- **Jak otestovat:** Dokoncit import hlasu -- melo by byt jasne kam dal
 
-#### Nalez #14: Stranka zpracovani -- konfiguracni slozitost pro hromadne operace
+#### Nalez #12: Hlasovani detail -- druhy bod hlasovani obsahuje patickovy text
 - **Severity:** DULEZITE
-- **Pohled:** Business analytik
-- **Co a kde:** Na strance zpracovani (`/hlasovani/{id}/zpracovani`) musi uzivatel u kazdeho listku jednotlive volit hlas pro kazdy bod. Chybi moznost "oznacit vse jako PRO/PROTI" pro typicke scenare kde vsichni hlasovali stejne.
-- **Dopad:** Casove narocne pri desitce listku s vice body -- uzivatel musi klikat X * Y krat.
-- **Reseni:** Pridat checkboxy pro vyber vice listku + hromadne radio "PRO/PROTI/Zdrzel se pro oznacene" (uz existuje `zpracovat-hromadne` endpoint, ale UI mozna neukazuje dostatecne).
-- **Kde v kodu:** `app/routers/voting/ballots.py:316-358` (endpoint existuje), `app/templates/voting/process.html` (UI)
-- **Narocnost:** stredni ~1 hod (UI vylepseni)
-- **Rozhodnuti:** Potreba rozhodnuti -- overit jak casto se pouziva
+- **Pohled:** Data quality
+- **Co a kde:** Na detailu hlasovani (`/hlasovani/2`) druhy bod obsahuje text "Hlasovaci listek prosim vlozte do schranky spolecenstvi v Hogerova 11. Termin pro odevzdani je 19. unora 2026. Dekujeme Vam za Vas cas a hlasovani!" -- to je text z paticky hlasovacieho listku, ne soucast bodu.
+- **Dopad:** Vysledky hlasovani vypadaji neprofesionalne a matouci. Bod je neprimerane dlouhy.
+- **Reseni:** Toto je datovy problem -- pri importu/vytvoreni hlasovani se paticka vlozila do textu bodu. Opravit v datech + pridat warning pri vytvoreni bodu pokud je text neobvykle dlouhy.
+- **Kde v kodu:** Data v DB (voting_items tabulka), `app/routers/voting/session.py` (create/edit items)
+- **Narocnost:** nizka ~10 min (oprava dat), stredni ~30 min (prevence)
+- **Zavislosti:** --
+- **Regrese riziko:** nizke
+- **Rozhodnuti:** Opravit data
 
 ---
 
-### Dane / Hromadne rozesilani
+### Hromadne rozesilani (dane)
 
-#### Nalez #15: Rozesilka -- test email je POVINNY pred odeslanim, ale neni jasne proc
+#### Nalez #13: Rozesilka -- pozastavena rozesilka nema vyrazny vizualni stav
 - **Severity:** DULEZITE
 - **Pohled:** Bezny uzivatel
-- **Co a kde:** Tlacitko "Odeslat" je zablokovane dokud neprojde testovaci email (`session.test_email_passed`), ale uzivatel neni informovan PROC je tlacitko disabled a CO ma udelat.
-- **Dopad:** Uzivatel vidi sede tlacitko a nevedi jak ho aktivovat.
-- **Reseni:** (1) Pridat tooltip na disabled tlacitko "Nejprve odeslte testovaci email". (2) Pridat vizualni indikator stavu testu (zelena fajfka / cerveny krizek).
-- **Kde v kodu:** `app/routers/tax/sending.py:767` (kontrola), sablona `tax/send.html`
-- **Narocnost:** nizka ~20 min
-- **Rozhodnuti:** Opravit
-- **Jak otestovat:** Otevrit rozesilku bez predchoziho testu -- melo by byt jasne ze je treba poslat test
-
-#### Nalez #16: Rozesilka -- zmena obsahu emailu invaliduje test BEZ upozorneni
-- **Severity:** KRITICKE
-- **Pohled:** Error recovery
-- **Co a kde:** V `save_send_settings` (radek 573-575) se pri zmene predmetu nebo tela emailu automaticky nastavi `test_email_passed = False`. Uzivatel neni upozornen ze test uz neplati a musi poslat novy.
-- **Dopad:** Uzivatel zmeni text, chce odeslat, tlacitko je najednou disabled a nevedi proc.
-- **Reseni:** Po ulozeni nastaveni zobrazit flash zpravu "Obsah emailu byl zmenen -- je nutne odeslat novy testovaci email." se zluytm pozadim.
-- **Kde v kodu:** `app/routers/tax/sending.py:573-576`
+- **Co a kde:** Na seznamu rozesilek (`/dane`) rozesilka "Vyuctovani sluzeb..." ma stav "Pozastaveno" a 669/805, ale vizualne se lisi jen textem badge. Chybi jasna indikace ze rozesilka ceka na akci uzivatele.
+- **Dopad:** Uzivatel muze prehlednout ze rozesilka je pozastavena a potrebuje pozornost.
+- **Reseni:** Pridat vizualni odliseni pro pozastavene rozesilky -- napr. oranzovy ramecek kolem karty, ikona varovani, nebo pulzujici indikator.
+- **Kde v kodu:** `app/templates/tax/index.html`
 - **Narocnost:** nizka ~15 min
+- **Zavislosti:** --
+- **Regrese riziko:** nizke
 - **Rozhodnuti:** Opravit
-- **Jak otestovat:** (1) Poslat test email OK, (2) zmenit predmet, (3) ulozit -- melo by byt varovani + disabled tlacitko s vysvetlenim
 
-#### Nalez #17: Prirazeni PDF -- nepotvrzena automaticka prirazeni jsou tiche
-- **Severity:** DULEZITE
-- **Pohled:** Business analytik
-- **Co a kde:** Automaticke prirazeni PDF k vlastnikum (AUTO_MATCHED) jsou preskocena pri rozesilce, ale uzivatel se o tom dozvi az na strance rozesilky jako cislo "preskoceno X". Na strance prirazeni neni jasne kolik ceka na potvrzeni.
-- **Dopad:** Uzivatel muze zapomenout potvrdit prirazeni a emaily se neposlou.
-- **Reseni:** (1) Pridat vizualni varovani na strance prirazeni: "X dokumentu ceka na potvrzeni". (2) Pridat tlacitko "Potvrdit vsechna automaticka prirazeni".
-- **Kde v kodu:** `app/routers/tax/session.py:361-538` (matching page), `app/routers/tax/_helpers.py:88-113` (stats)
-- **Narocnost:** stredni ~45 min
-- **Rozhodnuti:** Opravit
-- **Jak otestovat:** Nahrat PDF, nechat automaticke prirazeni -- melo by byt jasne kolik ceka na potvrzeni a jak je hromadne potvrdit
-
-#### Nalez #18: Rozesilka -- chybi "Odeslat vsem" / "Vybrat vsechny" checkbox
+#### Nalez #14: Rozesilka detail -- stranky prirazeni je zahltena 597 radky bez rozumne navigace
 - **Severity:** DULEZITE
 - **Pohled:** Performance analytik
-- **Co a kde:** Na strance rozesilky musi uzivatel rucne zatrhnout kazdeho prijemce pro odeslani. Chybi "select all" checkbox v hlavicce.
-- **Dopad:** Pri 50+ prijemcich je nutne 50+ kliknuti.
-- **Reseni:** Pridat checkbox "Vybrat vse" v hlavicce tabulky ktery zatrh/odtrhne vsechny viditelne (filtrovane) checkboxy.
-- **Kde v kodu:** `app/templates/tax/send.html`
-- **Narocnost:** nizka ~20 min
-- **Rozhodnuti:** Opravit
-- **Jak otestovat:** Na strance rozesilky by mel byt checkbox "Vybrat vse" v hlavicce
+- **Co a kde:** Detail rozesilky (`/dane/3`) na kroku "Prirazeni" zobrazuje vsech 597 PDF v jedne tabulce. I s hledanim je to velmi dlouha tabulka.
+- **Dopad:** Pomale scrollovani, tezke najit konkretni PDF. Napr. najit neprirazene dokumenty vyzaduje prochazeni vsech.
+- **Reseni:** (1) Pridat paginaci (50 radku na stranku). (2) Pridat filtrovaci bubliny nad tabulku (Potvrzeno / K potvrzeni / Neprirazeno) -- bubliny uz existuji, ale jen jako stat karty nahore.
+- **Kde v kodu:** `app/routers/tax/session.py`, `app/templates/tax/matching.html`
+- **Narocnost:** stredni ~45 min (paginace), nizka ~20 min (bubliny jako filtry)
+- **Zavislosti:** --
+- **Regrese riziko:** nizke
+- **Rozhodnuti:** Opravit (bubliny jako filtry)
 
-#### Nalez #19: PDF nahrani -- chybi drag & drop
+---
+
+### Platby (novy modul)
+
+#### Nalez #15: Platby nav karty -- "VS mapov..." je orezany text
 - **Severity:** DROBNE
 - **Pohled:** UI/UX designer
-- **Co a kde:** Upload PDF pouziva standardni `<input type="file">` s `webkitdirectory`. Chybi drag & drop zona.
-- **Dopad:** Mene intuitivni nez drag & drop pro uzivatele zvykle na moderni webove aplikace.
-- **Reseni:** Pridat drag & drop zonu kolem file inputu -- vizualni zona s textem "Pretahnete PDF soubory sem nebo kliknete pro vyber". Implementace pres vanilla JS `dragover`/`drop` eventy.
-- **Kde v kodu:** `app/templates/tax/upload.html`
-- **Narocnost:** stredni ~1 hod
-- **Rozhodnuti:** Potreba rozhodnuti -- zavisi na priorite
+- **Co a kde:** V navigacnich kartach modulu Platby je druha karta orezana jako "VS mapov... 547". Plny text "VS mapovani" se nevejde do karty.
+- **Dopad:** Uzivatel nemuze precist cely nazev sekce.
+- **Reseni:** (1) Zkratit na "VS" s tooltipem. (2) Nebo zvetsit sirku karet. (3) Nebo pouzit mensi font-size pro delsi texty.
+- **Kde v kodu:** `app/templates/payments/_nav.html` nebo ekvivalent
+- **Narocnost:** nizka ~10 min
+- **Zavislosti:** --
+- **Regrese riziko:** nizke
+- **Rozhodnuti:** Opravit
+
+#### Nalez #16: Matice plateb -- 12 mesicu + meta sloupce = tabulka nekonecne siroka
+- **Severity:** KRITICKE
+- **Pohled:** UI/UX designer
+- **Co a kde:** Matice plateb (`/platby/prehled`) zobrazuje 508 radku x ~20 sloupcu (C., Sekce, Vlastnik, Predpis, Prevod, Led-Pro, Celkem, Dluh). Tabulka je extre mnoe siroka. Na screenshotu vidim ze mesice za Unor jsou prazdne ale zabiji prostor.
+- **Dopad:** Tabulka je tezko prehledna, horizontalni scroll je nutny. Mesice bez dat zabiji prostor.
+- **Reseni:** (1) Skryt mesice bez dat (zobrazit jen mesice kde existuji platby). (2) Nebo pridat konfiguraci "Zobrazit mesice od-do". (3) Pridat sticky prvni 3 sloupce (C., Sekce, Vlastnik) aby pri scrollu bylo videt kdo je kdo.
+- **Varianty:** A) Skryt prazdne mesice -- nejjednodussi. B) Sticky sloupce -- lepsi UX ale slozitejsi. C) Oboje.
+- **Kde v kodu:** `app/templates/payments/overview.html`, `app/routers/payments/overview.py`
+- **Narocnost:** stredni ~1 hod (skryt prazdne), stredni ~1.5 hod (sticky)
+- **Zavislosti:** --
+- **Regrese riziko:** stredni
+- **Rozhodnuti:** Potreba rozhodnuti uzivatele
+- **Jak otestovat:** Otevrit `/platby/prehled` -- melo by byt prehledne i pri 500+ radcich
+- **Mockup:**
+  ```
+  Soucasny stav:
+  +----+------+----------+--------+--------+-----+-----+-----+---+---+---+---+---+---+---+---+--------+------+
+  | C. | Sek. | Vlastnik | Predp. | Prevod | Led | Uno | Bre | D | K | C | S | Z | R | L | P | Celkem | Dluh |
+  +----+------+----------+--------+--------+-----+-----+-----+---+---+---+---+---+---+---+---+--------+------+
+  | 1  | A    | Gavril.. | 3717   | --     | V   | V   |     |   |   |   |   |   |   |   |   | 7434   | 0    |
+  (10 prazdnych mesicnich sloupcu)
+
+  Navrhovany stav (varianta A):
+  +----+------+--------------+--------+--------+-----+-----+--------+------+
+  | C. | Sek. | Vlastnik     | Predp. | Prevod | Led | Uno | Celkem | Dluh |
+  +----+------+--------------+--------+--------+-----+-----+--------+------+
+  | 1  | A    | Gavrilovic.. | 3717   | --     | V   | V   | 7434   | 0    |
+  (jen mesice s daty)
+  ```
+
+#### Nalez #17: Dluznici -- vysoky pocet (109) ukazuje na mozny systemovy problem
+- **Severity:** DULEZITE
+- **Pohled:** Business analytik
+- **Co a kde:** Dluznici (`/platby/dluznici`) ukazuje 109 jednotek s dluhem, celkem 211 953 Kc. U vsech je "Zaplaceno: 0 Kc" a "Mesice: 2". To vypada jako by se nezpracovaly zadne platby za unor, ne jako skutecne dluhy.
+- **Dopad:** Uzivatel vidi alarmujici cisla ktera jsou mozna jen dusledkem toho ze unor jeste nebyl zpracovan.
+- **Reseni:** (1) Pridat informativni hlasku "Data zahrnuji platby do [posledni importovany mesic]". (2) Pridat moznost vyloucit aktualni/posledni mesic ze zobrazeni. (3) Zvyraznit ze dluh = predpis - zaplaceno a pokud neni import za dany mesic, je dluh ocekavany.
+- **Kde v kodu:** `app/routers/payments/settlement.py`, `app/templates/payments/debtors.html`
+- **Narocnost:** nizka ~20 min (informativni hlaska)
+- **Zavislosti:** --
+- **Regrese riziko:** nizke
+- **Rozhodnuti:** Opravit
+
+#### Nalez #18: Vypis detail -- "Preparovat" tlacitko bez vysvetleni
+- **Severity:** DROBNE
+- **Pohled:** Bezny uzivatel
+- **Co a kde:** Na detailu vypisu (`/platby/vypisy/2`) jsou tri akni tlacitka: "Preparovat", "Smazat", "Zamknout". Tlacitko "Preparovat" je bez jakehokoliv vysvetleni -- co presne udela?
+- **Dopad:** Uzivatel muze omylem spustit akci jejiz dopad neceka.
+- **Reseni:** Pridat tooltip/title na tlacitko: "Znovu sparovat vsechny platby s predpisy podle VS".
+- **Kde v kodu:** `app/templates/payments/statement_detail.html`
+- **Narocnost:** nizka ~5 min
+- **Zavislosti:** --
+- **Regrese riziko:** nizke
+- **Rozhodnuti:** Opravit
+
+#### Nalez #19: Vyuctovani -- vsechny vysledky ukazuji zelene plusy (preplatky)
+- **Severity:** DULEZITE
+- **Pohled:** Data quality
+- **Co a kde:** Na strance vyuctovani (`/platby/vyuctovani`) vsech 530 zaznamu ukazuje zeleny preplatek (napr. "+40 887 Kc"). Celkove preplatky 6 984 Kc, nedoplatky 9 961 012 Kc. Cisla jsou podezrele -- soucet preplatku (cca 7K) vs nedoplatku (cca 10M) je nekonzistentni.
+- **Dopad:** Vyuctovani muze byt chybne. Uzivatel nevi jestli jsou cisla spravna.
+- **Reseni:** (1) Overit logiku vypoctu vyuctovani (predpis celkem - zaplaceno). (2) Pridat validaci -- pokud vsechny vysledky jsou preplatky, zobrazit varovani. (3) Pridat sumarni radek dole.
+- **Kde v kodu:** `app/routers/payments/settlement.py`, `app/services/settlement_service.py`
+- **Narocnost:** stredni ~1 hod (overeni + oprava logiky)
+- **Zavislosti:** --
+- **Regrese riziko:** stredni
+- **Rozhodnuti:** Opravit (overit logiku)
+
+#### Nalez #20: Zustatky -- prazdna stranka bez guidance
+- **Severity:** DROBNE
+- **Pohled:** Bezny uzivatel
+- **Co a kde:** Stranka zustatku (`/platby/zustatky`) zobrazuje prazdnou tabulku s textem "Zadne pocatecni zustatky pro rok 2026. Pridat zustatek ->". Chybi vysvetleni co jsou pocatecni zustatky a proc by je uzivatel mel zadat.
+- **Dopad:** Uzivatel nevi co stranka dela a proc je dulezita.
+- **Reseni:** Pridat informativni blok nad tabulku: "Pocatecni zustatky predstavuji stav uctu na zacatku roku. Importujte je z Excelu nebo zadejte rucne aby vyuctovani spravne pocitalo."
+- **Kde v kodu:** `app/templates/payments/balances.html`
+- **Narocnost:** nizka ~10 min
+- **Zavislosti:** --
+- **Regrese riziko:** nizke
+- **Rozhodnuti:** Opravit
 
 ---
 
 ### Synchronizace / Kontroly
 
-#### Nalez #20: Synchronizace -- dva moduly na jedne strance mohou byt matouci
+#### Nalez #21: Kontroly -- dva typy kontrol na jedne strance s prepinacimi tlacitky
 - **Severity:** DROBNE
-- **Pohled:** Bezny uzivatel
-- **Co a kde:** Stranka `/synchronizace` kombinuje dve nezavisle funkce: (1) Porovnani s CSV (synchronizace vlastniku) a (2) Kontrola podilu. Jsou na jedne strance s kotevnimi linky.
-- **Dopad:** Uzivatel muze byt zmaten, ze jedna stranka dela dve veci. Nicmene jsou logicky spojene (kontroly dat).
-- **Reseni:** Prijatelne jako je -- obe funkce jsou "kontroly" a patri k sobe. Mozna zlepsit vizualni oddeleni (vetsi nadpisy, jinak zbarvene sekce).
-- **Kde v kodu:** `app/routers/sync.py:35-130`
-- **Narocnost:** nizka ~15 min
+- **Pohled:** UI/UX designer
+- **Co a kde:** Stranka `/synchronizace` zobrazuje bud "Kontrola vlastniku" nebo "Kontrola podilu" podle kliknuti na prepinaci tlacitka nahore. Prepinani funguje dobre, ale vizualne to nejsou taby -- vypadaji jako obycejne tlacitka.
+- **Dopad:** Minorni -- uzivatel si nemuze byt jisty ze jde o prepinani obsahu stranky.
+- **Reseni:** Vizualne odlisit aktivni tab (napr. podtrzeni, zmena pozadi) aby bylo jasne ze jde o tab navigaci.
+- **Kde v kodu:** `app/templates/sync/index.html`
+- **Narocnost:** nizka ~10 min
+- **Zavislosti:** --
+- **Regrese riziko:** nizke
 - **Rozhodnuti:** Drobne, neni priorita
-
-#### Nalez #21: Vymena vlastniku -- chybi undo / rollback moznost
-- **Severity:** KRITICKE
-- **Pohled:** Error recovery
-- **Co a kde:** Kdyz uzivatel provede vymenu vlastniku (exchange), zmeny jsou okamzite commitovane a neni moznost je vratit zpet krome rucni opravy nebo obnoveni ze zalohy.
-- **Dopad:** Spatna vymena (napr. spatne naparovane vlastniky) muze zpusobit ztratu dat.
-- **Reseni:** (1) Pridat nahled pred vymenou (preview je uz implementovan), (2) Po vymene zobrazit souhrn s moznosti "Zrusit vymenu" (soft undo -- ulozit snapshot pred vymenou). (3) Minimalne zvyraznit ze akce je nevratna.
-- **Kde v kodu:** `app/routers/sync.py` (exchange endpointy), `app/services/owner_exchange.py`
-- **Narocnost:** vysoka ~3 hod (soft undo), nizka ~15 min (varovani)
-- **Rozhodnuti:** Potreba rozhodnuti -- minimalne pridat varovani
 
 ---
 
 ### Administrace
 
-#### Nalez #22: Smazat data -- chybi potvrzeni pro jednotlive kategorie
-- **Severity:** KRITICKE
-- **Pohled:** Error recovery
-- **Co a kde:** Stranka "Smazat data" umoznuje hromadne mazani po kategoriich. Overit zda kazda kategorie ma dostatecne potvrzeni (hx-confirm nebo DELETE modal).
-- **Dopad:** Nechcene smazani dat muze byt katastrofalni.
-- **Reseni:** Overit ze VSECHNY destruktivni akce na strance purge maji bud `data-confirm` nebo DELETE modal pattern. Pro kategorie s vice nez 100 zaznamy pouzit DELETE modal.
-- **Kde v kodu:** `app/templates/administration/purge.html`
-- **Narocnost:** nizka ~20 min (audit + oprava)
-- **Rozhodnuti:** Opravit
-- **Jak otestovat:** Na `/sprava/smazat` zkusit smazat kazdou kategorii -- kazda by mela vyzadovat potvrzeni
+#### Nalez #22: Administrace -- index stranka je dobre navrzena
+- **Severity:** --
+- **Pohled:** UI/UX designer
+- **Co a kde:** Stranka `/sprava` ma 7 prehlednych karet s ikonami, nazvy a popisy. Kazda karta ma druhy radek s kontextovou informaci (pocty, posledni datum). Navigace je intuitivni.
+- **Dopad:** Pozitivni nalez -- dobre navrzene.
+- **Reseni:** Zadna zmena nutna.
 
-#### Nalez #23: Hromadne upravy -- chybi indikace co se zmeni pred potvrzenim
+#### Nalez #23: Smazat data -- vyborne navrzena bezpecnostni stranka
+- **Severity:** --
+- **Pohled:** Error recovery
+- **Co a kde:** Stranka `/sprava/smazat` ma vicevrstvou ochranu: (1) checkboxy pro kategorie, (2) pocty zaznamu u kazde kategorie, (3) popis co smazani ovlivni, (4) varovani "smazana data nelze obnovit", (5) textove potvrzeni "DELETE", (6) disabled tlacitko dokud neni napsano DELETE.
+- **Dopad:** Pozitivni nalez -- nebezpecna akce je velmi dobre chranena.
+- **Reseni:** Zadna zmena nutna.
+
+#### Nalez #24: Hromadne upravy -- chybi vizualni nahled zmen (z reportu)
 - **Severity:** DULEZITE
 - **Pohled:** Bezny uzivatel
-- **Co a kde:** Hromadne upravy (bulk edit) meni pole pro vice zaznamu naraz. Chybi jasny nahled "Co se zmeni: X zaznamu bude mit hodnotu Y misto Z".
-- **Dopad:** Uzivatel provede zmenu bez plne vedomosti o dopadu.
-- **Reseni:** Pridat pocitadlo ovlivnenych zaznamu pred potvrzenim: "Tato operace zmeni pole 'Typ prostoru' u 15 jednotek z 'Byt' na 'Garaz'".
+- **Co a kde:** Stale plati z predchoziho reportu. Karty hromadnych uprav (`/sprava/hromadne-upravy`) ukazuji pocty hodnot a vazeb, ale po kliknuti chybi nahled "co se zmeni".
+- **Dopad:** Uzivatel provede zmenu bez plneho vedomosti o dopadu.
+- **Reseni:** Pridat pocitadlo ovlivnenych zaznamu pred potvrzenim operace.
 - **Kde v kodu:** `app/templates/administration/bulk_edit_records.html`
 - **Narocnost:** stredni ~45 min
-- **Rozhodnuti:** Opravit
-- **Jak otestovat:** Na hromadnych upravach vybrat pole a hodnotu -- melo by ukazat kolik zaznamu bude ovlivneno
-
-#### Nalez #24: Administrace index -- chybi popis co kazda sekce dela
-- **Severity:** DROBNE
-- **Pohled:** Bezny uzivatel
-- **Co a kde:** Administrace index zobrazuje 7 karet s ikonami, ale popisky jsou velmi strucne ("Info o SVJ", "Ciselniky", "Zalohy"). Novy uzivatel nemuze vedet co presne kazda sekce obsahuje.
-- **Dopad:** Uzivatel musi kliknout na kazdou kartu aby zjistil co obsahuje.
-- **Reseni:** Pridat druhy radek popisu na kartach: "Info o SVJ" -> "Nazev, adresa, cleny vyboru", "Ciselniky" -> "Typy prostoru, sekce, typy vlastnictvi".
-- **Kde v kodu:** `app/templates/administration/index.html:17-19`
-- **Narocnost:** nizka ~15 min
+- **Zavislosti:** --
+- **Regrese riziko:** nizke
 - **Rozhodnuti:** Opravit
 
 ---
 
 ### Nastaveni
 
-#### Nalez #25: SMTP heslo se neuklada kdyz je prazdne -- neni jasne
-- **Severity:** DULEZITE
-- **Pohled:** Bezny uzivatel
-- **Co a kde:** V `save_smtp` (radek 170) se prazdne heslo ignoruje (`if smtp_password`). To zachova existujici heslo, ale uzivatel nevi ze pole "Heslo" je prazdne schvalne (pro zachovani) nebo ze heslo nebylo ulozeno.
-- **Dopad:** Uzivatel muze chtet heslo smazat (napr. pri zmene SMTP) a nema jak.
-- **Reseni:** (1) Pridat placeholder text "Ponechte prazdne pro zachovani stavajiciho hesla". (2) Pridat checkbox "Smazat heslo" pokud je potreba reset.
-- **Kde v kodu:** `app/routers/settings_page.py:170`
-- **Narocnost:** nizka ~15 min
-- **Rozhodnuti:** Opravit
-- **Jak otestovat:** Otevrit SMTP formular -- melo by byt jasne ze prazdne heslo = zachovat stavajici
-
-#### Nalez #26: Email log -- limit 100 zaznamu bez paginace
+#### Nalez #25: Email log -- stale limit 100 zaznamu bez paginace
 - **Severity:** DROBNE
 - **Pohled:** Performance analytik
-- **Co a kde:** Email log na strance nastaveni zobrazuje maximalne 100 zaznamu (`EMAIL_LOG_LIMIT = 100`) bez moznosti paginace.
-- **Dopad:** Po odeslani vice nez 100 emailu uzivatel nema pristup ke starsim zaznamum (krome SQL).
-- **Reseni:** Pridat jednoduchou paginaci (jako u dane -- `stranka` parametr) nebo tlacitko "Nacist dalsi".
-- **Kde v kodu:** `app/routers/settings_page.py:21, 84`
+- **Co a kde:** Stale plati z predchoziho reportu. Na screenshotu vidim "100 zaznamu" -- uzivatel nemuze videt starsi emaily.
+- **Dopad:** Po odeslani vice nez 100 emailu neni pristup ke starsim zaznamum.
+- **Reseni:** Pridat paginaci nebo tlacitko "Nacist dalsi".
+- **Kde v kodu:** `app/routers/settings_page.py`
 - **Narocnost:** stredni ~45 min
-- **Rozhodnuti:** Potreba rozhodnuti -- 100 zaznamu je mozna dost
-
-#### Nalez #27: SMTP test pripojeni chybi
-- **Severity:** DULEZITE
-- **Pohled:** Bezny uzivatel
-- **Co a kde:** Po ulozeni SMTP nastaveni neni moznost otestovat pripojeni (ping SMTP serveru). Uzivatel se dozvi o chybe az pri pokusu o odeslani emailu.
-- **Dopad:** Uzivatel nastavi spatne SMTP udaje a zjisti to az pri rozesilce.
-- **Reseni:** Pridat tlacitko "Test pripojeni" vedle ulozit -- zavola `create_smtp_connection()` a zobrazi vysledek (OK/chyba).
-- **Kde v kodu:** `app/routers/settings_page.py:137-190`, `app/services/email_service.py`
-- **Narocnost:** nizka ~30 min
-- **Rozhodnuti:** Opravit
-- **Jak otestovat:** Ulozit SMTP nastaveni, kliknout "Test pripojeni" -- melo ukazat zda pripojeni funguje
+- **Zavislosti:** --
+- **Regrese riziko:** nizke
+- **Rozhodnuti:** Potreba rozhodnuti -- 100 muze byt dost
 
 ---
 
 ### Globalni / Prurezove
 
-#### Nalez #28: Sidebar nema mobilni responzivni verzi
+#### Nalez #26: Sidebar nema mobilni verzi (z reportu #28)
 - **Severity:** KRITICKE
 - **Pohled:** UI/UX designer
-- **Co a kde:** Sidebar je fixovany na `w-44` (176px) a main content ma `ml-44`. Na mobilnich zarizenich neni sidebar skryty ani transformovany na hamburger menu.
-- **Dopad:** Na tabletu nebo telefonu je aplikace prakticky nepouzitelna -- sidebar zabira velkou cast obrazovky.
-- **Reseni:** Pridat hamburger menu pro mobilni zarizeeni: sidebar skryty na `sm:` a nize, zobrazeny pres overlay po kliknuti na hamburger ikonu.
-- **Kde v kodu:** `app/templates/base.html:22` (sidebar) a `131` (main content ml-44)
+- **Co a kde:** Stale plati. Sidebar je fixovany na `w-44` bez responzivniho chovani. Na mobilnich zarizenich je aplikace nepouzitelna.
+- **Dopad:** Aplikace nefunguje na tabletu/telefonu.
+- **Reseni:** Hamburger menu pro obrazovky pod 768px.
+- **Kde v kodu:** `app/templates/base.html`
 - **Narocnost:** stredni ~2 hod
-- **Rozhodnuti:** Potreba rozhodnuti -- je aplikace pouzivana na mobilu?
-- **Jak otestovat:** Otevrit aplikaci na telefonu nebo zmensit okno pod 640px
+- **Zavislosti:** --
+- **Regrese riziko:** stredni
+- **Rozhodnuti:** Potreba rozhodnuti -- pouziva se na mobilu?
 
-#### Nalez #29: Flash zpravy -- auto-dismiss bez moznosti zastavit
+#### Nalez #27: Sidebar badge "109" u Platby -- chybi vysvetleni
 - **Severity:** DROBNE
 - **Pohled:** Bezny uzivatel
-- **Co a kde:** Flash zpravy maji `data-auto-dismiss` atribut ktery je automaticky skryje po casovem limitu. Uzivatel nema moznost zpravu "zastavit" nebo ji znovu zobrazit.
-- **Dopad:** Dulezita chybova zprava muze zmizet driv nez ji uzivatel stihne precist.
-- **Reseni:** (1) Chybove zpravy (`flash_type == 'error'`) by nemely automaticky mizet. (2) Pridat krizek pro manualni zavreni.
-- **Kde v kodu:** `app/templates/base.html:135-141`, `app/static/js/app.js` (auto-dismiss logika)
-- **Narocnost:** nizka ~15 min
-- **Rozhodnuti:** Opravit
-- **Jak otestovat:** Vyvolat chybovou zpravu -- mela by zustat dokud ji uzivatel nezavre
-
-#### Nalez #30: Chybejici loading indikator pro HTMX requesty
-- **Severity:** DULEZITE
-- **Pohled:** Bezny uzivatel
-- **Co a kde:** Kdyz uzivatel pise do vyhledavaciho pole, HTMX request bezi na pozadi ale neni vizualni indikator (spinner, skeleton). Jen se obsah tabulky najednou prepise.
-- **Dopad:** Uzivatel nevi zda se neco deje, zvlast pri pomalejsim pripojeni.
-- **Reseni:** Pridat HTMX class indicator: `hx-indicator` na search baru ktery ukaze spinner/pulzujici bar behem requestu. HTMX nativne podporuje class `htmx-request` na elementu.
-- **Kde v kodu:** Vsechny search inputy -- `owners/list.html:150`, `units/list.html` (obdobne), `dashboard.html:124`, `settings.html:28`
-- **Narocnost:** nizka ~30 min
-- **Rozhodnuti:** Opravit
-- **Jak otestovat:** Zadat text do hledani -- melo by byt jasne ze se neco nacita
-
-#### Nalez #31: CSV export pouziva strednik ale nema hlavicku s oddelovacem
-- **Severity:** DROBNE
-- **Pohled:** Data quality
-- **Co a kde:** V CLAUDE.md je specifikovano ze CSV pouziva strednik jako oddelovac, ale v kodu `owners.py:429` a `units.py:553` se pouziva `csv.writer(buf)` s defaultnim comma oddelovacem.
-- **Dopad:** CSV export s carkou misto stredniku se v ceskem Excelu (ktery ocekava strednik) neotevre spravne.
-- **Reseni:** Pridat `delimiter=';'` do `csv.writer(buf, delimiter=';')` ve vsech CSV exportech.
-- **Kde v kodu:** `app/routers/owners.py:429`, `app/routers/units.py:553`
+- **Co a kde:** V sidebaru u polozky "Platby" je cerveny badge "109". Neni jasne co cislo znamena -- pocet dluzniku? Pocet nezpracovanych plateb? Pocet nepaparovanych?
+- **Dopad:** Badge vyvolava pocit naLehavosti ale uzivatel nevi proc.
+- **Reseni:** Pridat tooltip na badge: "109 jednotek s dluhem". Nebo zmenit barvu -- cervena = alarm, seda/modra = informativni.
+- **Kde v kodu:** `app/templates/base.html` (sidebar polozka Platby)
 - **Narocnost:** nizka ~5 min
+- **Zavislosti:** --
+- **Regrese riziko:** nizke
 - **Rozhodnuti:** Opravit
-- **Jak otestovat:** Exportovat vlastniky do CSV, otevrit v Excelu -- sloupce by mely byt spravne rozdelene
 
-#### Nalez #32: Zadne potvrzeni pri opusteni neulozenho formulare
+#### Nalez #28: HTMX search -- chybi loading indikator (z reportu #30)
 - **Severity:** DULEZITE
-- **Pohled:** Error recovery
-- **Co a kde:** Kdyz uzivatel vyplnuje formular (nove hlasovani, novy vlastnik, SMTP nastaveni) a klikne na sidebar odkaz, formular se zavle bez varovani.
-- **Dopad:** Ztrata rozpracovanych dat -- uzivatel musi vse vyplnit znovu.
-- **Reseni:** Pridat `beforeunload` event listener na stranky s formulari ktere nemaji `hx-boost`. Detekovat ze se formular zmenil (input event) a varovani zobrazit jen pri zmenach.
-- **Kde v kodu:** Vsechny stranky s formulari: `voting/create.html`, `tax/upload.html`, `partials/smtp_form.html`
-- **Narocnost:** stredni ~1 hod (globalni reseni)
+- **Pohled:** Bezny uzivatel
+- **Co a kde:** Stale plati. Search bary na vsech strankach (vlastnici, jednotky, najemci, prostory, dashboard) nemaji vizualni indikator nacitani pri HTMX requestu.
+- **Dopad:** Uzivatel nevi zda se hledani provadi.
+- **Reseni:** Pridat `hx-indicator` s spinnerem na search bary.
+- **Kde v kodu:** Vsechny search inputy v sablon ach
+- **Narocnost:** nizka ~30 min
+- **Zavislosti:** --
+- **Regrese riziko:** nizke
 - **Rozhodnuti:** Opravit
-- **Jak otestovat:** Vyplnit formular noveho hlasovani, kliknout na sidebar -- melo by varovani "Maate neulozeene zmeny"
 
-#### Nalez #33: Chybejici keyboard navigace / accessibility
-- **Severity:** DULEZITE
-- **Pohled:** UI/UX designer
-- **Co a kde:** Filtrovaci bubliny jsou `<a>` tagy (OK pro keyboard), ale HTMX interaktivni prvky (inline edit, toggle) nemaji vzdy spravne `aria-label` atributy. Potvrzovaci modaly nemaji focus trap.
-- **Dopad:** Uzivatele s asistivnimi technologiemi mohou mit problem s navigaci.
-- **Reseni:** (1) Pridat `aria-label` na vsechny interaktivni prvky. (2) Pridat focus trap na modaly (confirm-modal, delete-modal, pdf-modal). (3) Pridat `role="dialog"` na modaly.
-- **Kde v kodu:** `app/templates/base.html:149-186` (modaly), vsechny sablony s HTMX interakci
-- **Narocnost:** stredni ~2 hod
-- **Rozhodnuti:** Dulezite pro pristupnost
-
-#### Nalez #34: Owner detail -- "Vlastnik od" pole neni strukturovane
+#### Nalez #29: Jednotky detail -- back link rika jen "Zpet" bez kontextu
 - **Severity:** DROBNE
-- **Pohled:** Data quality
-- **Co a kde:** Pole `owner_since` je `String(50)` -- volny text. Neni datum, takze nelze radit, filtrovat ani validovat.
-- **Dopad:** Nekonzistentni formaty (napr. "2020", "od roku 2020", "1.1.2020") znemoznuji automaticke zpracovani.
-- **Reseni:** Priste zmenit na `Date` typ. Zatim neni kriticke -- pole se pouziva jen pro zobrazeni.
-- **Kde v kodu:** `app/models/owner.py:56`
-- **Narocnost:** stredni ~1 hod (vcetne migrace existujicich dat)
-- **Rozhodnuti:** Drobne, neni priorita
+- **Pohled:** Bezny uzivatel
+- **Co a kde:** Na detailu jednotky (`/jednotky/1`) back link rika jen "Zpet" misto "Zpet na seznam jednotek". Na detailu vlastnika spravne rika "Zpet na seznam vlastniku".
+- **Dopad:** Minorni nekonzistence v navigaci.
+- **Reseni:** Zmenit back_label pro jednotky na "Zpet na seznam jednotek" nebo "Zpet na detail vlastnika" podle kontextu.
+- **Kde v kodu:** `app/routers/units.py` (back_label logika)
+- **Narocnost:** nizka ~5 min
+- **Zavislosti:** --
+- **Regrese riziko:** nizke
+- **Rozhodnuti:** Opravit
 
-#### Nalez #35: Vlastnici -- emails_count nepocita email_secondary
+#### Nalez #30: Predpisy 549 vs Jednotky 508 -- nesedi pocty
 - **Severity:** DULEZITE
 - **Pohled:** Data quality
-- **Co a kde:** Na strance vlastniku se pocet "S emailem" pocita jen z `Owner.email`, ne z `Owner.email_secondary`. Ale filtr `s_emailem` pouziva `or_` s obema poli (radek 142-145). To znamena ze cislo v bublince muze byt MENSI nez skutecny pocet po filtraci.
-- **Dopad:** Bublina ukazuje napr. 45, ale po kliknuti se zobrazi 52 vlastniku (7 ma jen sekundarni email).
-- **Reseni:** Upravit `emails_count` query aby pocitala i `email_secondary`: pridat `or_` podminku jako ve filtru.
-- **Kde v kodu:** `app/routers/owners.py:255-259`
-- **Narocnost:** nizka ~10 min
+- **Co a kde:** V navigaci Plateb je "Predpisy 549" ale v evidenci je jen 508 jednotek. Detail predpisu ukazuje 530 predpisu. Cisla 549 vs 530 vs 508 nesedi a neni jasne proc.
+- **Dopad:** Uzivatel nevi ktere cislo je spravne a proc se lisi.
+- **Reseni:** (1) Vysvetlit na strance predpisu odkud cislo pochazi (napr. "549 radku v DOCX = 530 jednotek + 19 spoluvlastniku"). (2) Pridat info text ke stat kartam v navigaci.
+- **Kde v kodu:** `app/routers/payments/prescriptions.py`
+- **Narocnost:** nizka ~15 min (informativni text)
+- **Zavislosti:** --
+- **Regrese riziko:** nizke
 - **Rozhodnuti:** Opravit
-- **Jak otestovat:** Porovnat cislo v bublince "S emailem" s poctem zobrazenych po kliknuti na bublinu
 
-#### Nalez #36: Voting list -- neoptimalni eager loading
-- **Severity:** KRITICKE
-- **Pohled:** Performance analytik
-- **Co a kde:** Voting list endpoint (`GET /hlasovani/`) nacita VSECHNA hlasovani s `joinedload(Voting.ballots).joinedload(Ballot.votes)`. Pro kazde hlasovani pak v Pythonu iteruje vsechny listky a hlasy pro pocitani vysledku. Pri 10 hlasovanich s 200 listky a 5 body = 10000 BallotVote objektu v pameti.
-- **Dopad:** Pomale nacitani stranky pri vice hlasovanich. Muze byt problem s pameti.
-- **Reseni:** Pouzit SQL agregaci pro vysledky per-item (SUM, GROUP BY) misto Python iterace. Nebo precompute vysledky pri zpracovani listku a ulozit do voting/item modelu.
-- **Kde v kodu:** `app/routers/voting/session.py:43-101`
-- **Narocnost:** vysoka ~3 hod
-- **Rozhodnuti:** Opravit pokud jsou problemove rychlosti
-- **Jak otestovat:** Vytvorit 5+ hlasovani kazde s 50+ listky, otevrit `/hlasovani` -- merit cas nacitani
-
-#### Nalez #37: Datum validace -- neplatne datumy se ticho ignoruji
+#### Nalez #31: Vyuctovani -- hromadna zmena stavu bez nahledu
 - **Severity:** DULEZITE
 - **Pohled:** Error recovery
-- **Co a kde:** Pri vytvoreni hlasovani se neplatne datumy (`start_date`, `end_date`) ticho ignoruji -- `except ValueError: pass` (radek 205-206). Zadna zpetna vazba uzivateli.
-- **Dopad:** Uzivatel zada datum, ale ten se neulozi. Zustane prazdny bez varovani.
-- **Reseni:** Pri ValueError nastavit flash warning "Neplatny format datumu -- datum nebylo ulozeno".
-- **Kde v kodu:** `app/routers/voting/session.py:200-206`
+- **Co a kde:** Na strance vyuctovani (`/platby/vyuctovani`) je dropdown "Zmenit vsech 530 na..." s tlacitkem "Vse". Toto umoznuje hromadne zmenit stav vsech 530 vyuctovani jednim kliknutim bez potvrzeni.
+- **Dopad:** Nechcena hromadna zmena muze zpusobit problemy.
+- **Reseni:** Pridat potvrzovaci dialog: "Opravdu chcete zmenit stav u 530 vyuctovani na [novy stav]?".
+- **Kde v kodu:** `app/templates/payments/settlement.html`
 - **Narocnost:** nizka ~10 min
+- **Zavislosti:** --
+- **Regrese riziko:** nizke
 - **Rozhodnuti:** Opravit
-- **Jak otestovat:** Zadat neplatne datum pri tvorbe hlasovani -- melo by byt varovani
+
+#### Nalez #32: Jednotky detail -- badge "Zaplaceno" vs "Dluh" je klikaci ale cil neni jasny
+- **Severity:** DROBNE
+- **Pohled:** Bezny uzivatel
+- **Co a kde:** Na detailu jednotky (`/jednotky/1`) je badge "Zaplaceno" (zeleny) ktery je odkaz na `/platby/jednotka/1`. Uzivatel nevi ze je to odkaz -- vypada jako staticky badge.
+- **Dopad:** Uzivatel neprozkouma platby dane jednotky protoze nevi ze badge je klikaci.
+- **Reseni:** Pridat sipku nebo podtrzeni na badge aby bylo jasne ze je klikaci. Nebo zmenit na explicitni odkaz "Zobrazit platby ->".
+- **Kde v kodu:** `app/templates/units/detail.html`
+- **Narocnost:** nizka ~5 min
+- **Zavislosti:** --
+- **Regrese riziko:** nizke
+- **Rozhodnuti:** Opravit
+
+#### Nalez #33: Import vlastniku -- varovani "Import nahradi vsech 512 vlastniku" je desive
+- **Severity:** DULEZITE
+- **Pohled:** Error recovery
+- **Co a kde:** Na strance importu (`/vlastnici/import`) je cervene varovani "Pozor: Import nahradi vsech 512 vlastniku v databazi." Toto muze uzivatele odradit od pouziti importu i kdyz je to bezpecna operace (re-import ze stejneho souboru).
+- **Dopad:** Uzivatel se boji pouzit import i kdyz potrebuje aktualizovat data.
+- **Reseni:** (1) Zmenit text na "Import aktualizuje evidenci -- existujici vlastnici budou aktualizovani, novi pridani." (2) Pridat krok nahledu pred potvrzenim importu (uz existuje v kontaktech, aplikovat i na vlastniky).
+- **Kde v kodu:** `app/templates/owners/import.html`
+- **Narocnost:** nizka ~10 min (zmena textu)
+- **Zavislosti:** --
+- **Regrese riziko:** nizke
+- **Rozhodnuti:** Opravit (text)
+
+#### Nalez #34: Tabulky typ prostoru bubliny -- prilis mnoho typu
+- **Severity:** DROBNE
+- **Pohled:** UI/UX designer
+- **Co a kde:** Na strankach predpisu a matice plateb je 11+ bublin pro typy prostoru (byt, gar.stani, gar.stani-1/2, gar.stani-1/4, gar.stani-1/8, gar.stani-3/8, garaz, komercni, nebytovy prostor, nebytovy prostor-1/2, sklad). Bubliny zabiraji 2 radky a ztracuji prehlednost.
+- **Dopad:** Prilis mnoho filtracnich moznosti mate uzivatele. Vetisna uzivatelu pouzije jen "byt" a "garaz".
+- **Reseni:** (1) Seskupit podobne typy -- "gar.stani (vse)" misto 5 variant. (2) Nebo pouzit dropdown misto bublin pro typy s mene nez 10 zaznamy.
+- **Kde v kodu:** `app/templates/payments/prescriptions_detail.html`, `app/templates/payments/overview.html`
+- **Narocnost:** stredni ~45 min
+- **Zavislosti:** --
+- **Regrese riziko:** nizke
+- **Rozhodnuti:** Potreba rozhodnuti uzivatele
 
 ---
 
@@ -457,23 +516,26 @@
 
 | # | Navrh | Dopad | Slozitost | Cas | Zavisi na | Rozhodnuti | Priorita |
 |---|-------|-------|-----------|-----|-----------|------------|----------|
-| 1 | #31: CSV export -- opravit delimiter na strednik | Vysoky (rozbite CSV exporty v CZ Excelu) | Nizka | ~5 min | -- | Opravit | HNED |
-| 2 | #35: Opravit emails_count aby pocital i email_secondary | Vysoky (nekonzistentni cisla v UI) | Nizka | ~10 min | -- | Opravit | HNED |
-| 3 | #16: Flash zprava po invalidaci testu emailu | Vysoky (uzivatel nevi proc nemuze odeslat) | Nizka | ~15 min | -- | Opravit | HNED |
-| 4 | #4: Validace duplicit pri tvorbe vlastnika | Vysoky (duplicity v datech) | Stredni | ~1 hod | -- | Opravit | BRZY |
-| 5 | #29: Chybove flash zpravy by nemely auto-dismiss | Stredni (ztrata informace) | Nizka | ~15 min | -- | Opravit | HNED |
+| 1 | #16: Matice plateb -- skryt prazdne mesice + sticky sloupce | Vysoky (klicova stranka neprehledna) | Stredni | ~2 hod | -- | Potreba rozhodnuti | BRZY |
+| 2 | #1: Dashboard -- seskupit/filtrovat aktivitu | Vysoky (dashboard neplni ucel) | Stredni | ~1 hod | -- | Potreba rozhodnuti | BRZY |
+| 3 | #19: Vyuctovani -- overit logiku vypoctu | Vysoky (mozna chybna data) | Stredni | ~1 hod | -- | Opravit | HNED |
+| 4 | #6: Najemci -- resit duplicitni radky | Stredni (matouci UI) | Stredni | ~1 hod | -- | Potreba rozhodnuti | BRZY |
+| 5 | #28: HTMX search loading indikator | Stredni (chybejici zpetna vazba) | Nizka | ~30 min | -- | Opravit | HNED |
 
 ---
 
 ## Quick wins (nizka slozitost, okamzity efekt)
 
-- [ ] #31: CSV export -- pridat `delimiter=';'` (~5 min)
-- [ ] #35: emails_count -- pridat `email_secondary` do query (~10 min)
-- [ ] #2: Dashboard podily -- pridat tooltip na "Podily: shoda" (~5 min)
-- [ ] #29: Chybove flash zpravy -- neauto-dismiss pro `error` typ (~15 min)
-- [ ] #16: Flash varovani po zmene obsahu emailu (~15 min)
-- [ ] #37: Varovani pri neplatnem datumu (~10 min)
-- [ ] #25: SMTP heslo -- pridat placeholder text (~15 min)
-- [ ] #10: Loading spinner na tlacitko "Generovat listky" (~15 min)
-- [ ] #11: Flash zprava po hromadnem zpracovani (~15 min)
-- [ ] #3: Prazdny stav vyhledavani na dashboardu (~10 min)
+- [ ] #15: Platby nav -- opravit orezany text "VS mapov..." (~10 min)
+- [ ] #18: Vypis detail -- pridat tooltip na "Preparovat" (~5 min)
+- [ ] #27: Sidebar badge -- pridat tooltip "109 jednotek s dluhem" (~5 min)
+- [ ] #29: Jednotky detail -- zmenit "Zpet" na "Zpet na seznam jednotek" (~5 min)
+- [ ] #32: Jednotky detail -- zvyraznit klikaci badge plateb (~5 min)
+- [ ] #9: Prostory -- zvyraznit "???" jako varovani (~15 min)
+- [ ] #13: Rozesilka -- vizualni odliseni pozastavene rozesilky (~15 min)
+- [ ] #17: Dluznici -- pridat info o obdobi dat (~20 min)
+- [ ] #20: Zustatky -- pridat informativni text (~10 min)
+- [ ] #30: Predpisy -- vysvetlit rozdil v poctech (~15 min)
+- [ ] #33: Import -- zmenit desive varovani na informativni text (~10 min)
+- [ ] #7: Najemci detail -- jasnejsi UX text u propojeneho najemce (~15 min)
+- [ ] #31: Vyuctovani -- pridat potvrzeni pro hromadnou zmenu (~10 min)

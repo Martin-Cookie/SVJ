@@ -1,0 +1,104 @@
+{% if edit_mode|default(false) %}
+<!-- Edit form -->
+<form hx-post="/prostory/{{ space.id }}/upravit" hx-target="#space-edit-form" hx-swap="innerHTML">
+    <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-semibold text-gray-700">Informace o prostoru</h2>
+        <div class="flex gap-2">
+            <button type="submit" class="px-3 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 transition-colors">Uložit</button>
+            <button type="button" hx-get="/prostory/{{ space.id }}/info" hx-target="#space-edit-form" hx-swap="innerHTML"
+                    class="px-3 py-1 bg-gray-200 text-gray-600 rounded text-xs hover:bg-gray-300 transition-colors">Zrušit</button>
+        </div>
+    </div>
+    {% if error|default('') %}
+    <div class="bg-red-50 border border-red-200 rounded-lg p-3 mb-3 text-sm text-red-700">{{ error }}</div>
+    {% endif %}
+    <div class="space-y-3 text-sm">
+        <div>
+            <label class="text-xs text-gray-500">Označení</label>
+            <input type="text" name="designation" value="{{ space.designation or '' }}" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+            <div>
+                <label class="text-xs text-gray-500">Sekce</label>
+                <input type="text" name="section" value="{{ space.section or '' }}" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="text-xs text-gray-500">Podlaží</label>
+                <input type="text" name="floor" value="{{ space.floor if space.floor is not none else '' }}" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+            </div>
+        </div>
+        <div>
+            <label class="text-xs text-gray-500">Výměra (m²)</label>
+            <input type="text" name="area" value="{{ space.area or '' }}" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div>
+            <label class="text-xs text-gray-500">Stav</label>
+            <select name="status" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+                <option value="rented" {% if space.status.value == 'rented' %}selected{% endif %}>Pronajato</option>
+                <option value="vacant" {% if space.status.value == 'vacant' %}selected{% endif %}>Volné</option>
+                <option value="blocked" {% if space.status.value == 'blocked' %}selected{% endif %}>Blokované</option>
+            </select>
+        </div>
+        <div>
+            <label class="text-xs text-gray-500">Důvod blokace</label>
+            <input type="text" name="blocked_reason" value="{{ space.blocked_reason or '' }}" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div>
+            <label class="text-xs text-gray-500">Poznámka</label>
+            <textarea name="note" rows="2" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">{{ space.note or '' }}</textarea>
+        </div>
+    </div>
+</form>
+{% else %}
+<!-- Display mode -->
+<div class="flex items-center justify-between mb-4">
+    <h2 class="text-lg font-semibold text-gray-700">Informace o prostoru</h2>
+    <button hx-get="/prostory/{{ space.id }}/upravit-formular" hx-target="#space-edit-form" hx-swap="innerHTML"
+            class="px-3 py-1 bg-gray-100 text-gray-600 rounded text-xs hover:bg-gray-200 transition-colors border border-gray-200">Upravit</button>
+</div>
+{% if saved|default(false) %}
+<div class="bg-green-50 border border-green-200 rounded-lg p-2 mb-3 text-xs text-green-700">Změny uloženy.</div>
+{% endif %}
+<div class="space-y-2 text-sm">
+    <div class="flex justify-between">
+        <span class="text-gray-500">Označení</span>
+        <span class="text-gray-800 font-medium">{{ space.designation or '—' }}</span>
+    </div>
+    <div class="flex justify-between">
+        <span class="text-gray-500">Sekce</span>
+        <span class="text-gray-800">{{ space.section or '—' }}</span>
+    </div>
+    <div class="flex justify-between">
+        <span class="text-gray-500">Podlaží</span>
+        <span class="text-gray-800">{{ space.floor if space.floor is not none else '—' }}</span>
+    </div>
+    <div class="flex justify-between">
+        <span class="text-gray-500">Výměra</span>
+        <span class="text-gray-800">{% if space.area %}{{ space.area|fmt_num }} m²{% else %}—{% endif %}</span>
+    </div>
+    <div class="flex justify-between">
+        <span class="text-gray-500">Stav</span>
+        <span>
+            {% if space.status.value == 'rented' %}
+            <span class="px-1.5 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">Pronajato</span>
+            {% elif space.status.value == 'vacant' %}
+            <span class="px-1.5 py-0.5 text-xs font-medium rounded-full bg-yellow-100 text-yellow-700">Volné</span>
+            {% elif space.status.value == 'blocked' %}
+            <span class="px-1.5 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700">Blokované</span>
+            {% endif %}
+        </span>
+    </div>
+    {% if space.blocked_reason %}
+    <div class="flex justify-between">
+        <span class="text-gray-500">Důvod blokace</span>
+        <span class="text-gray-800">{{ space.blocked_reason }}</span>
+    </div>
+    {% endif %}
+    {% if space.note %}
+    <div class="border-t border-gray-100 pt-2 mt-2">
+        <span class="text-gray-500 text-xs">Poznámka</span>
+        <p class="text-gray-700 text-xs mt-0.5">{{ space.note }}</p>
+    </div>
+    {% endif %}
+</div>
+{% endif %}

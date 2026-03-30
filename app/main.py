@@ -284,6 +284,7 @@ def _ensure_indexes():
         ("ix_variable_symbol_mappings_source", "variable_symbol_mappings", "source"),
         ("ix_unit_balances_unit_id", "unit_balances", "unit_id"),
         ("ix_unit_balances_year", "unit_balances", "year"),
+        ("ix_unit_balances_owner_id", "unit_balances", "owner_id"),
         ("ix_prescription_years_year", "prescription_years", "year"),
         ("ix_prescriptions_prescription_year_id", "prescriptions", "prescription_year_id"),
         ("ix_prescriptions_unit_id", "prescriptions", "unit_id"),
@@ -306,6 +307,22 @@ def _ensure_indexes():
         ("ix_settlements_unit_id", "settlements", "unit_id"),
         ("ix_settlements_status", "settlements", "status"),
         ("ix_settlement_items_settlement_id", "settlement_items", "settlement_id"),
+        # space.py
+        ("ix_spaces_section", "spaces", "section"),
+        ("ix_spaces_status", "spaces", "status"),
+        ("ix_tenants_owner_id", "tenants", "owner_id"),
+        ("ix_tenants_is_active", "tenants", "is_active"),
+        ("ix_tenants_name_normalized", "tenants", "name_normalized"),
+        ("ix_space_tenants_space_id", "space_tenants", "space_id"),
+        ("ix_space_tenants_tenant_id", "space_tenants", "tenant_id"),
+        ("ix_space_tenants_is_active", "space_tenants", "is_active"),
+        ("ix_space_tenants_variable_symbol", "space_tenants", "variable_symbol"),
+        # space_id on payment tables
+        ("ix_variable_symbol_mappings_space_id", "variable_symbol_mappings", "space_id"),
+        ("ix_prescriptions_space_id", "prescriptions", "space_id"),
+        ("ix_payments_space_id", "payments", "space_id"),
+        ("ix_payment_allocations_space_id", "payment_allocations", "space_id"),
+        ("ix_unit_balances_space_id", "unit_balances", "space_id"),
     ]
     import re
     _SAFE_IDENT = re.compile(r'^"?[a-z_][a-z0-9_]*"?$')
@@ -420,6 +437,93 @@ def _migrate_bank_statement_locked():
             logger.info("Added locked_at column to bank_statements")
 
 
+def _migrate_unit_balances_owner():
+    """Přidat sloupce owner_id a owner_name do unit_balances + balance_import_mapping do svj_info."""
+    with engine.connect() as conn:
+        cols = [r[1] for r in conn.execute(text("PRAGMA table_info('unit_balances')")).fetchall()]
+        if "owner_id" not in cols:
+            conn.execute(text("ALTER TABLE unit_balances ADD COLUMN owner_id INTEGER REFERENCES owners(id)"))
+            conn.execute(text("ALTER TABLE unit_balances ADD COLUMN owner_name VARCHAR(300)"))
+            conn.commit()
+            logger.info("Added owner_id, owner_name columns to unit_balances")
+        svj_cols = [r[1] for r in conn.execute(text("PRAGMA table_info('svj_info')")).fetchall()]
+        if "balance_import_mapping" not in svj_cols:
+            conn.execute(text("ALTER TABLE svj_info ADD COLUMN balance_import_mapping TEXT"))
+            conn.commit()
+            logger.info("Added balance_import_mapping column to svj_info")
+
+
+def _migrate_spaces_tables():
+    """Add space_id columns to payment tables + space_import_mapping to svj_info."""
+    _SPACE_COLUMNS = [
+        ("variable_symbol_mappings", "space_id", "INTEGER REFERENCES spaces(id)"),
+        ("prescriptions", "space_id", "INTEGER REFERENCES spaces(id)"),
+        ("payments", "space_id", "INTEGER REFERENCES spaces(id)"),
+        ("payment_allocations", "space_id", "INTEGER REFERENCES spaces(id)"),
+        ("unit_balances", "space_id", "INTEGER REFERENCES spaces(id)"),
+    ]
+    with engine.connect() as conn:
+        for table, col, col_type in _SPACE_COLUMNS:
+            cols = [r[1] for r in conn.execute(text(f"PRAGMA table_info('{table}')")).fetchall()]
+            if col not in cols:
+                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {col_type}"))
+                logger.info("Added %s column to %s", col, table)
+        # space_import_mapping on svj_info
+        svj_cols = [r[1] for r in conn.execute(text("PRAGMA table_info('svj_info')")).fetchall()]
+        if "space_import_mapping" not in svj_cols:
+            conn.execute(text("ALTER TABLE svj_info ADD COLUMN space_import_mapping TEXT"))
+            logger.info("Added space_import_mapping column to svj_info")
+        # Fix unit_id NOT NULL → nullable on variable_symbol_mappings (needed for space-only VS)
+        vsm_cols = conn.execute(text("PRAGMA table_info('variable_symbol_mappings')")).fetchall()
+        unit_id_col = next((c for c in vsm_cols if c[1] == "unit_id"), None)
+        if unit_id_col and unit_id_col[3] == 1:  # notnull=1 → needs fix
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS _vsm_new (
+                    id INTEGER PRIMARY KEY,
+                    variable_symbol VARCHAR(20) NOT NULL UNIQUE,
+                    unit_id INTEGER REFERENCES units(id),
+                    space_id INTEGER REFERENCES spaces(id),
+                    source VARCHAR(6),
+                    description TEXT,
+                    is_active BOOLEAN DEFAULT 1,
+                    created_at DATETIME,
+                    updated_at DATETIME
+                )
+            """))
+            conn.execute(text("INSERT INTO _vsm_new SELECT id, variable_symbol, unit_id, space_id, source, description, is_active, created_at, updated_at FROM variable_symbol_mappings"))
+            conn.execute(text("DROP TABLE variable_symbol_mappings"))
+            conn.execute(text("ALTER TABLE _vsm_new RENAME TO variable_symbol_mappings"))
+            conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_vsm_variable_symbol ON variable_symbol_mappings(variable_symbol)"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_vsm_unit_id ON variable_symbol_mappings(unit_id)"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_vsm_space_id ON variable_symbol_mappings(space_id)"))
+            logger.info("Recreated variable_symbol_mappings with nullable unit_id")
+        # Fix unit_id NOT NULL → nullable on payment_allocations (needed for space-only allocations)
+        pa_cols = conn.execute(text("PRAGMA table_info('payment_allocations')")).fetchall()
+        pa_unit_col = next((c for c in pa_cols if c[1] == "unit_id"), None)
+        if pa_unit_col and pa_unit_col[3] == 1:  # notnull=1 → needs fix
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS _pa_new (
+                    id INTEGER PRIMARY KEY,
+                    payment_id INTEGER NOT NULL REFERENCES payments(id) ON DELETE CASCADE,
+                    unit_id INTEGER REFERENCES units(id),
+                    space_id INTEGER REFERENCES spaces(id),
+                    owner_id INTEGER REFERENCES owners(id),
+                    prescription_id INTEGER REFERENCES prescriptions(id),
+                    amount FLOAT NOT NULL
+                )
+            """))
+            conn.execute(text("INSERT INTO _pa_new SELECT id, payment_id, unit_id, space_id, owner_id, prescription_id, amount FROM payment_allocations"))
+            conn.execute(text("DROP TABLE payment_allocations"))
+            conn.execute(text("ALTER TABLE _pa_new RENAME TO payment_allocations"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_pa_payment_id ON payment_allocations(payment_id)"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_pa_unit_id ON payment_allocations(unit_id)"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_pa_space_id ON payment_allocations(space_id)"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_pa_owner_id ON payment_allocations(owner_id)"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_pa_prescription_id ON payment_allocations(prescription_id)"))
+            logger.info("Recreated payment_allocations with nullable unit_id")
+        conn.commit()
+
+
 _ALL_MIGRATIONS = [
     ("units table", _migrate_units_table),
     ("owner_units history", _migrate_owner_units_history),
@@ -431,6 +535,8 @@ _ALL_MIGRATIONS = [
     ("email_logs name_normalized", _migrate_email_log_name_normalized),
     ("payment_allocations migration", _migrate_payment_allocations),
     ("bank_statement locked_at", _migrate_bank_statement_locked),
+    ("unit_balances owner columns", _migrate_unit_balances_owner),
+    ("spaces tables migration", _migrate_spaces_tables),
     ("index creation", _ensure_indexes),
     ("code list seeding", _seed_code_lists),
     ("email template seeding", _seed_email_templates),
@@ -498,7 +604,7 @@ async def lifespan(app: FastAPI):
     # Ensure data directories exist
     for d in [settings.upload_dir, settings.generated_dir, settings.temp_dir]:
         d.mkdir(parents=True, exist_ok=True)
-    for sub in ["excel", "word_templates", "scanned_ballots", "tax_pdfs", "csv", "share_check"]:
+    for sub in ["excel", "word_templates", "scanned_ballots", "tax_pdfs", "csv", "share_check", "contracts"]:
         (settings.upload_dir / sub).mkdir(exist_ok=True)
     for sub in ["ballots", "exports"]:
         (settings.generated_dir / sub).mkdir(exist_ok=True)
@@ -607,7 +713,7 @@ except (AttributeError, KeyError, TypeError):
 app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
 
 # Register routers
-from app.routers import dashboard, owners, units, voting, tax, sync, share_check, settings_page, administration, payments  # noqa: E402
+from app.routers import dashboard, owners, units, voting, tax, sync, share_check, settings_page, administration, payments, spaces, tenants  # noqa: E402
 
 app.include_router(dashboard.router)
 app.include_router(owners.router, prefix="/vlastnici", tags=["Vlastníci"])
@@ -619,3 +725,5 @@ app.include_router(share_check.router, prefix="/kontrola-podilu", tags=["Kontrol
 app.include_router(administration.router, prefix="/sprava", tags=["Administrace"])
 app.include_router(settings_page.router, prefix="/nastaveni", tags=["Nastavení"])
 app.include_router(payments.router, prefix="/platby", tags=["Platby"])
+app.include_router(spaces.router, prefix="/prostory", tags=["Prostory"])
+app.include_router(tenants.router, prefix="/najemci", tags=["Nájemci"])

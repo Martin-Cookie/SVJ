@@ -52,9 +52,11 @@
                         <input type="hidden" name="pole" value="{{ field_key }}">
                         <input type="hidden" name="old_value" value="{{ v.value if v.value is not none else '' }}">
                         <input type="hidden" name="is_null" value="{{ '1' if v.value is none else '0' }}">
+                        <span id="preview-{{ loop.index }}" class="text-xs text-gray-500 mr-1" data-count="{{ v.count }}"></span>
                         <input type="text" name="new_value" id="input-{{ loop.index }}"
                                value="{{ v.value if v.value is not none else '' }}"
                                list="dl-suggestions" placeholder="Nová hodnota"
+                               oninput="updatePreview({{ loop.index }})"
                                class="w-44 px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                         <button type="submit"
                                 class="px-2 py-1 text-xs font-medium text-blue-600 border border-blue-300 rounded hover:bg-blue-50">Uložit</button>
@@ -157,9 +159,40 @@ function updateCounter(cb) {
     saveBulkChecks(cb);
 }
 
+function updatePreview(idx) {
+    var preview = document.getElementById('preview-' + idx);
+    var input = document.getElementById('input-' + idx);
+    var detail = document.getElementById('detail-' + idx);
+    var newVal = input.value.trim();
+    var oldVal = input.defaultValue;
+
+    // Count affected records: selected checkboxes or total
+    var count;
+    if (!detail.classList.contains('hidden') && detail.children.length > 0) {
+        var checked = detail.querySelectorAll('.bulk-cb:checked').length;
+        count = checked > 0 ? checked : 0;
+    } else {
+        count = parseInt(preview.dataset.count) || 0;
+    }
+
+    if (newVal && newVal !== oldVal && count > 0) {
+        preview.textContent = count + ' zázn. \u2192';
+        preview.classList.remove('text-gray-500');
+        preview.classList.add('text-amber-600', 'font-medium');
+    } else {
+        preview.textContent = '';
+        preview.classList.remove('text-amber-600', 'font-medium');
+        preview.classList.add('text-gray-500');
+    }
+}
+
 function submitBulkEdit(form, idx) {
     var detail = document.getElementById('detail-' + idx);
     var cbs = detail.querySelectorAll('.bulk-cb:checked');
+    var newVal = form.querySelector('[name="new_value"]').value.trim();
+    var oldVal = form.querySelector('[name="old_value"]').value;
+    var oldDisplay = oldVal || '(bez hodnoty)';
+    var newDisplay = newVal || '(bez hodnoty)';
 
     // Remove old hidden ids inputs
     form.querySelectorAll('input[name="ids"]').forEach(function(el) { el.remove(); });
@@ -174,7 +207,7 @@ function submitBulkEdit(form, idx) {
             form.appendChild(input);
         });
         if (form._svjConfirmed) { form._svjConfirmed = false; return true; }
-        svjConfirm('Opravit ' + cbs.length + ' záznamů?', function() {
+        svjConfirm('Opravit ' + cbs.length + ' záznamů?\n\n' + oldDisplay + ' \u2192 ' + newDisplay, function() {
             form._svjConfirmed = true;
             form.requestSubmit ? form.requestSubmit() : form.submit();
         });
@@ -183,7 +216,7 @@ function submitBulkEdit(form, idx) {
         // Detail not expanded — apply to all (old behavior)
         if (form._svjConfirmed) { form._svjConfirmed = false; return true; }
         var totalCount = detail.dataset.count || '?';
-        svjConfirm('Opravit všech ' + totalCount + ' záznamů s touto hodnotou?', function() {
+        svjConfirm('Opravit všech ' + totalCount + ' záznamů s touto hodnotou?\n\n' + oldDisplay + ' \u2192 ' + newDisplay, function() {
             form._svjConfirmed = true;
             form.requestSubmit ? form.requestSubmit() : form.submit();
         });

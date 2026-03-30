@@ -54,11 +54,12 @@ python3 -m pytest tests/ -v          # spustit všechny testy
 python3 -m pytest tests/ -q --tb=short  # stručný výstup
 ```
 
-**248 testů** (~1.5s, in-memory SQLite) pokrývá:
+**298 testů** (~2.5s, in-memory SQLite) pokrývá:
 
 | Soubor | Testů | Oblast |
 |--------|-------|--------|
 | `test_payment_matching.py` | 33 | matching pipeline, settlement, rounding |
+| `test_payment_advanced.py` | 50 | space matching, confirm/reject, lock, multi-unit, endpoints, diacritics |
 | `test_voting.py` | 72 | wizard, ballot stats, import, SJM párování |
 | `test_backup.py` | 43 | lock, ZIP create/restore, cleanup, integrity |
 | `test_csv_comparator.py` | 77 | CSV parsing, fuzzy matching, Czech stemming |
@@ -256,24 +257,48 @@ python3 -m pytest tests/ -q --tb=short  # stručný výstup
 Modul pro správu předpisů, bankovních výpisů, variabilních symbolů a přehledu plateb.
 
 - **Předpisy** — import z DOCX, automatické párování na jednotky, správa roků předpisů, detekce VS konfliktů při importu (pokud VS z DOCX ukazuje na jinou jednotku než existující mapování — potvrzovací dialog s přehledem konfliktů)
-- **Variabilní symboly** — mapování VS → jednotka (ruční + automatické z předpisů)
+- **Variabilní symboly** — mapování VS → jednotka/prostor (ruční + automatické z předpisů), inline editace s přepínačem entity (Jednotka/Prostor), editovatelné VS pole
 - **Bankovní výpisy** — import Fio CSV (reimport zachová ruční přiřazení), 3-fázové automatické párování plateb:
   - Fáze 1: VS → `VariableSymbolMapping` lookup (výsledek: AUTO_MATCHED)
   - Fáze 2: Fallback jméno odesílatele + částka vs předpis (výsledek: SUGGESTED); podpora multi-unit plateb — kombinace jednotek jednoho vlastníka kde součet předpisů odpovídá částce
   - Fáze 3: VS-prefix dekódování + skórovací systém (jméno + částka + VS shoda; výsledek: SUGGESTED při skóre ≥ 5)
   - Stavy párování: `AUTO_MATCHED`, `SUGGESTED`, `MANUAL`, `UNMATCHED` — jako potvrzené (confirmed) se počítají pouze `AUTO_MATCHED` + `MANUAL`; `SUGGESTED` vyžaduje ruční potvrzení/odmítnutí
   - Ruční přiřazení: single-unit (celá částka) i multi-unit (čísla oddělená čárkou, částka rozdělena proporcionálně dle předpisů)
-  - PaymentAllocation: dual-write model — každé přiřazení vytváří alokační záznamy (podpora multi-unit plateb kde jedna platba pokrývá více jednotek)
+  - PaymentAllocation: dual-write model — každé přiřazení vytváří alokační záznamy (podpora multi-unit plateb kde jedna platba pokrývá více jednotek); `unit_id` nullable (pro space-only alokace), `space_id` + `prescription_id` FK
+  - Detail výpisu: filtr bubliny dle entity (Vše/Jednotky/Prostory), samostatný sloupec Prostor; hromadné potvrzení všech navržených přiřazení; suggestion dropdowny s předvýběrem dle jména protiúčtu (zelené zvýraznění, potvrzovací tlačítko ✓)
   - Zamčení/odemčení výpisu (`locked_at`) — zamčený výpis nelze přepárovat, měnit ani mazat
-- **Počáteční zůstatky** — evidované zůstatky per jednotka/rok
-- **Matice plateb** — přehled 508 jednotek × 12 měsíců s barevným stavem (zaplaceno/částečně/nezaplaceno), filtry dle typu prostoru, řazení, hledání
+- **Počáteční zůstatky** — evidované zůstatky per jednotka/rok s vazbou na vlastníka; import z Excelu (.xlsx/.xls) s 4-krokovým workflow (upload → mapování sloupců → náhled → potvrzení); ruční přidání/editace s dynamickým výběrem vlastníka; zobrazení dluhů v seznamech i detailech jednotek a vlastníků
+- **Matice plateb** — přehled jednotek/prostorů × 12 měsíců s barevným stavem (zaplaceno/částečně/nezaplaceno), přepínač entity (jednotky/prostory), filtry dle typu prostoru, řazení, hledání, export xlsx
 - **Dlužníci** — seznam jednotek s dluhem seřazený dle výše dluhu
 - **Detail plateb jednotky** — měsíční grid + seznam přijatých plateb
 - **Vyúčtování** — roční vyúčtování per jednotka (předpis × 12 vs. zaplaceno), rozpad po položkách, změna stavu (vygenerováno → odesláno → zaplaceno / po splatnosti), hledání, řazení, bubliny dle stavu, hromadná změna stavu, export do Excelu (souhrn / s položkami)
 - **Dashboard integrace** — 5. karta na hlavním dashboardu (napárované platby, výpisy)
 - **Badge v detailu jednotky** — "Zaplaceno ✓" (zelený) nebo "Dluh X Kč" (červený/žlutý)
 
-### F. Kontroly (`/synchronizace`)
+### F. Prostory a nájemci (`/prostory`, `/najemci`)
+
+Evidence pronajímaných společných prostorů SVJ (sklady, nebytové prostory, kočárkárny) a jejich nájemců.
+
+- **Prostory** — CRUD s řaditelnými sloupci, hledáním, filtry (stav, sekce), bubliny (pronajato/volné/blokované), export Excel/CSV; formulář vytvoření prostoru s volitelnými poli nájemce (auto-vytvoří Tenant + SpaceTenant + VS mapping + Prescription)
+- **Nájemci** — CRUD s per-section inline editací (identita, kontakt, adresy), propojení na vlastníky (Tenant ↔ Owner), resolved properties (jméno, telefon, email se čtou z Owner pokud propojený), export Excel/CSV
+- **Nájemní vztahy** (SpaceTenant) — přiřazení nájemce k prostoru s detaily smlouvy (číslo, datum, nájemné, VS, PDF příloha)
+- **Platební integrace**:
+  - Auto-vytvoření `VariableSymbolMapping` (space_id) při přiřazení nájemce s VS
+  - Auto-vytvoření `Prescription` (space_id) při přiřazení nájemce s nájemným
+  - VS stránka zobrazuje prostory i jednotky (filtr bubliny Jednotky/Prostory)
+  - Matice plateb + dlužníci s přepínačem entity (jednotky/prostory)
+  - Detail plateb prostoru (`/platby/prostor/{id}`)
+  - Matching engine: VS + name matching rozšířeno pro prostory (Tenant.name_normalized)
+  - Bankovní výpisy: zobrazení `P {číslo}` badge pro space matche
+- **Import z Excelu** — 4-krokový wizard (upload → mapování → náhled → potvrzení):
+  - Auto-detekce sloupců (11 polí: číslo, označení, sekce, podlaží, výměra, nájemce, telefon, email, smlouva, nájemné, VS)
+  - Auto-detekce blokovaných prostorů (klíčová slova: kočárkárna, ústředna, trezor, kotelna atd.)
+  - Propojení nájemců na vlastníky (Owner matching v náhledu)
+  - Additivní import (existující prostory se nepřepisují)
+- **Dashboard** — stat karta Prostory (pronajato/volné/blokované + expirace smluv ≤3 měsíce)
+- **Purge** — kategorie "Prostory a nájemci" v administraci
+
+### G. Kontroly (`/synchronizace`)
 
 Sloučená stránka se dvěma sekcemi — Kontrola vlastníků (nahoře) a Kontrola podílů (dole). Každá sekce má upload formulář a historii kontrol s nezávislým vyhledáváním.
 
@@ -316,7 +341,7 @@ Sloučená stránka se dvěma sekcemi — Kontrola vlastníků (nahoře) a Kontr
   - Zachování filtru a scroll pozice při navigaci zpět z výměny (filtr + #sync-{id} anchor)
   - Logování změn do ImportLog
 
-### G. Administrace SVJ (`/sprava`)
+### H. Administrace SVJ (`/sprava`)
 
 - Informace o SVJ (název, typ budovy, celkový počet podílů) — read-only pohled + inline editace
 - Správa adres SVJ — přidání, editace, smazání s řazením abecedně
@@ -409,7 +434,7 @@ Sloučená stránka se dvěma sekcemi — Kontrola vlastníků (nahoře) a Kontr
 - Historie kontrol s vyhledáváním a řazením (soubor, datum, shoda, rozdíly) s HTMX partial
 - Stará URL `/kontrola-podilu` automaticky přesměruje na `/synchronizace#kontrola-podilu`
 
-### H. Nastavení (`/nastaveni`)
+### I. Nastavení (`/nastaveni`)
 
 - SMTP konfigurace — read-only přehled (4-sloupcový grid) + inline editace (HTMX)
 - Historie odeslaných emailů (posledních 100):
@@ -436,6 +461,7 @@ app/
 │   ├── sync.py                #   SyncSession, SyncRecord
 │   ├── share_check.py         #   ShareCheckSession, ShareCheckRecord, ShareCheckColumnMapping
 │   ├── payment.py             #   PrescriptionYear, Prescription, PrescriptionItem, VariableSymbolMapping, BankStatement, Payment, PaymentAllocation, BankStatementColumnMapping, UnitBalance, Settlement, SettlementItem
+│   ├── space.py               #   Space, SpaceStatus, Tenant, SpaceTenant
 │   ├── common.py              #   EmailLog (+ name_normalized), ImportLog, ActivityLog, ActivityAction, log_activity()
 │   └── administration.py      #   SvjInfo (+ owner/contact_import_mapping), SvjAddress, BoardMember, CodeListItem, EmailTemplate
 ├── routers/                   # HTTP endpointy
@@ -463,12 +489,21 @@ app/
 │   ├── payments/              #   /platby (předpisy, symboly, výpisy, zůstatky, přehled, vyúčtování)
 │   │   ├── __init__.py
 │   │   ├── prescriptions.py   #   Import DOCX, seznam, detail, VS konflikty
-│   │   ├── symbols.py         #   Variabilní symboly CRUD
+│   │   ├── symbols.py         #   Variabilní symboly CRUD + inline edit
 │   │   ├── statements.py      #   Import CSV, detail, párování, lock/unlock
 │   │   ├── balances.py        #   Počáteční zůstatky
 │   │   ├── overview.py        #   Matice plateb, dlužníci, detail jednotky
 │   │   ├── settlement.py      #   Vyúčtování CRUD, export
 │   │   └── _helpers.py        #   compute_nav_stats, sdílené funkce
+│   ├── spaces/                #   /prostory (CRUD, import)
+│   │   ├── __init__.py
+│   │   ├── crud.py            #   Seznam, detail, inline edit, nájemce přiřazení/ukončení
+│   │   ├── import_spaces.py   #   Import prostorů z Excelu (mapování + náhled)
+│   │   └── _helpers.py        #   Sdílené funkce
+│   ├── tenants/               #   /najemci (CRUD, per-section inline edit)
+│   │   ├── __init__.py
+│   │   ├── crud.py            #   Seznam, detail, identita/kontakt/adresa editace
+│   │   └── _helpers.py        #   Sdílené funkce
 │   ├── sync/                  #   /synchronizace (sloučená stránka Kontroly)
 │   │   ├── session.py         #   Seznam, vytvoření, smazání, detail, export
 │   │   ├── contacts.py        #   Přijetí/zamítnutí změn, aplikace kontaktů
@@ -498,14 +533,16 @@ app/
 │   ├── owner_exchange.py      #   Výměna vlastníků při synchronizaci
 │   ├── backup_service.py      #   Zálohování a obnova dat (ZIP)
 │   ├── data_export.py         #   Export dat do Excel/CSV (7 kategorií)
-│   ├── import_mapping.py      #   Definice polí a auto-detekce mapování pro import vlastníků/kontaktů
+│   ├── import_mapping.py      #   Definice polí a auto-detekce mapování pro import vlastníků/kontaktů/zůstatků
+│   ├── balance_import.py      #   Import počátečních zůstatků z Excelu (.xlsx/.xls)
 │   ├── email_service.py       #   SMTP odesílání emailů
 │   ├── code_list_service.py   #   Sdílený přístup k číselníkům
 │   ├── prescription_import.py #   Parsování DOCX předpisů
 │   ├── bank_import.py         #   Parsování Fio CSV bankovních výpisů
 │   ├── payment_matching.py    #   3-fázové párování plateb (VS, jméno+částka, VS-prefix)
 │   ├── payment_overview.py    #   Matice plateb, dlužníci, detail jednotky
-│   └── settlement_service.py  #   Logika vyúčtování (generování, přepočet)
+│   ├── settlement_service.py  #   Logika vyúčtování (generování, přepočet)
+│   └── space_import.py        #   Import prostorů z Excelu
 ├── templates/                 # Jinja2 šablony
 │   ├── base.html              #   Layout se sidebar navigací
 │   ├── dashboard.html         #   Přehled (statistiky vlastníků, jednotek, podílů)
@@ -578,14 +615,28 @@ app/
 │   │   ├── predpis_detail.html #    Detail jednoho předpisu (položky)
 │   │   ├── symboly.html       #     Variabilní symboly
 │   │   ├── zustatky.html      #     Počáteční zůstatky
+│   │   ├── zustatky_import.html #   Import zůstatků (upload)
+│   │   ├── zustatky_mapping.html #  Import — mapování sloupců
+│   │   ├── zustatky_preview.html #  Import — náhled před potvrzením
 │   │   ├── vypisy.html        #     Seznam bankovních výpisů
 │   │   ├── vypis_import.html  #     Import výpisu (CSV upload, confirm overwrite)
 │   │   ├── vypis_detail.html  #     Detail výpisu s platbami (filtry, search, lock)
 │   │   ├── prehled.html       #     Matice plateb (jednotky × měsíce)
 │   │   ├── dluznici.html      #     Seznam dlužníků
 │   │   ├── jednotka_platby.html #   Detail plateb jednotky
+│   │   ├── prostor_platby.html #   Detail plateb prostoru
 │   │   ├── vyuctovani.html    #     Seznam vyúčtování
 │   │   └── vyuctovani_detail.html # Detail vyúčtování
+│   ├── spaces/                #   Stránky prostorů
+│   │   ├── list.html          #     Seznam prostorů
+│   │   ├── detail.html        #     Detail prostoru (info + nájemce + historie)
+│   │   ├── space_import.html  #     Import — upload
+│   │   ├── space_import_mapping.html # Import — mapování sloupců
+│   │   ├── space_import_preview.html # Import — náhled
+│   │   └── space_import_result.html #  Import — výsledek
+│   ├── tenants/               #   Stránky nájemců
+│   │   ├── list.html          #     Seznam nájemců
+│   │   └── detail.html        #     Detail nájemce (per-section inline edit)
 │   └── partials/              #   HTMX komponenty
 │       ├── owner_row.html
 │       ├── owner_table_body.html
@@ -859,33 +910,93 @@ wheels/                        # Offline Python balíčky (gitignored)
 | GET | `/platby/predpisy/{year_id}` | Detail předpisů roku (tabulka s filtry) |
 | GET | `/platby/predpisy/{year_id}/{prescription_id}` | Detail jednoho předpisu (položky) |
 | POST | `/platby/predpisy/{year_id}/smazat` | Smazání roku předpisů |
-| GET | `/platby/symboly` | Seznam variabilních symbolů |
-| POST | `/platby/symboly/pridat` | Přidání VS mapování |
+| GET | `/platby/symboly` | Seznam variabilních symbolů (inline edit, entity type toggle) |
+| POST | `/platby/symboly/pridat` | Přidání VS mapování (Jednotka/Prostor) |
+| POST | `/platby/symboly/{id}/upravit` | Úprava VS mapování (VS, entita, popis) |
+| GET | `/platby/symboly/{id}/upravit-formular` | HTMX partial — inline editační formulář |
+| GET | `/platby/symboly/{id}/info` | HTMX partial — read-only zobrazení |
 | POST | `/platby/symboly/{id}/smazat` | Smazání VS mapování |
 | GET | `/platby/zustatky` | Počáteční zůstatky jednotek |
-| POST | `/platby/zustatky/pridat` | Přidání/úprava zůstatku |
+| POST | `/platby/zustatky/pridat` | Přidání zůstatku (s vlastníkem) |
+| POST | `/platby/zustatky/{id}/upravit` | Úprava zůstatku |
 | POST | `/platby/zustatky/{id}/smazat` | Smazání zůstatku |
+| GET | `/platby/zustatky/vlastnici/{unit_id}` | JSON API — vlastníci jednotky (pro dropdown) |
+| GET | `/platby/zustatky/import` | Import zůstatků — upload formulář |
+| POST | `/platby/zustatky/import` | Import zůstatků — upload souboru |
+| GET | `/platby/zustatky/import/mapovani` | Import — zobrazení mapování sloupců |
+| POST | `/platby/zustatky/import/mapovani` | Import — uložení mapování sloupců |
+| POST | `/platby/zustatky/import/nahled` | Import — náhled dat |
+| POST | `/platby/zustatky/import/potvrdit` | Import — potvrzení importu |
 | GET | `/platby/vypisy` | Seznam bankovních výpisů |
 | GET | `/platby/vypisy/import` | Import bankovního výpisu — formulář (upload CSV) |
 | POST | `/platby/vypisy/import` | Import bankovního výpisu — zpracování CSV |
-| GET | `/platby/vypisy/{id}` | Detail výpisu s platbami (filtry: stav, směr, hledání) |
+| GET | `/platby/vypisy/{id}` | Detail výpisu s platbami (filtry: stav, směr, entita, hledání) |
 | POST | `/platby/vypisy/{id}/prirazeni/{payment_id}` | Ruční přiřazení platby (single/multi-unit) |
+| POST | `/platby/vypisy/{id}/prirazeni-prostor/{payment_id}` | Ruční přiřazení platby k prostoru |
+| POST | `/platby/vypisy/{id}/potvrdit-vse` | Hromadné potvrzení všech SUGGESTED přiřazení |
 | POST | `/platby/vypisy/{id}/potvrdit/{payment_id}` | Potvrzení navrženého přiřazení (SUGGESTED → MANUAL) |
 | POST | `/platby/vypisy/{id}/odmitnout/{payment_id}` | Odmítnutí navrženého přiřazení (SUGGESTED → UNMATCHED) |
 | POST | `/platby/vypisy/{id}/preparovat` | Přepárování plateb (reset AUTO + SUGGESTED, zachová MANUAL) |
 | POST | `/platby/vypisy/{id}/zamknout` | Zamčení/odemčení párování výpisu |
 | POST | `/platby/vypisy/{id}/smazat` | Smazání výpisu (zamčený výpis nelze smazat) |
-| GET | `/platby/prehled` | Matice plateb (jednotky × měsíce) |
-| GET | `/platby/dluznici` | Seznam dlužníků |
+| GET | `/platby/prehled` | Matice plateb (jednotky × měsíce, přepínač entity) |
+| POST | `/platby/prehled/exportovat` | Export matice plateb (xlsx) |
+| GET | `/platby/dluznici` | Seznam dlužníků (přepínač entity) |
 | POST | `/platby/dluznici/exportovat` | Export dlužníků (xlsx) |
 | GET | `/platby/jednotka/{unit_id}` | Platební detail jedné jednotky |
+| GET | `/platby/prostor/{space_id}` | Platební detail jednoho prostoru |
 | GET | `/platby/vyuctovani` | Seznam vyúčtování (rok, filtry, search, sort) |
 | GET | `/platby/vyuctovani/{id}` | Detail vyúčtování (položky, platby, stav) |
 | POST | `/platby/vyuctovani/generovat` | Generování vyúčtování pro rok |
 | POST | `/platby/vyuctovani/{id}/stav` | Změna stavu vyúčtování |
-| POST | `/platby/vyuctovani/hromadny-stav` | Hromadná změna stavu vyúčtování |
+| POST | `/platby/vyuctovani/hromadny-stav` | Hromadná změna stavu vyúčtování (vybrané checkboxem) |
+| POST | `/platby/vyuctovani/hromadny-stav-filtrovane` | Hromadná změna stavu dle aktuálního filtru |
 | GET | `/platby/vyuctovani/exportovat/{fmt}` | Export vyúčtování (xlsx souhrn / xlsx s položkami) |
 | POST | `/platby/vyuctovani/smazat-rok` | Smazání všech vyúčtování roku |
+
+### Prostory (`/prostory`)
+
+| Metoda | Cesta | Popis |
+|--------|-------|-------|
+| GET | `/prostory` | Seznam prostorů (řazení, hledání, filtry stav/sekce) |
+| GET | `/prostory/{id}` | Detail prostoru (info + aktuální nájemce + historie) |
+| GET | `/prostory/novy-formular` | HTMX: formulář pro nový prostor |
+| POST | `/prostory/novy` | Vytvoření prostoru |
+| GET | `/prostory/{id}/upravit-formular` | HTMX: editační formulář |
+| GET | `/prostory/{id}/info` | HTMX: info karta prostoru |
+| POST | `/prostory/{id}/upravit` | Úprava prostoru |
+| POST | `/prostory/{id}/smazat` | Smazání prostoru |
+| POST | `/prostory/{id}/pridat-najemce` | Přiřazení nájemce (+ VS mapping + Prescription) |
+| POST | `/prostory/{id}/ukoncit-najem` | Ukončení nájmu |
+| GET | `/prostory/exportovat/{fmt}` | Export prostorů (xlsx/csv) |
+| GET | `/prostory/import` | Import prostorů — upload stránka |
+| POST | `/prostory/import` | Import — upload souboru |
+| POST | `/prostory/import/mapovani` | Import — mapování sloupců |
+| POST | `/prostory/import/nahled` | Import — náhled dat |
+| POST | `/prostory/import/potvrdit` | Import — potvrzení importu |
+| POST | `/prostory/import/{log_id}/smazat` | Smazání záznamu importu |
+
+### Nájemci (`/najemci`)
+
+| Metoda | Cesta | Popis |
+|--------|-------|-------|
+| GET | `/najemci` | Seznam nájemců (řazení, hledání) |
+| GET | `/najemci/{id}` | Detail nájemce (per-section inline edit, propojení s Owner) |
+| GET | `/najemci/novy-formular` | HTMX: formulář pro nového nájemce |
+| POST | `/najemci/novy` | Vytvoření nájemce |
+| GET | `/najemci/{id}/identita-formular` | HTMX: inline edit identifikace |
+| GET | `/najemci/{id}/identita-info` | HTMX: info karta identifikace |
+| POST | `/najemci/{id}/identita-upravit` | Uložení identifikace |
+| GET | `/najemci/{id}/kontakt-formular` | HTMX: inline edit kontaktu |
+| GET | `/najemci/{id}/kontakt-info` | HTMX: info karta kontaktu |
+| POST | `/najemci/{id}/kontakt-upravit` | Uložení kontaktu |
+| GET | `/najemci/{id}/adresa/{prefix}/formular` | HTMX: inline edit adresy (perm/corr) |
+| GET | `/najemci/{id}/adresa/{prefix}/info` | HTMX: info karta adresy |
+| POST | `/najemci/{id}/adresa/{prefix}/upravit` | Uložení adresy |
+| POST | `/najemci/{id}/smazat` | Smazání nájemce |
+| POST | `/najemci/{id}/propojit` | Propojení s existujícím vlastníkem |
+| POST | `/najemci/{id}/odpojit` | Odpojení od vlastníka |
+| GET | `/najemci/exportovat/{fmt}` | Export nájemců (xlsx/csv) |
 
 ### Nastavení (`/nastaveni`)
 
@@ -918,6 +1029,9 @@ LIBREOFFICE_PATH=/Applications/LibreOffice.app/Contents/MacOS/soffice
 - **Unit** — jednotka (číslo KN jako INTEGER, budova, sekce, plocha, podíl SČD, orientation_number)
 - **OwnerUnit** — vazba vlastník-jednotka (typ vlastnictví, podíl, hlasovací váha, valid_from, valid_to); valid_to=NULL = aktuálně platný, valid_to=datum = historický záznam
 - **Proxy** — plná moc pro hlasování
+- **Space** — prostor SVJ (číslo, označení, sekce, podlaží, výměra, stav: rented/vacant/blocked)
+- **Tenant** — nájemce (identity vlastní nebo z Owner přes owner_id FK; resolved properties)
+- **SpaceTenant** — nájemní vztah (smlouva, nájemné, VS, is_active, contract_path)
 - **Voting** (partial_owner_mode, import_column_mapping) → VotingItem → Ballot (scan_path, voted_by_proxy, shared_owners_text) → BallotVote
 - **TaxSession** → TaxDocument → TaxDistribution
 - **SyncSession** → SyncRecord (cascade delete)
@@ -928,9 +1042,9 @@ LIBREOFFICE_PATH=/Applications/LibreOffice.app/Contents/MacOS/soffice
 - **EmailTemplate** — šablony emailů pro hromadné rozesílání (name, subject_template, body_template, order); placeholder `{rok}` nahrazen při výběru
 - **ActivityLog** — log aktivit (modul, akce, entita, timestamp); **ActivityAction** — enum typů aktivit (CREATED, UPDATED, DELETED, STATUS_CHANGED, IMPORTED, EXPORTED, RESTORED)
 - **PrescriptionYear** → **Prescription** (monthly_total, variable_symbol, space_type) → **PrescriptionItem** (name, amount, category, order); předpisy plateb per rok/jednotka
-- **VariableSymbolMapping** — mapování VS → jednotka (source: manual/auto/legacy)
-- **BankStatement** (locked_at) — importovaný bankovní výpis (Fio CSV); → **Payment** (amount, date, direction, match_status, unit_id) → **PaymentAllocation** (payment_id, unit_id, owner_id, amount — dual-write pro multi-unit platby); PaymentMatchStatus (UNMATCHED/AUTO_MATCHED/SUGGESTED/MANUAL), PaymentDirection (INCOME/EXPENSE); **BankStatementColumnMapping** (zapamatované mapování sloupců CSV)
-- **UnitBalance** — počáteční zůstatek jednotky per rok (opening_amount, source: manual/import/carryover)
+- **VariableSymbolMapping** — mapování VS → jednotka/prostor (unit_id nullable, space_id nullable; source: manual/auto/legacy)
+- **BankStatement** (locked_at) — importovaný bankovní výpis (Fio CSV); → **Payment** (amount, date, direction, match_status, unit_id, space_id) → **PaymentAllocation** (payment_id, unit_id nullable, space_id, owner_id, prescription_id, amount — dual-write pro multi-unit/space platby); PaymentMatchStatus (UNMATCHED/AUTO_MATCHED/SUGGESTED/MANUAL), PaymentDirection (INCOME/EXPENSE); **BankStatementColumnMapping** (zapamatované mapování sloupců CSV)
+- **UnitBalance** — počáteční zůstatek jednotky per rok (opening_amount, source: manual/import/carryover, owner_id FK → Owner, owner_name text z importu)
 - **Settlement** → **SettlementItem** — roční vyúčtování per jednotka; SettlementStatus (GENERATED/SENT/PAID/OVERDUE)
 - **EmailLog** (+ `name_normalized` pro diacritics-insensitive vyhledávání), **ImportLog** — systémové logy
 
@@ -1060,7 +1174,7 @@ Zbývající nálezy z druhého auditu: autentizace (plánováno), CSRF ochrana,
 - Rozdělen `administration.py` (1426 ř.) na package — 6 modulů (info, board, code_lists, backups, bulk)
 - Rozdělen `sync.py` (1171 ř.) na package — 4 moduly (session, contacts, exchange)
 - Refaktoring 4 nejdelších funkcí na menší helpery (20 nových helper funkcí)
-- 248 automatizovaných testů (voting, backup, CSV comparator, payment matching)
+- 298 automatizovaných testů (voting, backup, CSV comparator, payment matching, settlement, endpoints)
 - Pre-push git hook + GitHub Actions CI workflow
 - UX Optimizer: 18/18 nálezů opraveno (compute_nav_stats skip, export matice, VS inline edit, hromadné potvrzení SUGGESTED, hromadná změna stavu filtrovaných, search výpisů, hardcoded rok, confirm dialogy, dashboard dlužníci, empty state CTA, sort měsíců v matici, sidebar badge dlužníků)
 - Zobrazení všech spoluvlastníků v platebním modulu (dlužníci, matice, vyúčtování, exporty)

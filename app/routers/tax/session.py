@@ -371,7 +371,6 @@ async def tax_detail(
     q: str = Query("", alias="q"),
     sort: str = Query("unit_number", alias="sort"),
     order: str = Query("asc", alias="order"),
-    stranka: int = Query(1, alias="stranka"),
     db: Session = Depends(get_db),
 ):
     """Detail daňové session s dokumenty, párováním a filtrováním."""
@@ -457,23 +456,8 @@ async def tax_detail(
     sort_fn = SORT_KEYS.get(sort, SORT_KEYS["unit_number"])
     documents.sort(key=sort_fn, reverse=(order == "desc"))
 
-    # Pagination
-    per_page = 100
-    total_filtered = len(documents)
-    total_pages = max(1, (total_filtered + per_page - 1) // per_page)
-    stranka = max(1, min(stranka, total_pages))
-    start = (stranka - 1) * per_page
-    documents = documents[start:start + per_page]
-
     is_locked = session.send_status in (SendStatus.READY, SendStatus.SENDING, SendStatus.PAUSED, SendStatus.COMPLETED) if session.send_status else False
     list_url = build_list_url(request)
-
-    pagination = {
-        "current_page": stranka,
-        "total_pages": total_pages,
-        "total_filtered": total_filtered,
-        "per_page": per_page,
-    }
 
     # HTMX partial response — skip stats, missing units, owners (not in tbody)
     if is_partial:
@@ -483,7 +467,6 @@ async def tax_detail(
             "is_locked": is_locked,
             "list_url": list_url,
             "unit_by_number": _unit_by_number(db),
-            **pagination,
         })
 
     # --- Full page: stats + missing units + owners ---
@@ -538,7 +521,6 @@ async def tax_detail(
         "unit_by_number": _unit_by_number(db),
         "missing_list": missing_list,
         **stats,
-        **pagination,
         **_tax_wizard(session, 2, has_documents=len(documents) > 0),
     })
 
@@ -606,9 +588,20 @@ async def reopen_session(
     return RedirectResponse(f"/dane/{session_id}", status_code=302)
 
 
-@router.get("/{session_id}/exportovat")
-async def tax_export(session_id: int, db: Session = Depends(get_db)):
-    """Export distribution overview to Excel."""
+@router.get("/{session_id}/exportovat/{fmt}")
+async def tax_export(
+    session_id: int,
+    fmt: str,
+    filtr: str = Query(""),
+    q: str = Query(""),
+    sort: str = Query("unit_number"),
+    order: str = Query("asc"),
+    db: Session = Depends(get_db),
+):
+    """Export distribution overview to Excel or CSV with filter support."""
+    if fmt not in ("xlsx", "csv"):
+        return RedirectResponse(f"/dane/{session_id}", status_code=302)
+
     session = db.query(TaxSession).options(
         joinedload(TaxSession.documents)
         .joinedload(TaxDocument.distributions)
@@ -617,54 +610,124 @@ async def tax_export(session_id: int, db: Session = Depends(get_db)):
     if not session:
         return RedirectResponse("/dane", status_code=302)
 
+    all_documents = sorted(session.documents, key=lambda d: (int(d.unit_number) if d.unit_number and d.unit_number.isdigit() else 0, d.unit_letter or "", d.filename or ""))
+
+    # Apply filter — same logic as tax_detail
+    if filtr == "confirmed":
+        documents = [
+            d for d in all_documents
+            if d.distributions and all(
+                x.match_status in (MatchStatus.CONFIRMED, MatchStatus.MANUAL)
+                for x in d.distributions
+            )
+        ]
+    elif filtr == "auto":
+        documents = [
+            d for d in all_documents
+            if d.distributions and any(
+                x.match_status == MatchStatus.AUTO_MATCHED for x in d.distributions
+            ) and not all(
+                x.match_status in (MatchStatus.CONFIRMED, MatchStatus.MANUAL)
+                for x in d.distributions
+            )
+        ]
+    elif filtr == "unmatched":
+        documents = [
+            d for d in all_documents
+            if not d.distributions or any(
+                x.match_status == MatchStatus.UNMATCHED for x in d.distributions
+            )
+        ]
+    else:
+        documents = all_documents
+
+    # Search filtering
+    if q:
+        q_lower = q.lower()
+        q_ascii = strip_diacritics(q)
+        documents = [
+            d for d in documents
+            if q_lower in (d.filename or "").lower()
+            or q_lower in (d.extracted_owner_name or "").lower()
+            or q_ascii in strip_diacritics(d.extracted_owner_name or "")
+            or q_lower in str(d.unit_number or "")
+            or any(
+                q_ascii in strip_diacritics(dist.owner.display_name)
+                for dist in d.distributions if dist.owner
+            )
+        ]
+
+    # Build rows
+    match_labels = {"confirmed": "Potvrzeno", "manual": "Ručně", "auto_matched": "Auto", "unmatched": "Nepřiřazeno"}
+    email_status_labels = {"pending": "Čeká", "queued": "Ve frontě", "sent": "Odesláno", "failed": "Chyba", "skipped": "Přeskočeno"}
+    headers = ["Dokument", "Jednotka", "Vlastník", "Email", "Shoda", "Status email", "Odesláno"]
+
+    rows = []
+    for doc in documents:
+        if not doc.distributions:
+            rows.append([doc.filename or "", doc.unit_number or "", doc.extracted_owner_name or "", "", "Nepřiřazeno", "", ""])
+        else:
+            for dist in doc.distributions:
+                owner_name = dist.owner.display_name if dist.owner else (dist.ad_hoc_name or doc.extracted_owner_name or "")
+                email = dist.email_address_used or (dist.owner.email if dist.owner else dist.ad_hoc_email) or ""
+                match_val = dist.match_status.value if dist.match_status else "unmatched"
+                status_val = dist.email_status.value if dist.email_status else "pending"
+                sent_at = dist.email_sent_at.strftime("%d.%m.%Y %H:%M") if dist.email_sent_at else ""
+                rows.append([
+                    doc.filename or "", doc.unit_number or "", owner_name, email,
+                    match_labels.get(match_val, match_val),
+                    email_status_labels.get(status_val, status_val),
+                    sent_at,
+                ])
+
+    # Filename suffix
+    suffix_map = {"confirmed": "potvrzeno", "auto": "k_potvrzeni", "unmatched": "neprirazeno"}
+    suffix = f"_{suffix_map[filtr]}" if filtr in suffix_map else "_vse"
+    if q:
+        suffix = "_hledani"
+    timestamp = datetime.now().strftime("%Y%m%d")
+    filename = f"prirazeni_{session_id}{suffix}_{timestamp}.{fmt}"
+
+    if fmt == "csv":
+        import csv
+        import io
+        buf = io.StringIO()
+        buf.write("\ufeff")  # BOM for Excel
+        writer = csv.writer(buf, delimiter=";")
+        writer.writerow(headers)
+        writer.writerows(rows)
+        return Response(
+            content=buf.getvalue().encode("utf-8"),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+
+    # Excel
     wb = Workbook()
     ws = wb.active
-    ws.title = "Přehled rozesílání"
-
+    ws.title = "Prirazeni"
     bold = Font(bold=True)
     header_fill = PatternFill(start_color="D9E1F2", end_color="D9E1F2", fill_type="solid")
     sent_fill = PatternFill(start_color="E2EFDA", end_color="E2EFDA", fill_type="solid")
     failed_fill = PatternFill(start_color="FCE4EC", end_color="FCE4EC", fill_type="solid")
 
-    headers = ["Dokument", "Jednotka", "Vlastník", "Email", "Status", "Odesláno"]
     for col, h in enumerate(headers, 1):
         cell = ws.cell(row=1, column=col, value=h)
         cell.font = bold
         cell.fill = header_fill
 
-    email_status_labels = {
-        "pending": "Čeká",
-        "queued": "Ve frontě",
-        "sent": "Odesláno",
-        "failed": "Chyba",
-        "skipped": "Přeskočeno",
-    }
-
-    row_idx = 2
-    for doc in sorted(session.documents, key=lambda d: d.filename or ""):
-        for dist in doc.distributions:
-            ws.cell(row=row_idx, column=1, value=doc.filename or "")
-            ws.cell(row=row_idx, column=2, value=doc.unit_number or "")
-            if dist.owner:
-                ws.cell(row=row_idx, column=3, value=dist.owner.display_name)
-            elif dist.ad_hoc_name:
-                ws.cell(row=row_idx, column=3, value=dist.ad_hoc_name)
-            ws.cell(row=row_idx, column=4, value=dist.email_address_used or (dist.owner.email if dist.owner else dist.ad_hoc_email) or "")
-            status_val = dist.email_status.value if dist.email_status else "pending"
-            status_cell = ws.cell(row=row_idx, column=5, value=email_status_labels.get(status_val, status_val))
-            if status_val == "sent":
-                status_cell.fill = sent_fill
-            elif status_val == "failed":
-                status_cell.fill = failed_fill
-            ws.cell(row=row_idx, column=6, value=dist.email_sent_at.strftime("%d.%m.%Y %H:%M") if dist.email_sent_at else "")
-            row_idx += 1
+    for row_idx, row in enumerate(rows, 2):
+        for col, val in enumerate(row, 1):
+            cell = ws.cell(row=row_idx, column=col, value=val)
+            if col == 6:  # Status email column
+                if val == "Odesláno":
+                    cell.fill = sent_fill
+                elif val == "Chyba":
+                    cell.fill = failed_fill
 
     excel_auto_width(ws)
-
     buf = BytesIO()
     wb.save(buf)
-    timestamp = utcnow().strftime("%Y%m%d_%H%M%S")
-    filename = f"rozeslani_{session_id}_{timestamp}.xlsx"
 
     return Response(
         content=buf.getvalue(),

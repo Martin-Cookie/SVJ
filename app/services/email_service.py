@@ -8,11 +8,11 @@ import html as html_module
 import logging
 import smtplib
 import socket
-
-logger = logging.getLogger(__name__)
+from email.header import Header
 from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from email.utils import formataddr
 from pathlib import Path
 
 from sqlalchemy.orm import Session
@@ -21,15 +21,26 @@ from app.config import settings
 from app.models.common import EmailLog, EmailStatus
 from app.utils import strip_diacritics, utcnow
 
+logger = logging.getLogger(__name__)
+
+
+def _create_smtp(host: str, port: int, use_tls: bool, timeout: int = 30) -> smtplib.SMTP | smtplib.SMTP_SSL:
+    """Create SMTP connection with SSL (port 465) or STARTTLS support."""
+    if port == 465:
+        server = smtplib.SMTP_SSL(host, port, timeout=timeout)
+    else:
+        server = smtplib.SMTP(host, port, timeout=timeout)
+        if use_tls:
+            server.starttls()
+    return server
+
 
 def create_smtp_connection():
     """Create and return an authenticated SMTP connection for batch reuse."""
     if settings.smtp_host in ("smtp.example.com", ""):
         return None
 
-    server = smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=30)
-    if settings.smtp_use_tls:
-        server.starttls()
+    server = _create_smtp(settings.smtp_host, settings.smtp_port, settings.smtp_use_tls, timeout=30)
     if settings.smtp_user:
         server.login(settings.smtp_user, settings.smtp_password)
     return server
@@ -44,9 +55,9 @@ def _build_message(
 ) -> tuple[MIMEMultipart, list[str]]:
     """Build a MIME message for a single recipient. Returns (msg, attachment_paths)."""
     msg = MIMEMultipart()
-    msg["From"] = f"{settings.smtp_from_name} <{settings.smtp_from_email}>"
-    msg["To"] = f"{to_name} <{to_addr}>"
-    msg["Subject"] = subject
+    msg["From"] = formataddr((str(Header(settings.smtp_from_name, "utf-8")), settings.smtp_from_email))
+    msg["To"] = formataddr((str(Header(to_name, "utf-8")), to_addr))
+    msg["Subject"] = Header(subject, "utf-8")
 
     # Plain text z formuláře (bez HTML tagů) → konverze \n na <br>
     html = body_html
@@ -116,9 +127,7 @@ def send_email(
     server = smtp_server
     if own_server:
         try:
-            server = smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=10)
-            if settings.smtp_use_tls:
-                server.starttls()
+            server = _create_smtp(settings.smtp_host, settings.smtp_port, settings.smtp_use_tls, timeout=10)
             if settings.smtp_user:
                 server.login(settings.smtp_user, settings.smtp_password)
         except smtplib.SMTPAuthenticationError:

@@ -1,0 +1,230 @@
+{% if tenant.is_linked %}
+<!-- Linked tenant — read-only from Owner -->
+<div class="flex items-center justify-between mb-4">
+    <h2 class="text-lg font-semibold text-gray-700">Údaje nájemce</h2>
+    <a href="/vlastnici/{{ tenant.owner_id }}" class="px-3 py-1 bg-blue-100 text-blue-700 rounded text-xs hover:bg-blue-200 transition-colors">Upravit u vlastníka →</a>
+</div>
+{% if saved|default(false) %}
+<div class="bg-green-50 border border-green-200 rounded-lg p-2 mb-3 text-xs text-green-700">Změny uloženy.</div>
+{% endif %}
+{% if error|default('') %}
+<div class="bg-red-50 border border-red-200 rounded-lg p-2 mb-3 text-xs text-red-700">{{ error }}</div>
+{% endif %}
+<div class="bg-blue-50 border border-blue-200 rounded-lg p-2 mb-3 text-xs text-blue-700">
+    Data se načítají z karty vlastníka. Pro úpravu přejděte na detail vlastníka.
+</div>
+<div class="space-y-2 text-sm">
+    <div class="flex justify-between">
+        <span class="text-gray-500">Jméno</span>
+        <span class="text-gray-800 font-medium">{{ tenant.display_name }}</span>
+    </div>
+    <div class="flex justify-between">
+        <span class="text-gray-500">Typ</span>
+        <span class="text-gray-800">{% if tenant.resolved_type and tenant.resolved_type.value == 'legal' %}Právnická osoba{% else %}Fyzická osoba{% endif %}</span>
+    </div>
+    {% if tenant.owner.birth_number %}
+    <div class="flex justify-between">
+        <span class="text-gray-500">RČ</span>
+        <span class="text-gray-800 font-mono">{{ tenant.owner.birth_number }}</span>
+    </div>
+    {% endif %}
+    {% if tenant.owner.company_id %}
+    <div class="flex justify-between">
+        <span class="text-gray-500">IČ</span>
+        <span class="text-gray-800 font-mono">{{ tenant.owner.company_id }}</span>
+    </div>
+    {% endif %}
+    {% if tenant.resolved_phone %}
+    <div class="flex justify-between">
+        <span class="text-gray-500">Telefon</span>
+        <span class="text-gray-800">{{ tenant.resolved_phone }}</span>
+    </div>
+    {% endif %}
+    {% if tenant.resolved_email %}
+    <div class="flex justify-between">
+        <span class="text-gray-500">Email</span>
+        <span class="text-gray-800">{{ tenant.resolved_email }}</span>
+    </div>
+    {% endif %}
+</div>
+
+{% elif edit_mode|default(false) %}
+<!-- Edit form — standalone tenant -->
+<form hx-post="/najemci/{{ tenant.id }}/upravit" hx-target="#tenant-edit-form" hx-swap="innerHTML">
+    <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-semibold text-gray-700">Údaje nájemce</h2>
+        <div class="flex gap-2">
+            <button type="submit" class="px-3 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 transition-colors">Uložit</button>
+            <button type="button" hx-get="/najemci/{{ tenant.id }}/info" hx-target="#tenant-edit-form" hx-swap="innerHTML"
+                    class="px-3 py-1 bg-gray-200 text-gray-600 rounded text-xs hover:bg-gray-300 transition-colors">Zrušit</button>
+        </div>
+    </div>
+    {% if error|default('') %}
+    <div class="bg-red-50 border border-red-200 rounded-lg p-3 mb-3 text-sm text-red-700">{{ error }}</div>
+    {% endif %}
+    <div class="space-y-3 text-sm">
+        <div class="grid grid-cols-3 gap-3">
+            <div>
+                <label class="text-xs text-gray-500">Titul</label>
+                <input type="text" name="title" value="{{ tenant.title or '' }}" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="text-xs text-gray-500">Příjmení</label>
+                <input type="text" name="last_name" value="{{ tenant.last_name or '' }}" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="text-xs text-gray-500">Jméno</label>
+                <input type="text" name="first_name" value="{{ tenant.first_name or '' }}" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+            </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+            <div>
+                <label class="text-xs text-gray-500">Typ</label>
+                <select name="tenant_type" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+                    <option value="physical" {% if not tenant.tenant_type or tenant.tenant_type.value == 'physical' %}selected{% endif %}>Fyzická osoba</option>
+                    <option value="legal" {% if tenant.tenant_type and tenant.tenant_type.value == 'legal' %}selected{% endif %}>Právnická osoba</option>
+                </select>
+            </div>
+            <div>
+                <label class="text-xs text-gray-500">RČ / IČ</label>
+                <div class="grid grid-cols-2 gap-2">
+                    <input type="text" name="birth_number" value="{{ tenant.birth_number or '' }}" placeholder="RČ" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+                    <input type="text" name="company_id" value="{{ tenant.company_id or '' }}" placeholder="IČ" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+                </div>
+            </div>
+        </div>
+        <div class="border-t border-gray-100 pt-3">
+            <p class="text-xs text-gray-400 mb-2">Kontakt</p>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="text-xs text-gray-500">Telefon</label>
+                    <input type="text" name="phone" value="{{ tenant.phone or '' }}" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="text-xs text-gray-500">Email</label>
+                    <input type="text" name="email" value="{{ tenant.email or '' }}" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="text-xs text-gray-500">Pevná linka</label>
+                    <input type="text" name="phone_landline" value="{{ tenant.phone_landline or '' }}" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="text-xs text-gray-500">Sekundární email</label>
+                    <input type="text" name="email_secondary" value="{{ tenant.email_secondary or '' }}" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="text-xs text-gray-500">Sekundární telefon</label>
+                    <input type="text" name="phone_secondary" value="{{ tenant.phone_secondary or '' }}" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+                </div>
+            </div>
+        </div>
+        <div class="border-t border-gray-100 pt-3">
+            <p class="text-xs text-gray-400 mb-2">Trvalá adresa</p>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="text-xs text-gray-500">Ulice</label>
+                    <input type="text" name="perm_street" value="{{ tenant.perm_street or '' }}" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="text-xs text-gray-500">Město</label>
+                    <input type="text" name="perm_city" value="{{ tenant.perm_city or '' }}" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="text-xs text-gray-500">PSČ</label>
+                    <input type="text" name="perm_zip" value="{{ tenant.perm_zip or '' }}" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+                </div>
+            </div>
+        </div>
+        <div class="border-t border-gray-100 pt-3">
+            <p class="text-xs text-gray-400 mb-2">Korespondenční adresa</p>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="text-xs text-gray-500">Ulice</label>
+                    <input type="text" name="corr_street" value="{{ tenant.corr_street or '' }}" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="text-xs text-gray-500">Město</label>
+                    <input type="text" name="corr_city" value="{{ tenant.corr_city or '' }}" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="text-xs text-gray-500">PSČ</label>
+                    <input type="text" name="corr_zip" value="{{ tenant.corr_zip or '' }}" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+                </div>
+            </div>
+        </div>
+        <div>
+            <label class="text-xs text-gray-500">Poznámka</label>
+            <textarea name="note" rows="2" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">{{ tenant.note or '' }}</textarea>
+        </div>
+    </div>
+</form>
+
+{% else %}
+<!-- Display mode — standalone tenant -->
+<div class="flex items-center justify-between mb-4">
+    <h2 class="text-lg font-semibold text-gray-700">Údaje nájemce</h2>
+    <button hx-get="/najemci/{{ tenant.id }}/upravit-formular" hx-target="#tenant-edit-form" hx-swap="innerHTML"
+            class="px-3 py-1 bg-gray-100 text-gray-600 rounded text-xs hover:bg-gray-200 transition-colors border border-gray-200">Upravit</button>
+</div>
+{% if saved|default(false) %}
+<div class="bg-green-50 border border-green-200 rounded-lg p-2 mb-3 text-xs text-green-700">Změny uloženy.</div>
+{% endif %}
+<div class="space-y-2 text-sm">
+    <div class="flex justify-between">
+        <span class="text-gray-500">Jméno</span>
+        <span class="text-gray-800 font-medium">{{ tenant.display_name }}</span>
+    </div>
+    <div class="flex justify-between">
+        <span class="text-gray-500">Typ</span>
+        <span class="text-gray-800">{% if tenant.tenant_type and tenant.tenant_type.value == 'legal' %}Právnická osoba{% else %}Fyzická osoba{% endif %}</span>
+    </div>
+    {% if tenant.birth_number %}
+    <div class="flex justify-between">
+        <span class="text-gray-500">RČ</span>
+        <span class="text-gray-800 font-mono">{{ tenant.birth_number }}</span>
+    </div>
+    {% endif %}
+    {% if tenant.company_id %}
+    <div class="flex justify-between">
+        <span class="text-gray-500">IČ</span>
+        <span class="text-gray-800 font-mono">{{ tenant.company_id }}</span>
+    </div>
+    {% endif %}
+    {% if tenant.phone %}
+    <div class="flex justify-between">
+        <span class="text-gray-500">Telefon</span>
+        <span class="text-gray-800">{{ tenant.phone }}</span>
+    </div>
+    {% endif %}
+    {% if tenant.phone_landline %}
+    <div class="flex justify-between">
+        <span class="text-gray-500">Pevná linka</span>
+        <span class="text-gray-800">{{ tenant.phone_landline }}</span>
+    </div>
+    {% endif %}
+    {% if tenant.email %}
+    <div class="flex justify-between">
+        <span class="text-gray-500">Email</span>
+        <span class="text-gray-800">{{ tenant.email }}</span>
+    </div>
+    {% endif %}
+    {% if tenant.perm_street or tenant.perm_city %}
+    <div class="border-t border-gray-100 pt-2 mt-2">
+        <span class="text-xs text-gray-400">Trvalá adresa</span>
+        <p class="text-gray-700 text-xs mt-0.5">{{ tenant.perm_street or '' }}{% if tenant.perm_city %}, {{ tenant.perm_city }}{% endif %}{% if tenant.perm_zip %} {{ tenant.perm_zip }}{% endif %}</p>
+    </div>
+    {% endif %}
+    {% if tenant.corr_street or tenant.corr_city %}
+    <div class="border-t border-gray-100 pt-2 mt-2">
+        <span class="text-xs text-gray-400">Korespondenční adresa</span>
+        <p class="text-gray-700 text-xs mt-0.5">{{ tenant.corr_street or '' }}{% if tenant.corr_city %}, {{ tenant.corr_city }}{% endif %}{% if tenant.corr_zip %} {{ tenant.corr_zip }}{% endif %}</p>
+    </div>
+    {% endif %}
+    {% if tenant.note %}
+    <div class="border-t border-gray-100 pt-2 mt-2">
+        <span class="text-xs text-gray-400">Poznámka</span>
+        <p class="text-gray-700 text-xs mt-0.5">{{ tenant.note }}</p>
+    </div>
+    {% endif %}
+</div>
+{% endif %}

@@ -1,0 +1,84 @@
+<div class="bg-white rounded-lg shadow p-4 mb-3 border-l-4 border-green-500">
+    <form hx-post="/prostory/novy" hx-target="#space-create-section" hx-swap="innerHTML">
+        <h3 class="text-sm font-semibold text-gray-700 mb-3">Nový prostor</h3>
+        {% if error|default('') %}
+        <div class="bg-red-50 border border-red-200 rounded-lg p-2 mb-3 text-sm text-red-700">{{ error }}</div>
+        {% endif %}
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+            <div>
+                <label class="text-xs text-gray-500">Číslo prostoru *</label>
+                <input type="text" name="space_number" value="{{ form_data.space_number|default('') }}" required class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="text-xs text-gray-500">Označení *</label>
+                <input type="text" name="designation" value="{{ form_data.designation|default('') }}" required class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="text-xs text-gray-500">Sekce</label>
+                <input type="text" name="section" value="{{ form_data.section|default('') }}" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="text-xs text-gray-500">Podlaží</label>
+                <input type="text" name="floor" value="{{ form_data.floor|default('') }}" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="text-xs text-gray-500">Výměra (m²)</label>
+                <input type="text" name="area" value="{{ form_data.area|default('') }}" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="text-xs text-gray-500">Stav</label>
+                <select name="status" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+                    <option value="vacant" {% if form_data.status|default('vacant') == 'vacant' %}selected{% endif %}>Volné</option>
+                    <option value="rented" {% if form_data.status|default('') == 'rented' %}selected{% endif %}>Pronajato</option>
+                    <option value="blocked" {% if form_data.status|default('') == 'blocked' %}selected{% endif %}>Blokované</option>
+                </select>
+            </div>
+            <div>
+                <label class="text-xs text-gray-500">Důvod blokace</label>
+                <input type="text" name="blocked_reason" value="{{ form_data.blocked_reason|default('') }}" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="text-xs text-gray-500">Poznámka</label>
+                <input type="text" name="note" value="{{ form_data.note|default('') }}" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+            </div>
+        </div>
+        <div class="border-t border-gray-200 mt-3 pt-3">
+            <p class="text-xs text-gray-400 mb-2">Nájemce (volitelné — vyplňte pro automatické vytvoření nájmu)</p>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                <div>
+                    <label class="text-xs text-gray-500">Jméno nájemce</label>
+                    <input type="text" name="tenant_name" value="{{ form_data.tenant_name|default('') }}" placeholder="Příjmení Jméno" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="text-xs text-gray-500">Telefon</label>
+                    <input type="text" name="tenant_phone" value="{{ form_data.tenant_phone|default('') }}" placeholder="+420 ..." class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="text-xs text-gray-500">Email</label>
+                    <input type="text" name="tenant_email" value="{{ form_data.tenant_email|default('') }}" placeholder="email@example.com" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="text-xs text-gray-500">Č. smlouvy</label>
+                    <input type="text" name="contract_number" value="{{ form_data.contract_number|default('') }}" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="text-xs text-gray-500">Začátek smlouvy</label>
+                    <input type="date" name="contract_start" value="{{ form_data.contract_start|default('') }}" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="text-xs text-gray-500">Měsíční nájemné (Kč)</label>
+                    <input type="number" step="any" min="0" name="monthly_rent" value="{{ form_data.monthly_rent|default('') }}" placeholder="0" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="text-xs text-gray-500">Variabilní symbol</label>
+                    <input type="text" name="variable_symbol" value="{{ form_data.variable_symbol|default('') }}" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+                </div>
+            </div>
+        </div>
+        <div class="flex gap-2 mt-3">
+            <button type="submit" class="px-3 py-1.5 bg-green-600 text-white rounded text-xs font-medium hover:bg-green-700 transition-colors">Vytvořit</button>
+            <button type="button" onclick="document.getElementById('space-create-section').textContent=''"
+                    class="px-3 py-1.5 bg-gray-200 text-gray-600 rounded text-xs font-medium hover:bg-gray-300 transition-colors">Zrušit</button>
+        </div>
+    </form>
+</div>
