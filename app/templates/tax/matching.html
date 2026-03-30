@@ -53,6 +53,15 @@
                 {% endif %}
             </div>
             <div class="flex items-center gap-2">
+                {% set _export_qs = "filtr=" ~ filtr ~ "&q=" ~ (q|default('')|urlencode) ~ "&sort=" ~ sort ~ "&order=" ~ order %}
+                <a href="/dane/{{ session.id }}/exportovat/xlsx?{{ _export_qs }}" hx-boost="false"
+                   onclick="var b=this,t=b.textContent;b.textContent='Generuji…';b.classList.add('opacity-50');setTimeout(function(){b.textContent=t;b.classList.remove('opacity-50')},3000)"
+                   class="px-2.5 py-1.5 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 text-xs font-medium transition-colors border border-gray-200"
+                   title="Export do Excelu">↓ Excel</a>
+                <a href="/dane/{{ session.id }}/exportovat/csv?{{ _export_qs }}" hx-boost="false"
+                   onclick="var b=this,t=b.textContent;b.textContent='Generuji…';b.classList.add('opacity-50');setTimeout(function(){b.textContent=t;b.classList.remove('opacity-50')},3000)"
+                   class="px-2.5 py-1.5 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 text-xs font-medium transition-colors border border-gray-200"
+                   title="Export do CSV">↓ CSV</a>
                 {% if is_locked %}
                 <a href="/dane/{{ session.id }}/rozeslat?back={{ list_url|urlencode }}"
                    class="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium transition-colors">

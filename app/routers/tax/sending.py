@@ -149,19 +149,23 @@ def _build_single_recipient(db, session_id, dist):
 # Export
 # ---------------------------------------------------------------------------
 
-@router.get("/{session_id}/rozeslat/export")
+@router.get("/{session_id}/rozeslat/export/{fmt}")
 async def tax_send_export(
     session_id: int,
+    fmt: str,
     q: str = Query(""),
     filtr: str = Query(""),
     sort: str = Query("name"),
     order: str = Query("asc"),
     db: Session = Depends(get_db),
 ):
-    """Export filtrovaného seznamu příjemců do Excelu."""
+    """Export filtrovaného seznamu příjemců do Excelu nebo CSV."""
     from datetime import datetime
     from openpyxl import Workbook
     from openpyxl.styles import Font
+
+    if fmt not in ("xlsx", "csv"):
+        return RedirectResponse(f"/dane/{session_id}/rozeslat", status_code=302)
 
     session = db.query(TaxSession).get(session_id)
     if not session:
@@ -212,24 +216,17 @@ async def tax_send_export(
     sort_fn = SEND_SORT_KEYS.get(sort, SEND_SORT_KEYS["name"])
     recipients.sort(key=sort_fn, reverse=(order == "desc"))
 
-    # Build Excel
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Rozeslani"
-    bold = Font(bold=True)
-
+    # Build rows
     headers = ["Prijemce", "Email", "Dokumenty", "Stav"]
-    for col, h in enumerate(headers, 1):
-        ws.cell(row=1, column=col, value=h).font = bold
-
     status_labels = {"pending": "Ceka", "queued": "Ve fronte", "sent": "Odeslano", "failed": "Chyba"}
-    for row_idx, r in enumerate(recipients, 2):
-        ws.cell(row=row_idx, column=1, value=r["name"])
-        ws.cell(row=row_idx, column=2, value=r["email"] or "")
-        ws.cell(row=row_idx, column=3, value=", ".join(d["filename"] for d in r["docs"]))
-        ws.cell(row=row_idx, column=4, value=status_labels.get(r["email_status"], r["email_status"]))
-
-    excel_auto_width(ws)
+    rows = []
+    for r in recipients:
+        rows.append([
+            r["name"],
+            r["email"] or "",
+            ", ".join(d["filename"] for d in r["docs"]),
+            status_labels.get(r["email_status"], r["email_status"]),
+        ])
 
     # Filename with filter suffix
     timestamp = datetime.now().strftime("%Y%m%d")
@@ -238,7 +235,37 @@ async def tax_send_export(
         "pending": "cekajici", "sent": "odeslano", "failed": "chyba",
     }
     suffix = f"_{suffix_map[filtr]}" if filtr in suffix_map else "_vsichni"
-    filename = f"rozeslani_{session_id}{suffix}_{timestamp}.xlsx"
+    filename = f"rozeslani_{session_id}{suffix}_{timestamp}.{fmt}"
+
+    if fmt == "csv":
+        import csv
+        import io
+        buf = io.StringIO()
+        buf.write("\ufeff")  # BOM for Excel
+        writer = csv.writer(buf, delimiter=";")
+        writer.writerow(headers)
+        writer.writerows(rows)
+        from fastapi.responses import Response
+        return Response(
+            content=buf.getvalue().encode("utf-8"),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+
+    # Excel
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Rozeslani"
+    bold = Font(bold=True)
+
+    for col, h in enumerate(headers, 1):
+        ws.cell(row=1, column=col, value=h).font = bold
+
+    for row_idx, row in enumerate(rows, 2):
+        for col, val in enumerate(row, 1):
+            ws.cell(row=row_idx, column=col, value=val)
+
+    excel_auto_width(ws)
 
     buf = BytesIO()
     wb.save(buf)
