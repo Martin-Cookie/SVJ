@@ -19,7 +19,6 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-EMAIL_LOG_LIMIT = 100
 
 
 def _parse_attachments(raw: Optional[str]) -> list:
@@ -84,7 +83,7 @@ async def settings_view(
         query = query.order_by(col.asc().nulls_last())
     else:
         query = query.order_by(col.desc().nulls_last())
-    email_logs = query.limit(EMAIL_LOG_LIMIT).all()
+    email_logs = query.all()
 
     # Build email → owner_id lookup for clickable recipients
     emails_in_log = {e.recipient_email for e in email_logs if e.recipient_email}
