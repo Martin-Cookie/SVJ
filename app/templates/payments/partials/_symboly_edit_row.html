@@ -12,21 +12,19 @@
                 class="h-8 w-36 px-2 text-xs font-mono border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
             <!-- Typ entity -->
             {% set entity_type = 'space' if m.space_id else 'unit' %}
-            <select name="entity_type" onchange="this.closest('form').querySelector('[name=unit_id]').style.display=this.value==='unit'?'':'none';this.closest('form').querySelector('[name=space_id]').style.display=this.value==='space'?'':'none'"
+            <select name="entity_type" onchange="var f=this.closest('form');f.querySelector('[name=unit_id]').classList.toggle('hidden',this.value!=='unit');f.querySelector('[name=space_id]').classList.toggle('hidden',this.value!=='space')"
                 class="h-8 px-2 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
                 <option value="unit" {% if entity_type == 'unit' %}selected{% endif %}>Jednotka</option>
                 <option value="space" {% if entity_type == 'space' %}selected{% endif %}>Prostor</option>
             </select>
             <!-- Jednotka -->
-            <select name="unit_id" class="h-8 px-2 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                {% if entity_type == 'space' %}style="display:none"{% endif %}>
+            <select name="unit_id" class="h-8 px-2 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white{% if entity_type == 'space' %} hidden{% endif %}">
                 {% for u in units %}
                 <option value="{{ u.id }}" {% if m.unit_id == u.id %}selected{% endif %}>č. {{ u.unit_number }}</option>
                 {% endfor %}
             </select>
             <!-- Prostor -->
-            <select name="space_id" class="h-8 px-2 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                {% if entity_type != 'space' %}style="display:none"{% endif %}>
+            <select name="space_id" class="h-8 px-2 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white{% if entity_type != 'space' %} hidden{% endif %}">
                 {% for sp in spaces %}
                 <option value="{{ sp.id }}" {% if m.space_id == sp.id %}selected{% endif %}>{{ sp.space_number }} — {{ sp.designation }}</option>
                 {% endfor %}

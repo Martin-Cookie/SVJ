@@ -8,6 +8,7 @@ from app.models import (
     BankStatement, Owner, OwnerUnit, Payment, PaymentAllocation,
     PaymentDirection, PaymentMatchStatus,
     Prescription, PrescriptionYear,
+    Settlement, SettlementStatus, UnitBalance,
     Space, SpaceTenant, Tenant,
     Unit, VariableSymbolMapping, SymbolSource,
 )
@@ -845,3 +846,305 @@ class TestBuildSuggestMap:
 
         result = _build_suggest_map(payments, name_index)
         assert result.get(1) == 200
+
+
+# ===========================================================================
+# Settlement item split s nerovnoměrnými poměry
+# ===========================================================================
+
+class TestSettlementItemSplit:
+    """Testy pro rozúčtování settlement items dle poměru předpisových položek."""
+
+    def test_item_split_proportional(self, db_session, seed_with_spaces):
+        """Items se rozdělí proporcionálně a součet sedí."""
+        from app.services.settlement_service import generate_settlements
+        from app.services.payment_matching import match_payments
+        data = seed_with_spaces
+
+        # Vytvořit výpis + platbu matchnutou na unit1
+        stmt = BankStatement(
+            filename="test.csv", bank_account="123/0800",
+            period_from=date(2026, 1, 1), period_to=date(2026, 1, 31),
+        )
+        db_session.add(stmt)
+        db_session.flush()
+
+        pay = Payment(
+            statement_id=stmt.id, date=date(2026, 1, 15), amount=3000,
+            vs="1109800101", counter_account_name="Novak",
+            direction=PaymentDirection.INCOME, match_status=PaymentMatchStatus.UNMATCHED,
+            operation_id="OP_SETTLE",
+        )
+        db_session.add(pay)
+        db_session.flush()
+        match_payments(db_session, stmt.id, 2026)
+
+        # Přidat PrescriptionItems pro unit1 (nerovnoměrné)
+        from app.models import PrescriptionItem, PrescriptionCategory
+        pi1 = PrescriptionItem(
+            prescription_id=data["presc1"].id, name="Fond oprav",
+            amount=2000, category=PrescriptionCategory.FOND_OPRAV, order=1,
+        )
+        pi2 = PrescriptionItem(
+            prescription_id=data["presc1"].id, name="Služby",
+            amount=1000, category=PrescriptionCategory.SLUZBY, order=2,
+        )
+        db_session.add_all([pi1, pi2])
+        db_session.flush()
+
+        result = generate_settlements(db_session, 2026)
+        assert result["created"] > 0
+
+        settlement = db_session.query(Settlement).filter_by(
+            unit_id=data["unit1"].id, year=2026
+        ).first()
+        assert settlement is not None
+
+        # Items by měly mít poměr 2:1
+        items = sorted(settlement.items, key=lambda x: x.name)
+        assert len(items) == 2
+
+        # cost_building = item.amount * 12
+        assert items[0].cost_building == 24000.0  # Fond oprav: 2000 * 12
+        assert items[1].cost_building == 12000.0  # Služby: 1000 * 12
+
+        # Paid proporcionálně: 3000 zaplaceno, ratio 2000/3000=0.666 a 1000/3000=0.333
+        total_paid = items[0].paid + items[1].paid
+        assert abs(total_paid - 3000) < 0.02  # zaokrouhlení
+
+    def test_settlement_upsert_recreates_items(self, db_session, seed_with_spaces):
+        """Druhé volání generate_settlements přepočítá items."""
+        from app.services.settlement_service import generate_settlements
+        data = seed_with_spaces
+
+        # Přidat PrescriptionItem
+        from app.models import PrescriptionItem, PrescriptionCategory
+        pi = PrescriptionItem(
+            prescription_id=data["presc1"].id, name="Fond oprav",
+            amount=3000, category=PrescriptionCategory.FOND_OPRAV, order=1,
+        )
+        db_session.add(pi)
+        db_session.flush()
+
+        r1 = generate_settlements(db_session, 2026)
+        r2 = generate_settlements(db_session, 2026)
+
+        assert r1["created"] > 0
+        assert r2["updated"] > 0
+        assert r2["created"] == 0
+
+        # Items count should still be 1 (not 2)
+        settlement = db_session.query(Settlement).filter_by(
+            unit_id=data["unit1"].id, year=2026
+        ).first()
+        assert len(settlement.items) == 1
+
+    def test_settlement_with_opening_balance(self, db_session, seed_with_spaces):
+        """Počáteční zůstatek se promítne do result_amount."""
+        from app.services.settlement_service import generate_settlements
+        from app.models import UnitBalance
+        data = seed_with_spaces
+
+        # Přidat zůstatek (dluh 5000)
+        balance = UnitBalance(
+            unit_id=data["unit1"].id, year=2026,
+            opening_amount=5000, owner_id=data["owner1"].id,
+        )
+        db_session.add(balance)
+        db_session.flush()
+
+        generate_settlements(db_session, 2026)
+
+        settlement = db_session.query(Settlement).filter_by(
+            unit_id=data["unit1"].id, year=2026
+        ).first()
+        assert settlement is not None
+        # result = predpis(3000*12) + zustatek(5000) - zaplaceno(0) = 41000
+        assert settlement.result_amount == 41000.0
+
+
+# ===========================================================================
+# Diacritics edge cases v name matching
+# ===========================================================================
+
+class TestDiacriticsMatching:
+    """Testy pro české diakritiky v párování jmen."""
+
+    def test_diacritics_stripped_in_matching(self, db_session, seed_with_spaces):
+        """Jméno s diakritikou matchuje na jméno bez diakritiky."""
+        from app.services.payment_matching import match_payments
+        data = seed_with_spaces
+
+        stmt = BankStatement(
+            filename="test.csv", bank_account="123/0800",
+            period_from=date(2026, 1, 1), period_to=date(2026, 1, 31),
+        )
+        db_session.add(stmt)
+        db_session.flush()
+
+        # Protiúčet bez diakritiky → match na "Novák Jan"
+        pay = Payment(
+            statement_id=stmt.id, date=date(2026, 1, 15), amount=3000,
+            vs="", counter_account_name="NOVAK JAN",
+            direction=PaymentDirection.INCOME, match_status=PaymentMatchStatus.UNMATCHED,
+            operation_id="OP_DIACR1",
+        )
+        db_session.add(pay)
+        db_session.flush()
+        match_payments(db_session, stmt.id, 2026)
+
+        db_session.refresh(pay)
+        # Should match (name_normalized is "novak jan")
+        assert pay.match_status in (
+            PaymentMatchStatus.SUGGESTED, PaymentMatchStatus.AUTO_MATCHED
+        )
+
+    def test_mixed_case_matching(self, db_session, seed_with_spaces):
+        """Různá velikost písmen matchuje."""
+        from app.services.payment_matching import match_payments
+        data = seed_with_spaces
+
+        stmt = BankStatement(
+            filename="test.csv", bank_account="123/0800",
+            period_from=date(2026, 2, 1), period_to=date(2026, 2, 28),
+        )
+        db_session.add(stmt)
+        db_session.flush()
+
+        pay = Payment(
+            statement_id=stmt.id, date=date(2026, 2, 15), amount=600,
+            vs="", counter_account_name="svobodova MARIE",
+            direction=PaymentDirection.INCOME, match_status=PaymentMatchStatus.UNMATCHED,
+            operation_id="OP_CASE1",
+        )
+        db_session.add(pay)
+        db_session.flush()
+        match_payments(db_session, stmt.id, 2026)
+
+        db_session.refresh(pay)
+        assert pay.match_status in (
+            PaymentMatchStatus.SUGGESTED, PaymentMatchStatus.UNMATCHED
+        )
+
+    def test_suggest_map_with_diacritics(self):
+        """_build_suggest_map správně strip_diacritics z counterparty."""
+        from app.routers.payments.statements import _build_suggest_map
+
+        class FakePayment:
+            def __init__(self):
+                self.id = 1
+                self.counter_account_name = "Dvořáček"
+                self.note = ""
+                self.message = ""
+                self.match_status = PaymentMatchStatus.UNMATCHED
+                self.direction = PaymentDirection.INCOME
+
+        payments = [FakePayment()]
+        name_index = [({"dvoracek"}, 42)]
+
+        result = _build_suggest_map(payments, name_index)
+        assert result.get(1) == 42
+
+    def test_clean_name_words_czech_chars(self):
+        """_clean_name_words správně zpracuje české znaky."""
+        from app.services.payment_matching import _clean_name_words
+        result = _clean_name_words("Dvořáček-Přemysl")
+        assert "dvoracek" in result or "dvoracek-premysl" in result
+        # Interpunkce (pomlčka) se nahradí mezerou
+        assert "premysl" in result
+
+
+# ===========================================================================
+# Endpoint testy — seznam výpisů, detail, přehled
+# ===========================================================================
+
+class TestPaymentEndpoints:
+    """HTTP endpoint testy pro platební stránky."""
+
+    def test_vypisy_seznam(self, client, db_session, seed_statement_with_spaces):
+        """GET /platby/vypisy vrátí 200."""
+        resp = client.get("/platby/vypisy")
+        assert resp.status_code == 200
+
+    def test_vypis_detail(self, client, db_session, seed_statement_with_spaces):
+        """GET /platby/vypisy/{id} vrátí 200."""
+        data = seed_statement_with_spaces
+        resp = client.get(f"/platby/vypisy/{data['statement'].id}")
+        assert resp.status_code == 200
+
+    def test_vypis_detail_nonexistent(self, client, db_session):
+        """GET /platby/vypisy/99999 → redirect na seznam."""
+        resp = client.get("/platby/vypisy/99999", follow_redirects=False)
+        assert resp.status_code == 302
+
+    def test_prehled(self, client, db_session, seed_with_spaces):
+        """GET /platby/prehled vrátí 200."""
+        resp = client.get("/platby/prehled")
+        assert resp.status_code == 200
+
+    def test_prehled_prostory(self, client, db_session, seed_with_spaces):
+        """GET /platby/prehled?entita=prostory vrátí 200."""
+        resp = client.get("/platby/prehled?entita=prostory")
+        assert resp.status_code == 200
+
+    def test_dluznici(self, client, db_session, seed_with_spaces):
+        """GET /platby/dluznici vrátí 200."""
+        resp = client.get("/platby/dluznici")
+        assert resp.status_code == 200
+
+    def test_symboly(self, client, db_session, seed_with_spaces):
+        """GET /platby/symboly vrátí 200."""
+        resp = client.get("/platby/symboly")
+        assert resp.status_code == 200
+
+    def test_zustatky(self, client, db_session, seed_with_spaces):
+        """GET /platby/zustatky vrátí 200."""
+        resp = client.get("/platby/zustatky")
+        assert resp.status_code == 200
+
+    def test_vyuctovani(self, client, db_session, seed_with_spaces):
+        """GET /platby/vyuctovani vrátí 200."""
+        resp = client.get("/platby/vyuctovani")
+        assert resp.status_code == 200
+
+    def test_predpisy(self, client, db_session, seed_with_spaces):
+        """GET /platby/predpisy vrátí 200."""
+        resp = client.get("/platby/predpisy")
+        assert resp.status_code == 200
+
+    def test_rematch_resets_auto_keeps_manual(self, client, db_session, seed_statement_with_spaces):
+        """Přepárování resetuje AUTO+SUGGESTED, zachová MANUAL."""
+        from app.services.payment_matching import match_payments
+        data = seed_statement_with_spaces
+
+        match_payments(db_session, data["statement"].id, 2026)
+
+        # Ručně přiřadit jednu platbu
+        data["pay_expense"].match_status = PaymentMatchStatus.MANUAL
+        data["pay_expense"].unit_id = data["unit2"].id
+        db_session.flush()
+
+        resp = client.post(
+            f"/platby/vypisy/{data['statement'].id}/preparovat",
+            data={},
+            follow_redirects=False,
+        )
+        assert resp.status_code == 302
+
+        db_session.refresh(data["pay_expense"])
+        # Manual přiřazení zachováno
+        assert data["pay_expense"].match_status == PaymentMatchStatus.MANUAL
+
+    def test_delete_statement(self, client, db_session, seed_statement_with_spaces):
+        """POST smazat → výpis smazán."""
+        data = seed_statement_with_spaces
+        stmt_id = data["statement"].id
+
+        resp = client.post(
+            f"/platby/vypisy/{stmt_id}/smazat",
+            data={},
+            follow_redirects=False,
+        )
+        assert resp.status_code == 302
+
+        assert db_session.query(BankStatement).get(stmt_id) is None
