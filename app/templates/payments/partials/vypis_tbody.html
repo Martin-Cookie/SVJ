@@ -83,7 +83,6 @@
             {{ filter_hidden() }}
             <select id="assign-select-{{ p.id }}" name="unit_id" required
                 aria-label="Jednotka pro přiřazení"
-                onchange="if(this.value)this.form.submit()"
                 class="w-64 px-1.5 py-0.5 text-xs border rounded {% if suggested_uid %}border-green-500 bg-green-50 dark:bg-green-900/20 dark:border-green-600 text-gray-900 dark:text-white{% else %}border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white{% endif %}">
                 <option value="">— jednotka —</option>
                 {% for u in all_units_list %}
@@ -160,7 +159,6 @@
             {{ filter_hidden() }}
             <select id="space-select-{{ p.id }}" name="space_id" required
                 aria-label="Prostor pro přiřazení"
-                onchange="if(this.value)this.form.submit()"
                 class="w-64 px-1.5 py-0.5 text-xs border rounded {% if suggested_sid %}border-green-500 bg-green-50 dark:bg-green-900/20 dark:border-green-600 text-gray-900 dark:text-white{% else %}border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white{% endif %}">
                 <option value="">— prostor —</option>
                 {% for s in all_spaces %}
