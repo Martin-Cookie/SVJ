@@ -13,8 +13,8 @@ from sqlalchemy.orm import Session, joinedload
 from app.database import get_db
 from app.config import settings
 from app.models import (
-    BankStatement, Payment, PaymentAllocation, PaymentDirection, PaymentMatchStatus,
-    Space, Unit,
+    BankStatement, Owner, OwnerUnit, Payment, PaymentAllocation, PaymentDirection,
+    PaymentMatchStatus, Space, SpaceTenant, Tenant, Unit,
 )
 from app.utils import build_list_url, is_htmx_partial, is_safe_path, validate_upload, strip_diacritics, utcnow, UPLOAD_LIMITS
 from ._helpers import templates, compute_nav_stats, MONTH_NAMES_LONG
@@ -556,6 +556,87 @@ async def vypis_detail(
                 if presc.variable_symbol:
                     unit_vs[presc.unit_id] = presc.variable_symbol
 
+    # Units + owner names for assignment dropdown
+    all_units_list = db.query(Unit).order_by(Unit.unit_number).all()
+    unit_owner_names = {}  # unit_id → owner display_name
+    active_ous = db.query(OwnerUnit).filter(OwnerUnit.valid_to.is_(None)).all()
+    all_owners = {o.id: o for o in db.query(Owner).all()}
+    for ou in active_ous:
+        owner = all_owners.get(ou.owner_id)
+        if owner and owner.display_name:
+            unit_owner_names[ou.unit_id] = owner.display_name
+
+    # Suggest map: payment_id → unit_id (pre-select based on counterparty name / message)
+    unit_suggest_map = {}
+    # Build reverse lookup: normalized owner name words → unit_id
+    unit_name_index = []  # list of (words_set, unit_id)
+    for ou in active_ous:
+        owner = all_owners.get(ou.owner_id)
+        if owner and owner.name_normalized:
+            words = {w for w in strip_diacritics(owner.name_normalized).split() if len(w) > 2}
+            if words:
+                unit_name_index.append((words, ou.unit_id))
+    # For each unmatched income payment, find best unit suggestion
+    for p in payments:
+        if p.match_status != PaymentMatchStatus.UNMATCHED or p.direction != PaymentDirection.INCOME:
+            continue
+        # Combine counterparty name + note + message for matching
+        text_parts = [p.counter_account_name or "", p.note or "", p.message or ""]
+        sender_words = {w for w in strip_diacritics(" ".join(text_parts)).split() if len(w) > 2}
+        if not sender_words:
+            continue
+        best_uid = None
+        best_score = 0
+        for name_words, uid in unit_name_index:
+            common = sender_words & name_words
+            if len(common) >= 1 and len(common) > best_score:
+                best_score = len(common)
+                best_uid = uid
+        if best_uid and best_score >= 1:
+            unit_suggest_map[p.id] = best_uid
+
+    # Spaces + tenant names for assignment dropdown
+    all_spaces = db.query(Space).order_by(Space.space_number).all()
+    space_tenant_names = {}
+    active_sts = (
+        db.query(SpaceTenant)
+        .filter_by(is_active=True)
+        .options(joinedload(SpaceTenant.tenant).joinedload(Tenant.owner))
+        .all()
+    )
+    space_monthly = {}  # space_id → monthly_rent
+    space_name_index = []  # (words_set, space_id)
+    for st in active_sts:
+        if st.monthly_rent:
+            space_monthly[st.space_id] = st.monthly_rent
+        if st.tenant:
+            name = st.tenant.display_name
+            if name:
+                space_tenant_names[st.space_id] = name
+                norm = strip_diacritics(name)
+                words = {w for w in norm.split() if len(w) > 2}
+                if words:
+                    space_name_index.append((words, st.space_id))
+
+    # Suggest map: payment_id → space_id (pre-select based on counterparty/message)
+    space_suggest_map = {}
+    for p in payments:
+        if p.match_status != PaymentMatchStatus.UNMATCHED or p.direction != PaymentDirection.INCOME:
+            continue
+        text_parts = [p.counter_account_name or "", p.note or "", p.message or ""]
+        sender_words = {w for w in strip_diacritics(" ".join(text_parts)).split() if len(w) > 2}
+        if not sender_words:
+            continue
+        best_sid = None
+        best_score = 0
+        for name_words, sid in space_name_index:
+            common = sender_words & name_words
+            if len(common) >= 1 and len(common) > best_score:
+                best_score = len(common)
+                best_sid = sid
+        if best_sid and best_score >= 1:
+            space_suggest_map[p.id] = best_sid
+
     list_url = build_list_url(request)
     back_url = request.query_params.get("back", "")
 
@@ -571,7 +652,13 @@ async def vypis_detail(
         "candidates_map": candidates_map,
         "unit_monthly": unit_monthly,
         "unit_vs": unit_vs,
-        "all_spaces": db.query(Space).order_by(Space.space_number).all(),
+        "all_units_list": all_units_list,
+        "unit_owner_names": unit_owner_names,
+        "unit_suggest_map": unit_suggest_map,
+        "all_spaces": all_spaces,
+        "space_tenant_names": space_tenant_names,
+        "space_monthly": space_monthly,
+        "space_suggest_map": space_suggest_map,
         "sort": sort,
         "order": order,
         "q": q,

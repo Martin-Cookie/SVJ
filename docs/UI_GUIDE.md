@@ -685,6 +685,24 @@ Vždy `rounded-full`, nikdy `rounded`.
 
 ---
 
+## 12b. Tooltipy entit (povinný vzor)
+
+Každý badge/odkaz na entitu (jednotka, prostor, vlastník, nájemce) MUSÍ mít `title` tooltip se sjednoceným pořadím:
+
+**Jméno → Identifikátor → Částka**
+
+| Entita | Tooltip formát | Příklad |
+|--------|---------------|---------|
+| Jednotka | `Vlastník: jméno · VS: xxx · Předpis: xxx Kč/měs` | `Vlastník: Novák Jan · VS: 12345 · Předpis: 3 041 Kč/měs` |
+| Prostor | `Nájemce: jméno · Prostor: číslo · označení · Nájem: xxx Kč/měs` | `Nájemce: Movie s.r.o. · Prostor: 10 · B1 02.06 · Nájem: 1 685 Kč/měs` |
+
+- Jméno a částka jsou podmíněné (`{% if ... %}`) — zobrazit jen když existují
+- Oddělovač: ` · ` (mezera-tečka-mezera)
+- Částka vždy s filtrem `fmt_num` a suffixem `Kč/měs`
+- Data pro tooltipy (jména vlastníků/nájemců, předpisy, nájemné) se připravují v routeru jako lookup dicty a předávají do šablony
+
+---
+
 ## 13. Back URL navigace
 
 > Kompletní logika back parametru (propagace, chaining, `list_url` vs `back_url`, `back_label`) je v [CLAUDE.md § Navigace a back URL](../CLAUDE.md). Zde jsou jen UI/HTML specifika.

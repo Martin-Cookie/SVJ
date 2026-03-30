@@ -46,11 +46,11 @@ def _clean_name_words(text: str) -> set[str]:
 
 def compute_candidates(db: Session, payments: list, year: int,
                         statement_id: int | None = None) -> dict[int, list[dict]]:
-    """Pro UNMATCHED příjmové platby spočítat kandidátní jednotky.
+    """Pro UNMATCHED příjmové platby spočítat kandidátní jednotky a prostory.
 
-    Kandidát = jednotka kde jméno vlastníka sedí s odesílatelem (2+ společná slova).
-    Jednotky s již napárovanou platbou v tomto výpisu se vynechají.
-    Vrací dict payment_id → list[{unit_number, monthly, score, reasons}],
+    Kandidát = jednotka/prostor kde jméno vlastníka/nájemce sedí s odesílatelem
+    (2+ společná slova NEBO shoda na příjmení).
+    Vrací dict payment_id → list[{unit_number/space_number, monthly, score, ...}],
     max 3 kandidáti seřazení dle skóre.
     """
     unmatched = [
@@ -86,9 +86,10 @@ def compute_candidates(db: Session, payments: list, year: int,
     matched_statuses = {PaymentMatchStatus.AUTO_MATCHED, PaymentMatchStatus.MANUAL,
                         PaymentMatchStatus.SUGGESTED}
     already_matched_units: set[int] = set()
+    already_matched_spaces: set[int] = set()
     if statement_id:
         matched_allocs = (
-            db.query(PaymentAllocation.unit_id)
+            db.query(PaymentAllocation.unit_id, PaymentAllocation.space_id)
             .join(Payment)
             .filter(
                 Payment.statement_id == statement_id,
@@ -96,7 +97,8 @@ def compute_candidates(db: Session, payments: list, year: int,
             )
             .all()
         )
-        already_matched_units = {r[0] for r in matched_allocs}
+        already_matched_units = {r[0] for r in matched_allocs if r[0]}
+        already_matched_spaces = {r[1] for r in matched_allocs if r[1]}
 
     # Owner jména per unit (vyčištěná slova + příjmení)
     active_ous = db.query(OwnerUnit).filter(OwnerUnit.valid_to.is_(None)).all()
@@ -110,10 +112,47 @@ def compute_candidates(db: Session, payments: list, year: int,
                 words = _clean_name_words(owner.name_normalized)
                 if words:
                     unit_owner_words.setdefault(unit.unit_number, []).append(words)
-                # Příjmení = první slovo v name_normalized (formát příjmení-first)
                 surname = _clean_name_words(owner.name_normalized.split()[0])
                 if surname:
                     unit_owner_surnames.setdefault(unit.unit_number, set()).update(surname)
+
+    # Prostory — nájemci + nájemné
+    all_spaces = {s.id: s for s in db.query(Space).all()}
+    active_sts = db.query(SpaceTenant).filter_by(is_active=True).all()
+    all_tenants = {t.id: t for t in db.query(Tenant).all()}
+    space_info: dict[int, dict] = {}  # space_number → {space_id, monthly, designation}
+    space_tenant_words: dict[int, list[set]] = {}  # space_number → [set of words]
+    space_tenant_surnames: dict[int, set] = {}     # space_number → {příjmení}
+    for st in active_sts:
+        space = all_spaces.get(st.space_id)
+        if not space:
+            continue
+        # Nájemné z SpaceTenant nebo z předpisu
+        monthly = st.monthly_rent or 0
+        # Zkusit předpis pro prostor (může mít přesnější částku)
+        for presc in prescriptions:
+            if presc.space_id == st.space_id and presc.monthly_total:
+                monthly = presc.monthly_total
+                break
+        space_info[space.space_number] = {
+            "space_id": st.space_id,
+            "monthly": monthly,
+            "designation": space.designation or "",
+        }
+        tenant = all_tenants.get(st.tenant_id)
+        if tenant:
+            # display_name resolves owner name for linked tenants
+            name = strip_diacritics(tenant.display_name) if tenant.display_name else (
+                tenant.name_normalized or ""
+            )
+            if name:
+                words = _clean_name_words(name)
+                if words:
+                    space_tenant_words.setdefault(space.space_number, []).append(words)
+                    first_word = name.split()[0] if name.split() else ""
+                    surname = _clean_name_words(first_word)
+                    if surname:
+                        space_tenant_surnames.setdefault(space.space_number, set()).update(surname)
 
     result = {}
     for payment in unmatched:
@@ -122,14 +161,13 @@ def compute_candidates(db: Session, payments: list, year: int,
             continue
 
         candidates = []
+
+        # Kandidáti z jednotek
         for un, info in unit_info.items():
-            # Přeskočit jednotky s již napárovanou platbou
             if info["unit_id"] in already_matched_units:
                 continue
 
             monthly = info["monthly"]
-
-            # Jméno match — MIN_COMMON_WORDS+ společná slova NEBO shoda na příjmení
             name_match = False
             for word_set in unit_owner_words.get(un, []):
                 common = sender_words & word_set
@@ -137,7 +175,6 @@ def compute_candidates(db: Session, payments: list, year: int,
                     name_match = True
                     break
             if not name_match:
-                # Fallback: shoda na příjmení (první slovo jména vlastníka)
                 surnames = unit_owner_surnames.get(un, set())
                 if sender_words & surnames:
                     name_match = True
@@ -145,15 +182,12 @@ def compute_candidates(db: Session, payments: list, year: int,
             if not name_match:
                 continue
 
-            # Přeskočit nesmyslné kandidáty (předpis > MAX_PRESCRIPTION_RATIO× platba)
             if monthly and monthly > payment.amount * MAX_PRESCRIPTION_RATIO:
                 continue
 
-            score = 2  # base za jmennou shodu
+            score = 2
             reasons = []
             amount_match = False
-
-            # Bonus za přesnou shodu částky
             if monthly > 0:
                 for n in range(1, 13):
                     if abs(payment.amount - monthly * n) < 0.01:
@@ -163,7 +197,9 @@ def compute_candidates(db: Session, payments: list, year: int,
                         break
 
             candidates.append({
+                "type": "unit",
                 "unit_number": un,
+                "space_number": None,
                 "monthly": monthly,
                 "vs": info["vs"],
                 "score": score,
@@ -171,8 +207,54 @@ def compute_candidates(db: Session, payments: list, year: int,
                 "amount_match": amount_match,
             })
 
+        # Kandidáti z prostorů
+        for sn, info in space_info.items():
+            if info["space_id"] in already_matched_spaces:
+                continue
+
+            monthly = info["monthly"]
+            name_match = False
+            for word_set in space_tenant_words.get(sn, []):
+                common = sender_words & word_set
+                if len(common) >= MIN_COMMON_WORDS:
+                    name_match = True
+                    break
+            if not name_match:
+                surnames = space_tenant_surnames.get(sn, set())
+                if sender_words & surnames:
+                    name_match = True
+
+            if not name_match:
+                continue
+
+            if monthly and monthly > payment.amount * MAX_PRESCRIPTION_RATIO:
+                continue
+
+            score = 2
+            reasons = []
+            amount_match = False
+            if monthly > 0:
+                for n in range(1, 13):
+                    if abs(payment.amount - monthly * n) < 0.01:
+                        reasons.append(f"{n}×{monthly:.0f}")
+                        score += 3
+                        amount_match = True
+                        break
+
+            candidates.append({
+                "type": "space",
+                "unit_number": None,
+                "space_number": sn,
+                "designation": info["designation"],
+                "monthly": monthly,
+                "vs": "",
+                "score": score,
+                "reasons": reasons,
+                "amount_match": amount_match,
+            })
+
         # Seřadit dle skóre, vzít top 3
-        candidates.sort(key=lambda x: (-x["score"], x["unit_number"]))
+        candidates.sort(key=lambda x: (-x["score"], x.get("unit_number") or 0))
         if candidates:
             result[payment.id] = candidates[:3]
 
