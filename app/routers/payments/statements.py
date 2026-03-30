@@ -22,6 +22,35 @@ from ._helpers import templates, compute_nav_stats, MONTH_NAMES_LONG
 router = APIRouter()
 
 
+def _build_suggest_map(
+    payments: list,
+    name_index: list[tuple[set, int]],
+) -> dict[int, int]:
+    """Vybudovat mapu payment_id → entity_id z name_index (words_set, entity_id).
+
+    Pro každou UNMATCHED příjmovou platbu najde nejlepší shodu dle společných slov
+    v counter_account_name + note + message.
+    """
+    suggest_map: dict[int, int] = {}
+    for p in payments:
+        if p.match_status != PaymentMatchStatus.UNMATCHED or p.direction != PaymentDirection.INCOME:
+            continue
+        text_parts = [p.counter_account_name or "", p.note or "", p.message or ""]
+        sender_words = {w for w in strip_diacritics(" ".join(text_parts)).split() if len(w) > 2}
+        if not sender_words:
+            continue
+        best_id = None
+        best_score = 0
+        for name_words, entity_id in name_index:
+            common = sender_words & name_words
+            if len(common) >= 1 and len(common) > best_score:
+                best_score = len(common)
+                best_id = entity_id
+        if best_id and best_score >= 1:
+            suggest_map[p.id] = best_id
+    return suggest_map
+
+
 # ── Seznam výpisů ──────────────────────────────────────────────────────
 
 
@@ -569,8 +598,6 @@ async def vypis_detail(
     all_units_list.sort(key=lambda u: strip_diacritics(unit_owner_names.get(u.id, "zzz")))
 
     # Suggest map: payment_id → unit_id (pre-select based on counterparty name / message)
-    unit_suggest_map = {}
-    # Build reverse lookup: normalized owner name words → unit_id
     unit_name_index = []  # list of (words_set, unit_id)
     for ou in active_ous:
         owner = all_owners.get(ou.owner_id)
@@ -578,24 +605,7 @@ async def vypis_detail(
             words = {w for w in strip_diacritics(owner.name_normalized).split() if len(w) > 2}
             if words:
                 unit_name_index.append((words, ou.unit_id))
-    # For each unmatched income payment, find best unit suggestion
-    for p in payments:
-        if p.match_status != PaymentMatchStatus.UNMATCHED or p.direction != PaymentDirection.INCOME:
-            continue
-        # Combine counterparty name + note + message for matching
-        text_parts = [p.counter_account_name or "", p.note or "", p.message or ""]
-        sender_words = {w for w in strip_diacritics(" ".join(text_parts)).split() if len(w) > 2}
-        if not sender_words:
-            continue
-        best_uid = None
-        best_score = 0
-        for name_words, uid in unit_name_index:
-            common = sender_words & name_words
-            if len(common) >= 1 and len(common) > best_score:
-                best_score = len(common)
-                best_uid = uid
-        if best_uid and best_score >= 1:
-            unit_suggest_map[p.id] = best_uid
+    unit_suggest_map = _build_suggest_map(payments, unit_name_index)
 
     # Spaces + tenant names for assignment dropdown
     all_spaces = db.query(Space).order_by(Space.space_number).all()
@@ -623,23 +633,7 @@ async def vypis_detail(
     all_spaces.sort(key=lambda s: strip_diacritics(space_tenant_names.get(s.id, "zzz")))
 
     # Suggest map: payment_id → space_id (pre-select based on counterparty/message)
-    space_suggest_map = {}
-    for p in payments:
-        if p.match_status != PaymentMatchStatus.UNMATCHED or p.direction != PaymentDirection.INCOME:
-            continue
-        text_parts = [p.counter_account_name or "", p.note or "", p.message or ""]
-        sender_words = {w for w in strip_diacritics(" ".join(text_parts)).split() if len(w) > 2}
-        if not sender_words:
-            continue
-        best_sid = None
-        best_score = 0
-        for name_words, sid in space_name_index:
-            common = sender_words & name_words
-            if len(common) >= 1 and len(common) > best_score:
-                best_score = len(common)
-                best_sid = sid
-        if best_sid and best_score >= 1:
-            space_suggest_map[p.id] = best_sid
+    space_suggest_map = _build_suggest_map(payments, space_name_index)
 
     list_url = build_list_url(request)
     back_url = request.query_params.get("back", "")
@@ -931,6 +925,7 @@ async def platba_odmitnout(
     payment = db.query(Payment).filter_by(id=payment_id, statement_id=statement_id).first()
     if payment and payment.match_status == PaymentMatchStatus.SUGGESTED:
         payment.unit_id = None
+        payment.space_id = None
         payment.owner_id = None
         payment.prescription_id = None
         payment.match_status = PaymentMatchStatus.UNMATCHED
