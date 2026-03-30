@@ -6,8 +6,10 @@ import threading
 import time
 
 
+from io import BytesIO
+
 from fastapi import APIRouter, Depends, Form, Query, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from sqlalchemy import cast, Integer
 from sqlalchemy.orm import Session, joinedload
 
@@ -18,7 +20,7 @@ from app.models import (
     ActivityAction, log_activity,
 )
 from app.services.email_service import create_smtp_connection, send_email
-from app.utils import build_list_url, compute_eta, strip_diacritics, utcnow
+from app.utils import build_list_url, compute_eta, excel_auto_width, strip_diacritics, utcnow
 
 from ._helpers import (
     logger, templates,
@@ -141,6 +143,112 @@ def _build_single_recipient(db, session_id, dist):
             "dist_ids": [dist.id], "owner_id": None, "is_external": True,
             "email_status": dist.email_status.value if dist.email_status and hasattr(dist.email_status, 'value') else "pending",
         }
+
+
+# ---------------------------------------------------------------------------
+# Export
+# ---------------------------------------------------------------------------
+
+@router.get("/{session_id}/rozeslat/export")
+async def tax_send_export(
+    session_id: int,
+    q: str = Query(""),
+    filtr: str = Query(""),
+    sort: str = Query("name"),
+    order: str = Query("asc"),
+    db: Session = Depends(get_db),
+):
+    """Export filtrovaného seznamu příjemců do Excelu."""
+    from datetime import datetime
+    from openpyxl import Workbook
+    from openpyxl.styles import Font
+
+    session = db.query(TaxSession).get(session_id)
+    if not session:
+        return RedirectResponse("/dane", status_code=302)
+
+    documents = (
+        db.query(TaxDocument)
+        .filter_by(session_id=session_id)
+        .options(
+            joinedload(TaxDocument.distributions)
+            .joinedload(TaxDistribution.owner),
+        )
+        .all()
+    )
+    all_recipients = _build_recipients(documents)
+
+    # Filter — same logic as send preview
+    if filtr == "with_email":
+        recipients = [r for r in all_recipients if r["email"]]
+    elif filtr == "no_email":
+        recipients = [r for r in all_recipients if not r["email"]]
+    elif filtr == "pending":
+        recipients = [r for r in all_recipients if r["email_status"] in ("pending", "queued")]
+    elif filtr == "sent":
+        recipients = [r for r in all_recipients if r["email_status"] == "sent"]
+    elif filtr == "failed":
+        recipients = [r for r in all_recipients if r["email_status"] == "failed"]
+    else:
+        recipients = all_recipients
+
+    if q:
+        q_lower = q.lower()
+        q_ascii = strip_diacritics(q)
+        recipients = [
+            r for r in recipients
+            if q_lower in r["name"].lower()
+            or q_ascii in strip_diacritics(r["name"])
+            or q_lower in (r["email"] or "").lower()
+            or any(q_lower in d["filename"].lower() for d in r["docs"])
+        ]
+
+    SEND_SORT_KEYS = {
+        "name": lambda r: strip_diacritics(r["name"]),
+        "email": lambda r: (r["email"] or "").lower(),
+        "docs": lambda r: len(r["docs"]),
+        "status": lambda r: r["email_status"],
+    }
+    sort_fn = SEND_SORT_KEYS.get(sort, SEND_SORT_KEYS["name"])
+    recipients.sort(key=sort_fn, reverse=(order == "desc"))
+
+    # Build Excel
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Rozeslani"
+    bold = Font(bold=True)
+
+    headers = ["Prijemce", "Email", "Dokumenty", "Stav"]
+    for col, h in enumerate(headers, 1):
+        ws.cell(row=1, column=col, value=h).font = bold
+
+    status_labels = {"pending": "Ceka", "queued": "Ve fronte", "sent": "Odeslano", "failed": "Chyba"}
+    for row_idx, r in enumerate(recipients, 2):
+        ws.cell(row=row_idx, column=1, value=r["name"])
+        ws.cell(row=row_idx, column=2, value=r["email"] or "")
+        ws.cell(row=row_idx, column=3, value=", ".join(d["filename"] for d in r["docs"]))
+        ws.cell(row=row_idx, column=4, value=status_labels.get(r["email_status"], r["email_status"]))
+
+    excel_auto_width(ws)
+
+    # Filename with filter suffix
+    timestamp = datetime.now().strftime("%Y%m%d")
+    suffix_map = {
+        "with_email": "s_emailem", "no_email": "bez_emailu",
+        "pending": "cekajici", "sent": "odeslano", "failed": "chyba",
+    }
+    suffix = f"_{suffix_map[filtr]}" if filtr in suffix_map else "_vsichni"
+    filename = f"rozeslani_{session_id}{suffix}_{timestamp}.xlsx"
+
+    buf = BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -700,18 +808,30 @@ def _send_emails_batch(session_id: int, recipient_data: list, email_subject: str
                 attachments = [d["file_path"] for d in unsent_docs] if unsent_docs else [d["file_path"] for d in rcpt["docs"]]
                 unsent_dist_ids = [d["dist_id"] for d in unsent_docs] if unsent_docs else rcpt["dist_ids"]
 
-                # Send email (reuse shared SMTP connection)
-                result = send_email(
-                    to_email=rcpt["email"],
-                    to_name=rcpt["name"],
-                    subject=email_subject,
-                    body_html=email_body,
-                    attachments=attachments,
-                    module="tax",
-                    reference_id=session_id,
-                    db=db,
-                    smtp_server=smtp_conn,
-                )
+                # Send email — wrapped in try/except so one failure
+                # never kills the entire batch
+                try:
+                    result = send_email(
+                        to_email=rcpt["email"],
+                        to_name=rcpt["name"],
+                        subject=email_subject,
+                        body_html=email_body,
+                        attachments=attachments,
+                        module="tax",
+                        reference_id=session_id,
+                        db=db,
+                        smtp_server=smtp_conn,
+                    )
+                except Exception as exc:
+                    logger.exception("Neočekávaná chyba při odesílání pro %s (%s)",
+                                     rcpt["name"], rcpt["email"])
+                    result = {"success": False, "error": str(exc)}
+                    # Shared SMTP connection is likely dead — recreate
+                    smtp_conn = None
+                    try:
+                        smtp_conn = create_smtp_connection()
+                    except Exception:
+                        logger.warning("Nepodařilo se obnovit SMTP spojení")
 
                 # Batch-update distribution statuses in DB (avoid N+1)
                 dists = (
@@ -794,23 +914,29 @@ async def start_batch_send(
     db: Session = Depends(get_db),
 ):
     """Start batch email sending for selected recipients."""
+    logger.info("start_batch_send called for session %s", session_id)
     session = db.query(TaxSession).get(session_id)
     if not session:
+        logger.warning("Session %s not found", session_id)
         return RedirectResponse("/dane", status_code=302)
 
     if not session.test_email_passed:
+        logger.warning("Session %s: test email not passed", session_id)
         return RedirectResponse(f"/dane/{session_id}/rozeslat", status_code=302)
 
     # Check no concurrent sending
     with _sending_lock:
         progress = _sending_progress.get(session_id)
         if progress and not progress.get("done"):
+            logger.info("Session %s: concurrent sending in progress", session_id)
             return RedirectResponse(f"/dane/{session_id}/rozeslat/prubeh", status_code=302)
 
     # Get selected keys from form
     form = await request.form()
     selected_keys = form.getlist("selected_keys")
+    logger.info("Session %s: received %d selected keys", session_id, len(selected_keys))
     if not selected_keys:
+        logger.warning("Session %s: no selected keys in form", session_id)
         return RedirectResponse(f"/dane/{session_id}/rozeslat", status_code=302)
 
     # Build recipients
@@ -828,8 +954,11 @@ async def start_batch_send(
     # Filter to selected
     selected_set = set(selected_keys)
     recipients_to_send = [r for r in all_recipients if r["key"] in selected_set and r["email"]]
+    logger.info("Session %s: %d recipients to send (from %d all, %d selected)",
+                session_id, len(recipients_to_send), len(all_recipients), len(selected_set))
 
     if not recipients_to_send:
+        logger.warning("Session %s: no recipients with email in selection", session_id)
         return RedirectResponse(f"/dane/{session_id}/rozeslat", status_code=302)
 
     # Mark only unsent distributions as QUEUED
