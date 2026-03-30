@@ -54,11 +54,12 @@ python3 -m pytest tests/ -v          # spustit všechny testy
 python3 -m pytest tests/ -q --tb=short  # stručný výstup
 ```
 
-**248 testů** (~1.5s, in-memory SQLite) pokrývá:
+**298 testů** (~2.5s, in-memory SQLite) pokrývá:
 
 | Soubor | Testů | Oblast |
 |--------|-------|--------|
 | `test_payment_matching.py` | 33 | matching pipeline, settlement, rounding |
+| `test_payment_advanced.py` | 50 | space matching, confirm/reject, lock, multi-unit, endpoints, diacritics |
 | `test_voting.py` | 72 | wizard, ballot stats, import, SJM párování |
 | `test_backup.py` | 43 | lock, ZIP create/restore, cleanup, integrity |
 | `test_csv_comparator.py` | 77 | CSV parsing, fuzzy matching, Czech stemming |
@@ -264,7 +265,7 @@ Modul pro správu předpisů, bankovních výpisů, variabilních symbolů a př
   - Stavy párování: `AUTO_MATCHED`, `SUGGESTED`, `MANUAL`, `UNMATCHED` — jako potvrzené (confirmed) se počítají pouze `AUTO_MATCHED` + `MANUAL`; `SUGGESTED` vyžaduje ruční potvrzení/odmítnutí
   - Ruční přiřazení: single-unit (celá částka) i multi-unit (čísla oddělená čárkou, částka rozdělena proporcionálně dle předpisů)
   - PaymentAllocation: dual-write model — každé přiřazení vytváří alokační záznamy (podpora multi-unit plateb kde jedna platba pokrývá více jednotek); `unit_id` nullable (pro space-only alokace), `space_id` + `prescription_id` FK
-  - Detail výpisu: filtr bubliny dle entity (Vše/Jednotky/Prostory), samostatný sloupec Prostor; hromadné potvrzení všech navržených přiřazení
+  - Detail výpisu: filtr bubliny dle entity (Vše/Jednotky/Prostory), samostatný sloupec Prostor; hromadné potvrzení všech navržených přiřazení; suggestion dropdowny s předvýběrem dle jména protiúčtu (zelené zvýraznění, potvrzovací tlačítko ✓)
   - Zamčení/odemčení výpisu (`locked_at`) — zamčený výpis nelze přepárovat, měnit ani mazat
 - **Počáteční zůstatky** — evidované zůstatky per jednotka/rok s vazbou na vlastníka; import z Excelu (.xlsx/.xls) s 4-krokovým workflow (upload → mapování sloupců → náhled → potvrzení); ruční přidání/editace s dynamickým výběrem vlastníka; zobrazení dluhů v seznamech i detailech jednotek a vlastníků
 - **Matice plateb** — přehled jednotek/prostorů × 12 měsíců s barevným stavem (zaplaceno/částečně/nezaplaceno), přepínač entity (jednotky/prostory), filtry dle typu prostoru, řazení, hledání, export xlsx
@@ -1173,7 +1174,7 @@ Zbývající nálezy z druhého auditu: autentizace (plánováno), CSRF ochrana,
 - Rozdělen `administration.py` (1426 ř.) na package — 6 modulů (info, board, code_lists, backups, bulk)
 - Rozdělen `sync.py` (1171 ř.) na package — 4 moduly (session, contacts, exchange)
 - Refaktoring 4 nejdelších funkcí na menší helpery (20 nových helper funkcí)
-- 248 automatizovaných testů (voting, backup, CSV comparator, payment matching)
+- 298 automatizovaných testů (voting, backup, CSV comparator, payment matching, settlement, endpoints)
 - Pre-push git hook + GitHub Actions CI workflow
 - UX Optimizer: 18/18 nálezů opraveno (compute_nav_stats skip, export matice, VS inline edit, hromadné potvrzení SUGGESTED, hromadná změna stavu filtrovaných, search výpisů, hardcoded rok, confirm dialogy, dashboard dlužníci, empty state CTA, sort měsíců v matici, sidebar badge dlužníků)
 - Zobrazení všech spoluvlastníků v platebním modulu (dlužníci, matice, vyúčtování, exporty)
