@@ -565,6 +565,8 @@ async def vypis_detail(
         owner = all_owners.get(ou.owner_id)
         if owner and owner.display_name:
             unit_owner_names[ou.unit_id] = owner.display_name
+    # Řadit podle jména vlastníka (bez diakritiky), jednotky bez vlastníka na konec
+    all_units_list.sort(key=lambda u: strip_diacritics(unit_owner_names.get(u.id, "zzz")))
 
     # Suggest map: payment_id → unit_id (pre-select based on counterparty name / message)
     unit_suggest_map = {}
@@ -617,6 +619,8 @@ async def vypis_detail(
                 words = {w for w in norm.split() if len(w) > 2}
                 if words:
                     space_name_index.append((words, st.space_id))
+    # Řadit podle jména nájemce (bez diakritiky), prostory bez nájemce na konec
+    all_spaces.sort(key=lambda s: strip_diacritics(space_tenant_names.get(s.id, "zzz")))
 
     # Suggest map: payment_id → space_id (pre-select based on counterparty/message)
     space_suggest_map = {}
