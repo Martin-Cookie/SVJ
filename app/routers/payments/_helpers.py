@@ -1,11 +1,16 @@
 """Sdílené helper funkce pro modul plateb."""
 
 import logging
+import threading
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.utils import templates
+
+# In-memory progress tracker for discrepancy email sending
+_discrepancy_progress: dict[int, dict] = {}
+_discrepancy_lock = threading.Lock()
 from app.models import (
     PrescriptionYear, Prescription, VariableSymbolMapping,
     BankStatement, Payment, PaymentAllocation, PaymentMatchStatus, PaymentDirection,

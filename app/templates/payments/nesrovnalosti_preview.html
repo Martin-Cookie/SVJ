@@ -17,27 +17,40 @@
                     {% if discrepancies|length > sendable|length %}
                     · <span class="text-orange-600">{{ discrepancies|length - sendable|length }} bez emailu</span>
                     {% endif %}
+                    · <span id="selected-count-bubble" class="text-blue-600 font-medium">0</span> vybraných
                 </p>
             </div>
             <div class="flex items-center gap-2">
                 {% if email_previews|length > 0 %}
                 <button type="button" onclick="document.querySelectorAll('.email-preview').forEach(function(el){el.classList.toggle('hidden')})"
-                        class="px-3 py-1.5 text-xs font-medium rounded-lg bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200">
+                        class="px-3 py-1.5 text-xs font-medium rounded-lg bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600">
                     Zobrazit/skrýt náhledy
                 </button>
                 {% endif %}
                 {% if sendable|length > 0 %}
-                <form method="post" action="/platby/vypisy/{{ statement.id }}/nesrovnalosti/odeslat" hx-boost="false"
-                      data-confirm="Odeslat upozornění {{ sendable|length }} příjemcům?">
-                    <input type="hidden" name="back" value="{{ back_url }}">
-                    <button type="submit" class="px-4 py-2 text-xs font-medium rounded-lg bg-orange-600 text-white hover:bg-orange-700 inline-flex items-center gap-1.5">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
-                        Odeslat {{ sendable|length }} upozornění
-                    </button>
-                </form>
+                <button type="button" onclick="showDiscrepancySendModal()"
+                        class="px-4 py-2 text-xs font-medium rounded-lg bg-orange-600 text-white hover:bg-orange-700 inline-flex items-center gap-1.5">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                    Odeslat <span id="send-count">0</span> vybraných
+                </button>
                 {% endif %}
             </div>
         </div>
+
+        {# Testovací email #}
+        {% if sendable|length > 0 %}
+        <div class="flex items-center gap-2 mb-3">
+            <form id="test-email-form" method="post" action="/platby/vypisy/{{ statement.id }}/nesrovnalosti/test" hx-boost="false" class="flex items-center gap-2">
+                <input type="hidden" name="back" value="{{ back_url }}">
+                <label class="text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">Testovací email:</label>
+                <input type="email" id="test-email-input" name="test_email" placeholder="vas@email.cz"
+                       class="px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white w-52 focus:ring-blue-500 focus:border-blue-500">
+                <button type="submit" class="px-3 py-1 text-xs font-medium rounded-lg bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/60">
+                    Odeslat test
+                </button>
+            </form>
+        </div>
+        {% endif %}
     </div>
 
     <!-- Tabulka nesrovnalostí -->
@@ -49,10 +62,17 @@
             <p class="text-xs mt-1">Všechny napárované platby odpovídají předpisům.</p>
         </div>
         {% else %}
+        <form id="send-form" method="post" action="/platby/vypisy/{{ statement.id }}/nesrovnalosti/odeslat" hx-boost="false">
+        <input type="hidden" name="back" value="{{ back_url }}">
         <table class="w-full text-xs">
             <thead class="sticky top-0 z-10 bg-gray-50 dark:bg-gray-700">
                 {% set _sort_base = "/platby/vypisy/" ~ statement.id ~ "/nesrovnalosti?" ~ ("back=" ~ (back_url|urlencode) ~ "&" if back_url else "") %}
                 <tr>
+                    <th class="px-2 py-2 w-6">
+                        <input type="checkbox" id="select-all-cb" onchange="toggleAllRecipients(this)"
+                               class="rounded border-gray-300 dark:border-gray-500 text-orange-600 focus:ring-orange-500"
+                               title="Vybrat vše / Zrušit výběr">
+                    </th>
                     <th class="px-2 py-2 w-6"></th>
                     {% for col_key, col_label, col_align in [
                         ("datum", "Datum", "left"),
@@ -72,11 +92,17 @@
                     {% endfor %}
                 </tr>
             </thead>
-            <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+            <tbody id="send-tbody" class="divide-y divide-gray-200 dark:divide-gray-700">
                 {% for d in discrepancies %}
                 {% set preview = email_previews.get(d.payment_id) %}
                 <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50{% if preview %} cursor-pointer{% endif %}{% if not d.recipient_email %} opacity-60{% endif %}"
                     {% if preview %}onclick="var el=document.getElementById('preview-{{ d.payment_id }}'); el.classList.toggle('hidden')"{% endif %}>
+                    <td class="px-2 py-2 text-center" onclick="event.stopPropagation()">
+                        {% if d.recipient_email %}
+                        <input type="checkbox" name="selected_ids" value="{{ d.payment_id }}"
+                               class="rcpt-cb rounded border-gray-300 dark:border-gray-500 text-orange-600 focus:ring-orange-500">
+                        {% endif %}
+                    </td>
                     <td class="px-2 py-2 text-center">
                         {% if preview %}
                         <svg class="w-3 h-3 text-gray-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
@@ -126,7 +152,7 @@
                 </tr>
                 {% if preview %}
                 <tr id="preview-{{ d.payment_id }}" class="email-preview hidden">
-                    <td colspan="8" class="px-3 py-0">
+                    <td colspan="9" class="px-3 py-0">
                         <div class="mx-6 my-2 p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
                             <p class="text-[10px] text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wider font-semibold">Náhled emailu</p>
                             <p class="text-xs font-medium text-gray-800 dark:text-gray-200 mb-2">
@@ -140,6 +166,7 @@
                 {% endfor %}
             </tbody>
         </table>
+        </form>
         {% endif %}
     </div>
 
@@ -191,4 +218,60 @@
     </div>
     {% endif %}
 </div>
+
+{# Potvrzovací modal pro odeslání #}
+{% if sendable|length > 0 %}
+<div id="discrepancy-send-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+        <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-3">Odeslat upozornění</h3>
+        <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            <span id="modal-verb">Bude odesláno</span> <strong id="modal-count">0</strong> upozornění vybraným příjemcům.
+        </p>
+        <div class="flex justify-end gap-2">
+            <button type="button" onclick="closeDiscrepancySendModal()"
+                    class="px-4 py-2 text-sm font-medium rounded-lg bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200">
+                Zrušit
+            </button>
+            <button type="button" id="confirm-send-btn" onclick="confirmDiscrepancySend()"
+                    class="px-4 py-2 text-sm font-medium rounded-lg bg-orange-600 text-white hover:bg-orange-700">
+                Odeslat
+            </button>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<script>
+function showDiscrepancySendModal() {
+    var cbs = document.querySelectorAll('.rcpt-cb:checked');
+    var count = cbs.length;
+    if (count === 0) return;
+    document.getElementById('modal-count').textContent = count;
+    var verb = count === 1 ? 'Bude odesláno' : (count >= 2 && count <= 4 ? 'Budou odeslána' : 'Bude odesláno');
+    document.getElementById('modal-verb').textContent = verb;
+    document.getElementById('discrepancy-send-modal').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+    document.getElementById('confirm-send-btn').focus();
+}
+
+function closeDiscrepancySendModal() {
+    document.getElementById('discrepancy-send-modal').classList.add('hidden');
+    document.body.style.overflow = '';
+}
+
+function confirmDiscrepancySend() {
+    closeDiscrepancySendModal();
+    document.getElementById('send-form').submit();
+}
+
+// Close modal on Escape
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        var modal = document.getElementById('discrepancy-send-modal');
+        if (modal && !modal.classList.contains('hidden')) {
+            closeDiscrepancySendModal();
+        }
+    }
+});
+</script>
 {% endblock %}
