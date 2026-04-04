@@ -89,8 +89,8 @@
                         <span class="text-gray-400 mx-0.5">/</span>
                         {% if d.allocations %}{% for a in d.allocations %}{{ a.expected|round(0)|int|fmt_num }}{% if not loop.last %}+{% endif %}{% endfor %}{% else %}{{ d.expected_amount|round(0)|int|fmt_num }}{% endif %} Kč
                     </td>
-                    <td class="px-2 py-2 whitespace-nowrap text-[10px]">
-                        {{ d.payment_vs or '—' }}{% if d.entity_vs and d.entity_vs != d.payment_vs %} <span class="text-gray-400">→</span> {{ d.entity_vs }}{% endif %}
+                    <td class="px-2 py-2 whitespace-nowrap">
+                        {{ d.payment_vs or '—' }}{% if d.entity_vs and d.entity_vs != d.payment_vs %}<br><span class="text-gray-400">→</span> {{ d.entity_vs }}{% endif %}
                     </td>
                     <td class="px-2 py-2 max-w-[200px] truncate" title="{{ d.entity_label }}">{{ d.entity_label }}</td>
                     <td class="px-2 py-2">
