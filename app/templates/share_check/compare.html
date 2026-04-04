@@ -170,10 +170,7 @@ function scUpdateCount() {
         toggle.indeterminate = checkedCount > 0 && checkedCount < all.length;
     }
 }
-if (location.hash) {
-    var el = document.querySelector(location.hash);
-    if (el) el.scrollIntoView({block: 'center'});
-}
+scrollToHash();
 // Restore focus to search input after HTMX swap
 (function() {
     var q = new URLSearchParams(window.location.search).get('q');

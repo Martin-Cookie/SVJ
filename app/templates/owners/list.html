@@ -217,9 +217,6 @@
 <div class="shrink-0 mt-2 text-xs text-gray-500">Zobrazeno: {{ owners|length }} vlastníků</div>
 </div>
 <script>
-if (location.hash) {
-    var el = document.querySelector(location.hash);
-    if (el) el.scrollIntoView({block: 'center'});
-}
+scrollToHash();
 </script>
 {% endblock %}

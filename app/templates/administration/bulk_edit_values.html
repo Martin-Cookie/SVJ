@@ -125,10 +125,7 @@ function toggleDetail(idx, field, value) {
             el.innerHTML = html;
             el.classList.remove('hidden');
             restoreBulkChecks(el);
-            if (location.hash) {
-                var target = document.querySelector(location.hash);
-                if (target) target.scrollIntoView({block: 'center'});
-            }
+            scrollToHash();
         });
 }
 

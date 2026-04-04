@@ -286,6 +286,25 @@ document.body.addEventListener('htmx:confirm', function(event) {
     });
 })();
 
+// =========================================================================
+// Scroll to hash element (back URL navigation)
+// =========================================================================
+// Scrolls the correct overflow container so the target element is visible
+// below any sticky thead. Plain scrollIntoView fails for rows near the top.
+function scrollToHash() {
+    if (!location.hash) return;
+    var el = document.querySelector(location.hash);
+    if (!el) return;
+    // CSS scroll-margin-top on tr[id] handles the sticky header offset.
+    // For HTMX boost navigation, we need to trigger scroll explicitly.
+    var container = el.closest('.overflow-y-auto');
+    if (container) {
+        container.scrollTop = Math.max(0, el.offsetTop - 40);
+    } else {
+        el.scrollIntoView({block: 'center'});
+    }
+}
+
 // Generic client-side table column sorting
 function sortTableCol(th) {
     var col = parseInt(th.dataset.col);

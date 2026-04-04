@@ -24,7 +24,14 @@
             sc.scrollTop = top;
         } else {
             var el = document.getElementById(hash.substring(1));
-            if (el) el.scrollIntoView({block: 'center'});
+            if (el) {
+                var container = el.closest('.overflow-y-auto');
+                if (container) {
+                    container.scrollTop = Math.max(0, el.offsetTop - 40);
+                } else {
+                    el.scrollIntoView({block: 'center'});
+                }
+            }
         }
         var el = document.getElementById(hash.substring(1));
         if (el) {

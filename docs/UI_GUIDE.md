@@ -687,19 +687,21 @@ Vždy `rounded-full`, nikdy `rounded`.
 
 ## 12b. Tooltipy entit (povinný vzor)
 
-Každý badge/odkaz na entitu (jednotka, prostor, vlastník, nájemce) MUSÍ mít `title` tooltip se sjednoceným pořadím:
+Každý badge/odkaz/dropdown na entitu (jednotka, prostor) MUSÍ mít `title` tooltip se sjednoceným pořadím:
 
-**Jméno → Identifikátor → Částka**
+**Jméno · VS · Entita · Částka**
 
 | Entita | Tooltip formát | Příklad |
 |--------|---------------|---------|
-| Jednotka | `Vlastník: jméno · VS: xxx · Předpis: xxx Kč/měs` | `Vlastník: Novák Jan · VS: 12345 · Předpis: 3 041 Kč/měs` |
-| Prostor | `Nájemce: jméno · Prostor: číslo · označení · Nájem: xxx Kč/měs` | `Nájemce: Movie s.r.o. · Prostor: 10 · B1 02.06 · Nájem: 1 685 Kč/měs` |
+| Jednotka | `jméno · VS: xxx · Jednotka: č. xxx · Předpis: xxx Kč/měs` | `Novák Jan · VS: 12345 · Jednotka: č. 171 · Předpis: 3 041 Kč/měs` |
+| Prostor | `jméno · VS: xxx · Prostor: číslo — označení · Nájem: xxx Kč/měs` | `Movie s.r.o. · VS: 0512019 · Prostor: 10 — B1 02.06 · Nájem: 1 685 Kč/měs` |
 
-- Jméno a částka jsou podmíněné (`{% if ... %}`) — zobrazit jen když existují
+- Jméno je podmíněné (`{% if ... %}`) — zobrazit jen když existuje
 - Oddělovač: ` · ` (mezera-tečka-mezera)
 - Částka vždy s filtrem `fmt_num` a suffixem `Kč/měs`
-- Data pro tooltipy (jména vlastníků/nájemců, předpisy, nájemné) se připravují v routeru jako lookup dicty a předávají do šablony
+- Data pro tooltipy se připravují v routeru jako lookup dicty: `unit_owner_names`, `unit_vs`, `unit_monthly`, `space_tenant_names`, `space_vs`, `space_monthly`
+- Tooltip musí být na VŠECH výskytech entity: badge (návrhy/napárované), `<a>` linky, `<select>` dropdown i `<option>` elementy
+- **`<select>` dropdown**: `title` na `<select>` se nastavuje pro pre-selected hodnotu + `onchange="this.title=this.options[this.selectedIndex].title||''"` pro aktualizaci při změně výběru
 
 ## 12c. Suggestion dropdowny (přiřazení s předvýběrem)
 
@@ -720,9 +722,9 @@ Dropdown NIKDY neodesílá formulář při změně (`onchange`). Vždy vyžaduje
 ```
 
 ### Pořadí v dropdown options
-Shodné s tooltip pořadím (§ 12b): **Jméno → Identifikátor → Částka**, oddělovač ` · `:
-- Jednotka: `Novák Jan · 501 · 3 041 Kč`
-- Prostor: `Movie s.r.o. · 10 · 1 685 Kč`
+Shodné s tooltip pořadím (§ 12b): **Jméno · Číslo · VS · Částka**, oddělovač ` · `:
+- Jednotka: `Novák Jan · 501 · VS: 12345 · 3 041 Kč`
+- Prostor: `Movie s.r.o. · 10 — B1 02.06 · VS: 0512019 · 1 685 Kč`
 
 ### Řazení
 Dropdown je řazen **abecedně podle prvního zobrazeného atributu** (jméno vlastníka/nájemce). Entity bez jména na konec.
@@ -743,8 +745,13 @@ Router buduje `suggest_map: dict[payment_id, entity_id]` přes sdílený helper 
 ### Obnova scroll pozice — back URL (hash)
 1. Řádky mají `id` (např. `id="owner-{{ owner.id }}"`)
 2. Back URL obsahuje `#hash`: `?back={{ (list_url ~ '#owner-' ~ owner.id)|urlencode }}`
-3. JS na stránce: `if (location.hash) { document.querySelector(location.hash)?.scrollIntoView({block:'center'}); }`
+3. JS na stránce volá sdílenou funkci: `scrollToHash();` (definovaná v `app.js`)
 4. **Scroll kontejner MUSÍ mít `overflow-y-auto overflow-x-hidden min-h-0`** (viz § 1 Fixní header)
+5. **CSS `scroll-margin-top: 40px`** na `tr[id], div[id]` (`custom.css`) — browser nativně respektuje offset při hash scrollu a řádek se nezakryje sticky `<thead>` hlavičkou
+
+**Proč ne `scrollIntoView({block:'center'})`:** Pro řádky blízko začátku seznamu se prohlížeč nedokáže vycentrovat (není dost obsahu nad nimi), takže degraduje na `block: 'start'` — řádek skončí přímo pod sticky thead a je neviditelný. Funkce `scrollToHash()` v `app.js` řeší offset manuálně (`container.scrollTop = el.offsetTop - 40`) a CSS `scroll-margin-top` zajistí offset i při nativním hash scrollu prohlížeče.
+
+**`app.js` MUSÍ být načten PŘED `{% block content %}`** — inline `<script>` v šablonách volají `scrollToHash()`, která musí být již definovaná. Proto je `<script src="app.js">` v `base.html` umístěn před `<main>` s content blokem.
 
 **Proč `overflow-y-auto` a ne `overflow-auto`:** HTMX boost navigace (klik na odkaz → AJAX swap body) obnoví scroll pozici vnitřního kontejneru POUZE pokud má explicitní `overflow-y-auto`. S `overflow-auto` se scroll pozice ztratí a element skočí na začátek tabulky. `min-h-0` je nutné aby flex-1 child respektoval výšku rodiče a vytvořil interní scrollbar.
 
@@ -785,7 +792,11 @@ Pro stránky s inline formuláři (POST+redirect na stejnou stránku, např. pla
             sc.scrollTop = top;
         } else {
             var el = document.getElementById(hash.substring(1));
-            if (el) el.scrollIntoView({block: 'center'});
+            if (el) {
+                var container = el.closest('.overflow-y-auto');
+                if (container) container.scrollTop = Math.max(0, el.offsetTop - 40);
+                else el.scrollIntoView({block: 'center'});
+            }
         }
         // Highlight řádku (žluté pozadí na 2s)
         var el = document.getElementById(hash.substring(1));

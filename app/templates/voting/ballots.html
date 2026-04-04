@@ -108,10 +108,7 @@
 <div class="shrink-0 mt-2 text-xs text-gray-500">Zobrazeno: {{ ballots|length }} lístků</div>
 </div>
 <script>
-if (location.hash) {
-    var el = document.querySelector(location.hash);
-    if (el) el.scrollIntoView({block: 'center'});
-}
+scrollToHash();
 function toggleBallotCheckboxes(master) {
     document.querySelectorAll('.ballot-cb').forEach(function(cb) {
         cb.checked = master.checked;

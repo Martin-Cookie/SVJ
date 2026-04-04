@@ -292,9 +292,6 @@
 
 <script>
 // Scroll to row when returning via back URL with hash
-if (location.hash) {
-    var el = document.querySelector(location.hash);
-    if (el) el.scrollIntoView({block: 'center'});
-}
+scrollToHash();
 </script>
 {% endblock %}

@@ -28,7 +28,7 @@
         {% if p.match_status.value == 'suggested' and unit_allocs %}
         <span class="inline-flex items-center gap-1 flex-wrap">
             {% for a in unit_allocs %}
-            <span class="px-1.5 py-0.5 text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full" title="{% if unit_owner_names.get(a.unit.id) %}Vlastník: {{ unit_owner_names[a.unit.id] }} · {% endif %}VS: {{ unit_vs.get(a.unit.id, '—') }} · Předpis: {{ unit_monthly.get(a.unit.id, 0)|fmt_num }} Kč/měs">
+            <span class="px-1.5 py-0.5 text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full" title="{% if unit_owner_names.get(a.unit.id) %}{{ unit_owner_names[a.unit.id] }} · {% endif %}VS: {{ unit_vs.get(a.unit.id, '—') }} · Jednotka: č. {{ a.unit.unit_number }} · Předpis: {{ unit_monthly.get(a.unit.id, 0)|fmt_num }} Kč/měs">
                 č. {{ a.unit.unit_number }}
             </span>
             {% endfor %}
@@ -45,7 +45,7 @@
         </span>
         {% elif p.match_status.value == 'suggested' and p.unit %}
         <span class="inline-flex items-center gap-1">
-            <span class="px-2 py-0.5 text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full" title="{% if unit_owner_names.get(p.unit.id) %}Vlastník: {{ unit_owner_names[p.unit.id] }} · {% endif %}VS: {{ unit_vs.get(p.unit.id, '—') }} · Předpis: {{ unit_monthly.get(p.unit.id, 0)|fmt_num }} Kč/měs">
+            <span class="px-2 py-0.5 text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full" title="{% if unit_owner_names.get(p.unit.id) %}{{ unit_owner_names[p.unit.id] }} · {% endif %}VS: {{ unit_vs.get(p.unit.id, '—') }} · Jednotka: č. {{ p.unit.unit_number }} · Předpis: {{ unit_monthly.get(p.unit.id, 0)|fmt_num }} Kč/měs">
                 č. {{ p.unit.unit_number }}
             </span>
             {% if has_suggest_buttons and not p.space %}
@@ -62,13 +62,13 @@
         {% elif unit_allocs|length > 0 %}
         <span class="inline-flex items-center gap-1 flex-wrap">
             {% for a in unit_allocs %}
-            <a href="/jednotky/{{ a.unit.id }}?back={{ (list_url ~ '#p-' ~ p.id)|urlencode }}" class="px-1.5 py-0.5 text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full hover:bg-green-200" title="{% if unit_owner_names.get(a.unit.id) %}Vlastník: {{ unit_owner_names[a.unit.id] }} · {% endif %}VS: {{ unit_vs.get(a.unit.id, '—') }} · Předpis: {{ unit_monthly.get(a.unit.id, 0)|fmt_num }} Kč/měs">
+            <a href="/jednotky/{{ a.unit.id }}?back={{ (list_url ~ '#p-' ~ p.id)|urlencode }}" class="px-1.5 py-0.5 text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full hover:bg-green-200" title="{% if unit_owner_names.get(a.unit.id) %}{{ unit_owner_names[a.unit.id] }} · {% endif %}VS: {{ unit_vs.get(a.unit.id, '—') }} · Jednotka: č. {{ a.unit.unit_number }} · Předpis: {{ unit_monthly.get(a.unit.id, 0)|fmt_num }} Kč/měs">
                 č. {{ a.unit.unit_number }}
             </a>
             {% endfor %}
         </span>
         {% elif p.unit %}
-        <a href="/jednotky/{{ p.unit.id }}?back={{ (list_url ~ '#p-' ~ p.id)|urlencode }}" class="px-2 py-0.5 text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full hover:bg-green-200" title="{% if unit_owner_names.get(p.unit.id) %}Vlastník: {{ unit_owner_names[p.unit.id] }} · {% endif %}VS: {{ unit_vs.get(p.unit.id, '—') }} · Předpis: {{ unit_monthly.get(p.unit.id, 0)|fmt_num }} Kč/měs">
+        <a href="/jednotky/{{ p.unit.id }}?back={{ (list_url ~ '#p-' ~ p.id)|urlencode }}" class="px-2 py-0.5 text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full hover:bg-green-200" title="{% if unit_owner_names.get(p.unit.id) %}{{ unit_owner_names[p.unit.id] }} · {% endif %}VS: {{ unit_vs.get(p.unit.id, '—') }} · Jednotka: č. {{ p.unit.unit_number }} · Předpis: {{ unit_monthly.get(p.unit.id, 0)|fmt_num }} Kč/měs">
             č. {{ p.unit.unit_number }}
         </a>
         {% elif p.match_status.value == 'unmatched' and p.direction.value == 'income' and not locked %}
@@ -83,10 +83,12 @@
             {{ filter_hidden() }}
             <select id="assign-select-{{ p.id }}" name="unit_id" required
                 aria-label="Jednotka pro přiřazení"
-                class="w-64 px-1.5 py-0.5 text-xs border rounded {% if suggested_uid %}border-green-500 bg-green-50 dark:bg-green-900/20 dark:border-green-600 text-gray-900 dark:text-white{% else %}border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white{% endif %}">
+                onchange="this.title=this.options[this.selectedIndex].title||''"
+                class="w-64 px-1.5 py-0.5 text-xs border rounded {% if suggested_uid %}border-green-500 bg-green-50 dark:bg-green-900/20 dark:border-green-600 text-gray-900 dark:text-white{% else %}border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white{% endif %}"
+                {% if suggested_uid %}title="{% for u in all_units_list %}{% if u.id == suggested_uid %}{% if unit_owner_names.get(u.id) %}{{ unit_owner_names[u.id] }} · {% endif %}VS: {{ unit_vs.get(u.id, '—') }} · Jednotka: č. {{ u.unit_number }} · Předpis: {{ unit_monthly.get(u.id, 0)|fmt_num }} Kč/měs{% endif %}{% endfor %}"{% endif %}>
                 <option value="">— jednotka —</option>
                 {% for u in all_units_list %}
-                <option value="{{ u.unit_number }}"{% if suggested_uid and suggested_uid == u.id %} selected{% endif %}>{% if unit_owner_names.get(u.id) %}{{ unit_owner_names[u.id] }} · {% endif %}{{ u.unit_number }}{% if unit_monthly.get(u.id) %} · {{ unit_monthly[u.id]|fmt_num }} Kč{% endif %}</option>
+                <option value="{{ u.unit_number }}"{% if suggested_uid and suggested_uid == u.id %} selected{% endif %} title="{% if unit_owner_names.get(u.id) %}{{ unit_owner_names[u.id] }} · {% endif %}VS: {{ unit_vs.get(u.id, '—') }} · Jednotka: č. {{ u.unit_number }} · Předpis: {{ unit_monthly.get(u.id, 0)|fmt_num }} Kč/měs">{% if unit_owner_names.get(u.id) %}{{ unit_owner_names[u.id] }} · {% endif %}{{ u.unit_number }} · VS: {{ unit_vs.get(u.id, '—') }}{% if unit_monthly.get(u.id) %} · {{ unit_monthly[u.id]|fmt_num }} Kč{% endif %}</option>
                 {% endfor %}
             </select>
             <button type="submit" class="px-1.5 py-0.5 bg-green-600 text-white text-xs rounded hover:bg-green-700" title="Potvrdit">✓</button>
@@ -104,7 +106,7 @@
         {% if p.match_status.value == 'suggested' and space_allocs %}
         <span class="inline-flex items-center gap-1 flex-wrap">
             {% for a in space_allocs %}
-            <span class="px-1.5 py-0.5 text-xs bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 rounded-full" title="{% if space_tenant_names.get(a.space.id) %}Nájemce: {{ space_tenant_names[a.space.id] }} · {% endif %}Prostor: {{ a.space.space_number }} · {{ a.space.designation }}{% if space_monthly.get(a.space.id) %} · Nájem: {{ space_monthly[a.space.id]|fmt_num }} Kč/měs{% endif %}">
+            <span class="px-1.5 py-0.5 text-xs bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 rounded-full" title="{% if space_tenant_names.get(a.space.id) %}{{ space_tenant_names[a.space.id] }} · {% endif %}VS: {{ space_vs.get(a.space.id, '—') }} · Prostor: {{ a.space.space_number }} — {{ a.space.designation }} · Nájem: {{ space_monthly.get(a.space.id, 0)|fmt_num }} Kč/měs">
                 P {{ a.space.space_number }}
             </span>
             {% endfor %}
@@ -121,7 +123,7 @@
         </span>
         {% elif p.match_status.value == 'suggested' and p.space %}
         <span class="inline-flex items-center gap-1">
-            <span class="px-2 py-0.5 text-xs bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 rounded-full" title="{% if space_tenant_names.get(p.space.id) %}Nájemce: {{ space_tenant_names[p.space.id] }} · {% endif %}Prostor: {{ p.space.space_number }} · {{ p.space.designation }}{% if space_monthly.get(p.space.id) %} · Nájem: {{ space_monthly[p.space.id]|fmt_num }} Kč/měs{% endif %}">
+            <span class="px-2 py-0.5 text-xs bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 rounded-full" title="{% if space_tenant_names.get(p.space.id) %}{{ space_tenant_names[p.space.id] }} · {% endif %}VS: {{ space_vs.get(p.space.id, '—') }} · Prostor: {{ p.space.space_number }} — {{ p.space.designation }} · Nájem: {{ space_monthly.get(p.space.id, 0)|fmt_num }} Kč/měs">
                 P {{ p.space.space_number }}
             </span>
             {% if has_suggest_buttons and not p.unit %}
@@ -138,13 +140,13 @@
         {% elif space_allocs|length > 0 %}
         <span class="inline-flex items-center gap-1 flex-wrap">
             {% for a in space_allocs %}
-            <a href="/prostory/{{ a.space.id }}?back={{ (list_url ~ '#p-' ~ p.id)|urlencode }}" class="px-1.5 py-0.5 text-xs bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 rounded-full hover:bg-purple-200" title="{% if space_tenant_names.get(a.space.id) %}Nájemce: {{ space_tenant_names[a.space.id] }} · {% endif %}Prostor: {{ a.space.space_number }} · {{ a.space.designation }}{% if space_monthly.get(a.space.id) %} · Nájem: {{ space_monthly[a.space.id]|fmt_num }} Kč/měs{% endif %}">
+            <a href="/prostory/{{ a.space.id }}?back={{ (list_url ~ '#p-' ~ p.id)|urlencode }}" class="px-1.5 py-0.5 text-xs bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 rounded-full hover:bg-purple-200" title="{% if space_tenant_names.get(a.space.id) %}{{ space_tenant_names[a.space.id] }} · {% endif %}VS: {{ space_vs.get(a.space.id, '—') }} · Prostor: {{ a.space.space_number }} — {{ a.space.designation }} · Nájem: {{ space_monthly.get(a.space.id, 0)|fmt_num }} Kč/měs">
                 P {{ a.space.space_number }}
             </a>
             {% endfor %}
         </span>
         {% elif p.space %}
-        <a href="/prostory/{{ p.space.id }}?back={{ (list_url ~ '#p-' ~ p.id)|urlencode }}" class="px-2 py-0.5 text-xs bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 rounded-full hover:bg-purple-200" title="{% if space_tenant_names.get(p.space.id) %}Nájemce: {{ space_tenant_names[p.space.id] }} · {% endif %}Prostor: {{ p.space.space_number }} · {{ p.space.designation }}{% if space_monthly.get(p.space.id) %} · Nájem: {{ space_monthly[p.space.id]|fmt_num }} Kč/měs{% endif %}">
+        <a href="/prostory/{{ p.space.id }}?back={{ (list_url ~ '#p-' ~ p.id)|urlencode }}" class="px-2 py-0.5 text-xs bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 rounded-full hover:bg-purple-200" title="{% if space_tenant_names.get(p.space.id) %}{{ space_tenant_names[p.space.id] }} · {% endif %}VS: {{ space_vs.get(p.space.id, '—') }} · Prostor: {{ p.space.space_number }} — {{ p.space.designation }} · Nájem: {{ space_monthly.get(p.space.id, 0)|fmt_num }} Kč/měs">
             P {{ p.space.space_number }}
         </a>
         {% elif p.match_status.value == 'unmatched' and p.direction.value == 'income' and not locked and not p.unit_id %}
@@ -159,10 +161,12 @@
             {{ filter_hidden() }}
             <select id="space-select-{{ p.id }}" name="space_id" required
                 aria-label="Prostor pro přiřazení"
-                class="w-64 px-1.5 py-0.5 text-xs border rounded {% if suggested_sid %}border-green-500 bg-green-50 dark:bg-green-900/20 dark:border-green-600 text-gray-900 dark:text-white{% else %}border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white{% endif %}">
+                onchange="this.title=this.options[this.selectedIndex].title||''"
+                class="w-64 px-1.5 py-0.5 text-xs border rounded {% if suggested_sid %}border-green-500 bg-green-50 dark:bg-green-900/20 dark:border-green-600 text-gray-900 dark:text-white{% else %}border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white{% endif %}"
+                {% if suggested_sid %}title="{% for s in all_spaces %}{% if s.id == suggested_sid %}{% if space_tenant_names.get(s.id) %}{{ space_tenant_names[s.id] }} · {% endif %}VS: {{ space_vs.get(s.id, '—') }} · Prostor: {{ s.space_number }} — {{ s.designation }} · Nájem: {{ space_monthly.get(s.id, 0)|fmt_num }} Kč/měs{% endif %}{% endfor %}"{% endif %}>
                 <option value="">— prostor —</option>
                 {% for s in all_spaces %}
-                <option value="{{ s.space_number }}"{% if suggested_sid and suggested_sid == s.id %} selected{% endif %}>{% if space_tenant_names.get(s.id) %}{{ space_tenant_names[s.id] }} · {% endif %}{{ s.space_number }} — {{ s.designation }}{% if space_monthly.get(s.id) %} · {{ space_monthly[s.id]|fmt_num }} Kč{% endif %}</option>
+                <option value="{{ s.space_number }}"{% if suggested_sid and suggested_sid == s.id %} selected{% endif %} title="{% if space_tenant_names.get(s.id) %}{{ space_tenant_names[s.id] }} · {% endif %}VS: {{ space_vs.get(s.id, '—') }} · Prostor: {{ s.space_number }} — {{ s.designation }} · Nájem: {{ space_monthly.get(s.id, 0)|fmt_num }} Kč/měs">{% if space_tenant_names.get(s.id) %}{{ space_tenant_names[s.id] }} · {% endif %}{{ s.space_number }} — {{ s.designation }} · VS: {{ space_vs.get(s.id, '—') }}{% if space_monthly.get(s.id) %} · {{ space_monthly[s.id]|fmt_num }} Kč{% endif %}</option>
                 {% endfor %}
             </select>
             <button type="submit" class="px-1.5 py-0.5 bg-green-600 text-white text-xs rounded hover:bg-green-700" title="Potvrdit">✓</button>

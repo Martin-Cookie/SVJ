@@ -155,9 +155,6 @@
 <div class="shrink-0 mt-2 text-xs text-gray-500 dark:text-gray-400">Zobrazeno: {{ spaces|length }} prostorů</div>
 </div>
 <script>
-if (location.hash) {
-    var el = document.querySelector(location.hash);
-    if (el) el.scrollIntoView({block: 'center'});
-}
+scrollToHash();
 </script>
 {% endblock %}

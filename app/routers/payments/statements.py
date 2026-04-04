@@ -617,10 +617,13 @@ async def vypis_detail(
         .all()
     )
     space_monthly = {}  # space_id → monthly_rent
+    space_vs = {}  # space_id → variable_symbol
     space_name_index = []  # (words_set, space_id)
     for st in active_sts:
         if st.monthly_rent:
             space_monthly[st.space_id] = st.monthly_rent
+        if st.variable_symbol:
+            space_vs[st.space_id] = st.variable_symbol
         if st.tenant:
             name = st.tenant.display_name
             if name:
@@ -656,6 +659,7 @@ async def vypis_detail(
         "all_spaces": all_spaces,
         "space_tenant_names": space_tenant_names,
         "space_monthly": space_monthly,
+        "space_vs": space_vs,
         "space_suggest_map": space_suggest_map,
         "sort": sort,
         "order": order,
