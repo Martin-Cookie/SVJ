@@ -51,18 +51,28 @@
         {% else %}
         <table class="w-full text-xs">
             <thead class="sticky top-0 z-10 bg-gray-50 dark:bg-gray-700">
+                {% set _sort_base = "/platby/vypisy/" ~ statement.id ~ "/nesrovnalosti?" ~ ("back=" ~ (back_url|urlencode) ~ "&" if back_url else "") %}
                 <tr>
-                    <th class="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300 w-6"></th>
-                    <th class="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">Datum</th>
-                    <th class="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">Odesílatel</th>
-                    <th class="px-3 py-2 text-right font-semibold text-gray-600 dark:text-gray-300">Zaplaceno</th>
-                    <th class="px-3 py-2 text-right font-semibold text-gray-600 dark:text-gray-300">Předpis</th>
-                    <th class="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">VS platby</th>
-                    <th class="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">VS předpisu</th>
-                    <th class="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">Přiřazeno</th>
-                    <th class="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">Typ</th>
-                    <th class="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">Příjemce</th>
-                    <th class="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">Email</th>
+                    <th class="px-3 py-2 w-6"></th>
+                    {% for col_key, col_label, col_align in [
+                        ("datum", "Datum", "left"),
+                        ("odesilatel", "Odesílatel", "left"),
+                        ("zaplaceno", "Zaplaceno", "right"),
+                        ("predpis", "Předpis", "right"),
+                        ("vs_platby", "VS platby", "left"),
+                        ("vs_predpisu", "VS předpisu", "left"),
+                        ("prirazeno", "Přiřazeno", "left"),
+                        ("typ", "Typ", "left"),
+                        ("prijemce", "Příjemce", "left"),
+                        ("email", "Email", "left"),
+                    ] %}
+                    {% set new_order = "desc" if sort == col_key and order == "asc" else "asc" %}
+                    <th class="px-3 py-2 text-{{ col_align }} font-semibold text-gray-600 dark:text-gray-300 cursor-pointer select-none hover:text-gray-900 dark:hover:text-white whitespace-nowrap"
+                        onclick="window.location='{{ _sort_base }}sort={{ col_key }}&order={{ new_order }}'">
+                        {{ col_label }}
+                        {% if sort == col_key %}<span class="ml-0.5">{{ "▲" if order == "asc" else "▼" }}</span>{% endif %}
+                    </th>
+                    {% endfor %}
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-200 dark:divide-gray-700">

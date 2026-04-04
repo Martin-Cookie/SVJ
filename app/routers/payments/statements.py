@@ -1065,10 +1065,26 @@ async def vypis_zamknout(
 # ── Nesrovnalosti — preview a odeslání upozornění ────────────────────────
 
 
+SORT_COLUMNS_DISCREPANCY = {
+    "datum": lambda d: d.payment_date,
+    "odesilatel": lambda d: d.sender_name.lower(),
+    "zaplaceno": lambda d: d.payment_amount,
+    "predpis": lambda d: d.expected_amount,
+    "vs_platby": lambda d: d.payment_vs,
+    "vs_predpisu": lambda d: d.entity_vs,
+    "prirazeno": lambda d: d.entity_label.lower(),
+    "typ": lambda d: ",".join(d.types),
+    "prijemce": lambda d: d.recipient_name.lower(),
+    "email": lambda d: d.recipient_email.lower() if d.recipient_email else "zzz",
+}
+
+
 @router.get("/vypisy/{statement_id}/nesrovnalosti")
 async def discrepancy_preview(
     request: Request,
     statement_id: int,
+    sort: str = "datum",
+    order: str = "asc",
     db: Session = Depends(get_db),
 ):
     """Preview nesrovnalostí — seznam příjemců a náhled emailu."""
@@ -1081,6 +1097,10 @@ async def discrepancy_preview(
     from app.utils import render_email_template
 
     discrepancies = detect_discrepancies(db, statement_id)
+
+    # Řazení
+    sort_key = SORT_COLUMNS_DISCREPANCY.get(sort, SORT_COLUMNS_DISCREPANCY["datum"])
+    discrepancies.sort(key=sort_key, reverse=(order == "desc"))
 
     # Historie odeslaných upozornění pro tento výpis
     sent_logs = (
@@ -1137,6 +1157,8 @@ async def discrepancy_preview(
         "discrepancy_labels": DISCREPANCY_LABELS,
         "template": template,
         "sent_logs": sent_logs,
+        "sort": sort,
+        "order": order,
         "back_url": back_url,
         "flash_message": flash_message,
         "flash_type": flash_type,
