@@ -299,3 +299,49 @@ DISCREPANCY_LABELS = {
     "wrong_amount": "Nesprávná výše platby",
     "combined": "Sloučená platba za více jednotek/prostorů",
 }
+
+
+def build_email_context(disc: Discrepancy, svj_name: str, month_name: str, year: int) -> dict:
+    """Sestavit kontext pro rendering emailové šablony z nesrovnalosti."""
+    # Popisy chyb v přirozeném jazyce
+    chyby = []
+    for t in disc.types:
+        if t == "wrong_vs":
+            chyby.append(
+                f"Špatný variabilní symbol — platba má VS {disc.payment_vs or '(prázdný)'}, "
+                f"správný VS je {disc.entity_vs or '(neznámý)'}"
+            )
+        elif t == "wrong_amount":
+            chyby.append(
+                f"Nesprávná výše platby — zaplaceno {_fmt(disc.payment_amount)} Kč, "
+                f"předpis je {_fmt(disc.expected_amount)} Kč"
+            )
+        elif t == "combined":
+            parts = ", ".join(
+                f"{a['entity_label']} ({_fmt(a['expected'])} Kč)"
+                for a in disc.allocations
+            )
+            chyby.append(
+                f"Sloučená platba za více jednotek/prostorů: {parts}"
+            )
+
+    return {
+        "jmeno": disc.recipient_name,
+        "mesic_nazev": month_name,
+        "rok": str(year),
+        "datum_platby": disc.payment_date,
+        "castka_zaplaceno": _fmt(disc.payment_amount),
+        "vs_platby": disc.payment_vs or "(prázdný)",
+        "entita": disc.entity_label,
+        "castka_predpis": _fmt(disc.expected_amount),
+        "vs_predpisu": disc.entity_vs or "(neznámý)",
+        "chyby": chyby,
+        "svj_nazev": svj_name or "SVJ",
+    }
+
+
+def _fmt(val: float) -> str:
+    """Formátovat číslo s mezerovým oddělovačem tisíců."""
+    if not val:
+        return "0"
+    return f"{val:,.0f}".replace(",", " ")

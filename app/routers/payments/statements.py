@@ -1076,13 +1076,47 @@ async def discrepancy_preview(
     if not statement:
         return RedirectResponse("/platby/vypisy", status_code=302)
 
-    from app.services.payment_discrepancy import detect_discrepancies, DISCREPANCY_LABELS
+    from app.services.payment_discrepancy import detect_discrepancies, DISCREPANCY_LABELS, build_email_context
+    from app.models import EmailTemplate, SvjInfo
+    from app.utils import render_email_template
+
     discrepancies = detect_discrepancies(db, statement_id)
 
     # Filtrovat jen ty s emailem
     sendable = [d for d in discrepancies if d.recipient_email]
 
+    # Načíst šablonu a SVJ info pro náhledy
+    template = db.query(EmailTemplate).filter_by(name="Upozornění na nesrovnalost v platbě").first()
+    svj = db.query(SvjInfo).first()
+    svj_name = svj.name if svj else "SVJ"
+    pf = statement.period_from
+    month_name = MONTH_NAMES_LONG.get(pf.month, "") if pf else ""
+    year = pf.year if pf else 0
+
+    # Generovat náhledy pro sendable — dict payment_id → {subject, body}
+    email_previews = {}
+    for d in sendable:
+        ctx_email = build_email_context(d, svj_name, month_name, year)
+        subject = render_email_template(template.subject_template, ctx_email) if template else f"Upozornění na nesrovnalost v platbě za {month_name} {year}"
+        body = render_email_template(template.body_template, ctx_email) if template else ""
+        email_previews[d.payment_id] = {
+            "subject": subject,
+            "body": body,
+        }
+
     back_url = request.query_params.get("back", f"/platby/vypisy/{statement_id}")
+
+    # Flash zprávy
+    flash_message = ""
+    flash_type = ""
+    flash = request.query_params.get("flash", "")
+    if flash == "sent":
+        sent = request.query_params.get("sent", "0")
+        failed = request.query_params.get("failed", "0")
+        flash_message = f"Odesláno {sent} upozornění."
+        if int(failed) > 0:
+            flash_message += f" {failed} selhalo."
+            flash_type = "warning"
 
     ctx = {
         "request": request,
@@ -1091,9 +1125,81 @@ async def discrepancy_preview(
         "statement": statement,
         "discrepancies": discrepancies,
         "sendable": sendable,
+        "email_previews": email_previews,
         "discrepancy_labels": DISCREPANCY_LABELS,
+        "template": template,
         "back_url": back_url,
+        "flash_message": flash_message,
+        "flash_type": flash_type,
         "month_names": MONTH_NAMES_LONG,
         **(compute_nav_stats(db)),
     }
     return templates.TemplateResponse("payments/nesrovnalosti_preview.html", ctx)
+
+
+@router.post("/vypisy/{statement_id}/nesrovnalosti/odeslat")
+async def discrepancy_send(
+    request: Request,
+    statement_id: int,
+    db: Session = Depends(get_db),
+):
+    """Odeslat emailová upozornění příjemcům s nesrovnalostmi."""
+    statement = db.query(BankStatement).get(statement_id)
+    if not statement:
+        return RedirectResponse("/platby/vypisy", status_code=302)
+
+    from app.services.payment_discrepancy import detect_discrepancies, build_email_context
+    from app.services.email_service import send_to_owner_emails
+    from app.models import EmailTemplate, SvjInfo
+    from app.utils import render_email_template
+
+    discrepancies = detect_discrepancies(db, statement_id)
+    sendable = [d for d in discrepancies if d.recipient_email]
+
+    if not sendable:
+        form_data = await request.form()
+        back = form_data.get("back", f"/platby/vypisy/{statement_id}")
+        return RedirectResponse(back, status_code=302)
+
+    template = db.query(EmailTemplate).filter_by(name="Upozornění na nesrovnalost v platbě").first()
+    svj = db.query(SvjInfo).first()
+    svj_name = svj.name if svj else "SVJ"
+    pf = statement.period_from
+    month_name = MONTH_NAMES_LONG.get(pf.month, "") if pf else ""
+    year = pf.year if pf else 0
+
+    sent_count = 0
+    failed_count = 0
+
+    for d in sendable:
+        ctx_email = build_email_context(d, svj_name, month_name, year)
+        subject = render_email_template(template.subject_template, ctx_email) if template else f"Upozornění na nesrovnalost v platbě za {month_name} {year}"
+        body = render_email_template(template.body_template, ctx_email) if template else ""
+
+        # Konvertovat \n na <br> pro HTML email
+        body_html = body.replace("\n", "<br>")
+
+        results = send_to_owner_emails(
+            owner_email=d.recipient_email,
+            owner_name=d.recipient_name,
+            subject=subject,
+            body_html=body_html,
+            module="payment_notice",
+            reference_id=statement_id,
+            db=db,
+        )
+
+        for r in results:
+            if r.get("success"):
+                sent_count += 1
+            else:
+                failed_count += 1
+
+    # Redirect zpět na preview s flash
+    flash_params = f"flash=sent&sent={sent_count}&failed={failed_count}"
+    url = f"/platby/vypisy/{statement_id}/nesrovnalosti?{flash_params}"
+    form_data = await request.form()
+    back = form_data.get("back", "")
+    if back:
+        url += f"&back={back}"
+    return RedirectResponse(url, status_code=302)

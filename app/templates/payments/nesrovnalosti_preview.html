@@ -19,16 +19,24 @@
                     {% endif %}
                 </p>
             </div>
-            {% if sendable|length > 0 %}
-            <form method="post" action="/platby/vypisy/{{ statement.id }}/nesrovnalosti/odeslat" hx-boost="false"
-                  data-confirm="Odeslat upozornění {{ sendable|length }} příjemcům?">
-                <input type="hidden" name="back" value="{{ back_url }}">
-                <button type="submit" class="px-4 py-2 text-xs font-medium rounded-lg bg-orange-600 text-white hover:bg-orange-700 inline-flex items-center gap-1.5">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
-                    Odeslat {{ sendable|length }} upozornění
+            <div class="flex items-center gap-2">
+                {% if email_previews|length > 0 %}
+                <button type="button" onclick="document.querySelectorAll('.email-preview').forEach(function(el){el.classList.toggle('hidden')})"
+                        class="px-3 py-1.5 text-xs font-medium rounded-lg bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200">
+                    Zobrazit/skrýt náhledy
                 </button>
-            </form>
-            {% endif %}
+                {% endif %}
+                {% if sendable|length > 0 %}
+                <form method="post" action="/platby/vypisy/{{ statement.id }}/nesrovnalosti/odeslat" hx-boost="false"
+                      data-confirm="Odeslat upozornění {{ sendable|length }} příjemcům?">
+                    <input type="hidden" name="back" value="{{ back_url }}">
+                    <button type="submit" class="px-4 py-2 text-xs font-medium rounded-lg bg-orange-600 text-white hover:bg-orange-700 inline-flex items-center gap-1.5">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                        Odeslat {{ sendable|length }} upozornění
+                    </button>
+                </form>
+                {% endif %}
+            </div>
         </div>
     </div>
 
@@ -44,6 +52,7 @@
         <table class="w-full text-xs">
             <thead class="sticky top-0 z-10 bg-gray-50 dark:bg-gray-700">
                 <tr>
+                    <th class="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300 w-6"></th>
                     <th class="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">Datum</th>
                     <th class="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">Odesílatel</th>
                     <th class="px-3 py-2 text-right font-semibold text-gray-600 dark:text-gray-300">Zaplaceno</th>
@@ -51,14 +60,21 @@
                     <th class="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">VS platby</th>
                     <th class="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">VS předpisu</th>
                     <th class="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">Přiřazeno</th>
-                    <th class="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">Typ nesrovnalosti</th>
+                    <th class="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">Typ</th>
                     <th class="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">Příjemce</th>
                     <th class="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">Email</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
                 {% for d in discrepancies %}
-                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50{% if not d.recipient_email %} opacity-60{% endif %}">
+                {% set preview = email_previews.get(d.payment_id) %}
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50{% if preview %} cursor-pointer{% endif %}{% if not d.recipient_email %} opacity-60{% endif %}"
+                    {% if preview %}onclick="var el=document.getElementById('preview-{{ d.payment_id }}'); el.classList.toggle('hidden')"{% endif %}>
+                    <td class="px-3 py-2 text-center">
+                        {% if preview %}
+                        <svg class="w-3 h-3 text-gray-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                        {% endif %}
+                    </td>
                     <td class="px-3 py-2 whitespace-nowrap">{{ d.payment_date }}</td>
                     <td class="px-3 py-2 max-w-[150px] truncate" title="{{ d.sender_name }}">{{ d.sender_name }}</td>
                     <td class="px-3 py-2 text-right whitespace-nowrap font-medium">{{ d.payment_amount|round(0)|int|fmt_num }} Kč</td>
@@ -103,6 +119,19 @@
                         {% endif %}
                     </td>
                 </tr>
+                {% if preview %}
+                <tr id="preview-{{ d.payment_id }}" class="email-preview hidden">
+                    <td colspan="11" class="px-3 py-0">
+                        <div class="mx-6 my-2 p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
+                            <p class="text-[10px] text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wider font-semibold">Náhled emailu</p>
+                            <p class="text-xs font-medium text-gray-800 dark:text-gray-200 mb-2">
+                                Předmět: {{ preview.subject }}
+                            </p>
+                            <div class="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-line bg-white dark:bg-gray-800 rounded p-2 border border-gray-200 dark:border-gray-700">{{ preview.body }}</div>
+                        </div>
+                    </td>
+                </tr>
+                {% endif %}
                 {% endfor %}
             </tbody>
         </table>
