@@ -377,21 +377,49 @@ def _seed_code_lists():
 
 
 def _seed_email_templates():
-    """Seed default email template if table is empty."""
+    """Seed default email templates if missing."""
     from sqlalchemy.orm import Session as _Session
     from app.models.administration import EmailTemplate
 
     with _Session(engine) as session:
-        if session.query(EmailTemplate).first() is not None:
-            return
-        session.add(EmailTemplate(
-            name="Rozúčtování příjmů",
-            subject_template="Rozúčtování příjmů za rok {rok}",
-            body_template="Dobrý den,\n\nv příloze zasíláme rozúčtování příjmů za rok {rok}.\n\nS pozdravem,\nSVJ",
-            order=0,
-        ))
+        existing = {t.name for t in session.query(EmailTemplate).all()}
+
+        if "Rozúčtování příjmů" not in existing:
+            session.add(EmailTemplate(
+                name="Rozúčtování příjmů",
+                subject_template="Rozúčtování příjmů za rok {rok}",
+                body_template="Dobrý den,\n\nv příloze zasíláme rozúčtování příjmů za rok {rok}.\n\nS pozdravem,\nSVJ",
+                order=0,
+            ))
+
+        if "Upozornění na nesrovnalost v platbě" not in existing:
+            session.add(EmailTemplate(
+                name="Upozornění na nesrovnalost v platbě",
+                subject_template="Upozornění na nesrovnalost v platbě za {{ mesic_nazev }} {{ rok }}",
+                body_template=(
+                    "Dobrý den, {{ jmeno }},\n\n"
+                    "při zpracování plateb za {{ mesic_nazev }} {{ rok }} jsme zjistili nesrovnalost:\n\n"
+                    "{% for chyba in chyby %}"
+                    "- {{ chyba }}\n"
+                    "{% endfor %}\n"
+                    "Vaše platba:\n"
+                    "- Datum: {{ datum_platby }}\n"
+                    "- Částka: {{ castka_zaplaceno }} Kč\n"
+                    "- Variabilní symbol: {{ vs_platby }}\n\n"
+                    "Očekávaný předpis:\n"
+                    "- {{ entita }}\n"
+                    "- Měsíční předpis: {{ castka_predpis }} Kč\n"
+                    "- Variabilní symbol: {{ vs_predpisu }}\n\n"
+                    "Prosíme o úpravu platby tak, aby odpovídala předpisu. "
+                    "V případě dotazů nás kontaktujte.\n\n"
+                    "S pozdravem,\n"
+                    "{{ svj_nazev }}"
+                ),
+                order=10,
+            ))
+
         session.commit()
-        logger.info("Default email template seeded")
+        logger.info("Email templates seeded")
 
 
 def _migrate_payment_allocations():

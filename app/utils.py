@@ -248,3 +248,19 @@ def build_name_with_titles(title: Optional[str], first_name: str, last_name: Opt
     if first_name:
         parts.append(first_name)
     return " ".join(parts)
+
+
+def render_email_template(template_str: str, context: dict) -> str:
+    """Render email template string with Jinja2 variables.
+
+    Supports {{ variable }} syntax. Unknown variables render as empty string.
+    """
+    from jinja2 import BaseLoader, Environment
+    env = Environment(loader=BaseLoader(), undefined=__import__("jinja2").Undefined)
+    # Register fmt_num filter for number formatting
+    env.filters["fmt_num"] = fmt_num
+    try:
+        tmpl = env.from_string(template_str)
+        return tmpl.render(**context)
+    except Exception:
+        return template_str
