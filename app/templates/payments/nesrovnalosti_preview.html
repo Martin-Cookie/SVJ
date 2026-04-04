@@ -41,7 +41,7 @@
     </div>
 
     <!-- Tabulka nesrovnalostí -->
-    <div class="flex-1 overflow-y-auto overflow-x-hidden min-h-0 bg-white dark:bg-gray-800 rounded-lg shadow">
+    <div class="flex-1 overflow-y-auto overflow-x-auto min-h-0 bg-white dark:bg-gray-800 rounded-lg shadow">
         {% if discrepancies|length == 0 %}
         <div class="text-center py-12 text-gray-500 dark:text-gray-400">
             <svg class="w-12 h-12 mx-auto mb-3 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
@@ -59,12 +59,10 @@
                         ("odesilatel", "Odesílatel", "left"),
                         ("zaplaceno", "Zaplaceno", "right"),
                         ("predpis", "Předpis", "right"),
-                        ("vs_platby", "VS platby", "left"),
-                        ("vs_predpisu", "VS předpisu", "left"),
+                        ("vs_platby", "VS", "left"),
                         ("prirazeno", "Přiřazeno", "left"),
                         ("typ", "Typ", "left"),
-                        ("prijemce", "Příjemce", "left"),
-                        ("email", "Email", "left"),
+                        ("prijemce", "Příjemce / Email", "left"),
                     ] %}
                     {% set new_order = "desc" if sort == col_key and order == "asc" else "asc" %}
                     <th class="px-3 py-2 text-{{ col_align }} font-semibold text-gray-600 dark:text-gray-300 cursor-pointer select-none hover:text-gray-900 dark:hover:text-white whitespace-nowrap"
@@ -97,8 +95,9 @@
                             {{ d.expected_amount|round(0)|int|fmt_num }} Kč
                         {% endif %}
                     </td>
-                    <td class="px-3 py-2 whitespace-nowrap font-mono">{{ d.payment_vs or '—' }}</td>
-                    <td class="px-3 py-2 whitespace-nowrap font-mono">{{ d.entity_vs or '—' }}</td>
+                    <td class="px-3 py-2 whitespace-nowrap font-mono text-[10px]">
+                        {{ d.payment_vs or '—' }}{% if d.entity_vs and d.entity_vs != d.payment_vs %} <span class="text-gray-400">→</span> {{ d.entity_vs }}{% endif %}
+                    </td>
                     <td class="px-3 py-2 max-w-[200px] truncate" title="{{ d.entity_label }}">{{ d.entity_label }}</td>
                     <td class="px-3 py-2">
                         {% for t in d.types %}
@@ -111,27 +110,27 @@
                         </span>
                         {% endfor %}
                     </td>
-                    <td class="px-3 py-2 whitespace-nowrap">
-                        <span class="inline-flex items-center gap-1">
-                            {% if d.recipient_type == 'owner' %}
-                            <span class="w-1.5 h-1.5 rounded-full bg-green-500" title="Vlastník"></span>
-                            {% elif d.recipient_type == 'tenant' %}
-                            <span class="w-1.5 h-1.5 rounded-full bg-purple-500" title="Nájemce"></span>
-                            {% endif %}
-                            {{ d.recipient_name or '—' }}
-                        </span>
-                    </td>
-                    <td class="px-3 py-2 whitespace-nowrap">
+                    <td class="px-3 py-2" onclick="event.stopPropagation()">
+                        {% set _detail_url = "/vlastnici/" ~ d.owner_id if d.owner_id else ("/najemci/" ~ d.tenant_id if d.tenant_id else "") %}
+                        {% if _detail_url %}
+                        <a href="{{ _detail_url }}?back={{ list_url|urlencode }}" class="text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1">
+                            {% if d.recipient_type == 'owner' %}<span class="w-1.5 h-1.5 rounded-full bg-green-500" title="Vlastník"></span>
+                            {% elif d.recipient_type == 'tenant' %}<span class="w-1.5 h-1.5 rounded-full bg-purple-500" title="Nájemce"></span>{% endif %}
+                            {{ d.recipient_name }}
+                        </a>
                         {% if d.recipient_email %}
-                        <span class="text-green-600 dark:text-green-400">{{ d.recipient_email }}</span>
+                        <br><span class="text-[10px] text-green-600 dark:text-green-400">{{ d.recipient_email }}</span>
                         {% else %}
-                        <span class="text-red-500">chybí</span>
+                        <br><a href="{{ _detail_url }}?back={{ list_url|urlencode }}" class="text-[10px] text-red-500 hover:underline">email chybí →</a>
+                        {% endif %}
+                        {% else %}
+                        <span class="text-gray-400">—</span>
                         {% endif %}
                     </td>
                 </tr>
                 {% if preview %}
                 <tr id="preview-{{ d.payment_id }}" class="email-preview hidden">
-                    <td colspan="11" class="px-3 py-0">
+                    <td colspan="9" class="px-3 py-0">
                         <div class="mx-6 my-2 p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
                             <p class="text-[10px] text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wider font-semibold">Náhled emailu</p>
                             <p class="text-xs font-medium text-gray-800 dark:text-gray-200 mb-2">

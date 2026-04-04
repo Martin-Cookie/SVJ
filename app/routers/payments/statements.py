@@ -1159,6 +1159,7 @@ async def discrepancy_preview(
         "sent_logs": sent_logs,
         "sort": sort,
         "order": order,
+        "list_url": build_list_url(request),
         "back_url": back_url,
         "flash_message": flash_message,
         "flash_type": flash_type,
