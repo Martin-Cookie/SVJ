@@ -47,6 +47,45 @@ class Discrepancy:
     allocations: list[dict] = field(default_factory=list)  # [{entity_label, amount, expected}]
 
 
+def _match_owner_by_sender(owners: list[Owner], sender_name: str | None) -> Owner | None:
+    """Vybrat vlastníka, jehož jméno odpovídá odesílateli platby.
+
+    Při SJM (více vlastníků na jednotce) preferovat toho, kdo platbu poslal.
+    Porovnání: příjmení odesílatele se vyskytuje v name_normalized vlastníka.
+    Fallback: první vlastník v seznamu.
+    """
+    if not owners:
+        return None
+    if len(owners) == 1:
+        return owners[0]
+    if not sender_name:
+        return owners[0]
+
+    # Normalizovat jméno odesílatele a rozdělit na slova
+    from app.utils import strip_diacritics
+    sender_words = set(strip_diacritics(sender_name).split())
+
+    for owner in owners:
+        if not owner.name_normalized:
+            continue
+        owner_words = set(owner.name_normalized.split())
+        # Shoda = alespoň 2 slova se shodují (příjmení + jméno)
+        # nebo celé příjmení odesílatele je v owner_words
+        common = sender_words & owner_words
+        if len(common) >= 2:
+            return owner
+
+    # Fallback: hledat alespoň příjmení (první slovo odesílatele)
+    for owner in owners:
+        if not owner.name_normalized:
+            continue
+        owner_words = set(owner.name_normalized.split())
+        if sender_words & owner_words:
+            return owner
+
+    return owners[0]
+
+
 def detect_discrepancies(
     db: Session,
     statement_id: int,
@@ -92,14 +131,14 @@ def detect_discrepancies(
             space_vs_map[st.space_id] = st.variable_symbol
         space_tenant_map[st.space_id] = st
 
-    # Vlastníci jednotek
+    # Vlastníci jednotek — více vlastníků (SJM) na jednu jednotku
     active_ous = db.query(OwnerUnit).filter(
         OwnerUnit.valid_to.is_(None)
     ).options(joinedload(OwnerUnit.owner)).all()
-    unit_owners: dict[int, Owner] = {}  # unit_id → Owner
+    unit_owners_list: dict[int, list[Owner]] = {}  # unit_id → [Owner, ...]
     for ou in active_ous:
         if ou.owner:
-            unit_owners[ou.unit_id] = ou.owner
+            unit_owners_list.setdefault(ou.unit_id, []).append(ou.owner)
 
     # Načíst platby výpisu (jen příjmy, napárované)
     payments = (
@@ -234,7 +273,8 @@ def detect_discrepancies(
         first_space = targets[0].get("space") if targets else None
 
         if first_unit:
-            owner = unit_owners.get(first_unit.id)
+            owners = unit_owners_list.get(first_unit.id, [])
+            owner = _match_owner_by_sender(owners, payment.counter_account_name)
             if owner:
                 recipient_name = owner.display_name
                 recipient_email = owner.email or ""
