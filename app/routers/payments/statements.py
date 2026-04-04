@@ -1077,10 +1077,18 @@ async def discrepancy_preview(
         return RedirectResponse("/platby/vypisy", status_code=302)
 
     from app.services.payment_discrepancy import detect_discrepancies, DISCREPANCY_LABELS, build_email_context
-    from app.models import EmailTemplate, SvjInfo
+    from app.models import EmailTemplate, EmailLog, SvjInfo
     from app.utils import render_email_template
 
     discrepancies = detect_discrepancies(db, statement_id)
+
+    # Historie odeslaných upozornění pro tento výpis
+    sent_logs = (
+        db.query(EmailLog)
+        .filter_by(module="payment_notice", reference_id=statement_id)
+        .order_by(EmailLog.created_at.desc())
+        .all()
+    )
 
     # Filtrovat jen ty s emailem
     sendable = [d for d in discrepancies if d.recipient_email]
@@ -1128,6 +1136,7 @@ async def discrepancy_preview(
         "email_previews": email_previews,
         "discrepancy_labels": DISCREPANCY_LABELS,
         "template": template,
+        "sent_logs": sent_logs,
         "back_url": back_url,
         "flash_message": flash_message,
         "flash_type": flash_type,

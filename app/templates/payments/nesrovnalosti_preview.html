@@ -137,5 +137,53 @@
         </table>
         {% endif %}
     </div>
+
+    <!-- Historie odeslaných upozornění -->
+    {% if sent_logs %}
+    <div class="flex-shrink-0 mt-3">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow">
+            <button type="button" onclick="document.getElementById('sent-history').classList.toggle('hidden')"
+                    class="w-full flex items-center justify-between px-4 py-2 text-left">
+                <span class="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                    Historie odeslaných upozornění
+                    <span class="ml-1 text-xs font-normal text-gray-500">({{ sent_logs|length }})</span>
+                </span>
+                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </button>
+            <div id="sent-history" class="hidden border-t border-gray-200 dark:border-gray-700">
+                <table class="w-full text-xs">
+                    <thead class="bg-gray-50 dark:bg-gray-700">
+                        <tr>
+                            <th class="px-3 py-1.5 text-left font-semibold text-gray-600 dark:text-gray-300">Odesláno</th>
+                            <th class="px-3 py-1.5 text-left font-semibold text-gray-600 dark:text-gray-300">Příjemce</th>
+                            <th class="px-3 py-1.5 text-left font-semibold text-gray-600 dark:text-gray-300">Email</th>
+                            <th class="px-3 py-1.5 text-left font-semibold text-gray-600 dark:text-gray-300">Předmět</th>
+                            <th class="px-3 py-1.5 text-left font-semibold text-gray-600 dark:text-gray-300">Stav</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                        {% for log in sent_logs %}
+                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                            <td class="px-3 py-1.5 whitespace-nowrap">{{ log.created_at.strftime('%d.%m.%Y %H:%M') if log.created_at else '—' }}</td>
+                            <td class="px-3 py-1.5">{{ log.recipient_name or '—' }}</td>
+                            <td class="px-3 py-1.5">{{ log.recipient_email }}</td>
+                            <td class="px-3 py-1.5 max-w-[250px] truncate" title="{{ log.subject }}">{{ log.subject }}</td>
+                            <td class="px-3 py-1.5">
+                                {% if log.status.value == 'sent' %}
+                                <span class="inline-block px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">Odesláno</span>
+                                {% elif log.status.value == 'failed' %}
+                                <span class="inline-block px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300" title="{{ log.error_message or '' }}">Selhalo</span>
+                                {% else %}
+                                <span class="inline-block px-1.5 py-0.5 rounded text-[10px] font-medium bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300">Čeká</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 </div>
 {% endblock %}
