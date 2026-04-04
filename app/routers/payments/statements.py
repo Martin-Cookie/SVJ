@@ -566,6 +566,10 @@ async def vypis_detail(
     elif flash == "unlock_ok":
         flash_message = "Párování odemčeno."
 
+    # Nesrovnalosti pro upozornění
+    from app.services.payment_discrepancy import detect_discrepancies, DISCREPANCY_LABELS
+    discrepancies = detect_discrepancies(db, statement_id)
+
     # Kandidáti pro nenapárované platby
     from app.services.payment_matching import compute_candidates
     from app.models import Prescription, PrescriptionYear
@@ -671,6 +675,8 @@ async def vypis_detail(
         "typ_counts": typ_counts,
         "list_url": list_url,
         "back_url": back_url,
+        "discrepancies": discrepancies,
+        "discrepancy_labels": DISCREPANCY_LABELS,
         "flash_message": flash_message,
         "flash_type": flash_type,
         "month_names": MONTH_NAMES_LONG,
@@ -1054,3 +1060,40 @@ async def vypis_zamknout(
 
     url = _detail_redirect_url(statement_id, form_data, flash)
     return RedirectResponse(url, status_code=302)
+
+
+# ── Nesrovnalosti — preview a odeslání upozornění ────────────────────────
+
+
+@router.get("/vypisy/{statement_id}/nesrovnalosti")
+async def discrepancy_preview(
+    request: Request,
+    statement_id: int,
+    db: Session = Depends(get_db),
+):
+    """Preview nesrovnalostí — seznam příjemců a náhled emailu."""
+    statement = db.query(BankStatement).get(statement_id)
+    if not statement:
+        return RedirectResponse("/platby/vypisy", status_code=302)
+
+    from app.services.payment_discrepancy import detect_discrepancies, DISCREPANCY_LABELS
+    discrepancies = detect_discrepancies(db, statement_id)
+
+    # Filtrovat jen ty s emailem
+    sendable = [d for d in discrepancies if d.recipient_email]
+
+    back_url = request.query_params.get("back", f"/platby/vypisy/{statement_id}")
+
+    ctx = {
+        "request": request,
+        "active_nav": "platby",
+        "active_tab": "vypisy",
+        "statement": statement,
+        "discrepancies": discrepancies,
+        "sendable": sendable,
+        "discrepancy_labels": DISCREPANCY_LABELS,
+        "back_url": back_url,
+        "month_names": MONTH_NAMES_LONG,
+        **(compute_nav_stats(db)),
+    }
+    return templates.TemplateResponse("payments/nesrovnalosti_preview.html", ctx)

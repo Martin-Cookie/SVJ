@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}Nesrovnalosti — {% if statement.period_from %}{{ month_names.get(statement.period_from.month, "") }} {{ statement.period_from.year }}{% else %}{{ statement.filename }}{% endif %}{% endblock %}
+{% block content %}
+<div class="flex flex-col" style="height: calc(100vh - 4rem);">
+    {% include "payments/partials/_platby_nav.html" %}
+
+    <div class="flex-shrink-0">
+        <div class="flex items-center justify-between mb-3">
+            <div>
+                <h1 class="text-lg font-bold text-gray-900 dark:text-white">
+                    Nesrovnalosti v platbách
+                </h1>
+                <p class="text-xs text-gray-500 dark:text-gray-400">
+                    {% if statement.period_from %}{{ month_names.get(statement.period_from.month, "") }} {{ statement.period_from.year }} · {% endif %}
+                    {{ discrepancies|length }} nesrovnalost{{ 'í' if discrepancies|length > 4 else 'i' if discrepancies|length > 1 else '' }}
+                    · {{ sendable|length }} s emailem
+                    {% if discrepancies|length > sendable|length %}
+                    · <span class="text-orange-600">{{ discrepancies|length - sendable|length }} bez emailu</span>
+                    {% endif %}
+                </p>
+            </div>
+            {% if sendable|length > 0 %}
+            <form method="post" action="/platby/vypisy/{{ statement.id }}/nesrovnalosti/odeslat" hx-boost="false"
+                  data-confirm="Odeslat upozornění {{ sendable|length }} příjemcům?">
+                <input type="hidden" name="back" value="{{ back_url }}">
+                <button type="submit" class="px-4 py-2 text-xs font-medium rounded-lg bg-orange-600 text-white hover:bg-orange-700 inline-flex items-center gap-1.5">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                    Odeslat {{ sendable|length }} upozornění
+                </button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Tabulka nesrovnalostí -->
+    <div class="flex-1 overflow-y-auto overflow-x-hidden min-h-0 bg-white dark:bg-gray-800 rounded-lg shadow">
+        {% if discrepancies|length == 0 %}
+        <div class="text-center py-12 text-gray-500 dark:text-gray-400">
+            <svg class="w-12 h-12 mx-auto mb-3 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <p class="text-sm font-medium">Žádné nesrovnalosti</p>
+            <p class="text-xs mt-1">Všechny napárované platby odpovídají předpisům.</p>
+        </div>
+        {% else %}
+        <table class="w-full text-xs">
+            <thead class="sticky top-0 z-10 bg-gray-50 dark:bg-gray-700">
+                <tr>
+                    <th class="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">Datum</th>
+                    <th class="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">Odesílatel</th>
+                    <th class="px-3 py-2 text-right font-semibold text-gray-600 dark:text-gray-300">Zaplaceno</th>
+                    <th class="px-3 py-2 text-right font-semibold text-gray-600 dark:text-gray-300">Předpis</th>
+                    <th class="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">VS platby</th>
+                    <th class="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">VS předpisu</th>
+                    <th class="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">Přiřazeno</th>
+                    <th class="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">Typ nesrovnalosti</th>
+                    <th class="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">Příjemce</th>
+                    <th class="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">Email</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                {% for d in discrepancies %}
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50{% if not d.recipient_email %} opacity-60{% endif %}">
+                    <td class="px-3 py-2 whitespace-nowrap">{{ d.payment_date }}</td>
+                    <td class="px-3 py-2 max-w-[150px] truncate" title="{{ d.sender_name }}">{{ d.sender_name }}</td>
+                    <td class="px-3 py-2 text-right whitespace-nowrap font-medium">{{ d.payment_amount|round(0)|int|fmt_num }} Kč</td>
+                    <td class="px-3 py-2 text-right whitespace-nowrap">
+                        {% if d.allocations %}
+                            {% for a in d.allocations %}
+                                {{ a.expected|round(0)|int|fmt_num }}{% if not loop.last %} + {% endif %}
+                            {% endfor %} Kč
+                        {% else %}
+                            {{ d.expected_amount|round(0)|int|fmt_num }} Kč
+                        {% endif %}
+                    </td>
+                    <td class="px-3 py-2 whitespace-nowrap font-mono">{{ d.payment_vs or '—' }}</td>
+                    <td class="px-3 py-2 whitespace-nowrap font-mono">{{ d.entity_vs or '—' }}</td>
+                    <td class="px-3 py-2 max-w-[200px] truncate" title="{{ d.entity_label }}">{{ d.entity_label }}</td>
+                    <td class="px-3 py-2">
+                        {% for t in d.types %}
+                        <span class="inline-block px-1.5 py-0.5 rounded text-[10px] font-medium
+                            {% if t == 'wrong_vs' %}bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300
+                            {% elif t == 'wrong_amount' %}bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300
+                            {% elif t == 'combined' %}bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300
+                            {% endif %}">
+                            {{ discrepancy_labels.get(t, t) }}
+                        </span>
+                        {% endfor %}
+                    </td>
+                    <td class="px-3 py-2 whitespace-nowrap">
+                        <span class="inline-flex items-center gap-1">
+                            {% if d.recipient_type == 'owner' %}
+                            <span class="w-1.5 h-1.5 rounded-full bg-green-500" title="Vlastník"></span>
+                            {% elif d.recipient_type == 'tenant' %}
+                            <span class="w-1.5 h-1.5 rounded-full bg-purple-500" title="Nájemce"></span>
+                            {% endif %}
+                            {{ d.recipient_name or '—' }}
+                        </span>
+                    </td>
+                    <td class="px-3 py-2 whitespace-nowrap">
+                        {% if d.recipient_email %}
+                        <span class="text-green-600 dark:text-green-400">{{ d.recipient_email }}</span>
+                        {% else %}
+                        <span class="text-red-500">chybí</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

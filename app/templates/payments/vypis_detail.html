@@ -20,6 +20,13 @@
                 </p>
             </div>
             <div class="flex items-center space-x-2">
+                {% if discrepancies|length > 0 %}
+                <a href="/platby/vypisy/{{ statement.id }}/nesrovnalosti?back={{ list_url|urlencode }}"
+                   class="px-3 py-1.5 text-xs font-medium rounded-lg bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300 hover:bg-orange-200 dark:hover:bg-orange-800 inline-flex items-center gap-1.5">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
+                    {{ discrepancies|length }} nesrovnalost{{ 'í' if discrepancies|length > 4 else 'i' if discrepancies|length > 1 else '' }}
+                </a>
+                {% endif %}
                 {% if stav == 'suggested' and bubble_counts.suggested > 0 and not statement.locked_at %}
                 <form method="post" action="/platby/vypisy/{{ statement.id }}/potvrdit-vse" class="flex items-center gap-1.5" hx-boost="false"
                       data-confirm="Potvrdit všech {{ bubble_counts.suggested }} navrhovaných přiřazení?">
