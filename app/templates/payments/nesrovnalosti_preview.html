@@ -53,19 +53,18 @@
             <thead class="sticky top-0 z-10 bg-gray-50 dark:bg-gray-700">
                 {% set _sort_base = "/platby/vypisy/" ~ statement.id ~ "/nesrovnalosti?" ~ ("back=" ~ (back_url|urlencode) ~ "&" if back_url else "") %}
                 <tr>
-                    <th class="px-3 py-2 w-6"></th>
+                    <th class="px-2 py-2 w-6"></th>
                     {% for col_key, col_label, col_align in [
                         ("datum", "Datum", "left"),
                         ("odesilatel", "Odesílatel", "left"),
-                        ("zaplaceno", "Zaplaceno", "right"),
-                        ("predpis", "Předpis", "right"),
+                        ("zaplaceno", "Částka / Předpis", "right"),
                         ("vs_platby", "VS", "left"),
                         ("prirazeno", "Přiřazeno", "left"),
                         ("typ", "Typ", "left"),
                         ("prijemce", "Příjemce / Email", "left"),
                     ] %}
                     {% set new_order = "desc" if sort == col_key and order == "asc" else "asc" %}
-                    <th class="px-3 py-2 text-{{ col_align }} font-semibold text-gray-600 dark:text-gray-300 cursor-pointer select-none hover:text-gray-900 dark:hover:text-white whitespace-nowrap"
+                    <th class="px-2 py-2 text-{{ col_align }} font-semibold text-gray-600 dark:text-gray-300 cursor-pointer select-none hover:text-gray-900 dark:hover:text-white whitespace-nowrap"
                         onclick="window.location='{{ _sort_base }}sort={{ col_key }}&order={{ new_order }}'">
                         {{ col_label }}
                         {% if sort == col_key %}<span class="ml-0.5">{{ "▲" if order == "asc" else "▼" }}</span>{% endif %}
@@ -78,28 +77,23 @@
                 {% set preview = email_previews.get(d.payment_id) %}
                 <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50{% if preview %} cursor-pointer{% endif %}{% if not d.recipient_email %} opacity-60{% endif %}"
                     {% if preview %}onclick="var el=document.getElementById('preview-{{ d.payment_id }}'); el.classList.toggle('hidden')"{% endif %}>
-                    <td class="px-3 py-2 text-center">
+                    <td class="px-2 py-2 text-center">
                         {% if preview %}
                         <svg class="w-3 h-3 text-gray-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
                         {% endif %}
                     </td>
-                    <td class="px-3 py-2 whitespace-nowrap">{{ d.payment_date }}</td>
-                    <td class="px-3 py-2 max-w-[150px] truncate" title="{{ d.sender_name }}">{{ d.sender_name }}</td>
-                    <td class="px-3 py-2 text-right whitespace-nowrap font-medium">{{ d.payment_amount|round(0)|int|fmt_num }} Kč</td>
-                    <td class="px-3 py-2 text-right whitespace-nowrap">
-                        {% if d.allocations %}
-                            {% for a in d.allocations %}
-                                {{ a.expected|round(0)|int|fmt_num }}{% if not loop.last %} + {% endif %}
-                            {% endfor %} Kč
-                        {% else %}
-                            {{ d.expected_amount|round(0)|int|fmt_num }} Kč
-                        {% endif %}
+                    <td class="px-2 py-2 whitespace-nowrap">{{ d.payment_date }}</td>
+                    <td class="px-2 py-2 max-w-[150px] truncate" title="{{ d.sender_name }}">{{ d.sender_name }}</td>
+                    <td class="px-2 py-2 text-right whitespace-nowrap">
+                        <span class="font-medium">{{ d.payment_amount|round(0)|int|fmt_num }}</span>
+                        <span class="text-gray-400 mx-0.5">/</span>
+                        {% if d.allocations %}{% for a in d.allocations %}{{ a.expected|round(0)|int|fmt_num }}{% if not loop.last %}+{% endif %}{% endfor %}{% else %}{{ d.expected_amount|round(0)|int|fmt_num }}{% endif %} Kč
                     </td>
-                    <td class="px-3 py-2 whitespace-nowrap font-mono text-[10px]">
+                    <td class="px-2 py-2 whitespace-nowrap text-[10px]">
                         {{ d.payment_vs or '—' }}{% if d.entity_vs and d.entity_vs != d.payment_vs %} <span class="text-gray-400">→</span> {{ d.entity_vs }}{% endif %}
                     </td>
-                    <td class="px-3 py-2 max-w-[200px] truncate" title="{{ d.entity_label }}">{{ d.entity_label }}</td>
-                    <td class="px-3 py-2">
+                    <td class="px-2 py-2 max-w-[200px] truncate" title="{{ d.entity_label }}">{{ d.entity_label }}</td>
+                    <td class="px-2 py-2">
                         {% for t in d.types %}
                         <span class="inline-block px-1.5 py-0.5 rounded text-[10px] font-medium
                             {% if t == 'wrong_vs' %}bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300
@@ -110,7 +104,7 @@
                         </span>
                         {% endfor %}
                     </td>
-                    <td class="px-3 py-2" onclick="event.stopPropagation()">
+                    <td class="px-2 py-2" onclick="event.stopPropagation()">
                         {% set _detail_url = "/vlastnici/" ~ d.owner_id if d.owner_id else ("/najemci/" ~ d.tenant_id if d.tenant_id else "") %}
                         {% if _detail_url %}
                         <a href="{{ _detail_url }}?back={{ list_url|urlencode }}" class="text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1">
@@ -130,7 +124,7 @@
                 </tr>
                 {% if preview %}
                 <tr id="preview-{{ d.payment_id }}" class="email-preview hidden">
-                    <td colspan="9" class="px-3 py-0">
+                    <td colspan="8" class="px-3 py-0">
                         <div class="mx-6 my-2 p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
                             <p class="text-[10px] text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wider font-semibold">Náhled emailu</p>
                             <p class="text-xs font-medium text-gray-800 dark:text-gray-200 mb-2">
