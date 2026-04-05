@@ -252,6 +252,16 @@
   - Plná varianta: `partials/wizard_stepper.html` — samostatný stepper nad obsahem
   - Kompaktní varianta: `partials/wizard_stepper_compact.html` — inline v kartě na seznamu
   - Stavy kroků: `done` (zelená), `active` (zelená), `current+done` (tmavší zelená s ring efektem), `pending` (šedá), `sending` (oranžová pulzace)
+- **Sdílený progress bar pro dávkové odesílání** — `partials/_send_progress.html` + `partials/_send_progress_inner.html`:
+  - Používá se v: nesrovnalosti (platby) i hromadné rozesílání (daně)
+  - Vnější partial (`_send_progress.html`): polling div + tlačítka (Pozastavit/Pokračovat/Zrušit) **mimo polled oblast** + JS synchronizace stavu
+  - Vnitřní partial (`_send_progress_inner.html`): progress bar, statistiky, stav — swapuje se HTMX pollingem (500ms)
+  - **Tlačítka MUSÍ být mimo HTMX-polled oblast** — jinak `data-confirm` modal přestane fungovat (HTMX swap odstraní formulář z DOM během potvrzování)
+  - Stav se synchronizuje přes hidden inputy (`#progress-done`, `#progress-paused`, `#progress-waiting`) + `htmx:afterSwap` event
+  - Po dokončení (`done=True`) polling čeká 3 sekundy před redirectem (uživatel vidí výsledek)
+  - Router helper `_*_eta(progress)` MUSÍ předávat `done` flag do šablony
+  - Router `finished_at = time.monotonic()` se ukládá v `finally` bloku i v cancel endpointu
+  - Volání: `{% with poll_url=..., pause_url=..., resume_url=..., cancel_url=..., cancel_label=..., cancel_confirm=... %}{% include "partials/_send_progress.html" %}{% endwith %}`
 - Registrace v `app/main.py` (`include_router`)
 - Export modelů v `app/models/__init__.py`
 - Odkaz v sidebar (`base.html`) s `active_nav` kontrolou

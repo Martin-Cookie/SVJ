@@ -11,12 +11,17 @@
     </div>
 
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 max-w-xl">
-        <div id="send-progress-area"
-             hx-get="/platby/vypisy/{{ statement.id }}/nesrovnalosti/prubeh-stav"
-             hx-trigger="every 500ms"
-             hx-swap="innerHTML">
-            {% include "payments/partials/_discrepancy_progress.html" %}
-        </div>
+        {% with
+            poll_url="/platby/vypisy/" ~ statement.id ~ "/nesrovnalosti/prubeh-stav",
+            pause_url="/platby/vypisy/" ~ statement.id ~ "/nesrovnalosti/pozastavit",
+            resume_url="/platby/vypisy/" ~ statement.id ~ "/nesrovnalosti/pokracovat",
+            cancel_url="/platby/vypisy/" ~ statement.id ~ "/nesrovnalosti/zrusit",
+            cancel_label="Zrušit",
+            cancel_confirm="Zrušit odesílání? Již odeslané emaily zůstanou, zbývající se neodešlou.",
+            progress_label="Odesílání upozornění"
+        %}
+        {% include "partials/_send_progress.html" %}
+        {% endwith %}
     </div>
 </div>
 {% endblock %}

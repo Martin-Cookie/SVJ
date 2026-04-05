@@ -181,6 +181,7 @@ class BankStatement(Base):
     matched_count = Column(Integer, default=0)
     import_status = Column(Enum(ImportStatus), default=ImportStatus.IMPORTED, index=True)
     locked_at = Column(DateTime, nullable=True)
+    discrepancy_test_passed = Column(Boolean, default=False)  # test email pro nesrovnalosti odeslán
     created_at = Column(DateTime, default=utcnow)
 
     payments = relationship("Payment", back_populates="statement", cascade="all, delete-orphan")
@@ -211,6 +212,7 @@ class Payment(Base):
     space_id = Column(Integer, ForeignKey("spaces.id"), nullable=True, index=True)
     owner_id = Column(Integer, ForeignKey("owners.id"), nullable=True, index=True)
     assigned_month = Column(Integer, nullable=True)  # 1-12
+    notified_at = Column(DateTime, nullable=True)  # kdy bylo odesláno upozornění na nesrovnalost
     created_at = Column(DateTime, default=utcnow)
     updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 

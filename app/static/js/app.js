@@ -536,6 +536,8 @@ document.addEventListener('change', function(e) {
 
 function toggleAllRecipients(master) {
     document.querySelectorAll('.rcpt-cb:not(:disabled)').forEach(function(cb) {
+        // Při "vybrat vše" přeskočit již odeslaná (data-notified), při "zrušit vše" odškrtnout všechna
+        if (master.checked && cb.dataset.notified) return;
         cb.checked = master.checked;
     });
     _saveCheckedKeys();

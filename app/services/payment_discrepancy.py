@@ -43,6 +43,8 @@ class Discrepancy:
     recipient_type: str = ""  # "owner" nebo "tenant"
     owner_id: int | None = None
     tenant_id: int | None = None
+    # Stav odeslání
+    notified_at: Optional[str] = None  # DD.MM.YYYY HH:MM nebo None
     # Detaily pro sloučenou platbu
     allocations: list[dict] = field(default_factory=list)  # [{entity_label, amount, expected}]
 
@@ -326,6 +328,7 @@ def detect_discrepancies(
             recipient_type=recipient_type,
             owner_id=owner_id,
             tenant_id=tenant_id,
+            notified_at=payment.notified_at.strftime("%d.%m.%Y %H:%M") if payment.notified_at else None,
             allocations=alloc_details if is_combined else [],
         )
         discrepancies.append(disc)

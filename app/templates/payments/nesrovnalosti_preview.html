@@ -11,12 +11,7 @@
                     Nesrovnalosti v platbách
                 </h1>
                 <p class="text-xs text-gray-500 dark:text-gray-400">
-                    {% if statement.period_from %}{{ month_names.get(statement.period_from.month, "") }} {{ statement.period_from.year }} · {% endif %}
-                    {{ discrepancies|length }} nesrovnalost{{ 'í' if discrepancies|length > 4 else 'i' if discrepancies|length > 1 else '' }}
-                    · {{ sendable|length }} s emailem
-                    {% if discrepancies|length > sendable|length %}
-                    · <span class="text-orange-600">{{ discrepancies|length - sendable|length }} bez emailu</span>
-                    {% endif %}
+                    {% if statement.period_from %}{{ month_names.get(statement.period_from.month, "") }} {{ statement.period_from.year }}{% endif %}
                     · <span id="selected-count-bubble" class="text-blue-600 font-medium">0</span> vybraných
                 </p>
             </div>
@@ -28,8 +23,14 @@
                 </button>
                 {% endif %}
                 {% if sendable|length > 0 %}
+                {% if not statement.discrepancy_test_passed %}
+                <span class="text-xs text-orange-500" title="Pro aktivaci tlačítka Odeslat odešlete testovací email">Test neproveden</span>
+                {% else %}
+                <span class="text-xs text-green-600" title="Testovací email odeslán na {{ svj.send_test_email_address if svj else '' }}">Test OK → {{ svj.send_test_email_address if svj else '' }}</span>
+                {% endif %}
                 <button type="button" onclick="showDiscrepancySendModal()"
-                        class="px-4 py-2 text-xs font-medium rounded-lg bg-orange-600 text-white hover:bg-orange-700 inline-flex items-center gap-1.5">
+                        {% if not statement.discrepancy_test_passed %}disabled title="Nejdříve odešlete testovací email"{% endif %}
+                        class="px-4 py-2 text-xs font-medium rounded-lg bg-orange-600 text-white hover:bg-orange-700 inline-flex items-center gap-1.5{% if not statement.discrepancy_test_passed %} opacity-50 cursor-not-allowed{% endif %}">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
                     Odeslat <span id="send-count">0</span> vybraných
                 </button>
@@ -37,20 +38,83 @@
             </div>
         </div>
 
-        {# Testovací email #}
+        {# Konfigurace odesílání (collapsed) #}
         {% if sendable|length > 0 %}
-        <div class="flex items-center gap-2 mb-3">
-            <form id="test-email-form" method="post" action="/platby/vypisy/{{ statement.id }}/nesrovnalosti/test" hx-boost="false" class="flex items-center gap-2">
-                <input type="hidden" name="back" value="{{ back_url }}">
-                <label class="text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">Testovací email:</label>
-                <input type="email" id="test-email-input" name="test_email" placeholder="vas@email.cz"
-                       class="px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white w-52 focus:ring-blue-500 focus:border-blue-500">
-                <button type="submit" class="px-3 py-1 text-xs font-medium rounded-lg bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/60">
-                    Odeslat test
-                </button>
-            </form>
-        </div>
+        <details class="bg-white dark:bg-gray-800 rounded-lg shadow mb-3"{% if request.query_params.get('flash') in ('settings_ok', 'test_ok', 'test_fail') %} open{% endif %}>
+            <summary class="px-4 py-2 cursor-pointer text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white select-none">
+                ► Konfigurace odesílání
+            </summary>
+            <div class="px-4 pb-3 border-t border-gray-100 dark:border-gray-700">
+                <form method="post" action="/platby/vypisy/{{ statement.id }}/nesrovnalosti/nastaveni" hx-boost="false">
+                    <input type="hidden" name="back" value="{{ back_url }}">
+                    <div class="flex flex-wrap gap-3 items-end mt-2">
+                        <div class="w-24">
+                            <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5" title="Kolik příjemců se odešle najednou před pauzou">Dávka (příj.)</label>
+                            <input type="number" name="send_batch_size" value="{{ svj.send_batch_size if svj and svj.send_batch_size else 10 }}" min="1" max="100"
+                                   class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1.5 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                        <div class="w-24">
+                            <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5" title="Počet sekund čekání mezi dávkami">Int. (s)</label>
+                            <input type="number" name="send_batch_interval" value="{{ svj.send_batch_interval if svj and svj.send_batch_interval else 5 }}" min="1" max="60"
+                                   class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1.5 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                        <label class="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap pb-0.5" title="Po odeslání každé dávky se proces pozastaví a počká na vaše potvrzení">
+                            <input type="checkbox" name="send_confirm_each_batch" value="true"
+                                   {% if svj and svj.send_confirm_each_batch %}checked{% endif %}
+                                   class="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500">
+                            Potvrdit dávku
+                        </label>
+                        <button type="submit" class="px-3 py-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 border border-blue-300 dark:border-blue-600 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors whitespace-nowrap">
+                            Uložit
+                        </button>
+                        <div class="border-l border-gray-200 dark:border-gray-600 pl-3 flex items-end gap-2">
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Testovací email</label>
+                                <input type="email" id="test-email-input" name="test_email_display" placeholder="vas@email.cz"
+                                       value="{{ svj.send_test_email_address if svj and svj.send_test_email_address else '' }}"
+                                       oninput="var b=document.getElementById('test-send-btn');b.disabled=!this.validity.valid||!this.value;b.classList.toggle('opacity-50',b.disabled)"
+                                       class="w-52 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1.5 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            </div>
+                            <button type="button" id="test-send-btn" onclick="sendDiscrepancyTest()"
+                                    {% if not (svj and svj.send_test_email_address) %}disabled{% endif %}
+                                    class="px-3 py-1.5 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 text-sm font-medium whitespace-nowrap transition-colors{% if not (svj and svj.send_test_email_address) %} opacity-50{% endif %}">
+                                Odeslat test
+                            </button>
+                        </div>
+                    </div>
+                </form>
+                <form id="test-email-form" method="post" action="/platby/vypisy/{{ statement.id }}/nesrovnalosti/test" hx-boost="false" class="hidden">
+                    <input type="hidden" name="test_email" id="test-email-hidden">
+                    <input type="hidden" name="back" value="{{ back_url }}">
+                </form>
+            </div>
+        </details>
         {% endif %}
+
+        {# Filtrovací bubliny #}
+        {% set _base = "/platby/vypisy/" ~ statement.id ~ "/nesrovnalosti?sort=" ~ sort ~ "&order=" ~ order ~ ("&back=" ~ (back_url|urlencode) if back_url else "") %}
+        <div class="flex flex-wrap gap-2 mb-2">
+            <a href="{{ _base }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
+                {% if not filtr %}bg-gray-700 text-white ring-2 ring-gray-500{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
+                Vše <span class="ml-1 opacity-75">{{ bubble_counts.vse }}</span>
+            </a>
+            <a href="{{ _base }}&filtr=s_emailem" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
+                {% if filtr == 's_emailem' %}bg-blue-600 text-white ring-2 ring-blue-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
+                S emailem <span class="ml-1 opacity-75">{{ bubble_counts.s_emailem }}</span>
+            </a>
+            <a href="{{ _base }}&filtr=bez_emailu" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
+                {% if filtr == 'bez_emailu' %}bg-orange-600 text-white ring-2 ring-orange-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
+                Bez emailu <span class="ml-1 opacity-75">{{ bubble_counts.bez_emailu }}</span>
+            </a>
+            <a href="{{ _base }}&filtr=odeslano" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
+                {% if filtr == 'odeslano' %}bg-green-600 text-white ring-2 ring-green-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
+                Odesláno <span class="ml-1 opacity-75">{{ bubble_counts.odeslano }}</span>
+            </a>
+            <a href="{{ _base }}&filtr=neodeslano" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
+                {% if filtr == 'neodeslano' %}bg-red-600 text-white ring-2 ring-red-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
+                Neodesláno <span class="ml-1 opacity-75">{{ bubble_counts.neodeslano }}</span>
+            </a>
+        </div>
     </div>
 
     <!-- Tabulka nesrovnalostí -->
@@ -66,7 +130,7 @@
         <input type="hidden" name="back" value="{{ back_url }}">
         <table class="w-full text-xs">
             <thead class="sticky top-0 z-10 bg-gray-50 dark:bg-gray-700">
-                {% set _sort_base = "/platby/vypisy/" ~ statement.id ~ "/nesrovnalosti?" ~ ("back=" ~ (back_url|urlencode) ~ "&" if back_url else "") %}
+                {% set _sort_base = "/platby/vypisy/" ~ statement.id ~ "/nesrovnalosti?" ~ ("back=" ~ (back_url|urlencode) ~ "&" if back_url else "") ~ ("filtr=" ~ filtr ~ "&" if filtr else "") %}
                 <tr>
                     <th class="px-2 py-2 w-6">
                         <input type="checkbox" id="select-all-cb" onchange="toggleAllRecipients(this)"
@@ -74,20 +138,20 @@
                                title="Vybrat vše / Zrušit výběr">
                     </th>
                     <th class="px-2 py-2 w-6"></th>
-                    {% for col_key, col_label, col_align in [
-                        ("datum", "Datum", "left"),
-                        ("odesilatel", "Odesílatel", "left"),
-                        ("zaplaceno", "Částka / Předpis", "right"),
-                        ("vs_platby", "VS", "left"),
-                        ("prirazeno", "Přiřazeno", "left"),
-                        ("typ", "Typ", "left"),
-                        ("prijemce", "Příjemce / Email", "left"),
+                    {% for col_key, col_label, col_sub, col_align in [
+                        ("datum", "Datum", "", "left"),
+                        ("odesilatel", "Odesílatel", "", "left"),
+                        ("zaplaceno", "Částka", "Výpis→Předpis", "right"),
+                        ("vs_platby", "VS", "Výpis→Předpis", "right"),
+                        ("prirazeno", "Přiřazeno", "", "left"),
+                        ("typ", "Typ", "", "left"),
+                        ("prijemce", "Příjemce / Email", "", "left"),
                     ] %}
                     {% set new_order = "desc" if sort == col_key and order == "asc" else "asc" %}
-                    <th class="px-2 py-2 text-{{ col_align }} font-semibold text-gray-600 dark:text-gray-300 cursor-pointer select-none hover:text-gray-900 dark:hover:text-white whitespace-nowrap"
+                    <th class="px-2 py-2 text-{{ col_align }} align-top font-semibold text-gray-600 dark:text-gray-300 cursor-pointer select-none hover:text-gray-900 dark:hover:text-white whitespace-nowrap"
                         onclick="window.location='{{ _sort_base }}sort={{ col_key }}&order={{ new_order }}'">
-                        {{ col_label }}
-                        {% if sort == col_key %}<span class="ml-0.5">{{ "▲" if order == "asc" else "▼" }}</span>{% endif %}
+                        {{ col_label }}{% if sort == col_key %}<span class="ml-0.5">{{ "▲" if order == "asc" else "▼" }}</span>{% endif %}
+                        {% if col_sub %}<br><span class="font-normal text-gray-400 text-[10px]">{{ col_sub }}</span>{% endif %}
                     </th>
                     {% endfor %}
                 </tr>
@@ -100,7 +164,8 @@
                     <td class="px-2 py-2 text-center" onclick="event.stopPropagation()">
                         {% if d.recipient_email %}
                         <input type="checkbox" name="selected_ids" value="{{ d.payment_id }}"
-                               class="rcpt-cb rounded border-gray-300 dark:border-gray-500 text-orange-600 focus:ring-orange-500">
+                               class="rcpt-cb rounded border-gray-300 dark:border-gray-500 text-orange-600 focus:ring-orange-500"
+                               {% if d.notified_at %}data-notified="true" title="Odesláno {{ d.notified_at }}"{% endif %}>
                         {% endif %}
                     </td>
                     <td class="px-2 py-2 text-center">
@@ -111,11 +176,13 @@
                     <td class="px-2 py-2 whitespace-nowrap">{{ d.payment_date }}</td>
                     <td class="px-2 py-2 max-w-[150px] truncate" title="{{ d.sender_name }}">{{ d.sender_name }}</td>
                     <td class="px-2 py-2 text-right whitespace-nowrap">
-                        <span class="font-medium">{{ d.payment_amount|round(0)|int|fmt_num }}</span>
-                        <span class="text-gray-400 mx-0.5">/</span>
-                        {% if d.allocations %}{% for a in d.allocations %}{{ a.expected|round(0)|int|fmt_num }}{% if not loop.last %}+{% endif %}{% endfor %}{% else %}{{ d.expected_amount|round(0)|int|fmt_num }}{% endif %} Kč
+                        {{ d.payment_amount|round(0)|int|fmt_num }} Kč
+                        {% set exp = d.expected_amount|round(0)|int %}
+                        {% if exp and exp != (d.payment_amount|round(0)|int) %}
+                        <br><span class="text-gray-400">→</span> {% if d.allocations %}{% for a in d.allocations %}{{ a.expected|round(0)|int|fmt_num }}{% if not loop.last %}+{% endif %}{% endfor %}{% else %}{{ exp|fmt_num }}{% endif %} Kč
+                        {% endif %}
                     </td>
-                    <td class="px-2 py-2 whitespace-nowrap">
+                    <td class="px-2 py-2 whitespace-nowrap text-right">
                         {{ d.payment_vs or '—' }}{% if d.entity_vs and d.entity_vs != d.payment_vs %}<br><span class="text-gray-400">→</span> {{ d.entity_vs }}{% endif %}
                     </td>
                     <td class="px-2 py-2 max-w-[200px] truncate" title="{{ d.entity_label }}">{{ d.entity_label }}</td>
@@ -142,6 +209,9 @@
                         </a>
                         {% if d.recipient_email %}
                         <br><span class="text-[10px] text-green-600 dark:text-green-400">{{ d.recipient_email }}</span>
+                        {% if d.notified_at %}
+                        <br><span class="inline-block px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300" title="Odesláno {{ d.notified_at }}">✉ {{ d.notified_at }}</span>
+                        {% endif %}
                         {% else %}
                         <br><a href="{{ _detail_url }}?back={{ list_url|urlencode }}" class="text-[10px] text-red-500 hover:underline">email chybí →</a>
                         {% endif %}
@@ -186,11 +256,11 @@
                 <table class="w-full text-xs">
                     <thead class="bg-gray-50 dark:bg-gray-700">
                         <tr>
-                            <th class="px-3 py-1.5 text-left font-semibold text-gray-600 dark:text-gray-300">Odesláno</th>
-                            <th class="px-3 py-1.5 text-left font-semibold text-gray-600 dark:text-gray-300">Příjemce</th>
-                            <th class="px-3 py-1.5 text-left font-semibold text-gray-600 dark:text-gray-300">Email</th>
-                            <th class="px-3 py-1.5 text-left font-semibold text-gray-600 dark:text-gray-300">Předmět</th>
-                            <th class="px-3 py-1.5 text-left font-semibold text-gray-600 dark:text-gray-300">Stav</th>
+                            <th class="px-3 py-1.5 text-left font-semibold text-gray-600 dark:text-gray-300 cursor-pointer select-none" data-col="0" onclick="sortTableCol(this)">Odesláno<span class="sort-arrow"></span></th>
+                            <th class="px-3 py-1.5 text-left font-semibold text-gray-600 dark:text-gray-300 cursor-pointer select-none" data-col="1" onclick="sortTableCol(this)">Příjemce<span class="sort-arrow"></span></th>
+                            <th class="px-3 py-1.5 text-left font-semibold text-gray-600 dark:text-gray-300 cursor-pointer select-none" data-col="2" onclick="sortTableCol(this)">Email<span class="sort-arrow"></span></th>
+                            <th class="px-3 py-1.5 text-left font-semibold text-gray-600 dark:text-gray-300 cursor-pointer select-none" data-col="3" onclick="sortTableCol(this)">Předmět<span class="sort-arrow"></span></th>
+                            <th class="px-3 py-1.5 text-left font-semibold text-gray-600 dark:text-gray-300 cursor-pointer select-none" data-col="4" onclick="sortTableCol(this)">Stav<span class="sort-arrow"></span></th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
@@ -199,7 +269,14 @@
                             <td class="px-3 py-1.5 whitespace-nowrap">{{ log.created_at.strftime('%d.%m.%Y %H:%M') if log.created_at else '—' }}</td>
                             <td class="px-3 py-1.5">{{ log.recipient_name or '—' }}</td>
                             <td class="px-3 py-1.5">{{ log.recipient_email }}</td>
-                            <td class="px-3 py-1.5 max-w-[250px] truncate" title="{{ log.subject }}">{{ log.subject }}</td>
+                            <td class="px-3 py-1.5 max-w-[250px]" title="{{ log.subject }}">
+                                {% if log.body_preview %}
+                                <button type="button" onclick="this.nextElementSibling.classList.toggle('hidden')" class="text-blue-600 hover:text-blue-800 hover:underline text-left cursor-pointer truncate block max-w-[250px]">{{ log.subject }}</button>
+                                <div class="hidden mt-2 p-2 bg-gray-50 dark:bg-gray-700 rounded text-xs text-gray-700 dark:text-gray-300 max-h-64 overflow-y-auto">{{ log.body_preview|safe }}</div>
+                                {% else %}
+                                <span class="truncate block max-w-[250px]">{{ log.subject }}</span>
+                                {% endif %}
+                            </td>
                             <td class="px-3 py-1.5">
                                 {% if log.status.value == 'sent' %}
                                 <span class="inline-block px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">Odesláno</span>
@@ -242,6 +319,18 @@
 {% endif %}
 
 <script>
+// Po úspěšném odeslání vyčistit sessionStorage checkboxů
+{% if flash_message and 'Odesláno' in (flash_message or '') %}
+try { sessionStorage.removeItem('svj_send_checked'); sessionStorage.removeItem('svj_send_snapshot'); } catch(e) {}
+{% endif %}
+
+function sendDiscrepancyTest() {
+    var email = document.getElementById('test-email-input').value.trim();
+    if (!email) return;
+    document.getElementById('test-email-hidden').value = email;
+    document.getElementById('test-email-form').submit();
+}
+
 function showDiscrepancySendModal() {
     var cbs = document.querySelectorAll('.rcpt-cb:checked');
     var count = cbs.length;

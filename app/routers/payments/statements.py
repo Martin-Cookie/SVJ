@@ -1132,6 +1132,7 @@ def _discrepancy_base_ctx(request, db, statement, discrepancies, back_url, sort,
         "email_previews": email_previews,
         "discrepancy_labels": DISCREPANCY_LABELS,
         "template": template,
+        "svj": svj,
         "sent_logs": sent_logs,
         "sort": sort,
         "order": order,
@@ -1155,6 +1156,7 @@ def _discrepancy_eta(progress: dict) -> dict:
         "waiting_batch_confirm": progress.get("waiting_batch_confirm", False),
         "batch_number": progress.get("batch_number", 0),
         "total_batches": progress.get("total_batches", 0),
+        "done": progress.get("done", False),
         "elapsed": eta["elapsed"],
         "eta": eta["eta"],
     }
@@ -1165,6 +1167,7 @@ def _send_discrepancy_emails_batch(
     recipient_data: list[dict],
     batch_size: int = 10,
     batch_interval: int = 5,
+    confirm_each_batch: bool = False,
 ):
     """Background thread: odeslat upozornění na nesrovnalosti v dávkách."""
     from app.services.email_service import create_smtp_connection, send_email
@@ -1190,6 +1193,13 @@ def _send_discrepancy_emails_batch(
 
         with _discrepancy_lock:
             _discrepancy_progress[statement_id]["total_batches"] = len(batches)
+
+        # Počáteční prodleva 5s — uživatel vidí progress a může pozastavit/zrušit
+        for _ in range(10):
+            with _discrepancy_lock:
+                if _discrepancy_progress[statement_id].get("done"):
+                    return
+            time.sleep(0.5)
 
         for batch_idx, batch in enumerate(batches):
             with _discrepancy_lock:
@@ -1258,6 +1268,14 @@ def _send_discrepancy_emails_batch(
                 with _discrepancy_lock:
                     if result.get("success"):
                         _discrepancy_progress[statement_id]["sent"] += 1
+                        # Zaznamenat odeslání na platbu
+                        try:
+                            payment = db.query(Payment).get(rcpt["payment_id"])
+                            if payment:
+                                payment.notified_at = utcnow()
+                                db.commit()
+                        except Exception:
+                            logger.warning("Failed to set notified_at for payment %s", rcpt["payment_id"])
                     else:
                         _discrepancy_progress[statement_id]["failed"] += 1
                         _discrepancy_progress[statement_id].setdefault("failed_ids", []).append(rcpt["payment_id"])
@@ -1270,14 +1288,28 @@ def _send_discrepancy_emails_batch(
                     pass
                 smtp_conn = None
 
-            # After batch: wait for interval
+            # After batch: wait for interval or confirm
             if batch_idx < len(batches) - 1:
-                for _ in range(batch_interval * 2):
+                if confirm_each_batch:
+                    # Pozastavit a čekat na potvrzení
                     with _discrepancy_lock:
-                        done = _discrepancy_progress[statement_id].get("done")
-                    if done:
-                        return
-                    time.sleep(0.5)
+                        _discrepancy_progress[statement_id]["waiting_batch_confirm"] = True
+                    while True:
+                        with _discrepancy_lock:
+                            done = _discrepancy_progress[statement_id].get("done")
+                            waiting = _discrepancy_progress[statement_id].get("waiting_batch_confirm")
+                        if done:
+                            return
+                        if not waiting:
+                            break
+                        time.sleep(0.5)
+                else:
+                    for _ in range(batch_interval * 2):
+                        with _discrepancy_lock:
+                            done = _discrepancy_progress[statement_id].get("done")
+                        if done:
+                            return
+                        time.sleep(0.5)
 
     except Exception as e:
         logger.exception("Error in batch discrepancy email sending for statement %s", statement_id)
@@ -1287,6 +1319,7 @@ def _send_discrepancy_emails_batch(
         with _discrepancy_lock:
             _discrepancy_progress[statement_id]["done"] = True
             _discrepancy_progress[statement_id]["current_recipient"] = ""
+            _discrepancy_progress[statement_id]["finished_at"] = time.monotonic()
         db.close()
 
 
@@ -1296,6 +1329,7 @@ async def discrepancy_preview(
     statement_id: int,
     sort: str = "datum",
     order: str = "asc",
+    filtr: str = "",
     db: Session = Depends(get_db),
 ):
     """Preview nesrovnalostí — seznam příjemců a náhled emailu."""
@@ -1305,10 +1339,35 @@ async def discrepancy_preview(
 
     from app.services.payment_discrepancy import detect_discrepancies
 
-    discrepancies = detect_discrepancies(db, statement_id)
+    all_discrepancies = detect_discrepancies(db, statement_id)
+
+    # Bubble counts (před filtrací)
+    all_sendable = [d for d in all_discrepancies if d.recipient_email]
+    bubble_counts = {
+        "vse": len(all_discrepancies),
+        "s_emailem": len(all_sendable),
+        "bez_emailu": len(all_discrepancies) - len(all_sendable),
+        "odeslano": len([d for d in all_sendable if d.notified_at]),
+        "neodeslano": len([d for d in all_sendable if not d.notified_at]),
+    }
+
+    # Filtrování
+    if filtr == "s_emailem":
+        discrepancies = [d for d in all_discrepancies if d.recipient_email]
+    elif filtr == "bez_emailu":
+        discrepancies = [d for d in all_discrepancies if not d.recipient_email]
+    elif filtr == "odeslano":
+        discrepancies = [d for d in all_discrepancies if d.recipient_email and d.notified_at]
+    elif filtr == "neodeslano":
+        discrepancies = [d for d in all_discrepancies if d.recipient_email and not d.notified_at]
+    else:
+        discrepancies = all_discrepancies
+
     back_url = request.query_params.get("back", f"/platby/vypisy/{statement_id}")
 
     ctx = _discrepancy_base_ctx(request, db, statement, discrepancies, back_url, sort, order)
+    ctx["filtr"] = filtr
+    ctx["bubble_counts"] = bubble_counts
 
     # Flash zprávy
     flash = request.query_params.get("flash", "")
@@ -1324,8 +1383,30 @@ async def discrepancy_preview(
     elif flash == "test_fail":
         ctx["flash_message"] = f"Chyba: {request.query_params.get('err', 'neznámá chyba')}"
         ctx["flash_type"] = "error"
+    elif flash == "settings_ok":
+        ctx["flash_message"] = "Nastavení odesílání uloženo"
 
     return templates.TemplateResponse("payments/nesrovnalosti_preview.html", ctx)
+
+
+@router.post("/vypisy/{statement_id}/nesrovnalosti/nastaveni")
+async def discrepancy_save_settings(
+    request: Request,
+    statement_id: int,
+    db: Session = Depends(get_db),
+):
+    """Uložit sdílená nastavení odesílání."""
+    from app.models import SvjInfo
+    form = await request.form()
+    svj = db.query(SvjInfo).first()
+    if svj:
+        svj.send_batch_size = max(1, min(100, int(form.get("send_batch_size", 10))))
+        svj.send_batch_interval = max(1, min(60, int(form.get("send_batch_interval", 5))))
+        svj.send_confirm_each_batch = form.get("send_confirm_each_batch") == "true"
+        db.commit()
+    back = form.get("back", "")
+    back_param = f"&back={back}" if back else ""
+    return RedirectResponse(f"/platby/vypisy/{statement_id}/nesrovnalosti?flash=settings_ok{back_param}", status_code=302)
 
 
 @router.post("/vypisy/{statement_id}/nesrovnalosti/test")
@@ -1382,6 +1463,12 @@ async def discrepancy_test_email(
     back_param = f"&back={back}" if back else ""
 
     if result.get("success"):
+        statement.discrepancy_test_passed = True
+        # Uložit testovací email do sdílených nastavení
+        svj_info = db.query(SvjInfo).first()
+        if svj_info:
+            svj_info.send_test_email_address = test_email.strip()
+        db.commit()
         url = f"/platby/vypisy/{statement_id}/nesrovnalosti?flash=test_ok&email={test_email.strip()}{back_param}"
     else:
         err = result.get("error", "neznámá chyba")[:100]
@@ -1400,6 +1487,10 @@ async def discrepancy_send(
     statement = db.query(BankStatement).get(statement_id)
     if not statement:
         return RedirectResponse("/platby/vypisy", status_code=302)
+
+    # Test email musí být odeslán
+    if not statement.discrepancy_test_passed:
+        return RedirectResponse(f"/platby/vypisy/{statement_id}/nesrovnalosti", status_code=302)
 
     # Check no concurrent sending
     with _discrepancy_lock:
@@ -1430,6 +1521,13 @@ async def discrepancy_send(
     if not recipients:
         return RedirectResponse(f"/platby/vypisy/{statement_id}/nesrovnalosti", status_code=302)
 
+    # Sdílená nastavení odesílání
+    from app.models import SvjInfo
+    svj = db.query(SvjInfo).first()
+    batch_size = svj.send_batch_size if svj and svj.send_batch_size else 10
+    batch_interval = svj.send_batch_interval if svj and svj.send_batch_interval else 5
+    confirm_batch = svj.send_confirm_each_batch if svj else False
+
     # Initialize progress
     with _discrepancy_lock:
         _discrepancy_progress[statement_id] = {
@@ -1450,7 +1548,7 @@ async def discrepancy_send(
     # Start background thread
     thread = threading.Thread(
         target=_send_discrepancy_emails_batch,
-        args=(statement_id, recipients),
+        args=(statement_id, recipients, batch_size, batch_interval, confirm_batch),
         daemon=True,
     )
     thread.start()
@@ -1471,9 +1569,8 @@ async def discrepancy_progress_page(
 
     with _discrepancy_lock:
         progress = _discrepancy_progress.get(statement_id)
-        if not progress or progress.get("done"):
-            _discrepancy_progress.pop(statement_id, None)
-            return RedirectResponse(f"/platby/vypisy/{statement_id}/nesrovnalosti?flash=sent&sent={progress['sent'] if progress else 0}&failed={progress['failed'] if progress else 0}", status_code=302)
+        if not progress:
+            return RedirectResponse(f"/platby/vypisy/{statement_id}/nesrovnalosti", status_code=302)
         progress = dict(progress)
 
     back_url = request.query_params.get("back", f"/platby/vypisy/{statement_id}")
@@ -1500,18 +1597,26 @@ async def discrepancy_progress_status(
     """HTMX polling endpoint — vrací progress partial nebo redirect po dokončení."""
     with _discrepancy_lock:
         progress = _discrepancy_progress.get(statement_id)
-        if not progress or progress.get("done"):
-            sent = progress["sent"] if progress else 0
-            failed = progress["failed"] if progress else 0
-            _discrepancy_progress.pop(statement_id, None)
+        if not progress:
             response = HTMLResponse("")
-            response.headers["HX-Redirect"] = f"/platby/vypisy/{statement_id}/nesrovnalosti?flash=sent&sent={sent}&failed={failed}"
+            response.headers["HX-Redirect"] = f"/platby/vypisy/{statement_id}/nesrovnalosti"
             return response
+        # Po dokončení počkat 3 sekundy, aby uživatel viděl výsledek
+        if progress.get("done"):
+            finished_at = progress.get("finished_at", 0)
+            if time.monotonic() - finished_at >= 3:
+                sent = progress["sent"]
+                failed = progress["failed"]
+                _discrepancy_progress.pop(statement_id, None)
+                response = HTMLResponse("")
+                response.headers["HX-Redirect"] = f"/platby/vypisy/{statement_id}/nesrovnalosti?flash=sent&sent={sent}&failed={failed}"
+                return response
         progress = dict(progress)
 
-    return templates.TemplateResponse("payments/partials/_discrepancy_progress.html", {
+    return templates.TemplateResponse("partials/_send_progress_inner.html", {
         "request": request,
         "statement_id": statement_id,
+        "progress_label": "Odesílání upozornění",
         **_discrepancy_eta(progress),
     })
 
@@ -1544,4 +1649,5 @@ async def discrepancy_cancel(statement_id: int):
         progress = _discrepancy_progress.get(statement_id)
         if progress and not progress.get("done"):
             progress["done"] = True
-    return RedirectResponse(f"/platby/vypisy/{statement_id}/nesrovnalosti", status_code=302)
+            progress["finished_at"] = time.monotonic()
+    return RedirectResponse(f"/platby/vypisy/{statement_id}/nesrovnalosti/prubeh", status_code=302)

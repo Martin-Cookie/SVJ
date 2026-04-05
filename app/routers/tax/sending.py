@@ -311,6 +311,10 @@ async def tax_send_preview(
         session.send_status = SendStatus.PAUSED
         db.commit()
 
+    # Sdílená nastavení z SvjInfo jako fallback
+    from app.models import SvjInfo
+    svj = db.query(SvjInfo).first()
+
     documents = (
         db.query(TaxDocument)
         .filter_by(session_id=session_id)
@@ -401,7 +405,7 @@ async def tax_send_preview(
         "filtr": filtr,
         "sort": sort,
         "order": order,
-        "test_email_value": session.test_email_address or "",
+        "test_email_value": session.test_email_address or (svj.send_test_email_address if svj else "") or "",
         "all_documents": documents,
         "skipped_auto_count": skipped_auto_count,
         **_tax_wizard(session, 3),
@@ -745,6 +749,15 @@ async def save_send_settings(
     session.send_confirm_each_batch = send_confirm_each_batch
     if test_email_inline.strip():
         session.test_email_address = test_email_inline.strip()
+    # Sync sdílených nastavení do SvjInfo
+    from app.models import SvjInfo
+    svj = db.query(SvjInfo).first()
+    if svj:
+        svj.send_batch_size = send_batch_size
+        svj.send_batch_interval = send_batch_interval
+        svj.send_confirm_each_batch = send_confirm_each_batch
+        if test_email_inline.strip():
+            svj.send_test_email_address = test_email_inline.strip()
     # Only set READY if session is in appropriate state (not COMPLETED/SENDING/PAUSED)
     if session.send_status not in (SendStatus.DRAFT, SendStatus.COMPLETED, SendStatus.SENDING, SendStatus.PAUSED):
         session.send_status = SendStatus.READY
@@ -931,6 +944,7 @@ def _send_emails_batch(session_id: int, recipient_data: list, email_subject: str
         with _sending_lock:
             _sending_progress[session_id]["done"] = True
             _sending_progress[session_id]["current_recipient"] = ""
+            _sending_progress[session_id]["finished_at"] = time.monotonic()
         db.close()
 
 
@@ -1051,10 +1065,9 @@ async def sending_progress_page(
 
     with _sending_lock:
         progress = _sending_progress.get(session_id)
-        if not progress or progress.get("done"):
-            _sending_progress.pop(session_id, None)
+        if not progress:
             return RedirectResponse(f"/dane/{session_id}/rozeslat", status_code=302)
-        progress = dict(progress)  # snapshot under lock
+        progress = dict(progress)
 
     return templates.TemplateResponse("tax/sending.html", {
         "request": request,
@@ -1073,14 +1086,21 @@ async def sending_progress_status(
     """HTMX polling endpoint — returns progress partial or redirect when done."""
     with _sending_lock:
         progress = _sending_progress.get(session_id)
-        if not progress or progress.get("done"):
-            _sending_progress.pop(session_id, None)
+        if not progress:
             response = HTMLResponse("")
             response.headers["HX-Redirect"] = f"/dane/{session_id}/rozeslat"
             return response
+        # Po dokončení počkat 3 sekundy, aby uživatel viděl výsledek
+        if progress.get("done"):
+            finished_at = progress.get("finished_at", 0)
+            if time.monotonic() - finished_at >= 3:
+                _sending_progress.pop(session_id, None)
+                response = HTMLResponse("")
+                response.headers["HX-Redirect"] = f"/dane/{session_id}/rozeslat"
+                return response
         progress = dict(progress)  # snapshot under lock
 
-    return templates.TemplateResponse("partials/tax_send_progress.html", {
+    return templates.TemplateResponse("partials/_send_progress_inner.html", {
         "request": request,
         "session_id": session_id,
         **_sending_eta(progress),
@@ -1136,6 +1156,7 @@ async def cancel_sending(
         progress = _sending_progress.get(session_id)
         if progress and not progress.get("done"):
             progress["done"] = True  # signal thread to stop
+            progress["finished_at"] = time.monotonic()
 
     # Reset QUEUED distributions back to PENDING
     queued_dists = (

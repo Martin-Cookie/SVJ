@@ -272,6 +272,11 @@ Modul pro správu předpisů, bankovních výpisů, variabilních symbolů a př
 - **Dlužníci** — seznam jednotek s dluhem seřazený dle výše dluhu
 - **Detail plateb jednotky** — měsíční grid + seznam přijatých plateb
 - **Vyúčtování** — roční vyúčtování per jednotka (předpis × 12 vs. zaplaceno), rozpad po položkách, změna stavu (vygenerováno → odesláno → zaplaceno / po splatnosti), hledání, řazení, bubliny dle stavu, hromadná změna stavu, export do Excelu (souhrn / s položkami)
+- **Nesrovnalosti v platbách** — automatická detekce chyb v napárovaných platbách:
+  - Typy: špatný VS (`wrong_vs`), nesprávná částka (`wrong_amount`), sloučená platba (`combined`)
+  - Náhled s checkboxy pro výběr příjemců, testovací email, dávkové odesílání s progress barem
+  - SJM podpora — příjemce se vybírá dle shody jména odesílatele platby s vlastníkem jednotky
+  - Sdílený progress bar (`partials/_send_progress.html`) s Pozastavit/Pokračovat/Zrušit (sdílený s hromadným rozesíláním)
 - **Dashboard integrace** — 5. karta na hlavním dashboardu (napárované platby, výpisy)
 - **Badge v detailu jednotky** — "Zaplaceno ✓" (zelený) nebo "Dluh X Kč" (červený/žlutý)
 
@@ -540,6 +545,7 @@ app/
 │   ├── prescription_import.py #   Parsování DOCX předpisů
 │   ├── bank_import.py         #   Parsování Fio CSV bankovních výpisů
 │   ├── payment_matching.py    #   3-fázové párování plateb (VS, jméno+částka, VS-prefix)
+│   ├── payment_discrepancy.py #   Detekce nesrovnalostí v platbách, SJM matching, email kontext
 │   ├── payment_overview.py    #   Matice plateb, dlužníci, detail jednotky
 │   ├── settlement_service.py  #   Logika vyúčtování (generování, přepočet)
 │   └── space_import.py        #   Import prostorů z Excelu
@@ -626,7 +632,9 @@ app/
 │   │   ├── jednotka_platby.html #   Detail plateb jednotky
 │   │   ├── prostor_platby.html #   Detail plateb prostoru
 │   │   ├── vyuctovani.html    #     Seznam vyúčtování
-│   │   └── vyuctovani_detail.html # Detail vyúčtování
+│   │   ├── vyuctovani_detail.html # Detail vyúčtování
+│   │   ├── nesrovnalosti_preview.html # Náhled nesrovnalostí (checkboxy, test email)
+│   │   └── nesrovnalosti_progress.html # Progress odesílání upozornění
 │   ├── spaces/                #   Stránky prostorů
 │   │   ├── list.html          #     Seznam prostorů
 │   │   ├── detail.html        #     Detail prostoru (info + nájemce + historie)
@@ -666,7 +674,8 @@ app/
 │       ├── contact_import_progress.html
 │       ├── owner_create_form.html
 │       ├── tax_table_body.html
-│       ├── tax_send_progress.html
+│       ├── _send_progress.html        # Sdílený progress bar pro dávkové odesílání (vnější wrapper + tlačítka)
+│       ├── _send_progress_inner.html  # Sdílený progress bar vnitřek (HTMX-polled)
 │       ├── smtp_form.html
 │       ├── smtp_info.html
 │       ├── wizard_stepper.html
@@ -953,6 +962,14 @@ wheels/                        # Offline Python balíčky (gitignored)
 | POST | `/platby/vyuctovani/hromadny-stav-filtrovane` | Hromadná změna stavu dle aktuálního filtru |
 | GET | `/platby/vyuctovani/exportovat/{fmt}` | Export vyúčtování (xlsx souhrn / xlsx s položkami) |
 | POST | `/platby/vyuctovani/smazat-rok` | Smazání všech vyúčtování roku |
+| GET | `/platby/vypisy/{id}/nesrovnalosti` | Náhled nesrovnalostí v platbách (špatný VS, částka, sloučené) |
+| POST | `/platby/vypisy/{id}/nesrovnalosti/test` | Odeslání testovacího emailu s upozorněním |
+| POST | `/platby/vypisy/{id}/nesrovnalosti/odeslat` | Zahájení dávkového odesílání vybraných upozornění |
+| GET | `/platby/vypisy/{id}/nesrovnalosti/prubeh` | Stránka s progress barem odesílání |
+| GET | `/platby/vypisy/{id}/nesrovnalosti/prubeh-stav` | HTMX polling endpoint pro progress |
+| POST | `/platby/vypisy/{id}/nesrovnalosti/pozastavit` | Pozastavení odesílání |
+| POST | `/platby/vypisy/{id}/nesrovnalosti/pokracovat` | Pokračování v odesílání |
+| POST | `/platby/vypisy/{id}/nesrovnalosti/zrusit` | Zrušení odesílání |
 
 ### Prostory (`/prostory`)
 
