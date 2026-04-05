@@ -305,6 +305,7 @@ function scrollToHash() {
 
 // Auto-scroll to hash after HTMX boost body swap — MutationObserver
 // catches the moment when the new DOM is in place.
+// Prefers exact sessionStorage position; falls back to hash-based scroll.
 (function() {
     var _hashScrollPending = false;
     new MutationObserver(function() {
@@ -312,10 +313,13 @@ function scrollToHash() {
         var el = document.querySelector(location.hash);
         if (!el) return;
         _hashScrollPending = true;
-        // Defer to let the browser finish layout
         setTimeout(function() {
             _hashScrollPending = false;
-            scrollToHash();
+            // Prefer exact pixel position from sessionStorage (saved before navigation)
+            if (!_restoreScrollPos()) {
+                // Fallback: scroll target element to top of container
+                scrollToHash();
+            }
         }, 80);
     }).observe(document.body, {childList: true});
 })();
@@ -515,8 +519,8 @@ document.addEventListener('htmx:afterSettle', function(event) {
             }
         } catch(e) {}
     }
-    // Scroll restore: hash scrolling is handled by MutationObserver (see above).
-    // Here we only restore sessionStorage-based scroll (POST+redirect forms).
+    // Scroll restore: MutationObserver handles hash-based scroll (see above).
+    // Here we try sessionStorage restore as well (covers non-hash returns).
     if (!location.hash) {
         _restoreScrollPos();
     }
