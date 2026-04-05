@@ -749,6 +749,8 @@ Router buduje `suggest_map: dict[payment_id, entity_id]` přes sdílený helper 
 4. **Scroll kontejner MUSÍ mít `overflow-y-auto overflow-x-hidden min-h-0`** (viz § 1 Fixní header)
 5. **CSS `scroll-margin-top: 40px`** na `tr[id], div[id]` (`custom.css`) — browser nativně respektuje offset při hash scrollu a řádek se nezakryje sticky `<thead>` hlavičkou
 
+**HTMX boost a scroll timing:** HTMX boost navigace (`hx-boost="true"` na `<body>`) swapuje obsah `<body>` přes AJAX. Inline `<script>` v šablonách se spustí PŘED dokončením swapování — operují nad starým DOM. Proto `scrollToHash()` volaný z inline scriptu funguje jen při prvním načtení (non-boost). Pro boost navigaci řeší scroll **MutationObserver** v `app.js`, který sleduje `document.body` (`{childList: true}`). Jakmile HTMX vymění obsah body a v novém DOM existuje element odpovídající `location.hash`, observer po 80ms zavolá `scrollToHash()`. HTMX config `scrollIntoViewOnBoost: false` (`<meta>` v `base.html`) zabrání HTMX výchozímu scrollu na začátek stránky.
+
 **Proč ne `scrollIntoView({block:'center'})`:** Pro řádky blízko začátku seznamu se prohlížeč nedokáže vycentrovat (není dost obsahu nad nimi), takže degraduje na `block: 'start'` — řádek skončí přímo pod sticky thead a je neviditelný. Funkce `scrollToHash()` v `app.js` řeší offset manuálně (`container.scrollTop = el.offsetTop - 40`) a CSS `scroll-margin-top` zajistí offset i při nativním hash scrollu prohlížeče.
 
 **`app.js` MUSÍ být načten PŘED `{% block content %}`** — inline `<script>` v šablonách volají `scrollToHash()`, která musí být již definovaná. Proto je `<script src="app.js">` v `base.html` umístěn před `<main>` s content blokem.

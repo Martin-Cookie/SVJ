@@ -295,8 +295,6 @@ function scrollToHash() {
     if (!location.hash) return;
     var el = document.querySelector(location.hash);
     if (!el) return;
-    // CSS scroll-margin-top on tr[id] handles the sticky header offset.
-    // For HTMX boost navigation, we need to trigger scroll explicitly.
     var container = el.closest('.overflow-y-auto');
     if (container) {
         container.scrollTop = Math.max(0, el.offsetTop - 40);
@@ -304,6 +302,23 @@ function scrollToHash() {
         el.scrollIntoView({block: 'center'});
     }
 }
+
+// Auto-scroll to hash after HTMX boost body swap — MutationObserver
+// catches the moment when the new DOM is in place.
+(function() {
+    var _hashScrollPending = false;
+    new MutationObserver(function() {
+        if (!location.hash || _hashScrollPending) return;
+        var el = document.querySelector(location.hash);
+        if (!el) return;
+        _hashScrollPending = true;
+        // Defer to let the browser finish layout
+        setTimeout(function() {
+            _hashScrollPending = false;
+            scrollToHash();
+        }, 80);
+    }).observe(document.body, {childList: true});
+})();
 
 // Generic client-side table column sorting
 function sortTableCol(th) {
@@ -485,7 +500,7 @@ document.body.addEventListener('htmx:beforeRequest', function(event) {
 });
 
 // Restore after ANY htmx settle (partial swap into tbody OR full boost page swap)
-document.body.addEventListener('htmx:afterSettle', function(event) {
+document.addEventListener('htmx:afterSettle', function(event) {
     initThemeUI();
     _restoreCheckedKeys();
     _restoreTaxChecked();
@@ -500,8 +515,11 @@ document.body.addEventListener('htmx:afterSettle', function(event) {
             }
         } catch(e) {}
     }
-    // Restore exact scroll position when returning to a page
-    _restoreScrollPos();
+    // Scroll restore: hash scrolling is handled by MutationObserver (see above).
+    // Here we only restore sessionStorage-based scroll (POST+redirect forms).
+    if (!location.hash) {
+        _restoreScrollPos();
+    }
 });
 
 // Initial page load
