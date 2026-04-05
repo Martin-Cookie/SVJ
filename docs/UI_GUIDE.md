@@ -743,19 +743,71 @@ Router buduje `suggest_map: dict[payment_id, entity_id]` přes sdílený helper 
 > Kompletní logika back parametru (propagace, chaining, `list_url` vs `back_url`, `back_label`) je v [CLAUDE.md § Navigace a back URL](../CLAUDE.md). Zde jsou jen UI/HTML specifika.
 
 ### Obnova scroll pozice — back URL (hash)
+
+Mechanismus pro zachování přesné scroll pozice při navigaci seznam → detail → zpět.
+
+#### Požadavky na šablonu
 1. Řádky mají `id` (např. `id="owner-{{ owner.id }}"`)
 2. Back URL obsahuje `#hash`: `?back={{ (list_url ~ '#owner-' ~ owner.id)|urlencode }}`
 3. JS na stránce volá sdílenou funkci: `scrollToHash();` (definovaná v `app.js`)
 4. **Scroll kontejner MUSÍ mít `overflow-y-auto overflow-x-hidden min-h-0`** (viz § 1 Fixní header)
 5. **CSS `scroll-margin-top: 40px`** na `tr[id], div[id]` (`custom.css`) — browser nativně respektuje offset při hash scrollu a řádek se nezakryje sticky `<thead>` hlavičkou
 
-**HTMX boost a scroll timing:** HTMX boost navigace (`hx-boost="true"` na `<body>`) swapuje obsah `<body>` přes AJAX. Inline `<script>` v šablonách se spustí PŘED dokončením swapování — operují nad starým DOM. Proto `scrollToHash()` volaný z inline scriptu funguje jen při prvním načtení (non-boost). Pro boost navigaci řeší scroll **MutationObserver** v `app.js`, který sleduje `document.body` (`{childList: true}`). Jakmile HTMX vymění obsah body a v novém DOM existuje element odpovídající `location.hash`, observer po 80ms zavolá `scrollToHash()`. HTMX config `scrollIntoViewOnBoost: false` (`<meta>` v `base.html`) zabrání HTMX výchozímu scrollu na začátek stránky.
+#### Jak to funguje — dvouvrstvý mechanismus v `app.js`
 
-**Proč ne `scrollIntoView({block:'center'})`:** Pro řádky blízko začátku seznamu se prohlížeč nedokáže vycentrovat (není dost obsahu nad nimi), takže degraduje na `block: 'start'` — řádek skončí přímo pod sticky thead a je neviditelný. Funkce `scrollToHash()` v `app.js` řeší offset manuálně (`container.scrollTop = el.offsetTop - 40`) a CSS `scroll-margin-top` zajistí offset i při nativním hash scrollu prohlížeče.
+Scroll pozice se obnovuje dvěma spolupracujícími mechanismy:
+
+**1. Přesná pozice přes sessionStorage (primární):**
+- Před navigací na detail: `htmx:beforeRequest` handler volá `_saveScrollPos()` — uloží `scrollTop` do sessionStorage pod klíčem `svj_scroll_{pathname}{search}`
+- Po návratu: `MutationObserver` zavolá `_restoreScrollPos()` — obnoví přesnou pixel pozici
+- Uživatel vidí seznam přesně tak, jak ho opustil — kliknutý řádek zůstane na stejném místě (uprostřed, dole, kdekoliv)
+
+**2. Hash scroll přes `scrollToHash()` (fallback):**
+- Pokud sessionStorage nemá uloženou pozici (první návštěva, vymazaný storage, přímý odkaz s hashem)
+- `scrollToHash()` najde element dle `location.hash`, najde nejbližší `.overflow-y-auto` kontejner a nastaví `scrollTop = el.offsetTop - 40`
+- Řádek se posune na **začátek** viditelné oblasti (pod sticky header)
+
+#### HTMX boost a timing
+
+HTMX boost navigace (`hx-boost="true"` na `<body>`) swapuje obsah `<body>` přes AJAX. Toto vytváří timing problém:
+
+- **Inline `<script>` v šablonách se spustí PŘED dokončením body swapování** — operují nad starým DOM
+- Proto `scrollToHash()` volaný z inline scriptu funguje jen při prvním načtení stránky (non-boost)
+- Pro boost navigaci řeší scroll **MutationObserver** v `app.js`:
+  1. Sleduje `document.body` s `{childList: true}`
+  2. Jakmile HTMX vymění obsah body, observer detekuje změnu
+  3. Pokud `location.hash` existuje a cílový element je v novém DOM:
+     - Počká 80ms (browser dokončí layout)
+     - Zkusí `_restoreScrollPos()` (přesná sessionStorage pozice)
+     - Pokud sessionStorage nemá data → fallback na `scrollToHash()`
+
+**HTMX config:** `<meta name="htmx-config" content='{"scrollIntoViewOnBoost":false}'>` v `base.html` zabrání HTMX výchozímu scrollu na začátek stránky.
+
+**`htmx:afterSettle` handler:** Volá `_restoreScrollPos()` pouze pro non-hash navigaci (POST+redirect formuláře). Když URL obsahuje hash, nechá MutationObserver řešit scroll — ten má přístup k novému DOM.
+
+#### Důležité implementační detaily
+
+**Guard `top < 0` (ne `<= 0`):** Funkce `_restoreScrollPos()` akceptuje uloženou pozici `0` jako platnou. Prvních ~15 řádků v dlouhém seznamu je viditelných bez scrollu (`scrollTop = 0`). S guardem `<= 0` by se pro tyto řádky pozice neobnovila a fallback `scrollToHash()` by je posunul na začátek kontejneru.
+
+**Proč ne `scrollIntoView({block:'center'})`:** Pro řádky blízko začátku seznamu se prohlížeč nedokáže vycentrovat (není dost obsahu nad nimi), takže degraduje na `block: 'start'` — řádek skončí přímo pod sticky thead a je neviditelný. Funkce `scrollToHash()` v `app.js` řeší offset manuálně.
 
 **`app.js` MUSÍ být načten PŘED `{% block content %}`** — inline `<script>` v šablonách volají `scrollToHash()`, která musí být již definovaná. Proto je `<script src="app.js">` v `base.html` umístěn před `<main>` s content blokem.
 
-**Proč `overflow-y-auto` a ne `overflow-auto`:** HTMX boost navigace (klik na odkaz → AJAX swap body) obnoví scroll pozici vnitřního kontejneru POUZE pokud má explicitní `overflow-y-auto`. S `overflow-auto` se scroll pozice ztratí a element skočí na začátek tabulky. `min-h-0` je nutné aby flex-1 child respektoval výšku rodiče a vytvořil interní scrollbar.
+**Proč `overflow-y-auto` a ne `overflow-auto`:** HTMX boost navigace obnoví scroll pozici vnitřního kontejneru POUZE pokud má explicitní `overflow-y-auto`. S `overflow-auto` se scroll pozice ztratí a element skočí na začátek tabulky. `min-h-0` je nutné aby flex-1 child respektoval výšku rodiče a vytvořil interní scrollbar.
+
+#### Stránky používající tento mechanismus
+
+| Stránka | Typ scroll restore | Row ID prefix |
+|---------|-------------------|---------------|
+| Vlastníci | seznam→detail→zpět | `owner-` |
+| Jednotky | seznam→detail→zpět | `unit-` |
+| Nájemci | seznam→detail→zpět | `tenant-` |
+| Prostory | seznam→detail→zpět | `space-` |
+| Symboly | inline edit (POST+redirect) | `vs-` |
+| Vyúčtování | inline edit (POST+redirect) | dle entity |
+| Předpisy detail | inline edit (POST+redirect) | dle entity |
+| Dlužníci | inline edit (POST+redirect) | dle entity |
+| Hlasování lístky | sub-detail navigace | `ballot-` |
 
 ### Obnova scroll pozice — POST+redirect (sessionStorage)
 
