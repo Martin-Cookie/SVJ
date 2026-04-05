@@ -1,7 +1,7 @@
 # SVJ Aplikace — Business Logic Reference
 
 > Technicky dokument s odkazy na zdrojovy kod (soubor:radek).
-> Posledni aktualizace: 2026-03-22
+> Posledni aktualizace: 2026-04-05
 
 ---
 
@@ -87,12 +87,19 @@
 | Entity | Tabulka | Soubor |
 |--------|---------|--------|
 | `SvjInfo` | `svj_info` | `app/models/administration.py:9` |
-| `SvjAddress` | `svj_addresses` | `app/models/administration.py:25` |
-| `BoardMember` | `board_members` | `app/models/administration.py:36` |
-| `CodeListItem` | `code_list_items` | `app/models/administration.py:49` |
-| `EmailTemplate` | `email_templates` | `app/models/administration.py:63` |
+| `SvjAddress` | `svj_addresses` | `app/models/administration.py:36` |
+| `BoardMember` | `board_members` | `app/models/administration.py:47` |
+| `CodeListItem` | `code_list_items` | `app/models/administration.py:60` |
+| `EmailTemplate` | `email_templates` | `app/models/administration.py:74` |
 
 **SvjInfo.total_shares** — deklarovany celkovy pocet hlasu (dle prohlaseni vlastniku). Pouziva se pro vypocet kvora a procentualniho podilu.
+
+**SvjInfo — sdilena konfigurace odesilani** (nove od 2026-03-28):
+- `send_batch_size` (default 10) — pocet prijemcu v jedne davce
+- `send_batch_interval` (default 5) — pocet sekund pauzy mezi davkami
+- `send_confirm_each_batch` (default False) — zda cekat na potvrzeni po kazde davce
+- `send_test_email_address` — posledni pouzita adresa pro testovaci email
+- Tato konfigurace je sdilena pro VSECHNY odesilacie moduly (rozesílani i nesrovnalosti)
 
 ### 1.7 Spolecne / logy
 
@@ -106,40 +113,82 @@
 
 | Entity | Tabulka | Soubor |
 |--------|---------|--------|
-| `VariableSymbolMapping` | `variable_symbol_mappings` | `app/models/payment.py` |
-| `PrescriptionYear` | `prescription_years` | `app/models/payment.py` |
-| `Prescription` | `prescriptions` | `app/models/payment.py` |
-| `PrescriptionItem` | `prescription_items` | `app/models/payment.py` |
-| `BankStatement` | `bank_statements` | `app/models/payment.py` |
-| `Payment` | `payments` | `app/models/payment.py` |
-| `PaymentAllocation` | `payment_allocations` | `app/models/payment.py` |
-| `UnitBalance` | `unit_balances` | `app/models/payment.py` |
-| `Settlement` | `settlements` | `app/models/payment.py` |
-| `SettlementItem` | `settlement_items` | `app/models/payment.py` |
+| `VariableSymbolMapping` | `variable_symbol_mappings` | `app/models/payment.py:65` |
+| `PrescriptionYear` | `prescription_years` | `app/models/payment.py:112` |
+| `Prescription` | `prescriptions` | `app/models/payment.py:129` |
+| `PrescriptionItem` | `prescription_items` | `app/models/payment.py:151` |
+| `BankStatement` | `bank_statements` | `app/models/payment.py:167` |
+| `Payment` | `payments` | `app/models/payment.py:190` |
+| `BankStatementColumnMapping` | `bank_statement_column_mappings` | `app/models/payment.py:230` |
+| `PaymentAllocation` | `payment_allocations` | `app/models/payment.py:242` |
+| `Settlement` | `settlements` | `app/models/payment.py:263` |
+| `SettlementItem` | `settlement_items` | `app/models/payment.py:284` |
+| `UnitBalance` | `unit_balances` | `app/models/payment.py:85` |
 
 **Hierarchie predpisu:**
-- `PrescriptionYear` (rok) -> `Prescription` (mesicni predpis pro jednotku) -> `PrescriptionItem` (polozka: provozni, fond oprav, sluzby)
-- Kazda `Prescription` je vazana na `unit_id` a ma `variable_symbol` (VS pro platby)
+- `PrescriptionYear` (rok) -> `Prescription` (mesicni predpis pro jednotku/prostor) -> `PrescriptionItem` (polozka: provozni, fond oprav, sluzby)
+- Kazda `Prescription` je vazana na `unit_id` NEBO `space_id` a ma `variable_symbol` (VS pro platby)
 - `PrescriptionItem.category` — 3 kategorie: `provozni` (provozni naklady), `fond_oprav` (fond oprav/udrzby), `sluzby` (sluzby)
 
 **Bankovni vypisy a platby:**
 - `BankStatement` (vypis) -> `Payment` (jednotliva transakce)
 - `Payment.direction` — `INCOME` (prijem) nebo `EXPENSE` (vydej)
 - `Payment.match_status` — `AUTO_MATCHED`, `SUGGESTED`, `MANUAL`, `UNMATCHED`
-- `Payment.variable_symbol` — variabilni symbol pro parovani s predpisy
+- `Payment.variable_symbol` (sloupec `vs`) — variabilni symbol pro parovani s predpisy
+- `Payment.notified_at` — timestamp odeslani upozorneni na nesrovnalost (nove od 2026-03-28)
+- `BankStatement.discrepancy_test_passed` — zda prosel testovaci email pro nesrovnalosti
 
 **Alokace plateb:**
 - `PaymentAllocation` — M:N vazba `Payment` <-> `Prescription` (jedna platba muze pokryt vice predpisu, jeden predpis muze byt pokryt vice platbami)
+- `PaymentAllocation` podporuje i vazbu na `space_id` (pro prostory)
 - `amount` na alokaci urcuje castku prirazenou konkretnimu predpisu
 
 **Zustatky a vyuctovani:**
-- `UnitBalance` — zustatek na jednotce pro dany rok (kladny = dluh, zaporny = preplatek)
+- `UnitBalance` — zustatek na jednotce/prostoru pro dany rok (kladny = dluh, zaporny = preplatek)
+- `UnitBalance` podporuje `space_id` — zustatek muze byt i pro prostor (nejenom jednotku)
 - `Settlement` -> `SettlementItem` — rocni vyuctovani s detailnimi polozkami
 - Vzorec vyuctovani: `vysledek = (mesicni_predpis * 12) + pocatecni_zustatek - celkem_zaplaceno`
 
 **Mapovani variabilnich symbolu:**
-- `VariableSymbolMapping` — vazba VS -> jednotka. Jeden VS muze byt sdilen vice vlastniky (SJM), jedna jednotka muze mit vice VS (historicke zmeny)
+- `VariableSymbolMapping` — vazba VS -> jednotka NEBO prostor. Podporuje `unit_id` i `space_id`
+- Jeden VS muze byt sdilen vice vlastniky (SJM), jedna jednotka muze mit vice VS (historicke zmeny)
 - Slouzi pro automaticke parovani plateb s predpisy
+- `SymbolSource` — zdroj VS: `AUTO` (z importu), `MANUAL` (rucne zadany), `LEGACY` (historicky)
+
+### 1.9 Prostory a najemci (nove od 2026-03)
+
+| Entity | Tabulka | Soubor |
+|--------|---------|--------|
+| `Space` | `spaces` | `app/models/space.py:30` |
+| `Tenant` | `tenants` | `app/models/space.py:59` |
+| `SpaceTenant` | `space_tenants` | `app/models/space.py:166` |
+
+**Space (prostor):**
+- Reprezentuje nebytovy prostor SVJ (sklep, garaz, pradelna, kancelar...)
+- `space_number` (Integer, unique) — cislo prostoru
+- `designation` — nazev/urceni prostoru (napr. "Sklep", "Garaz")
+- `status` (`SpaceStatus`): `RENTED` (pronajato), `VACANT` (volne), `BLOCKED` (zablokovano — utilita/spolecny prostor)
+- `blocked_reason` — duvod zablokovani (napr. "Automaticky detekovano z nazvu")
+- `active_tenant_rel` (property) — aktualni aktivni najemni vztah
+
+**Tenant (najemce):**
+- Muze byt propojen s existujicim vlastnikem (`owner_id` FK -> Owner) nebo samostatny
+- Kdyz je propojeny s Owner: `display_name`, `resolved_email`, `resolved_phone` delegují na Owner
+- Kdyz je samostatny: vlastni `first_name`, `last_name`, `email`, `phone` atd.
+- `is_linked` (property) — True pokud je propojeny s vlastnikem
+- Sdili `OwnerType` enum s Owner (fyzicka/pravnicka osoba)
+- `data_source` — odkud najemce pochazi (`manual`, `import`)
+
+**SpaceTenant (najemni vztah):**
+- Vazba `Space` <-> `Tenant` s detaily smlouvy
+- `contract_number`, `contract_start`, `contract_end` — cislo a obdobi smlouvy
+- `monthly_rent` (Float) — mesicni najem
+- `variable_symbol` — VS pro platby najemneho
+- `is_active` — aktivni/historicky vztah
+
+**Auto-detekce blokovanych prostoru** (`space_import.py:26-30`):
+- Klicova slova v nazvu: kocarkarna, ustredna, trezor, kotelna, strojovna, sklad odpadu, komora, rozvodna, chodba, schodiste, vytah, zasedaci, spolecna, technick, uklid
+- Prostor s temito klicovymi slovy se automaticky nastavi jako `BLOCKED`
 
 ---
 
@@ -225,7 +274,7 @@ PENDING --[zaradit do fronty]--> QUEUED --[odeslat]--> SENT
 **Status:** `MATCH`, `DIFFERENCE`, `MISSING_DB`, `MISSING_FILE`
 **Resolution:** `PENDING` -> `UPDATED` / `SKIPPED`
 
-### 2.8 PaymentMatchStatus (`payment.py`)
+### 2.8 PaymentMatchStatus (`payment.py:48`)
 
 ```
 UNMATCHED --[faze 1: VS exact]--> AUTO_MATCHED
@@ -238,6 +287,27 @@ UNMATCHED --[faze 1: VS exact]--> AUTO_MATCHED
 - `SUGGESTED` — navrzen na zaklade jmena+castky nebo VS prefixu (vyzaduje potvrzeni)
 - `MANUAL` — rucne prirazeno uzivatelem
 - `UNMATCHED` — zadna shoda nenalezena
+
+### 2.9 SpaceStatus (`space.py:21`)
+
+```
+VACANT --[prirazeni najemce]--> RENTED
+       --[auto-detekce blok. prostoru]--> BLOCKED
+
+RENTED --[ukonceni smlouvy]--> VACANT
+BLOCKED --[rucne odblokovani]--> VACANT
+```
+
+- `RENTED` — prostor je pronajaty (existuje aktivni SpaceTenant)
+- `VACANT` — prostor je volny
+- `BLOCKED` — prostor neni pronajimatelny (utilita, spolecny prostor)
+
+### 2.10 SettlementStatus (`payment.py:55`)
+
+```
+GENERATED --[odeslat]--> SENT --[zaplatit]--> PAID
+                                             \--[po splatnosti]--> OVERDUE
+```
 
 ---
 
@@ -433,7 +503,7 @@ UNMATCHED --[faze 1: VS exact]--> AUTO_MATCHED
 
 ### 3.5 Synchronizace (CSV porovnani)
 
-- **Soubory:** `app/services/csv_comparator.py`, `app/routers/sync.py`
+- **Soubory:** `app/services/csv_comparator.py`, `app/routers/sync/`
 - Workflow: Upload CSV -> Compare -> Review -> Accept/Reject/Exchange
 
 #### CSV parsovani (`csv_comparator.py:16-97`)
@@ -527,7 +597,7 @@ UNMATCHED --[faze 1: VS exact]--> AUTO_MATCHED
 #### 3.8.2 Import VS mapovani (`payments/symbols.py`)
 
 - Variabilni symboly se importuji z predpisu nebo se zadavaji rucne
-- Jeden VS -> jedna jednotka (ale jednotka muze mit vice VS — historicke zmeny, SJM)
+- Jeden VS -> jedna jednotka NEBO prostor (ale jednotka/prostor muze mit vice VS)
 - VS se pouziva jako primarni identifikator pro automaticky matching plateb
 
 #### 3.8.3 Import bankovnich vypisu (`bank_import.py`)
@@ -549,12 +619,15 @@ UNMATCHED --[faze 1: VS exact]--> AUTO_MATCHED
 
 **Faze 1 — VS exact match** (nejvyssi jistota):
 - Pokud VS platby presne odpovida VS v `VariableSymbolMapping` -> `AUTO_MATCHED`
-- Priradi platbu k predpisu dane jednotky pro dany mesic
+- Podporuje napárovani na **jednotky i prostory** (unit_id nebo space_id z VariableSymbolMapping)
+- Priradi platbu k predpisu dane jednotky/prostoru pro dany mesic
 
 **Faze 2 — Jmeno + castka** (stredni jistota):
-- Porovna jmeno platce s vlastniky na jednotkach
-- Zaroven porovna castku s mesicnim predpisem
+- Porovna jmeno platce s vlastniky na jednotkach A najemci v prostorech
+- Zaroven porovna castku s mesicnim predpisem (prubezny nasobek 1-12x)
 - Obe podminky musi byt splneny -> `SUGGESTED`
+- **Multi-unit match** (`_find_multi_unit_match`): pokud castka nesedi na jednu jednotku, zkusi kombinace 2-4 jednotek jednoho vlastnika kde soucet predpisu = castka
+- **Fallback**: pokud je jediny kandidat (jmeno sedi) ale castka nesedi -> `SUGGESTED` (jeden match = dost pro navrh)
 
 **Faze 3 — VS prefix decode + score** (nejnizsi jistota):
 - VS prefix `VS_PREFIX="1098"` se odstrani, zbytek se interpretuje jako cislo jednotky
@@ -562,7 +635,6 @@ UNMATCHED --[faze 1: VS exact]--> AUTO_MATCHED
   - Shoda cisla jednotky z VS: +3 body
   - Shoda castky s predpisem: +3 body
   - Shoda jmena vlastnika: +2 body
-  - Castecna shoda jmena: +1 bod
 - Score >= `MIN_MATCH_SCORE` -> `SUGGESTED`
 
 **Klicove konstanty** (`payment_matching.py`):
@@ -576,11 +648,18 @@ UNMATCHED --[faze 1: VS exact]--> AUTO_MATCHED
 - Matching se spousti na pozadi; lock (`matching_lock`) zabranuje soubeznemu behu
 - Stav matchingu (progres, chyby) se uklada v pameti a je pristupny pres API
 
+**Kandidatni system** (`compute_candidates`):
+- Pro UNMATCHED platby pocita kandidatni jednotky a prostory
+- Kandidat = entita kde jmeno vlastnika/najemce sedi s odesilatelem
+- Max 3 kandidati serazeni dle skore
+- Pouziva se pro naplneni suggestion dropdownu v UI
+
 #### 3.8.5 Alokace plateb
 
 - `PaymentAllocation` — vazba platby na konkretni predpis s castkou
 - Jedna platba muze pokryt vice mesicu (napr. platba za ctvrtleti)
 - Vice plateb muze pokryvat jeden predpis (napr. castecne platby)
+- Alokace podporuje unit_id i space_id (pro prostory)
 - Pri alokaci se aktualizuje `UnitBalance` — bezi zustatek jednotky
 
 #### 3.8.6 Prehled plateb (`payment_overview.py`)
@@ -609,6 +688,113 @@ vysledek = (mesicni_predpis * 12) + pocatecni_zustatek - celkem_zaplaceno
 **Pocatecni zustatek:**
 - `UnitBalance.opening_balance` pro dany rok
 - Pokud neexistuje -> 0
+
+### 3.9 Detekce nesrovnalosti v platbach (NOVE od 2026-03-28)
+
+- **Soubory:** `app/services/payment_discrepancy.py`, `app/routers/payments/statements.py:1085+`
+- Workflow: Import vypisu -> Matching -> Detekce nesrovnalosti -> Preview -> Test email -> Davkove odeslani
+
+#### Typy nesrovnalosti (`payment_discrepancy.py:1-7`)
+
+1. **`wrong_vs`** — platba ma jiny VS nez predpis prirazene jednotky/prostoru
+   - Detekovano POUZE u `MANUAL` a `SUGGESTED` plateb (u AUTO_MATCHED VS z definice sedi)
+   - Podminka: `payment.vs != presc.variable_symbol` a oba jsou neprazdne
+
+2. **`wrong_amount`** — zaplacena castka neodpovida mesicnimu predpisu
+   - Tolerovano: nasobky predpisu 1-12x (ctvrtletni/pololetni/rocni platba) s toleranci 0.01
+   - Tolerovano: rozdil do 0.50 Kc (zaokrouhlovaci chyba)
+   - Detekovano u vsech naparovanych plateb (AUTO_MATCHED, SUGGESTED, MANUAL)
+
+3. **`combined`** — jedna platba je rozdelena na vice jednotek/prostoru (vice alokaci)
+   - Automaticky vzdy oznaceno pri `len(allocations) > 1`
+
+#### Detekce (`detect_discrepancies`, `payment_discrepancy.py:91-336`)
+
+- Vstup: `statement_id` (bankovni vypis)
+- Nacte: predpisy pro rok, aktivni najmy prostoru, vlastniky jednotek
+- Iteruje pres vsechny napárovane prijmove platby
+- Pro kazdou alokaci kontroluje VS a castku
+- Vystup: `list[Discrepancy]` — dataclass s kompletnim kontextem pro email
+
+**Urceni prijemce pri SJM** (`_match_owner_by_sender`, `payment_discrepancy.py:52-88`):
+- Pri vice vlastnicich na jednotce (SJM): preferuje vlastnika jehoz jmeno odpovida odesilateli platby
+- Porovnani: prijmeni odesilatele se vyskytuje v `name_normalized` vlastnika
+- Fallback: prvni vlastnik v seznamu
+- 2-urovnova shoda: (1) alespon 2 spolecna slova, (2) alespon 1 spolecne slovo
+
+**Podporovane entity:**
+- Jednotky (unit): predpis z `Prescription`, VS z predpisu, prijemce = vlastnik
+- Prostory (space): najem z `SpaceTenant.monthly_rent`, VS z `SpaceTenant.variable_symbol`, prijemce = najemce
+- Kombinovane (combined): vice entit v jedne platbe — label se spoji, ocekavana castka se sectou
+
+#### Preview a odeslani upozorneni (`statements.py:1326+`)
+
+**Preview stránka** (`/platby/vypisy/{id}/nesrovnalosti`):
+- Zobrazi vsechny detekovane nesrovnalosti s nahledem emailu
+- Filtry: vse, s emailem, bez emailu, odeslano, neodeslano
+- Raditelne sloupce: datum, castka, typ, prijemce
+- Generuje email previews pro kazdeho prijemce z sablony
+
+**Emailova sablona** (seedovana v `main.py:_seed_email_templates`):
+- Jinja2 rendering pres `render_email_template()` z `app/utils.py`
+- Promenne: `{{ jmeno }}`, `{{ mesic_nazev }}`, `{{ rok }}`, `{{ datum_platby }}`, `{{ castka_zaplaceno }}`, `{{ vs_platby }}`, `{{ entita }}`, `{{ castka_predpis }}`, `{{ vs_predpisu }}`, `{{ chyby }}`, `{{ svj_nazev }}`
+- `chyby` je list stringu — iterovany pres `{% for chyba in chyby %}`
+
+**Testovaci email** (`/platby/vypisy/{id}/nesrovnalosti/test`):
+- Odesle prvni nesrovnalost na testovaci email adresu
+- `BankStatement.discrepancy_test_passed = True` po uspesnem testu
+- Test je POVINNY pred davkovym odeslanim
+
+**Davkove odeslani** (`/platby/vypisy/{id}/nesrovnalosti/odeslat`):
+- Spusti background thread `_send_discrepancy_emails_batch`
+- Pouziva sdilenou konfiguraci z `SvjInfo` (batch_size, batch_interval, confirm_each_batch)
+- Sdilene SMTP pripojeni per davka
+- Pocatecni prodleva 5s (uzivatel muze pozastavit/zrusit)
+- `Payment.notified_at = utcnow()` se nastavi po uspesnem odeslani
+- EmailLog zaznamy s `module="payment_notice"`, `reference_id=statement_id`
+- Progress tracking pres `_discrepancy_progress` dict (in-memory, thread-safe pres Lock)
+- Podpora: pozastaveni, pokracovani, zruseni, potvrzeni po kazde davce
+
+**Progress bar:**
+- Pouziva sdileny `partials/_send_progress.html` + `_send_progress_inner.html`
+- Stejny vzor jako u rozesilaciho modulu (tax)
+- HTMX polling kazdych 500ms
+- ETA vypocet pres `compute_eta()` z `app/utils.py`
+
+### 3.10 Import prostoru z Excelu (NOVE od 2026-03)
+
+- **Soubor:** `app/services/space_import.py`
+- Workflow: Upload -> Mapovani sloupcu -> Preview -> Confirm
+
+#### Parsovani a preview (`preview_spaces_from_excel`)
+- Dynamicke mapovani sloupcu (space_number, designation, section, floor, area, tenant_name, phone, email, contract_number, contract_start, monthly_rent, variable_symbol)
+- Auto-detekce blokovanych prostoru dle klicovych slov v nazvu
+- Matching najemcu na existujici vlastniky (exactni name_normalized, fallback prijmeni)
+- Validace: duplicitni cisla prostoru, neplatne hodnoty
+
+#### Import (`import_spaces_from_excel`)
+- Vytvori Space + Tenant + SpaceTenant zaznamy
+- Auto-link na Owner pokud existuje shoda jmena
+- Owner overrides z preview (uzivatel muze vybrat jineho vlastnika)
+- Auto-vytvoreni `VariableSymbolMapping` a `Prescription` pro prostory s najemnym
+- Fallback VS: pokud neni VS sloupec, pouzije cislo smlouvy
+
+### 3.11 Import pocatecnich zustatku (NOVE od 2026-03)
+
+- **Soubor:** `app/services/balance_import.py`
+- Workflow: Upload Excel -> Mapovani sloupcu -> Preview -> Confirm
+
+#### Preview (`preview_balance_import`)
+- Parovani radku na jednotky (dle cisla jednotky)
+- Fuzzy matching vlastniku (exaktni, prijmeni, casrove obsahovani)
+- Overeni VS konzistence
+- SJM handling: pri vice vlastnicich na jednotce preferuje odpovídajici Excel jmeno
+
+#### Import (`execute_balance_import`)
+- Smaze existujici zustatky pro rok (replace strategie)
+- Vytvori `UnitBalance` zaznamy se zdrojem `IMPORT`
+- Duplicitni radky pro stejnou jednotku se scitaji (SJM)
+- Nepovinne sloupce (zalohy, vyuctovani, stav) se ulozi do poznamky
 
 ---
 
@@ -665,9 +851,20 @@ vysledek = (mesicni_predpis * 12) + pocatecni_zustatek - celkem_zaplaceno
   - Shoda VS -> cislo jednotky: 3 body
   - Shoda castky: 3 body
   - Shoda jmena: 2 body
-  - Castecna shoda jmena: 1 bod
 - Faze 1 (VS exact) nepouziva scoring — primo `AUTO_MATCHED`
 - Faze 2 (jmeno+castka) vyzaduje shodu obou kriterii -> `SUGGESTED`
+
+### 4.10 Detekce nesrovnalosti — prahy a tolerance (NOVE)
+- Castka: rozdil > 0.50 Kc se povazuje za nesrovnalost
+- Nasobky: platba odpovídajici 1-12x mesicnimu predpisu (s toleranci 0.01) se NEPOVAZUJE za nesrovnalost
+- VS: porovnani je case-sensitive, oba musi byt neprazdne
+- Kombinovana platba: automaticky `combined` pri 2+ alokacich (informativni, ne chyba)
+
+### 4.11 Matching najemcu na vlastniky (NOVE)
+- Exaktni shoda na `name_normalized` (priorita)
+- Fallback: match na prijmeni (prvni slovo v normalizovanem jmene, min 3 znaky)
+- Pri vice kandidatech: pokud vsichni maji stejne `name_normalized` -> vrati prvniho (duplikaty)
+- Jinak -> None (nejednoznacne)
 
 ---
 
@@ -713,11 +910,14 @@ vysledek = (mesicni_predpis * 12) + pocatecni_zustatek - celkem_zaplaceno
 - Parsovani cisla jednotky z nazvu souboru
 
 ### 5.8 Email
-- SMTP pres `smtplib` s TLS
+- SMTP pres `smtplib` s TLS nebo SSL
+- **Podpora portu 465 (SSL)**: `smtplib.SMTP_SSL` misto `SMTP` + `starttls()` (`email_service.py:27-35`)
 - Konfigurace v `.env` (`config.py:14-20`)
 - HTML telo (plain text se konvertuje na HTML: `\n` -> `<br>`)
 - Prilohy: libovolne soubory jako `MIMEApplication`
 - Podpora vice prijemcu (`,` oddeleni) a SJM emailu (`;` oddeleni)
+- **RFC 2047 encoding**: `email.header.Header` pro spravne kodovani ceskych znaku v hlavickach (`email_service.py:58-60`)
+- **Sdilene SMTP pripojeni**: `create_smtp_connection()` pro davkove odesilani (jedno pripojeni per davka)
 
 ### 5.9 Excel + CSV export (vlastnici)
 - **Soubor:** `owners.py:393-488`
@@ -756,6 +956,27 @@ vysledek = (mesicni_predpis * 12) + pocatecni_zustatek - celkem_zaplaceno
 - Duplicitni sloupec "Poznamka" (pozice 10 a 17)
 - Parsuje: cislo uctu, VS, castka, datum, nazev protistrany, poznamka
 - Deduplikace pres `bank_transaction_id` (ID pohybu)
+
+### 5.14 Excel import (prostory) (NOVE)
+- Format: XLSX, libovolna struktura
+- Dynamicke mapovani sloupcu (space_number, designation, tenant_name, monthly_rent, variable_symbol...)
+- Knihovna: `openpyxl`
+- Auto-detekce: blokovane prostory dle klicovych slov, matching najemcu na vlastniky
+- Vedlejsi efekty: auto-vytvoreni VariableSymbolMapping + Prescription pro prostory s najemnym
+
+### 5.15 Excel import (pocatecni zustatky) (NOVE)
+- Format: XLSX nebo XLS (starsi format pres `xlrd`)
+- Dynamicke mapovani sloupcu (unit_number, owner_name, amount, deposits, settlement...)
+- Replace strategie: smaze existujici zustatky pro rok pred importem
+- SJM: duplicitni radky pro stejnou jednotku se scitaji
+
+### 5.16 Jinja2 email template rendering (NOVE)
+- **Soubor:** `app/utils.py:253-266`
+- `render_email_template()` — renderuje sablonovy string s Jinja2 syntaxi
+- Podporuje: `{{ variable }}`, `{% for x in list %}`, `{% if condition %}`
+- Nezneme promenne se renderuji jako prazdny string (ne chyba)
+- Registrovany filtr `fmt_num` pro formatovani cisel
+- Pouziva se v: rozesílani (tax sending), nesrovnalosti (discrepancy emails)
 
 ---
 
@@ -817,6 +1038,24 @@ vysledek = (mesicni_predpis * 12) + pocatecni_zustatek - celkem_zaplaceno
 - Jedna platba muze byt alokovana na vice predpisu (napr. platba za ctvrtleti)
 - `PaymentAllocation` umoznuje rozdelit castku na vice predpisu s ruznou castkou na kazdem
 
+### 6.13 Nesrovnalosti — SJM prijemce (NOVE)
+- **Soubor:** `payment_discrepancy.py:52-88`
+- Pri SJM (vice vlastniku na jednotce) se upozorneni posle vlastnikovi jehoz jmeno odpovida odesilateli platby
+- Dvoufazovy matching: (1) 2+ shodna slova, (2) 1+ shodne slovo, (3) fallback prvni vlastnik
+- Predchazi situaci kdy upozorneni prijde "spatnemu" manzelovi
+
+### 6.14 SMTP SSL vs STARTTLS (NOVE)
+- **Soubor:** `email_service.py:27-35`
+- Port 465 → `SMTP_SSL` (primo sifrovane pripojeni)
+- Ostatni porty → `SMTP` + `starttls()` (upgradeovane pripojeni)
+- Automaticke rozliseni dle portu, neni treba konfigurace uzivatelem
+
+### 6.15 Prostor auto-detekce bloku (NOVE)
+- **Soubor:** `space_import.py:26-30, 93-98`
+- Klicova slova v nazvu prostoru automaticky nastavi status `BLOCKED`
+- Detekce bezi na `designation` i `tenant_name` (napr. "Kotelna" v nazvu najemce)
+- Zabranuje prirazeni najemce k utilitnim prostorum
+
 ---
 
 ## 7. Konfigurace
@@ -844,8 +1083,17 @@ libreoffice_path                        # Pro PDF generovani z Word
 - Seedovane z existujicich dat pri startu (`main.py`)
 
 ### 7.4 Emailove sablony (`EmailTemplate`)
-- Predmet + telo sablony
-- Pouzivane pri tvorbe rozesílani session
+- `"Rozúčtování příjmů za rok {rok}"` — sablona pro rozesílani danovych dokumentu
+- `"Upozornění na nesrovnalost v platbě"` — sablona pro upozorneni na nesrovnalosti (Jinja2 syntax s `{{ }}`)
+- Seedovane pri startu aplikace (`main.py:_seed_email_templates`)
+- Editovatelne v Nastaveni
+
+### 7.5 Sdilena konfigurace odesilani (`SvjInfo`, NOVE)
+- `send_batch_size` (default 10) — pocet prijemcu v davce
+- `send_batch_interval` (default 5) — pauza mezi davkami v sekundach
+- `send_confirm_each_batch` (default False) — potvrzeni po kazde davce
+- `send_test_email_address` — posledni testovaci email
+- Pouzivano: rozesílani (tax), nesrovnalosti (discrepancy)
 
 ---
 
@@ -863,7 +1111,7 @@ libreoffice_path                        # Pro PDF generovani z Word
 ### 9.1 Validace emailu
 - **Soubor:** `utils.py:135-140`
 - Regex `^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`
-- Pouziva se pri: vytvoreni vlastnika (`owners.py:88-99`), editaci kontaktu (`owners.py:1257-1258`)
+- Pouziva se pri: vytvoreni vlastnika (`owners.py:88-99`), editaci kontaktu (`owners.py:1257-1258`), vytvoreni najemce (`tenants/crud.py:59`)
 - Neplatny email vraci formular s chybovou hlaskou (ne redirect)
 
 ### 9.2 Detekce duplicit pri vytvoreni vlastnika
@@ -893,6 +1141,11 @@ libreoffice_path                        # Pro PDF generovani z Word
 - `UPLOAD_LIMITS` dict: excel (50MB), csv (50MB), pdf (100MB), docx (10MB), backup (200MB), folder (500MB)
 - `validate_upload()` (`utils.py:75-106`): kontrola pripony + velikosti
 - `validate_uploads()` (`utils.py:109-121`): pro seznam souboru, vraci prvni chybu
+
+### 9.6 Validace najemce (NOVE)
+- **Soubor:** `tenants/crud.py:36-60`
+- Jmeno nebo prijmeni je povinne
+- Email validace pres `is_valid_email()` (shodne jako u vlastniku)
 
 ---
 
@@ -955,6 +1208,16 @@ libreoffice_path                        # Pro PDF generovani z Word
   3. `GROUP BY voting_item_id`: SUM per-item hlasy (FOR/AGAINST/ABSTAIN) pres `case()` vyrazy
 - Vyrazne snizuje pocet SQL dotazu pri desitkach hlasovani
 
+### 11.6 Sdileny progress bar pro davkove odesilani
+- **Soubory:** `partials/_send_progress.html`, `partials/_send_progress_inner.html`
+- Pouzivano v: rozesílani (tax), nesrovnalosti (discrepancy)
+- Vnější partial: polling div + tlacitka (Pozastavit/Pokracovat/Zrusit) MIMO polled oblast
+- Vnitřní partial: progress bar, statistiky, stav — swapuje se HTMX pollingem (500ms)
+- Tlacitka musi byt mimo HTMX-polled oblast — jinak `data-confirm` modal prestane fungovat
+- Stav se synchronizuje pres hidden inputy + `htmx:afterSwap` event
+- Po dokonceni polling ceka 3 sekundy pred redirectem
+- ETA vypocet pres `compute_eta()` z `app/utils.py`
+
 ---
 
 ## Priloha: Klicove konstanty
@@ -969,5 +1232,8 @@ libreoffice_path                        # Pro PDF generovani z Word
 | `_CZECH_SURNAME_SUFFIXES` | `["-ova", "-kova", ...]` | `owner_matcher.py` | Cesky stemming prijmeni |
 | `UPLOAD_LIMITS` | dict | `utils.py` | Limity uploadu (excel:50MB, pdf:100MB...) |
 | `quorum_threshold` | 0-1 | `voting.py` | Kvorum (50% = 0.5) |
-| `send_batch_size` | default 10 | `tax.py` | Emailu v davce |
-| `send_batch_interval` | default 5 | `tax.py` | Pauza mezi davkami (s) |
+| `send_batch_size` | default 10 | `administration.py` | Emailu v davce (sdilene) |
+| `send_batch_interval` | default 5 | `administration.py` | Pauza mezi davkami v sekundach (sdilene) |
+| `BLOCKED_KEYWORDS` | list 15 slov | `space_import.py` | Auto-detekce blokovanych prostoru |
+| Tolerance castky | 0.50 Kc | `payment_discrepancy.py` | Min. rozdil pro nesrovnalost |
+| Tolerance nasobku | 0.01 | `payment_discrepancy.py` | Presnost detekce nasobku predpisu |

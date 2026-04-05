@@ -1,48 +1,63 @@
-# SVJ Audit Report -- 2026-03-18
+# SVJ Audit Report — 2026-04-05
 
-## Souhrn
+> Scope: celý projekt, se zaměřením na nové soubory od posledního auditu (2026-03-27)
+>
+> Nové commity (20 commitů v branchi `platebni-upozorneni`, merge do `main`):
+> - feat: detekce nesrovnalostí v platbách, preview, checkboxy, dávkové odesílání
+> - feat: sdílený progress bar `_send_progress.html` + `_send_progress_inner.html`
+> - feat: scroll restore mechanismus (sessionStorage + MutationObserver)
+> - fix: SJM párování, HTMX boost scroll, kompaktní layout
 
-- **CRITICAL: 2**
-- **HIGH: 6**
-- **MEDIUM: 12**
-- **LOW: 8**
+## Stav předchozího auditu (2026-03-27)
 
-**Celkem: 28 nálezů**
+Z 11 nálezů předchozího auditu:
+
+| # | Nález | Stav |
+|---|-------|------|
+| N1 | SMTP SSL logika duplikována v settings_page.py | **OPRAVENO** — `_create_smtp()` se nyní volá i v settings_page.py |
+| N2 | Logger placement v email_service.py | **OPRAVENO** |
+| N3 | Return type annotation `_create_smtp` | **OPRAVENO** |
+| N4 | Temp form nepřenáší hidden fields při HTMX polling | **OPRAVENO** — app.js:228-234 nyní klonuje hidden fieldy |
+| N5 | `datetime.utcnow` deprecated v 7 modelech | **OPRAVENO** — všech 44 výskytů migrováno na `utcnow()` |
+| N6 | `datetime.utcnow()` v dashboard.py | **OPRAVENO** |
+| N7 | Zbytkový Playwright log | **OPRAVENO** — adresář čistý |
+| N8 | test_prostory.xlsx v kořeni | **OPRAVENO** — soubor odstraněn |
+| N9 | Hardcoded Dropbox cesta | Přetrvává (LOW) — `pripravit_prenos.sh:22` |
+| N10 | Chybějící sqlite3 kontrola | Přetrvává (LOW) — `pripravit_prenos.sh:84` |
+| N11 | WHEEL_COUNT nedefinovaná | Přetrvává (LOW) — `spustit.command:137` |
+
+**Skóre:** 8 z 11 opraveno (73 %). Zbývající 3 jsou LOW severity v deploy skriptech.
+
+Z konsolidovaného ORCHESTRATOR reportu (2026-03-27):
+- **A2** (engine.dispose) — **OPRAVENO** — nyní ve všech 4 restore endpointech v backups.py
+- UX nálezy (U1–U31) — většina přetrvává, ale nejsou předmětem tohoto kódového auditu
 
 ---
+
+## Souhrn nových nálezů
+
+- **CRITICAL**: 0
+- **HIGH**: 2
+- **MEDIUM**: 6
+- **LOW**: 5
 
 ## Souhrnná tabulka
 
 | # | Oblast | Soubor | Severity | Problém | Čas | Rozhodnutí |
 |---|--------|--------|----------|---------|-----|------------|
-| 1 | Bezpečnost | celý projekt | CRITICAL | Žádná autentizace ani autorizace | ~8 hod | ❓ |
-| 2 | Bezpečnost | šablony (97 formulářů) | CRITICAL | Žádná CSRF ochrana na POST formulářích | ~4 hod | ❓ |
-| 3 | Bezpečnost | `app/config.py:17` | HIGH | SMTP heslo v plaintext konfiguraci (runtime paměť) | ~30 min | 🔧 |
-| 4 | Kód | `app/main.py` (lifespan) | HIGH | Duplikace migrací -- lifespan vs `run_post_restore_migrations()` | ~1 hod | 🔧 |
-| 5 | Výkon | více routerů | HIGH | Žádná paginace na hlavních seznamech (vlastníci, jednotky, hlasování) | ~3 hod | ❓ |
-| 6 | Kód | 30+ funkcí | HIGH | Velmi dlouhé funkce (až 256 řádků) -- obtížná údržba | ~4 hod | ❓ |
-| 7 | Git | `.playwright-mcp/` | HIGH | 26 souborů z testování (logy + screenshoty) nebyly po testování smazány | ~2 min | 🔧 |
-| 8 | Testy | `tests/` | HIGH | Minimální testové pokrytí -- 23 testů na 10 500 řádků routerů | ~8 hod | ❓ |
-| 9 | Kód | 9 routerů | MEDIUM | Duplicitní boilerplate: `Jinja2Templates` + `setup_jinja_filters` v každém routeru | ~1 hod | 🔧 |
-| 10 | Kód | 20 souborů, 44 výskytů | MEDIUM | `datetime.utcnow()` je deprecated od Python 3.12 | ~1 hod | 🔧 |
-| 11 | Bezpečnost | `app/templates/*.html` | MEDIUM | 6 výskytů `\|safe` filtru v šablonách (SVG ikony) | ~30 min | 🔧 |
-| 12 | UI | celý projekt | MEDIUM | Žádná overflow-x ochrana tabulek na mobilech | ~2 hod | ❓ |
-| 13 | Výkon | `app/services/email_service.py` | MEDIUM | Synchronní SMTP odesílání blokuje request thread | ~3 hod | ❓ |
-| 14 | Error | více routerů | MEDIUM | 10+ míst s `except Exception: pass` -- tichá selhání | ~1 hod | 🔧 |
-| 15 | Kód | `app/routers/administration.py:83-87` | MEDIUM | Hardcoded cesty `DATA_DIR`, `DB_PATH` místo `settings.*` | ~15 min | 🔧 |
-| 16 | Dokumentace | komentáře | MEDIUM | Komplexní funkce bez docstringů (routerové endpointy) | ~2 hod | 🔧 |
-| 17 | Kód | `app/services/email_service.py:72-194` | MEDIUM | Opakující se EmailLog creation pattern (4x copy-paste) | ~1 hod | 🔧 |
-| 18 | Bezpečnost | `app/main.py:556-561` | MEDIUM | Monkey-patching Starlette `max_files` limitu -- křehké | ~30 min | ❓ |
-| 19 | UI | šablony | MEDIUM | Přístupnost: mnoho `<input>` bez explicitního `<label for>` propojení | ~3 hod | 🔧 |
-| 20 | Git | git historie | MEDIUM | Binární soubory (PNG screenshoty) v git historii z commitů 0288989, 4408941 | ~15 min | ❓ |
-| 21 | Kód | `app/main.py:204-206` | LOW | `_migrate_svj_import_mappings()` používá f-string v SQL `ALTER TABLE` | ~10 min | 🔧 |
-| 22 | Výkon | dashboard | LOW | Dashboard načítá všechna hlasování s `joinedload(ballots.votes)` | ~30 min | 🔧 |
-| 23 | Kód | `app/routers/administration.py` | LOW | 1386 řádků -- kandidát na rozdělení do package | ~2 hod | ❓ |
-| 24 | Kód | `app/routers/sync.py` | LOW | 1166 řádků -- kandidát na rozdělení do package | ~2 hod | ❓ |
-| 25 | Dokumentace | `README.md` | LOW | API endpointy nejsou kompletně zdokumentovány | ~1 hod | 🔧 |
-| 26 | UI | `app/templates/base.html` | LOW | CDN závislosti (Tailwind, HTMX) -- nefunguje offline | ~1 hod | ❓ |
-| 27 | Kód | `app/models/owner.py:61-62` | LOW | `datetime.utcnow` jako default bez závorek -- vyhodnocuje se jednou při startu | ~5 min | 🔧 |
-| 28 | Testy | `tests/conftest.py:23` | LOW | Fixture `test_engine` má `scope="session"` ale `db_session` nemá rollback isolation pro DDL | ~30 min | 🔧 |
+| 1 | Kód | `payments/_helpers.py:86-215` | HIGH | `_count_debtors_fast` a `compute_debt_map` — 90% duplicitní kód (130 řádků) | ~30 min | 🔧 |
+| 2 | Kód | `payments/statements.py` (1653 řádků) | HIGH | Soubor překračuje 1500 řádků — nesrovnalosti by měly být samostatný sub-modul | ~45 min | 🔧 |
+| 3 | Kód | `payment_discrepancy.py:200-258` | MEDIUM | Unit/space detekční logika duplikována (VS + částka kontrola) | ~20 min | 🔧 |
+| 4 | Bezpečnost | `statements.py:1508` | MEDIUM | `int(x) for x in selected_ids` bez try/except — ValueError při manipulaci | ~5 min | 🔧 |
+| 5 | Kód | `statements.py:1085-1119` vs `1165-1246` | MEDIUM | Trojí duplikace render email template logiky (preview, batch, test) | ~30 min | 🔧 |
+| 6 | Výkon | `_helpers.py:12` | MEDIUM | In-memory `_discrepancy_progress` dict nikdy nečištěn při opuštění stránky | ~15 min | 🔧 |
+| 7 | Bezpečnost | `nesrovnalosti_preview.html:275` | MEDIUM | `{{ log.body_preview\|safe }}` — stored HTML renderován bez sanitizace | ~10 min | ❓ |
+| 8 | Testy | `tests/` | MEDIUM | Žádné testy pro `payment_discrepancy.py` (nový service, 390 řádků) | ~2 hod | 🔧 |
+| 9 | Kód | `payment_discrepancy.py:386` vs `data_export.py:99` | LOW | Dvě různé `_fmt()` funkce se stejným názvem ale jinou logikou | ~5 min | 🔧 |
+| 10 | Kód | `statements.py:1198-1202` | LOW | 5s úvodní delay implementován jako busy-wait loop (10× sleep 0.5s) | ~5 min | 🔧 |
+| 11 | Kód | `_helpers.py:14-18` | LOW | Importy modelů uprostřed souboru (po `_discrepancy_progress` definici) | ~2 min | 🔧 |
+| 12 | Git | `pripravit_prenos.sh:22` | LOW | Hardcoded Dropbox cesta (přetrvává z minulého auditu) | ~5 min | ❓ |
+| 13 | Git | `spustit.command:137` | LOW | WHEEL_COUNT nedefinovaná (přetrvává z minulého auditu) | ~2 min | 🔧 |
 
 Legenda: 🔧 = jen opravit, ❓ = potřeba rozhodnutí uživatele (více variant)
 
@@ -52,532 +67,358 @@ Legenda: 🔧 = jen opravit, ❓ = potřeba rozhodnutí uživatele (více varian
 
 ### 1. Kódová kvalita
 
-#### N1 -- Duplicitní migrace v `main.py` (HIGH)
+#### N1 — HIGH: Duplikace `_count_debtors_fast` a `compute_debt_map` (130 řádků)
 
-**Co a kde:** `app/main.py` řádky 398-480 (lifespan) a řádky 352-395 (`run_post_restore_migrations`) obsahují identický seznam migrací. Při přidání nové migrace se musí přidat na obě místa.
+- **Co a kde:** `app/routers/payments/_helpers.py:86-151` (`_count_debtors_fast`) a `_helpers.py:154-215` (`compute_debt_map`) obsahují prakticky identický kód. Oba:
+  1. Načtou PrescriptionYear a předpisy
+  2. Spočítají měsíce s daty
+  3. Sečtou zaplacené částky per unit
+  4. Načtou opening balances
+  5. Porovnají expected vs paid
 
-**Řešení:** Extrahovat společný seznam migrací do sdílené funkce `_run_all_migrations()` a volat ji z obou míst.
+  Jediný rozdíl: `_count_debtors_fast` vrací `int` (count), `compute_debt_map` vrací `dict[int, float]` (dluh per unit).
 
-**Náročnost + čas:** nízká, ~1 hod
-**Regrese riziko:** nízké -- čistý refaktoring
-**Jak otestovat:** Spustit server (`uvicorn app.main:app`), ověřit že migrace proběhnou v logu. Pak obnovit zálohu a ověřit, že i post-restore migrace proběhnou.
+- **Řešení:** Extrahovat sdílenou funkci `_compute_debt_data(db, year)` → `dict[int, float]`, ze které obě funkce čerpají:
+  ```python
+  def _compute_debt_data(db, year):
+      """Vrátí {unit_id: dluh} pro všechny jednotky."""
+      # ... sdílená logika ...
 
----
+  def _count_debtors_fast(db, year):
+      return sum(1 for v in _compute_debt_data(db, year).values() if v > 0)
 
-#### N2 -- Velmi dlouhé funkce (HIGH)
-
-**Co a kde:** 30+ funkcí má přes 50 řádků, nejhorší případy:
-- `app/services/contact_import.py:125` -- `preview_contact_import()` = 256 řádků
-- `app/routers/tax/processing.py:32` -- `_process_tax_files()` = 243 řádků
-- `app/services/owner_exchange.py:232` -- `execute_exchange()` = 235 řádků
-- `app/services/voting_import.py:188` -- `preview_voting_import()` = 216 řádků
-- `app/services/csv_comparator.py:171` -- `compare_owners()` = 192 řádků
-- `app/routers/voting/session.py:461` -- `generate_ballots()` = 188 řádků
-- `app/routers/dashboard.py:82` -- `home()` = 172 řádků
-
-**Řešení:** Rozdělit na menší helper funkce. Každý logický krok (validace, transformace, uložení) extrahovat. Cíl: max 80 řádků na funkci.
-
-**Varianty:**
-1. Postupný refaktoring -- jedna funkce za iteraci (bezpečnější)
-2. Hromadný refaktoring -- všechny najednou (rychlejší, rizikovější)
-
-**Náročnost + čas:** střední, ~4 hod celkem (postupně)
-**Regrese riziko:** střední -- při rozdělení funkce hrozí narušení datového toku
-**Jak otestovat:** Po každém refaktoringu otestovat dotčenou stránku (import, hlasování, dashboard).
+  def compute_debt_map(db, year):
+      return {k: v for k, v in _compute_debt_data(db, year).items() if v > 0}
+  ```
+- **Náročnost:** nízká, ~30 min
+- **Závislosti:** žádné
+- **Regrese riziko:** nízké — obě funkce budou volat stejný základ
+- **Jak otestovat:** Dashboard → ověřit badge dlužníků. Detail vlastníka → ověřit dluh na jednotce. Jednotky → ověřit dluh sloupec.
 
 ---
 
-#### N3 -- Duplicitní boilerplate v routerech (MEDIUM)
+#### N2 — HIGH: `statements.py` má 1653 řádků — kandidát na rozdělení
 
-**Co a kde:** 9 routerových modulů opakuje identický vzor:
-```python
-templates = Jinja2Templates(directory="app/templates")
-setup_jinja_filters(templates)
-```
-Nalezeno v: `_helpers.py` (owners, voting, tax), `dashboard.py`, `settings_page.py`, `share_check.py`, `administration.py`, `units.py`, `sync.py`.
+- **Co a kde:** `app/routers/payments/statements.py` kombinuje:
+  - Import CSV + seznam výpisů (řádky 1-380)
+  - Detail výpisu + párování (řádky 383-1065)
+  - Nesrovnalosti — preview, settings, test, batch send, progress, pause/resume/cancel (řádky 1068-1654)
 
-**Řešení:** Vytvořit sdílenou instanci `templates` v `app/utils.py` nebo `app/templates_config.py` a importovat ji ve všech routerech.
+  Nesrovnalostní část (586 řádků) je logicky samostatný modul.
 
-**Náročnost + čas:** nízká, ~1 hod
-**Regrese riziko:** nízké
-**Jak otestovat:** Spustit server, projít všechny stránky.
-
----
-
-#### N4 -- `datetime.utcnow()` deprecated (MEDIUM)
-
-**Co a kde:** 44 výskytů ve 20 souborech. `datetime.utcnow()` je deprecated od Python 3.12 (bude odstraněno v budoucí verzi). Projekt cílí na Python 3.9+, ale je vhodné migrovat preventivně.
-
-**Řešení:** Nahradit `datetime.utcnow()` za `datetime.now(timezone.utc)` (pro hodnoty s timezone) nebo zachovat stávající vzor s komentářem. SQLAlchemy modely s `default=datetime.utcnow` fungují správně (předává se callable).
-
-**Varianty:**
-1. Nahradit všechny výskyty za `datetime.now(timezone.utc)` -- čistší, ale mění datový formát (aware vs naive)
-2. Ponechat a přidat `# noqa` -- minimální zásah, řeší se až při přechodu na Python 3.14+
-
-**Náročnost + čas:** nízká, ~1 hod
-**Regrese riziko:** nízké (SQLite ukládá text, nezáleží na timezone info)
-**Jak otestovat:** Spustit testy: `pytest tests/`
+- **Řešení:** Vytvořit `app/routers/payments/discrepancies.py` s endpointy `/nesrovnalosti/*`. V `__init__.py` přidat `include_router(discrepancies.router)`.
+- **Varianty:**
+  - A) Celá nesrovnalostní část → `discrepancies.py` (~586 řádků, čistý řez)
+  - B) Jen background sending → `discrepancy_sending.py` (~350 řádků)
+  - Doporučení: varianta A
+- **Náročnost:** střední, ~45 min
+- **Závislosti:** žádné
+- **Regrese riziko:** nízké — mechanický přesun, URL se nemění
+- **Jak otestovat:** Všechny `/platby/vypisy/{id}/nesrovnalosti/*` endpointy musí fungovat stejně.
 
 ---
 
-#### N5 -- Hardcoded datové cesty (MEDIUM)
+#### N3 — MEDIUM: Duplikace unit/space detekce v `payment_discrepancy.py`
 
-**Co a kde:** `app/routers/administration.py:83-87` definuje:
-```python
-DATA_DIR = Path("data")
-DB_PATH = DATA_DIR / "svj.db"
-UPLOADS_DIR = DATA_DIR / "uploads"
-GENERATED_DIR = DATA_DIR / "generated"
-BACKUP_DIR = DATA_DIR / "backups"
-```
-Tyto jsou duplicitní s `settings.database_path`, `settings.upload_dir`, `settings.generated_dir`.
+- **Co a kde:** `app/services/payment_discrepancy.py:200-229` (unit blok) a `231-258` (space blok) obsahují identickou logiku pro:
+  - Kontrolu VS (`if expected_vs and payment.vs and payment.vs != expected_vs`)
+  - Kontrolu částky s tolerancí násobků (10 řádků)
+  - Přidání do `alloc_details`
 
-**Řešení:** Nahradit za `settings.*` proměnné a přidat `settings.backup_dir` do `config.py`.
-
-**Náročnost + čas:** nízká, ~15 min
-**Regrese riziko:** nízké
-**Jak otestovat:** Spustit server, otevřít Administrace > Zálohy, vytvořit a obnovit zálohu.
+- **Řešení:** Extrahovat helper `_check_target(payment, expected, expected_vs, entity_label, entity_type, disc_types, alloc_details, alloc_amount)` volaný pro unit i space.
+- **Náročnost:** nízká, ~20 min
+- **Závislosti:** žádné
+- **Regrese riziko:** nízké
+- **Jak otestovat:** Nesrovnalosti preview → ověřit detekci wrong_vs i wrong_amount pro jednotky i prostory.
 
 ---
 
-#### N6 -- Duplicitní EmailLog creation pattern (MEDIUM)
+#### N5 — MEDIUM: Trojí duplikace render email template logiky
 
-**Co a kde:** `app/services/email_service.py:72-194` -- funkce `send_email()` obsahuje 4 téměř identické bloky pro vytvoření `EmailLog` záznamu při různých chybových stavech (řádky 92-103, 119-127, 131-139, 141-150).
+- **Co a kde:** V `statements.py` se na 3 místech opakuje stejný vzor:
+  1. `_discrepancy_base_ctx` (řádky 1115-1119) — pro náhledy
+  2. `_send_discrepancy_emails_batch` (řádky 1243-1246) — pro odeslání
+  3. `discrepancy_test_email` (řádky 1445-1448) — pro testovací email
 
-**Řešení:** Extrahovat helper `_create_error_log(db, to_email, to_name, subject, body_html, module, reference_id, error_msg)` a volat ho na 4 místech.
+  Každé místo: načte template, svj, build_email_context, render_email_template, `.replace("\n", "<br>")`.
 
-**Náročnost + čas:** nízká, ~1 hod
-**Regrese riziko:** nízké
-**Jak otestovat:** Poslat testovací email z Nastavení > SMTP > Test.
-
----
-
-#### N7 -- Velké routery bez package struktury (LOW)
-
-**Co a kde:**
-- `app/routers/administration.py` -- 1386 řádků
-- `app/routers/sync.py` -- 1166 řádků
-
-Oba překračují hranici 1500 řádků blízkou doporučení v CLAUDE.md pro rozdělení na package.
-
-**Řešení:** Rozdělit podle logických celků:
-- `administration/` -- `svj_info.py`, `backups.py`, `purge.py`, `export.py`, `code_lists.py`, `bulk_edit.py`, `duplicates.py`
-- `sync/` -- `session.py`, `compare.py`, `exchange.py`, `contacts.py`
-
-**Náročnost + čas:** střední, ~2 hod za každý
-**Regrese riziko:** nízké (čistý refaktoring, importy zůstanou beze změny díky `__init__.py`)
-**Jak otestovat:** Spustit server, projít všechny stránky dotčených modulů.
+- **Řešení:** Extrahovat helper `_render_discrepancy_email(template, disc, svj_name, month_name, year) -> (subject, body_html)` volaný ze všech 3 míst.
+- **Náročnost:** nízká, ~30 min
+- **Závislosti:** závisí na N2 (pokud se soubor rozděluje, helper patří do sdíleného modulu)
+- **Regrese riziko:** nízké
+- **Jak otestovat:** Náhled emailu v preview, testovací email, skutečné odeslání — všechny musí generovat stejný obsah.
 
 ---
 
-#### N8 -- f-string v SQL ALTER TABLE (LOW)
+#### N9 — LOW: Dvě různé `_fmt()` funkce
 
-**Co a kde:** `app/main.py:204-206`:
-```python
-conn.execute(text(
-    f"ALTER TABLE svj_info ADD COLUMN {col_name} TEXT"
-))
-```
-Hodnota `col_name` pochází z hardcoded tuple `("owner_import_mapping", "contact_import_mapping")`, takže riziko SQL injection je nulové. Ale vzor je nečistý.
-
-**Řešení:** Ponechat s komentářem `# safe: col_name from hardcoded tuple` nebo nahradit za dva explicitní příkazy bez f-stringu.
-
-**Náročnost + čas:** nízká, ~10 min
-**Regrese riziko:** nízké
-**Jak otestovat:** Smazat DB, spustit server, ověřit že tabulky se vytvoří.
+- **Co a kde:** `payment_discrepancy.py:386` formátuje čísla s mezerovým oddělovačem tisíců (`f"{val:,.0f}".replace(",", " ")`), `data_export.py:99` formátuje datetime a stringy. Obě se jmenují `_fmt` ale dělají něco jiného.
+- **Řešení:** Přejmenovat jednu — např. `_fmt_number()` v payment_discrepancy.py, nebo použít `fmt_num()` z `app/utils.py` (registrován jako Jinja2 filtr).
+- **Náročnost:** nízká, ~5 min
+- **Regrese riziko:** nízké
 
 ---
 
-#### N9 -- `datetime.utcnow` jako default ve sloupci (LOW)
+#### N10 — LOW: Busy-wait loop pro úvodní delay
 
-**Co a kde:** `app/models/owner.py:61-62` a dalších 15 modelových souborů:
-```python
-created_at = Column(DateTime, default=datetime.utcnow)
-```
-Toto je **správný vzor** v SQLAlchemy -- `datetime.utcnow` (bez závorek) se předává jako callable a volá se při každém INSERT. **Není to chyba**, jen zmínka pro úplnost.
+- **Co a kde:** `statements.py:1198-1202` — 5s úvodní prodleva implementována jako:
+  ```python
+  for _ in range(10):
+      with _discrepancy_lock:
+          if _discrepancy_progress[statement_id].get("done"):
+              return
+      time.sleep(0.5)
+  ```
+  Funkčně správné, ale zbytečně zatěžuje lock 10× za 5 sekund.
 
-**Řešení:** Žádná akce nutná. Tento pattern je standardní SQLAlchemy konvence.
+- **Řešení:** Přepsat na jednoduchý loop s delším sleep (např. 2× `time.sleep(2.5)` s check).
+- **Náročnost:** nízká, ~5 min
+- **Regrese riziko:** nízké
+
+---
+
+#### N11 — LOW: Importy uprostřed souboru
+
+- **Co a kde:** `_helpers.py:12-13` definuje `_discrepancy_progress` a `_discrepancy_lock`, poté na řádcích 14-18 importuje modely. Standardní konvence je importy na začátku.
+- **Řešení:** Přesunout `_discrepancy_progress` a `_discrepancy_lock` za importy.
+- **Náročnost:** nízká, ~2 min
+- **Regrese riziko:** nízké
 
 ---
 
 ### 2. Bezpečnost
 
-#### N10 -- Žádná autentizace (CRITICAL)
+#### N4 — MEDIUM: Chybějící validace `selected_ids`
 
-**Co a kde:** Celý projekt nemá žádnou autentizaci ani autorizaci. Všechny endpointy jsou volně přístupné komukoliv na síti. Plán implementace existuje v CLAUDE.md (sekce "Uživatelské role"), ale nebyl dosud realizován.
-
-**Řešení:** Implementovat dle plánu v CLAUDE.md:
-1. Model `User` + migrace
-2. Auth service (session-based, bcrypt)
-3. Login/logout stránky
-4. `get_current_user` dependency
-5. `require_role` helper
-6. Přidat do všech routerů
-
-**Varianty:**
-1. Plná implementace dle plánu v CLAUDE.md (4 role) -- ~8 hod
-2. Minimální implementace (jen admin login) -- ~3 hod
-3. Odložit na později, pokud aplikace běží jen lokálně -- 0 hod
-
-**Náročnost + čas:** vysoká, ~8 hod (plná implementace)
-**Závislosti:** Žádné
-**Regrese riziko:** střední -- mechanická úprava, ale dotýká se všech routerů
-**Jak otestovat:** Po implementaci zkusit přístup bez přihlášení -- měl by redirect na login.
+- **Co a kde:** `statements.py:1508` — `selected_set = set(int(x) for x in selected_ids)`. Pokud útočník pošle non-numeric hodnotu v `selected_ids`, server vrátí 500 (ValueError).
+- **Řešení:**
+  ```python
+  try:
+      selected_set = set(int(x) for x in selected_ids if x.strip().isdigit())
+  except (ValueError, TypeError):
+      return RedirectResponse(...)
+  ```
+- **Náročnost:** nízká, ~5 min
+- **Závislosti:** žádné
+- **Regrese riziko:** nízké
+- **Jak otestovat:** POST na `/nesrovnalosti/odeslat` s `selected_ids=abc` — měl by vrátit redirect, ne 500.
 
 ---
 
-#### N11 -- Žádná CSRF ochrana (CRITICAL)
+#### N7 — MEDIUM: `|safe` na stored HTML body_preview
 
-**Co a kde:** 97 formulářů s `method="POST"` nebo `hx-post` v šablonách, žádný nemá CSRF token. FastAPI nemá vestavěnou CSRF ochranu.
+- **Co a kde:** `nesrovnalosti_preview.html:275` renderuje `{{ log.body_preview|safe }}`. `body_preview` je uložen v DB jako prvních 500 znaků `body_html` (email_service.py:92). Obsah pochází z `render_email_template()` — Jinja2 rendering user-editable šablony.
 
-**Řešení:**
-1. Přidat CSRF middleware (např. `starlette-csrf` nebo vlastní řešení)
-2. Každý formulář dostane hidden `<input>` s CSRF tokenem
-3. Middleware ověří token při POST
+  V aktuálním stavu je riziko nízké, protože:
+  1. Emailové šablony edituje pouze admin
+  2. Aplikace nemá autentizaci (single-user)
+  3. Kontext (jméno, VS, částka) pochází z DB, ne od externího uživatele
 
-**Varianty:**
-1. Knihovna `starlette-csrf` -- rychlá integrace (~2 hod)
-2. Vlastní implementace (cookie double-submit) -- ~4 hod
-3. Odložit -- pokud aplikace běží čistě lokálně a nemá autentizaci, CSRF je méně relevantní
+  Ale po přidání autentizace/rolí by to bylo problém.
 
-**Náročnost + čas:** střední, ~4 hod
-**Závislosti:** Závisí na #10 (autentizace) -- CSRF má smysl hlavně s auth
-**Regrese riziko:** nízké
-**Jak otestovat:** Zkusit odeslat POST formulář s neplatným/chybějícím tokenem -- měl by selhat.
-
----
-
-#### N12 -- SMTP heslo v paměti (HIGH)
-
-**Co a kde:** `app/config.py:17` -- `smtp_password` se načítá z `.env` do `settings` singletonu a zůstává v paměti po celou dobu běhu serveru. Navíc `app/routers/settings_page.py:162-163` zapisuje heslo zpět do `.env` pomocí `set_key()`.
-
-**Řešení:** Toto je akceptovatelné pro lokální aplikaci. Pro produkční nasazení by heslo mělo být v environment proměnné (ne v .env souboru) nebo v secret manageru.
-
-**Náročnost + čas:** nízká, ~30 min
-**Regrese riziko:** nízké
-**Jak otestovat:** Nastavit SMTP heslo přes formulář, ověřit že funguje odeslání emailu.
+- **Řešení:**
+  - A) Ukládat `body_preview` jako plain text (strip HTML tagů při ukládání)
+  - B) Použít `bleach` nebo vlastní sanitizaci při renderování
+  - C) Ponechat `|safe` s komentářem "// SECURITY: obsah pochází z admin-only šablon"
+  - Doporučení: varianta A (nejčistší)
+- **Náročnost:** nízká, ~10 min
+- **Regrese riziko:** nízké — preview se zobrazí jako plain text místo HTML
+- **Jak otestovat:** Nastavení → Email log → ověřit zobrazení body preview.
 
 ---
 
-#### N13 -- `|safe` filtr v šablonách (MEDIUM)
+#### Bezpečnost — pozitivní nálezy
 
-**Co a kde:** 6 výskytů `|safe` filtru v Jinja2 šablonách:
-- `app/templates/voting/detail.html:62`
-- `app/templates/voting/ballots.html:62,73,82,90`
-- `app/templates/voting/process.html:38`
-
-Všechny se používají pro vykreslení SVG ikon (`_svg_up`, `_svg_down`). Data pochází z routeru (server-side proměnné), ne z uživatelského vstupu -- riziko XSS je tedy nízké.
-
-**Řešení:** Nahradit `|safe` za Jinja2 `Markup()` v routeru nebo za `{% include %}` SVG partial.
-
-**Náročnost + čas:** nízká, ~30 min
-**Regrese riziko:** nízké
-**Jak otestovat:** Otevřít hlasování > detail > ověřit že šipky řazení fungují.
-
----
-
-#### N14 -- Monkey-patching Starlette max_files (MEDIUM)
-
-**Co a kde:** `app/main.py:556-561`:
-```python
-_StarletteRequest.form.__kwdefaults__["max_files"] = 5000
-```
-Tento monkey-patch může selhat při aktualizaci Starlette, protože závisí na interní implementaci.
-
-**Řešení:**
-1. Počkat na oficiální konfiguraci v budoucí verzi Starlette
-2. Nebo vytvořit vlastní middleware pro velké uploady
-3. Nebo přejít na chunked upload (frontend posílá soubory po dávkách)
-
-**Náročnost + čas:** nízká, ~30 min (přidat robustnější fallback)
-**Regrese riziko:** nízké
-**Jak otestovat:** Nahrát složku s 1000+ PDF soubory v modulu Daně.
+- **SQL injection:** Žádné f-stringy v SQL dotazech (jeden výskyt v `backup_service.py:367` používá hardcoded seznam tabulek, komentář potvrzuje)
+- **XSS:** Jinja2 auto-escaping aktivní, `|safe` použit pouze na server-side SVG ikony a body_preview (viz N7)
+- **File upload:** Všechny uploady validovány přes centralizovaný `validate_upload()` s `UPLOAD_LIMITS`
+- **Path traversal:** `is_safe_path()` kontrola na místech kde se přijímá cesta od uživatele
+- **SMTP heslo:** V `.env` souboru, který je v `.gitignore`
+- **CSRF:** Není implementováno (žádný CSRF middleware), ale aplikace je single-user bez autentizace — akceptovatelné v aktuálním stavu. Po přidání autentizace bude NUTNÉ přidat CSRF ochranu.
 
 ---
 
 ### 3. Dokumentace
 
-#### N15 -- Chybějící docstringy na endpoint funkcích (MEDIUM)
-
-**Co a kde:** Většina routerových endpoint funkcí nemá docstring. Z 86 GET/POST endpointů má docstring jen ~10. Například:
-- `app/routers/dashboard.py:82 home()` -- 172 řádků, žádný docstring
-- `app/routers/sync.py:283 sync_detail()` -- 152 řádků, žádný docstring
-- `app/routers/voting/session.py:461 generate_ballots()` -- 188 řádků, žádný docstring
-
-**Řešení:** Přidat jednořádkový docstring ke každému endpointu popisující co dělá a jaká stránka se zobrazuje.
-
-**Náročnost + čas:** nízká, ~2 hod
-**Regrese riziko:** nízké
-**Jak otestovat:** Není potřeba -- čistě dokumentační změna.
-
----
-
-#### N16 -- Neúplná API dokumentace v README (LOW)
-
-**Co a kde:** `README.md` neobsahuje kompletní seznam všech API endpointů. Nové moduly (kontrola podílů, hromadné rozesílání) mají jen stručný popis bez endpointů.
-
-**Řešení:** Doplnit endpointy pro všechny moduly v README.md.
-
-**Náročnost + čas:** nízká, ~1 hod
-**Regrese riziko:** nízké
-**Jak otestovat:** Porovnat README s registrovanými routami (`app.routes`).
+- **CLAUDE.md:** Aktuální, obsahuje všechny nové vzory (sdílený progress bar, `_send_progress.html`, scroll restore)
+- **UI_GUIDE.md:** Aktualizován o scroll restore mechanismus (§13)
+- **README.md:** Popis nesrovnalostí by měl být přidán do sekce Platby — aktuálně chybí endpoint `/nesrovnalosti`
+- **Komentáře:** Nové soubory mají dobré docstringy (`payment_discrepancy.py` má modul-level i funkce-level dokumentaci)
 
 ---
 
 ### 4. UI / Šablony
 
-#### N17 -- Chybějící responsive ochrana tabulek (MEDIUM)
+#### Pozitivní nálezy
+- **Konzistence:** Nesrovnalosti preview používá stejné UI vzory jako ostatní stránky (bubliny, sticky header, sort šipky, badge)
+- **Progress bar:** Sdílený partial `_send_progress.html` + `_send_progress_inner.html` — správně oddělená tlačítka od polled oblasti
+- **Dark mode:** Všechny nové šablony mají dark mode třídy
+- **HTMX:** Správné `hx-boost="false"` na formulářích, polling interval 500ms
+- **Přístupnost:** Input labels přítomny, focus management v modálech, Escape zavírá modály
+- **Scroll restore:** Robustní implementace — MutationObserver + sessionStorage, pracuje správně s HTMX boost
 
-**Co a kde:** Datové tabulky (vlastníci, jednotky, lístky, synchronizace) nemají `overflow-x-auto` wrapper pro horizontální scroll na mobilních zařízeních. Sidebar je responzivní (hamburger menu), ale obsah tabulek se na malých obrazovkách ořízne.
-
-Nalezeno jen 33 výskytů responzivních tříd (`hidden sm:`, `md:`, `overflow-x-auto`) v 21 šablonách -- většina je v `base.html` (sidebar), ne v tabulkách.
-
-**Řešení:** Obalit každý `<table>` element do `<div class="overflow-x-auto">`.
-
-**Varianty:**
-1. Přidat `overflow-x-auto` wrapper ke všem tabulkám -- ~2 hod
-2. Alternativně: stack layout na mobilech (cards místo tabulek) -- ~8+ hod
-
-**Náročnost + čas:** nízká (varianta 1), ~2 hod
-**Regrese riziko:** nízké
-**Jak otestovat:** Zmenšit okno prohlížeče na 375px, projít stránky s tabulkami.
-
----
-
-#### N18 -- Přístupnost: `<input>` bez propojených `<label>` (MEDIUM)
-
-**Co a kde:** Mnohé formulářové `<input>` prvky používají `placeholder` místo `<label for="...">`. WCAG AA vyžaduje explicitní propojení labelu s inputem. Výskytů je řádově 50+ ve formulářových šablonách.
-
-**Řešení:** Přidat `id` na inputy a `for` na labely, případně přidat `aria-label` kde vizuální label není žádoucí.
-
-**Náročnost + čas:** střední, ~3 hod
-**Regrese riziko:** nízké
-**Jak otestovat:** Lighthouse audit v Chrome DevTools > Accessibility.
-
----
-
-#### N19 -- CDN závislosti -- offline nefunkční (LOW)
-
-**Co a kde:** `app/templates/base.html:13-14`:
-```html
-<script src="https://cdn.tailwindcss.com"></script>
-<script src="https://unpkg.com/htmx.org@2.0.4"></script>
-```
-Aplikace je určena i pro nasazení na USB/offline počítačích (`spustit.command`), ale CDN zdroje vyžadují internet.
-
-**Řešení:**
-1. Stáhnout Tailwind standalone CLI a HTMX do `/static/js/`
-2. Nebo přidat fallback: pokud CDN nedostupný, použít lokální kopii
-
-**Varianty:**
-1. Tailwind CSS build pipeline (standalone CLI) + lokální HTMX -- ~2 hod, ale mění dev workflow
-2. Ponechat CDN -- funguje na většině počítačů (WiFi)
-
-**Náročnost + čas:** nízká-střední, ~1-2 hod
-**Regrese riziko:** nízké
-**Jak otestovat:** Odpojit internet, načíst stránku -- měla by fungovat.
+#### Drobnosti
+- Nesrovnalosti preview nemá HTMX search (hledání v tabulce) — ale tabulka je typicky malá (<50 řádků), takže přijatelné
+- Chybí export dat (Excel/CSV) ze stránky nesrovnalostí — porušuje tabulkový checklist bod 8, ale může být záměrné vzhledem k malému objemu dat
 
 ---
 
 ### 5. Výkon
 
-#### N20 -- Žádná paginace na hlavních seznamech (HIGH)
+#### N6 — MEDIUM: Memory leak v `_discrepancy_progress`
 
-**Co a kde:** Seznamy vlastníků (`app/routers/owners/crud.py:148`), jednotek (`app/routers/units.py`), hlasování (`app/routers/voting/session.py:37`) a synchronizací (`app/routers/sync.py:36`) načítají všechny záznamy bez paginace (`.all()`). Jedinou výjimkou je detail rozesílání (`app/routers/tax/session.py:457-463` -- paginace po 100). Seznam emailových logů má `LIMIT 100`.
+- **Co a kde:** `_helpers.py:12` — `_discrepancy_progress: dict[int, dict] = {}` se naplní při každém spuštění odesílání. Vyčistí se pouze v polling endpointu (`statements.py:1610`) po dokončení + 3s. Pokud uživatel:
+  1. Spustí odesílání
+  2. Naviguje pryč (nikdy se nevrátí na polling stránku)
 
-Při stovkách vlastníků a tisících lístků může být výkon problematický.
+  Progress dict zůstane v paměti navždy. Stejný pattern existuje v `tax/sending.py` (`_sending_progress`).
 
-**Řešení:** Přidat server-side paginaci s `LIMIT/OFFSET` a navigačním UI (předchozí/další stránka).
-
-**Varianty:**
-1. Server-side paginace (standardní) -- ~3 hod
-2. Virtuální scrolling (JavaScript) -- složitější, ~6 hod
-3. Ponechat bez paginace -- SVJ má typicky desítky až stovky vlastníků (možná stačí)
-
-**Náročnost + čas:** střední, ~3 hod
-**Regrese riziko:** střední -- mění URL schéma (přibude `?strana=2`)
-**Jak otestovat:** Načíst seznam vlastníků s 500+ záznamy, měřit response time.
-
----
-
-#### N21 -- Synchronní SMTP odesílání (MEDIUM)
-
-**Co a kde:** `app/services/email_service.py` -- funkce `send_email()` je synchronní a blokuje request thread při odesílání. Pro jednotlivé emaily je to OK, ale hromadné rozesílání (modul Daně) může blokovat server.
-
-Poznámka: Modul Daně (`app/routers/tax/sending.py`) řeší toto pomocí SSE (Server-Sent Events) s batch odesíláním, takže hlavní problém je zmírněn.
-
-**Řešení:** Pro budoucí rozšíření zvážit background task (FastAPI `BackgroundTasks` nebo Celery).
-
-**Náročnost + čas:** střední, ~3 hod
-**Regrese riziko:** střední
-**Jak otestovat:** Odeslat hromadný email 50+ příjemcům, ověřit že UI neblokuje.
+- **Řešení:** Přidat TTL cleanup — v polling endpointu nebo při dalším spuštění:
+  ```python
+  # V polling endpointu: vyčistit stale progress (>1 hodina)
+  stale = [k for k, v in _discrepancy_progress.items()
+           if v.get("done") and time.monotonic() - v.get("finished_at", 0) > 3600]
+  for k in stale:
+      _discrepancy_progress.pop(k, None)
+  ```
+- **Náročnost:** nízká, ~15 min
+- **Závislosti:** žádné
+- **Regrese riziko:** nízké
+- **Jak otestovat:** Spustit odesílání, odejít ze stránky, vrátit se po 5 minutách — progress nesmí bránit novému odeslání.
 
 ---
 
-#### N22 -- Dashboard eager loading hlasování (LOW)
-
-**Co a kde:** `app/routers/dashboard.py:107`:
-```python
-.options(joinedload(Voting.ballots).joinedload(Ballot.votes))
-```
-Dashboard načítá VŠECHNA hlasování se VŠEMI lístky a hlasy pro výpočet statistik. Pro SVJ s mnoha hlasováními to může být pomalé.
-
-**Řešení:** Místo eager loading použít aggregační dotaz:
-```python
-db.query(Voting.id, func.count(Ballot.id)).join(Ballot).group_by(Voting.id)
-```
-
-**Náročnost + čas:** nízká, ~30 min
-**Regrese riziko:** nízké
-**Jak otestovat:** Načíst dashboard s 20+ hlasováními, změřit response time.
+#### Pozitivní výkonnostní nálezy
+- **N+1 dotazy:** Nový kód správně používá `joinedload()` pro eager loading
+- **Indexy:** Všechny FK sloupce mají `index=True` v modelech i v `_ensure_indexes()`
+- **Migrace:** Nové sloupce přidány přes `ALTER TABLE` v `_ALL_MIGRATIONS`
+- **compute_nav_stats:** Efektivní — jeden kombinovaný SQL dotaz na Payment statistiky
 
 ---
 
 ### 6. Error Handling
 
-#### N23 -- Tichá selhání s `except Exception: pass` (MEDIUM)
+#### Pozitivní nálezy
+- **Batch sending:** Správný error handling — selhání jednoho emailu nepřeruší celou dávku, SMTP spojení se obnoví po chybě
+- **CSV parsing:** Try/except s logováním a uživatelsky srozumitelnou chybovou hláškou
+- **Formulářová validace:** Chybějící soubor, prázdný CSV, duplicitní výpis — vše ošetřeno s flash messages
+- **Custom error pages:** 404 a 500 mají custom šablonu `error.html`
 
-**Co a kde:** 10+ míst v kódu zachytává všechny výjimky a tiše je ignoruje:
-- `app/services/email_service.py:189` -- SMTP quit
-- `app/routers/voting/session.py:290` -- metadata extraction
-- `app/routers/tax/sending.py:669,725` -- SMTP cleanup
-
-Většina z nich je v cleanup kódu (file delete, SMTP disconnect) kde tiché selhání je legitimní. Ale některé by měly alespoň logovat.
-
-**Řešení:** Nahradit `pass` za `logger.debug("...", exc_info=True)` u všech `except Exception: pass` bloků, aby se chyby zaznamenaly alespoň na debug úrovni.
-
-**Náročnost + čas:** nízká, ~1 hod
-**Regrese riziko:** nízké
-**Jak otestovat:** Spustit server s `DEBUG=true`, ověřit logy.
+#### Problém
+- **N4** (viz bezpečnost): Chybějící try/except na `int()` konverzi `selected_ids`
 
 ---
 
 ### 7. Git Hygiene
 
-#### N24 -- Soubory z testování v `.playwright-mcp/` (HIGH)
+- **Commit messages:** Česky, stručné, popisné (feat/fix prefix)
+- **Commit granularita:** Každý commit má jasný scope (1 feat nebo 1 fix)
+- **Merge:** Použit merge commit pro feature branch `platebni-upozorneni`
+- **.gitignore:** Kompletní — `.env`, `data/`, `.playwright-mcp/`, `*.png` zahrnuto
+- **Žádné citlivé soubory:** V git historii ani v working tree
+- **Žádné zbytkové soubory:** `.playwright-mcp/` čistý, žádné testovací soubory v kořeni
 
-**Co a kde:** Adresář `.playwright-mcp/` obsahuje 26 souborů (22 logů + 4 PNG screenshoty) z Playwright testování, které nebyly smazány po testování.
-
-```
-.playwright-mcp/console-2026-03-18T*.log (22 souborů)
-.playwright-mcp/verify_d5.png (127 KB)
-.playwright-mcp/verify_d6.png (101 KB)
-.playwright-mcp/verify_dr10.png (107 KB)
-.playwright-mcp/verify_dr6.png (47 KB)
-```
-
-**Řešení:** Smazat: `rm -rf .playwright-mcp/*.log .playwright-mcp/*.png`
-
-**Náročnost + čas:** nízká, ~2 min
-**Regrese riziko:** nízké
-**Jak otestovat:** `ls .playwright-mcp/` -- měl by být prázdný nebo neexistovat.
-
----
-
-#### N25 -- Binární soubory v git historii (MEDIUM)
-
-**Co a kde:** Git historie obsahuje PNG screenshoty z commitů:
-- `0288989` -- `after_back.png`, `before_scroll.png`, `detail_page.png`, `send_page_top.png`
-- Tyto soubory byly odstraněny z HEAD ale zůstávají v git objects
-
-**Řešení:**
-1. Nechat -- screenshoty v historii nezpůsobují problém (git gc je komprimuje)
-2. Nebo `git filter-branch` / BFG cleaner -- riskantní, přepisuje historii
-
-**Náročnost + čas:** nízká, ~15 min (pokud se rozhodne přepsat historii)
-**Regrese riziko:** vysoké při přepsání historie (force push)
-**Jak otestovat:** `git rev-list --objects --all -- '*.png' | wc -l`
+Přetrvávající LOW problémy z minulého auditu:
+- **N12:** `pripravit_prenos.sh:22` — hardcoded cesta k Dropboxu
+- **N13:** `spustit.command:137` — WHEEL_COUNT proměnná
 
 ---
 
 ### 8. Testy
 
-#### N26 -- Minimální testové pokrytí (HIGH)
+#### N8 — MEDIUM: Chybějící testy pro payment_discrepancy.py
 
-**Co a kde:** Projekt má pouze 23 testů ve 5 souborech (518 řádků testů) pro 10 500 řádků routerů a 5 183 řádků služeb. Pokrytí odhadem pod 5%.
+- **Co a kde:** `app/services/payment_discrepancy.py` (390 řádků, nový service) nemá žádné testy. Obsahuje:
+  - `detect_discrepancies()` — komplexní logika s 3 typy nesrovnalostí
+  - `_match_owner_by_sender()` — SJM párování
+  - `build_email_context()` — generování emailového kontextu
+  - Toleranci násobků (1-12 měsíců)
+  - Sloučené platby (combined)
 
-**Pokryté oblasti:**
-- Smoke testy (app starts, dashboard loads) -- 3 testy
-- Email service (name_normalized) -- 5 testů
-- Import mapping (auto-detect, validate) -- 8 testů
-- Contact import (preview) -- 3 testy
-- Voting aggregation -- 3 testy (+ 1 test fixture)
+  Celkem 298 testů existuje, ale žádný nepokrývá nesrovnalosti.
 
-**Nepokryté kritické oblasti:**
-- Import vlastníků z Excelu
-- Synchronizace (CSV porovnání, výměna vlastníků)
-- Hlasování (generování lístků, zpracování hlasů, kvórum)
-- Hromadné rozesílání (matching, sending)
-- Záloha/obnova
-- Kontrola podílů
-- Administrace (CRUD operace)
-- Export dat
+- **Řešení:** Vytvořit `tests/test_payment_discrepancy.py` s testy pro:
+  1. `detect_discrepancies` — wrong_vs, wrong_amount, combined
+  2. `_match_owner_by_sender` — SJM párování, fallback
+  3. `build_email_context` — správné formátování
+  4. Edge cases: prázdné VS, nulový předpis, tolerance násobků
+- **Náročnost:** střední, ~2 hod
+- **Závislosti:** žádné
+- **Regrese riziko:** nízké (přidání testů)
+- **Jak otestovat:** `python3 -m pytest tests/test_payment_discrepancy.py -v`
 
-**Řešení:** Prioritně přidat integration testy pro:
-1. Import vlastníků -- vytvoření Owner+Unit+OwnerUnit z Excel dat
-2. Hlasování -- celý workflow od vytvoření po uzavření
-3. Záloha/obnova -- backup + restore + ověření dat
-
-**Náročnost + čas:** vysoká, ~8+ hod
-**Regrese riziko:** nízké (přidávání testů nerozbije existující kód)
-**Jak otestovat:** `pytest tests/ -v`
-
----
-
-#### N27 -- Test engine isolation (LOW)
-
-**Co a kde:** `tests/conftest.py:23` -- `test_engine` má `scope="session"` (sdílený přes všechny testy), ale `db_session` používá transakční rollback. To je správný vzor pro DML operace, ale DDL operace (CREATE TABLE, ALTER TABLE) se v SQLite nerollbackují, protože SQLite auto-commituje DDL.
-
-**Řešení:** Pro testy s DDL operacemi (migrace, schema změny) vytvořit separátní fixture s čistou DB.
-
-**Náročnost + čas:** nízká, ~30 min
-**Regrese riziko:** nízké
-**Jak otestovat:** `pytest tests/ -v --tb=long`
-
----
-
-#### N28 -- Zastaralý import warning v testech (LOW)
-
-**Co a kde:** Pytest výstup ukazuje:
-```
-PendingDeprecationWarning: Please use `import python_multipart` instead.
-```
-Knihovna `python-multipart` je v dependencies, Starlette ji importuje přes starý název.
-
-**Řešení:** Aktualizovat `starlette` / `fastapi` na nejnovější verzi kde je warning opraven.
-
-**Náročnost + čas:** nízká, ~10 min
-**Regrese riziko:** nízké-střední (záleží na kompatibilitě nových verzí)
-**Jak otestovat:** `pytest tests/ -W error::PendingDeprecationWarning`
+#### Pozitivní testové nálezy
+- 298 testů, všechny procházejí
+- Pokrytí platebního párování je dobré (`test_payment_matching.py`, `test_payment_advanced.py`)
+- Smoke testy pokrývají základní endpointy
 
 ---
 
 ## Doporučený postup oprav
 
-### Fáze 1 -- Okamžité (CRITICAL + snadné HIGH)
-1. **N24** -- Smazat soubory z `.playwright-mcp/` (~2 min) 🔧
-2. **N21** -- f-string v SQL (komentář) (~10 min) 🔧
+### Etapa 0: Mechanické opravy (~25 min)
+> Nulové riziko regrese. Žádné změny v logice.
 
-### Fáze 2 -- Krátkodobé (HIGH)
-3. **N4** -- Refaktoring duplikovaných migrací (~1 hod) 🔧
-4. **N5** -- Hardcoded cesty -> settings (~15 min) 🔧
-5. **N6** -- Refaktoring nejdelších funkcí -- začít s top 5 (~2 hod)
+| # | Co | Čas |
+|---|---|-----|
+| N11 | Přesunout importy v `_helpers.py` | ~2 min |
+| N9 | Přejmenovat `_fmt` v `payment_discrepancy.py` | ~5 min |
+| N4 | Přidat try/except na `int()` konverzi selected_ids | ~5 min |
+| N10 | Zjednodušit busy-wait loop | ~5 min |
 
-### Fáze 3 -- Střednědobé (MEDIUM)
-6. **N9** -- Sdílená `templates` instance (~1 hod)
-7. **N14** -- Logging místo `pass` v except blocích (~1 hod)
-8. **N17** -- `overflow-x-auto` na tabulkách (~2 hod)
-9. **N10** -- `datetime.utcnow()` migrace (~1 hod)
-10. **N15** -- Docstringy na endpointech (~2 hod)
+**Test:** `python3 -m pytest tests/ -v` — všech 298 testů musí projít.
 
-### Fáze 4 -- Strategické (vyžaduje rozhodnutí)
-11. **N1** -- Autentizace a autorizace (~8 hod) ❓
-12. **N2** -- CSRF ochrana (~4 hod) ❓
-13. **N20** -- Paginace (~3 hod) ❓
-14. **N26** -- Testové pokrytí (~8+ hod, průběžně) ❓
-15. **N7/N8** -- Rozdělení velkých routerů (~4 hod) ❓
+---
 
-### Poznámky
-- Nálezy N1 (autentizace) a N2 (CSRF) jsou CRITICAL z bezpečnostního hlediska, ale pokud aplikace běží pouze lokálně (localhost), jejich priorita je nižší
-- Nález N20 (paginace) závisí na velikosti dat -- pro typické SVJ s desítkami vlastníků není kritický
-- Testové pokrytí (N26) by mělo růst průběžně s každou novou funkcionalitou
+### Etapa 1: Refaktoring duplikátů (~1.5 hod)
+> Nízké riziko. Extrakce sdílených funkcí.
+
+| # | Co | Čas |
+|---|---|-----|
+| N1 | Sjednotit `_count_debtors_fast` a `compute_debt_map` | ~30 min |
+| N3 | Extrahovat sdílenou unit/space logiku v `payment_discrepancy.py` | ~20 min |
+| N5 | Extrahovat `_render_discrepancy_email` helper | ~30 min |
+
+**Test:** Dashboard (badge dlužníků), detail vlastníka (dluh), nesrovnalosti preview + test email.
+
+---
+
+### Etapa 2: Rozdělení statements.py (~45 min)
+> Nízké riziko. Mechanický přesun kódu.
+
+| # | Co | Čas |
+|---|---|-----|
+| N2 | Vytvořit `discrepancies.py` v `payments/` | ~45 min |
+
+**Test:** Všechny `/platby/vypisy/{id}/nesrovnalosti/*` endpointy.
+
+---
+
+### Etapa 3: Bezpečnost a výkon (~25 min)
+
+| # | Co | Čas |
+|---|---|-----|
+| N6 | Memory leak cleanup pro progress dicts | ~15 min |
+| N7 | Sanitizace body_preview (rozhodnutí potřeba) | ~10 min |
+
+---
+
+### Etapa 4: Testy (~2 hod)
+
+| # | Co | Čas |
+|---|---|-----|
+| N8 | Testy pro `payment_discrepancy.py` | ~2 hod |
+
+---
+
+## Celkový odhad
+
+| Etapa | Čas | Riziko | Prerekvizity |
+|-------|-----|--------|-------------|
+| 0: Mechanické opravy | ~25 min | Nulové | — |
+| 1: Refaktoring duplikátů | ~1.5 hod | Nízké | — |
+| 2: Rozdělení statements.py | ~45 min | Nízké | — |
+| 3: Bezpečnost a výkon | ~25 min | Nízké | — |
+| 4: Testy | ~2 hod | Nulové | Etapa 1 (pro správné unit testy) |
+
+**Celkem: ~5 hodin**
