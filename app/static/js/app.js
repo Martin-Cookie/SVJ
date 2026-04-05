@@ -481,7 +481,7 @@ function _restoreScrollPos() {
     if (val === null) return false;
     try { sessionStorage.removeItem(key); } catch(e) {}
     var top = parseInt(val, 10);
-    if (isNaN(top) || top <= 0) return false;
+    if (isNaN(top) || top < 0) return false;
     var sc = _getScrollContainer();
     if (!sc) return false;
     setTimeout(function() { sc.scrollTop = top; }, 50);
