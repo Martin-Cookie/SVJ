@@ -153,7 +153,7 @@
 ### Modely — konvence
 
 - Enumy dědí z `(str, enum.Enum)`, členové UPPERCASE, hodnoty lowercase anglicky: `DRAFT = "draft"`
-- Timestamp sloupce: editovatelné entity mají `created_at` + `updated_at` s `onupdate=utcnow`. Logy mají pouze `created_at`. Column defaults/onupdate používají `utcnow` z `app.utils`, explicitní přiřazení v routerech/services také `utcnow()`
+- Timestamp sloupce: editovatelné entity mají `created_at` + `updated_at` s `onupdate=utcnow`. Logy mají pouze `created_at`. Column defaults/onupdate používají `utcnow` z `app.utils`, explicitní přiřazení v routerech/services také `utcnow()`. Speciální: `Payment.notified_at` — nullable timestamp kdy bylo odesláno upozornění na nesrovnalost
 - Cascade: parent→child relace `cascade="all, delete-orphan"`, child→parent plain `back_populates`
 - Každý nový model/enum přidat do importů i `__all__` v `app/models/__init__.py`. Routery importují z `app.models`, nikdy z `app.models.specific_file`
 
@@ -295,7 +295,7 @@
 ## Upload souborů
 
 - Ukládání: `{YYYYMMDD_HHMMSS}_{original_filename}` do podadresáře `settings.upload_dir`
-- Podadresáře: `excel/`, `word_templates/`, `scanned_ballots/`, `tax_pdfs/`, `csv/`, `share_check/`
+- Podadresáře: `excel/`, `word_templates/`, `scanned_ballots/`, `tax_pdfs/`, `csv/`, `share_check/`, `contracts/`
 - Zápis přes `shutil.copyfileobj(file.file, f)` + `dest.parent.mkdir(parents=True, exist_ok=True)`
 - Multi-step import workflow: Upload → Mapování → Preview → Confirm. Cesta k souboru se předává jako hidden field, ne přes session
 - **Dynamické mapování sloupců** pro importy vlastníků a kontaktů: `import_mapping.py` service definuje pole, auto-detekci z hlaviček a validaci. Uložené mapování v `SvjInfo.owner_import_mapping` / `contact_import_mapping` (JSON). Sdílené UI: `partials/import_mapping_fields.html` (Jinja2 macro) + `partials/import_mapping_js.html` (sdílený JS)
@@ -311,6 +311,7 @@
 - Služby jsou **plain funkce** (ne třídy), přijímají `db: Session` jako parametr od routeru
 - Vrací plain dict/list (žádné custom result třídy)
 - Nikdy nevytvářejí DB session — vždy přijímají z volajícího
+- **Výjimka:** `payment_discrepancy.py` používá `@dataclass Discrepancy` místo DB modelu — nesrovnalosti se neperzistují, pouze se počítají on-the-fly z dat výpisu
 
 ## Utility funkce (`app/utils.py`)
 
@@ -330,6 +331,7 @@
 - `build_name_with_titles(title, first_name, last_name)` — sestaví zobrazovací jméno: titul + příjmení + jméno
 - `setup_jinja_filters(templates)` — registrace custom Jinja2 filtrů (aktuálně `fmt_num`) na Jinja2Templates instanci
 - `utcnow()` — naive UTC datetime, náhrada za deprecated `datetime.utcnow()` (Python 3.12+)
+- `render_email_template(template_str, context)` — renderuje Jinja2 email šablonu s kontextem (pro platební upozornění). Neznámé proměnné se renderují jako prázdný řetězec
 - `templates` — sdílená `Jinja2Templates` instance s registrovanými filtry (singleton pro celý projekt)
 
 ## JavaScript
@@ -381,7 +383,8 @@
 
 ## Startup (lifespan)
 
-- `main.py` lifespan: (1) import modelů, (2) `create_all`, (3) `_ALL_MIGRATIONS` list (12 migračních funkcí + `_ensure_indexes()` + `_seed_code_lists()` + `_seed_email_templates()`), (4) `recover_stuck_sending_sessions()`, (5) vytvoření upload/generated/temp adresářů
+- `main.py` lifespan: (1) import modelů, (2) `create_all`, (3) `_ALL_MIGRATIONS` list (14 migračních funkcí + `_ensure_indexes()` + `_seed_code_lists()` + `_seed_email_templates()`), (4) `recover_stuck_sending_sessions()`, (5) vytvoření upload/generated/temp adresářů
+- Migrace zahrnují mj. `_migrate_svj_send_settings` (SvjInfo send_batch_size/interval/confirm/test_email) a `_migrate_payment_notified_at` (Payment.notified_at sloupec)
 - `_ALL_MIGRATIONS` se sdílí s `run_post_restore_migrations()` — po obnově zálohy se spustí stejné migrace
 - Nové funkce vyžadující adresáře: přidat do lifespan. Nové indexy: přidat do `_ensure_indexes()`. Nové migrace: přidat do `_ALL_MIGRATIONS`
 

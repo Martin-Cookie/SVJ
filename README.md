@@ -458,7 +458,7 @@ app/
 ├── main.py                    # FastAPI aplikace
 ├── config.py                  # Nastavení (Pydantic)
 ├── database.py                # SQLAlchemy engine + session
-├── utils.py                   # Sdílené utility (utcnow, strip_diacritics, build_list_url, is_htmx_partial, fmt_num, is_safe_path, validate_upload, validate_uploads, setup_jinja_filters, excel_auto_width, compute_eta, build_wizard_steps, build_name_with_titles, UPLOAD_LIMITS, is_valid_email, templates)
+├── utils.py                   # Sdílené utility (utcnow, strip_diacritics, build_list_url, is_htmx_partial, fmt_num, is_safe_path, validate_upload, validate_uploads, setup_jinja_filters, excel_auto_width, compute_eta, build_wizard_steps, build_name_with_titles, render_email_template, UPLOAD_LIMITS, is_valid_email, templates)
 ├── models/                    # Databázové modely
 │   ├── owner.py               #   Owner, Unit, OwnerUnit, Proxy
 │   ├── voting.py              #   Voting, VotingItem, Ballot, BallotVote
@@ -964,6 +964,7 @@ wheels/                        # Offline Python balíčky (gitignored)
 | POST | `/platby/vyuctovani/smazat-rok` | Smazání všech vyúčtování roku |
 | GET | `/platby/vypisy/{id}/nesrovnalosti` | Náhled nesrovnalostí v platbách (špatný VS, částka, sloučené) |
 | POST | `/platby/vypisy/{id}/nesrovnalosti/test` | Odeslání testovacího emailu s upozorněním |
+| POST | `/platby/vypisy/{id}/nesrovnalosti/nastaveni` | Uložení nastavení odesílání (dávka, interval, potvrzení) |
 | POST | `/platby/vypisy/{id}/nesrovnalosti/odeslat` | Zahájení dávkového odesílání vybraných upozornění |
 | GET | `/platby/vypisy/{id}/nesrovnalosti/prubeh` | Stránka s progress barem odesílání |
 | GET | `/platby/vypisy/{id}/nesrovnalosti/prubeh-stav` | HTMX polling endpoint pro progress |
@@ -1053,14 +1054,14 @@ LIBREOFFICE_PATH=/Applications/LibreOffice.app/Contents/MacOS/soffice
 - **TaxSession** → TaxDocument → TaxDistribution
 - **SyncSession** → SyncRecord (cascade delete)
 - **ShareCheckSession** → ShareCheckRecord (cascade delete); ShareCheckColumnMapping (zapamatované mapování sloupců)
-- **SvjInfo** → SvjAddress — informace o SVJ a adresy; `voting_import_mapping`, `owner_import_mapping`, `contact_import_mapping` pro globální uložení mapování sloupců importů (JSON)
+- **SvjInfo** → SvjAddress — informace o SVJ a adresy; `voting_import_mapping`, `owner_import_mapping`, `contact_import_mapping` pro globální uložení mapování sloupců importů (JSON); `send_batch_size`, `send_batch_interval`, `send_confirm_each_batch`, `send_test_email_address` pro konfiguraci dávkového odesílání
 - **BoardMember** — členové výboru a kontrolního orgánu (group: board/control)
 - **CodeListItem** — položky číselníků (category: space_type/section/room_count/ownership_type, value, order); unique index na (category, value)
 - **EmailTemplate** — šablony emailů pro hromadné rozesílání (name, subject_template, body_template, order); placeholder `{rok}` nahrazen při výběru
 - **ActivityLog** — log aktivit (modul, akce, entita, timestamp); **ActivityAction** — enum typů aktivit (CREATED, UPDATED, DELETED, STATUS_CHANGED, IMPORTED, EXPORTED, RESTORED)
 - **PrescriptionYear** → **Prescription** (monthly_total, variable_symbol, space_type) → **PrescriptionItem** (name, amount, category, order); předpisy plateb per rok/jednotka
 - **VariableSymbolMapping** — mapování VS → jednotka/prostor (unit_id nullable, space_id nullable; source: manual/auto/legacy)
-- **BankStatement** (locked_at) — importovaný bankovní výpis (Fio CSV); → **Payment** (amount, date, direction, match_status, unit_id, space_id) → **PaymentAllocation** (payment_id, unit_id nullable, space_id, owner_id, prescription_id, amount — dual-write pro multi-unit/space platby); PaymentMatchStatus (UNMATCHED/AUTO_MATCHED/SUGGESTED/MANUAL), PaymentDirection (INCOME/EXPENSE); **BankStatementColumnMapping** (zapamatované mapování sloupců CSV)
+- **BankStatement** (locked_at) — importovaný bankovní výpis (Fio CSV); → **Payment** (amount, date, direction, match_status, unit_id, space_id, notified_at) → **PaymentAllocation** (payment_id, unit_id nullable, space_id, owner_id, prescription_id, amount — dual-write pro multi-unit/space platby); PaymentMatchStatus (UNMATCHED/AUTO_MATCHED/SUGGESTED/MANUAL), PaymentDirection (INCOME/EXPENSE); **BankStatementColumnMapping** (zapamatované mapování sloupců CSV)
 - **UnitBalance** — počáteční zůstatek jednotky per rok (opening_amount, source: manual/import/carryover, owner_id FK → Owner, owner_name text z importu)
 - **Settlement** → **SettlementItem** — roční vyúčtování per jednotka; SettlementStatus (GENERATED/SENT/PAID/OVERDUE)
 - **EmailLog** (+ `name_normalized` pro diacritics-insensitive vyhledávání), **ImportLog** — systémové logy

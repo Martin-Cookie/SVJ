@@ -591,6 +591,13 @@ Pokud jsou bubliny ve sdíleném header partialu (např. `_voting_header.html`) 
   - Metadata pod názvem: `flex items-center mt-1 space-x-4 text-sm text-gray-500`
   - Wizard stepper compact + progress bar pod metadaty
 - **Prázdný stav s filtrem:** rozlišit "žádné záznamy v tomto stavu" vs "žádné záznamy vůbec"
+- **Sdílený progress bar** pro davkové odesílání (`_send_progress.html` + `_send_progress_inner.html`) — podrobný popis v [CLAUDE.md](../CLAUDE.md) § Nové moduly / entity
+
+---
+
+### Komplexní stránky — příklady
+
+- **Nesrovnalosti v platbách** (`nesrovnalosti_preview.html`): checkboxy pro výběr nesrovnalostí + test email konfigurace + náhled emailu. Kombinuje hromadný výběr (§ 15), progress bar odesílání a inline nastavení emailu
 
 ---
 
@@ -876,11 +883,7 @@ Pro stránky s inline formuláři (POST+redirect na stejnou stránku, např. pla
 - **hx-boost="false"** povinné pro: file upload, file download, formuláře s `onsubmit="return confirm(...)"`
 
 ### Partial odpovědi
-- Router vrací partial pro `HX-Request` (ne `HX-Boosted`), plnou stránku jinak:
-  ```python
-  if request.headers.get("HX-Request") and not request.headers.get("HX-Boosted"):
-      return templates.TemplateResponse("partial.html", ctx)
-  ```
+- Router vrací partial pro HTMX non-boosted requesty, plnou stránku jinak. Detekce: `is_htmx_partial(request)` z `app.utils` (viz [CLAUDE.md](../CLAUDE.md) § Utility funkce)
 - Partial = jen `<tr>` řádky (tbody-only), ne celá tabulka
 
 ### Inline editace
