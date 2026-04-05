@@ -50,6 +50,15 @@ def _filter_tenants(db: Session, q="", typ="", stav="", sort="name", order="asc"
 
     tenants = query.all()
 
+    # Deduplikace — joinedload na spaces může vrátit duplicity
+    seen_ids = set()
+    unique_tenants = []
+    for t in tenants:
+        if t.id not in seen_ids:
+            seen_ids.add(t.id)
+            unique_tenants.append(t)
+    tenants = unique_tenants
+
     # Text search (Python-side for resolved fields)
     if q:
         search_ascii = strip_diacritics(q)

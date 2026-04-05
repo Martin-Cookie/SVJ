@@ -86,6 +86,7 @@ async def shares_breakdown(request: Request, vse: int = 0, db: Session = Depends
 async def home(
     request: Request,
     q: str = Query(""),
+    modul: str = Query(""),
     sort: str = Query("date"),
     order: str = Query("desc"),
     db: Session = Depends(get_db),
@@ -207,18 +208,50 @@ async def home(
         "owner": "/vlastnici/{id}",
     }
 
+    # Seskupení payment_notice emailů (a jiných hromadných emailů) dle den+modul+subject
+    from collections import defaultdict
+    _group_key_counts = defaultdict(list)
     for e in recent_emails:
-        url = f"/dane/{e.reference_id}" if e.reference_id else ""
+        if e.module == "payment_notice":
+            day = e.created_at.strftime("%Y-%m-%d") if e.created_at else "?"
+            key = (day, e.module, e.subject or "")
+            _group_key_counts[key].append(e)
+        else:
+            url = f"/dane/{e.reference_id}" if e.reference_id else ""
+            unified.append({
+                "type": "email",
+                "created_at": e.created_at,
+                "module": e.module or "",
+                "description": e.subject or "",
+                "detail": e.recipient_name or e.recipient_email or "",
+                "status": e.status.value if e.status else "",
+                "url": url,
+                "entity": e,
+            })
+
+    # Seskupené payment_notice → jeden řádek za den+subject
+    for (day, mod, subject), emails in _group_key_counts.items():
+        latest = max(emails, key=lambda e: e.created_at or datetime.min)
+        sent_count = sum(1 for e in emails if e.status and e.status.value == "sent")
+        failed_count = sum(1 for e in emails if e.status and e.status.value == "failed")
+        count = len(emails)
+        detail = f"{count}× odesláno"
+        if failed_count:
+            detail = f"{sent_count}× odesláno, {failed_count}× chyba"
+        ref_id = latest.reference_id
+        url = f"/platby/vypisy/{ref_id}" if ref_id else ""
         unified.append({
             "type": "email",
-            "created_at": e.created_at,
-            "module": e.module or "",
-            "description": e.subject or "",
-            "detail": e.recipient_name or e.recipient_email or "",
-            "status": e.status.value if e.status else "",
+            "created_at": latest.created_at,
+            "module": mod,
+            "description": f"{subject}" if count == 1 else f"{subject} ({count}×)",
+            "detail": detail,
+            "status": "sent" if failed_count == 0 else "failed",
             "url": url,
-            "entity": e,
+            "entity": latest,
+            "grouped_count": count,
         })
+
     for a in recent_activity:
         url_tpl = _entity_urls.get(a.entity_type, "")
         url = url_tpl.format(id=a.entity_id) if url_tpl and a.entity_id else ""
@@ -235,6 +268,15 @@ async def home(
 
     # Sort combined
     unified.sort(key=lambda x: x["created_at"] or datetime.min, reverse=True)
+
+    # Počty per modul (pro bubliny) — před filtrováním
+    module_counts = defaultdict(int)
+    for item in unified:
+        module_counts[item["module"]] += 1
+
+    # Filtr dle modulu
+    if modul:
+        unified = [item for item in unified if item["module"] == modul]
 
     # Search filtering
     if q:
@@ -325,6 +367,8 @@ async def home(
         "active_tax_count": sum(c for _, c in tax_status_counts),
         "tax_by_status": tax_by_status,
         "recent_activity": unified,
+        "modul": modul,
+        "module_counts": dict(module_counts),
         "declared_shares": declared_shares,
         "owners_scd": owners_scd,
         "units_scd": units_scd,

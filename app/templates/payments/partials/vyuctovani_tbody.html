@@ -1,5 +1,6 @@
 {% for s in settlements %}
-<tr class="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors" id="v-{{ s.id }}">
+<tr class="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors
+    {% if s.result_amount > 0 %}bg-red-50/40 dark:bg-red-900/10{% elif s.result_amount < 0 %}bg-green-50/40 dark:bg-green-900/10{% endif %}" id="v-{{ s.id }}">
     <td class="px-2 py-2 w-8">
         <input type="checkbox" class="settlement-cb w-3.5 h-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer" value="{{ s.id }}" aria-label="Vybrat vyúčtování">
     </td>
@@ -19,11 +20,14 @@
     {% set annual = (s.result_amount or 0) + (s.items|sum(attribute='paid')) %}
     <td class="px-3 py-2 text-right text-gray-700 dark:text-gray-300 whitespace-nowrap">{{ annual|fmt_num }} Kč</td>
     <td class="px-3 py-2 text-right text-gray-700 dark:text-gray-300 whitespace-nowrap">{{ (s.items|sum(attribute='paid'))|fmt_num }} Kč</td>
-    <td class="px-3 py-2 text-right font-semibold whitespace-nowrap
+    <td class="px-3 py-2 text-right whitespace-nowrap
         {% if s.result_amount > 0 %}text-red-600 dark:text-red-400{% elif s.result_amount < 0 %}text-green-600 dark:text-green-400{% else %}text-gray-500 dark:text-gray-400{% endif %}">
-        {% if s.result_amount > 0 %}+{{ s.result_amount|fmt_num }} Kč
+        <span class="font-semibold">{% if s.result_amount > 0 %}+{{ s.result_amount|fmt_num }} Kč
         {% elif s.result_amount < 0 %}{{ s.result_amount|fmt_num }} Kč
-        {% else %}0 Kč{% endif %}
+        {% else %}0 Kč{% endif %}</span>
+        {% if s.result_amount > 0 %}<br><span class="text-xs font-normal opacity-75">nedoplatek</span>
+        {% elif s.result_amount < 0 %}<br><span class="text-xs font-normal opacity-75">přeplatek</span>
+        {% endif %}
     </td>
     <td class="px-3 py-2 text-center whitespace-nowrap">
         {% set sc = status_colors.get(s.status.value, ("bg-gray-100 text-gray-800", "dark:bg-gray-700 dark:text-gray-200")) %}

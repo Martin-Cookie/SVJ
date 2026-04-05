@@ -1,4 +1,5 @@
-{% set asr = tenant.active_space_rel %}
+{% set active_rels = tenant.spaces|selectattr('is_active')|list %}
+{% set asr = active_rels[0] if active_rels else None %}
 <tr id="tenant-{{ tenant.id }}" class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
     <td class="px-2 py-1.5 overflow-hidden" style="text-overflow:ellipsis;white-space:nowrap">
         {% if tenant.is_linked %}
@@ -21,20 +22,26 @@
     <td class="px-2 py-1.5 text-gray-500 dark:text-gray-400 overflow-hidden" style="text-overflow:ellipsis;white-space:nowrap">{{ tenant.resolved_phone or '—' }}</td>
     <td class="px-2 py-1.5 text-gray-500 dark:text-gray-400 overflow-hidden" style="text-overflow:ellipsis;white-space:nowrap">{{ tenant.resolved_email or '—' }}</td>
     <td class="px-2 py-1.5 overflow-hidden" style="text-overflow:ellipsis;white-space:nowrap">
-        {% if asr %}
+        {% if active_rels|length > 1 %}
+        {% for sr in active_rels %}<a href="/prostory/{{ sr.space.id }}?back={{ ((list_url or '/najemci') ~ '#tenant-' ~ tenant.id)|urlencode }}" class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:underline" title="{{ sr.space.designation }}">{{ sr.space.space_number }}</a>{% if not loop.last %}, {% endif %}{% endfor %}
+        {% elif asr %}
         <a href="/prostory/{{ asr.space.id }}?back={{ ((list_url or '/najemci') ~ '#tenant-' ~ tenant.id)|urlencode }}" class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:underline" title="{{ asr.space.designation }}">{{ asr.space.space_number }} — {{ asr.space.designation }}</a>
         {% else %}
         <span class="text-gray-300 dark:text-gray-600">—</span>
         {% endif %}
     </td>
     <td class="px-2 py-1.5 text-right font-mono whitespace-nowrap text-gray-700 dark:text-gray-300">
-        {% if asr and asr.monthly_rent %}
+        {% if active_rels|length > 1 %}
+        {{ active_rels|sum(attribute='monthly_rent')|fmt_num }} Kč
+        {% elif asr and asr.monthly_rent %}
         {{ asr.monthly_rent|fmt_num }} Kč
         {% else %}
         <span class="text-gray-300 dark:text-gray-600">—</span>
         {% endif %}
     </td>
     <td class="px-2 py-1.5 text-gray-500 dark:text-gray-400 font-mono">
-        {% if asr and asr.variable_symbol %}{{ asr.variable_symbol }}{% else %}—{% endif %}
+        {% if active_rels|length > 1 %}
+        {% for sr in active_rels %}{% if sr.variable_symbol %}{{ sr.variable_symbol }}{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}
+        {% elif asr and asr.variable_symbol %}{{ asr.variable_symbol }}{% else %}—{% endif %}
     </td>
 </tr>

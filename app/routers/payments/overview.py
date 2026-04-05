@@ -50,11 +50,13 @@ async def platby_prehled(
     q: str = Query(""),
     sort: str = Query("cislo"),
     order: str = Query("asc"),
+    vse_mesice: int = Query(0, alias="vse_mesice"),
     back: str = Query("", alias="back"),
     db: Session = Depends(get_db),
 ):
     """Matice plateb — jednotky/prostory × měsíce."""
     entita = request.query_params.get("entita", "")
+    show_all_months = bool(vse_mesice)
 
     # Výchozí rok = nejnovější PrescriptionYear
     if not rok:
@@ -147,6 +149,7 @@ async def platby_prehled(
         "list_url": list_url,
         "month_names": MONTH_NAMES,
         "months_with_data": matrix["months_with_data"],
+        "show_all_months": show_all_months,
         "space_types": space_types,
         "total_prescribed": matrix["total_prescribed"],
         "total_paid": matrix["total_paid"],

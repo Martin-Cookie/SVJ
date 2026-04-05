@@ -32,6 +32,7 @@
         {% if _op > 0 %}{{ _op|fmt_num }}{% elif _op < 0 %}{{ _op|fmt_num }}{% elif _op == 0 %}—{% endif %}
     </td>
     {% for m in range(1, 13) %}
+    {% if m in months_with_data or show_all_months %}
     {% set cell = r.months[m] %}
     <td class="px-1 py-1.5 text-center whitespace-nowrap
         {% if cell.status == 'paid' %}bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400
@@ -43,6 +44,7 @@
         {% elif cell.status == 'unpaid' %}✗
         {% endif %}
     </td>
+    {% endif %}
     {% endfor %}
     <td class="px-2 py-1.5 text-right font-medium text-gray-900 dark:text-white whitespace-nowrap">{{ r.total_paid|fmt_num }}</td>
     <td class="px-2 py-1.5 text-right font-medium whitespace-nowrap
@@ -76,6 +78,7 @@
         {% if _op > 0 %}{{ _op|fmt_num }}{% elif _op < 0 %}{{ _op|fmt_num }}{% elif _op == 0 %}—{% endif %}
     </td>
     {% for m in range(1, 13) %}
+    {% if m in months_with_data or show_all_months %}
     {% set cell = r.months[m] %}
     <td class="px-1 py-1.5 text-center whitespace-nowrap
         {% if cell.status == 'paid' %}bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400
@@ -87,6 +90,7 @@
         {% elif cell.status == 'unpaid' %}✗
         {% endif %}
     </td>
+    {% endif %}
     {% endfor %}
     <td class="px-2 py-1.5 text-right font-medium text-gray-900 dark:text-white whitespace-nowrap">{{ r.total_paid|fmt_num }}</td>
     <td class="px-2 py-1.5 text-right font-medium whitespace-nowrap
