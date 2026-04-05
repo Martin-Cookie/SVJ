@@ -83,14 +83,15 @@ def compute_nav_stats(db: Session) -> dict:
     }
 
 
-def _count_debtors_fast(db: Session, year: int) -> int:
-    """Rychlý výpočet počtu dlužníků bez plné matice plateb.
+def _compute_debts(db: Session, year: int) -> dict[int, float]:
+    """Společná logika výpočtu dluhů per jednotka.
 
-    Porovnává předpis × počet měsíců s daty vs. zaplaceno per jednotka.
+    Vrací mapu {unit_id: dluh_kč} pro všechny jednotky s dluhem > 0.
+    Dluh = (předpis × měsíce_s_platbami + opening_balance) - zaplaceno.
     """
     py = db.query(PrescriptionYear).filter_by(year=year).first()
     if not py:
-        return 0
+        return {}
 
     # Předpisy indexované dle unit_id
     prescriptions = db.query(Prescription).filter_by(prescription_year_id=py.id).all()
@@ -100,7 +101,7 @@ def _count_debtors_fast(db: Session, year: int) -> int:
             presc_by_unit[p.unit_id] = p.monthly_total or 0
 
     if not presc_by_unit:
-        return 0
+        return {}
 
     # Kolik měsíců má data (alespoň 1 platba)
     months_rows = (
@@ -115,8 +116,7 @@ def _count_debtors_fast(db: Session, year: int) -> int:
     )
     months_count = len(months_rows)
     if months_count == 0:
-        # Žádné platby → nelze určit dlužníky
-        return 0
+        return {}
 
     # Zaplaceno per unit_id (přes alokace)
     paid_rows = (
@@ -139,70 +139,6 @@ def _count_debtors_fast(db: Session, year: int) -> int:
     balances = db.query(UnitBalance).filter_by(year=year).all()
     balance_map = {b.unit_id: b.opening_amount for b in balances}
 
-    # Počítání dlužníků
-    count = 0
-    for unit_id, monthly in presc_by_unit.items():
-        opening = balance_map.get(unit_id, 0)
-        expected = round(monthly * months_count + opening, 2)
-        paid = paid_map.get(unit_id, 0)
-        if paid < expected:
-            count += 1
-
-    return count
-
-
-def compute_debt_map(db: Session, year: int) -> dict[int, float]:
-    """Vrátí mapu {unit_id: dluh_kč} pro všechny jednotky s dluhem.
-
-    Dluh = (předpis × měsíce + opening_balance) - zaplaceno.
-    Vrací jen jednotky kde dluh > 0.
-    """
-    py = db.query(PrescriptionYear).filter_by(year=year).first()
-    if not py:
-        return {}
-
-    prescriptions = db.query(Prescription).filter_by(prescription_year_id=py.id).all()
-    presc_by_unit = {}
-    for p in prescriptions:
-        if p.unit_id:
-            presc_by_unit[p.unit_id] = p.monthly_total or 0
-
-    if not presc_by_unit:
-        return {}
-
-    months_rows = (
-        db.query(func.distinct(func.extract("month", Payment.date)))
-        .filter(
-            Payment.direction == PaymentDirection.INCOME,
-            Payment.match_status.in_([PaymentMatchStatus.AUTO_MATCHED, PaymentMatchStatus.MANUAL]),
-            Payment.unit_id.isnot(None),
-            func.extract("year", Payment.date) == year,
-        )
-        .all()
-    )
-    months_count = len(months_rows)
-    if months_count == 0:
-        return {}
-
-    paid_rows = (
-        db.query(
-            PaymentAllocation.unit_id,
-            func.sum(PaymentAllocation.amount).label("total"),
-        )
-        .join(Payment)
-        .filter(
-            Payment.direction == PaymentDirection.INCOME,
-            Payment.match_status.in_([PaymentMatchStatus.AUTO_MATCHED, PaymentMatchStatus.MANUAL]),
-            func.extract("year", Payment.date) == year,
-        )
-        .group_by(PaymentAllocation.unit_id)
-        .all()
-    )
-    paid_map = {row.unit_id: row.total or 0 for row in paid_rows}
-
-    balances = db.query(UnitBalance).filter_by(year=year).all()
-    balance_map = {b.unit_id: b.opening_amount for b in balances}
-
     result = {}
     for unit_id, monthly in presc_by_unit.items():
         opening = balance_map.get(unit_id, 0)
@@ -213,3 +149,13 @@ def compute_debt_map(db: Session, year: int) -> dict[int, float]:
             result[unit_id] = debt
 
     return result
+
+
+def _count_debtors_fast(db: Session, year: int) -> int:
+    """Rychlý výpočet počtu dlužníků bez plné matice plateb."""
+    return len(_compute_debts(db, year))
+
+
+def compute_debt_map(db: Session, year: int) -> dict[int, float]:
+    """Vrátí mapu {unit_id: dluh_kč} pro všechny jednotky s dluhem."""
+    return _compute_debts(db, year)
