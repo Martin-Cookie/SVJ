@@ -6,6 +6,7 @@
         {%- if "/jednotky/" in back_url %} Zpět na detail jednotky
         {%- elif back_url.startswith("/jednotky") %} Zpět na seznam jednotek
         {%- elif back_url == "/" %} Zpět na přehled
+        {%- elif "/vypisy/" in back_url %} Zpět na výpis
         {%- else %} Zpět na platby
         {%- endif %}</a>
 </div>

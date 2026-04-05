@@ -2,7 +2,7 @@ from datetime import datetime
 
 from app.utils import utcnow
 
-from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, String, Text
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -21,6 +21,11 @@ class SvjInfo(Base):
     contact_import_mapping = Column(Text, nullable=True)  # JSON — last used contact import column mapping
     balance_import_mapping = Column(Text, nullable=True)   # JSON — last used balance import column mapping
     space_import_mapping = Column(Text, nullable=True)     # JSON — last used space import column mapping
+    # Sdílená nastavení dávkového odesílání emailů
+    send_batch_size = Column(Integer, default=10)           # počet příjemců v dávce
+    send_batch_interval = Column(Integer, default=5)        # sekund mezi dávkami
+    send_confirm_each_batch = Column(Boolean, default=False)  # potvrzení po každé dávce
+    send_test_email_address = Column(String(200), nullable=True)  # poslední testovací email
     created_at = Column(DateTime, default=utcnow)
     updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 

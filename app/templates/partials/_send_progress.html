@@ -1,0 +1,68 @@
+{# Sdílený progress bar pro dávkové odesílání emailů.
+   Používá se v: nesrovnalosti (platby), hromadné rozesílání (daně).
+
+   Parametry:
+   - poll_url: URL pro HTMX polling (prubeh-stav endpoint)
+   - pause_url: URL pro pozastavení
+   - resume_url: URL pro pokračování
+   - cancel_url: URL pro zrušení
+   - cancel_label: text tlačítka zrušit (default "Zrušit")
+   - cancel_confirm: text potvrzovacího dialogu
+
+   Progress proměnné (z _eta helper):
+   - total, sent, failed, current_recipient, error
+   - paused, waiting_batch_confirm, batch_number, total_batches
+   - done, elapsed, eta
+#}
+
+<div id="send-progress-area"
+     hx-get="{{ poll_url }}"
+     hx-trigger="every 500ms"
+     hx-swap="innerHTML">
+    {% include "partials/_send_progress_inner.html" %}
+</div>
+
+{# Tlačítka MIMO polled oblast — HTMX je nepřepisuje #}
+<div id="progress-buttons" class="flex items-center gap-2 pt-4">
+    <form id="btn-pause" method="post" action="{{ pause_url }}" hx-boost="false">
+        <button type="submit" class="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 text-sm font-medium transition-colors">
+            Pozastavit
+        </button>
+    </form>
+    <form id="btn-resume" method="post" action="{{ resume_url }}" hx-boost="false" class="hidden">
+        <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium transition-colors">
+            Pokračovat
+        </button>
+    </form>
+    <form id="btn-resume-batch" method="post" action="{{ resume_url }}" hx-boost="false" class="hidden">
+        <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium transition-colors">
+            Pokračovat (další dávka)
+        </button>
+    </form>
+    <form id="btn-cancel" method="post" action="{{ cancel_url }}" hx-boost="false"
+          data-confirm="{{ cancel_confirm|default('Zrušit odesílání? Již odeslané emaily zůstanou, zbývající se neodešlou.') }}">
+        <button type="submit" class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm font-medium transition-colors">
+            {{ cancel_label|default('Zrušit') }}
+        </button>
+    </form>
+    <p id="btn-done-msg" class="text-xs text-gray-400 hidden">Přesměrování za okamžik…</p>
+</div>
+
+<script>
+document.body.addEventListener('htmx:afterSwap', function(e) {
+    if (e.detail.target.id !== 'send-progress-area') return;
+    var doneEl = document.getElementById('progress-done');
+    var pausedEl = document.getElementById('progress-paused');
+    var waitingEl = document.getElementById('progress-waiting');
+    if (!doneEl) return;
+    var done = doneEl.value === 'true';
+    var paused = pausedEl && pausedEl.value === 'true';
+    var waiting = waitingEl && waitingEl.value === 'true';
+
+    document.getElementById('btn-pause').classList.toggle('hidden', done || paused || waiting);
+    document.getElementById('btn-resume').classList.toggle('hidden', done || !paused || waiting);
+    document.getElementById('btn-resume-batch').classList.toggle('hidden', done || !waiting);
+    document.getElementById('btn-cancel').classList.toggle('hidden', done);
+    document.getElementById('btn-done-msg').classList.toggle('hidden', !done);
+});
+</script>

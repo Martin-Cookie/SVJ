@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Odesílání upozornění — {% if statement.period_from %}{{ month_names.get(statement.period_from.month, "") }} {{ statement.period_from.year }}{% else %}{{ statement.filename }}{% endif %}{% endblock %}
+{% block content %}
+<div class="flex flex-col" style="height: calc(100vh - 4rem);">
+    {% include "payments/partials/_platby_nav.html" %}
+
+    <div class="flex-shrink-0">
+        <h1 class="text-lg font-bold text-gray-900 dark:text-white mb-4">
+            Odesílání upozornění na nesrovnalosti
+        </h1>
+    </div>
+
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 max-w-xl">
+        {% with
+            poll_url="/platby/vypisy/" ~ statement.id ~ "/nesrovnalosti/prubeh-stav",
+            pause_url="/platby/vypisy/" ~ statement.id ~ "/nesrovnalosti/pozastavit",
+            resume_url="/platby/vypisy/" ~ statement.id ~ "/nesrovnalosti/pokracovat",
+            cancel_url="/platby/vypisy/" ~ statement.id ~ "/nesrovnalosti/zrusit",
+            cancel_label="Zrušit",
+            cancel_confirm="Zrušit odesílání? Již odeslané emaily zůstanou, zbývající se neodešlou.",
+            progress_label="Odesílání upozornění"
+        %}
+        {% include "partials/_send_progress.html" %}
+        {% endwith %}
+    </div>
+</div>
+{% endblock %}

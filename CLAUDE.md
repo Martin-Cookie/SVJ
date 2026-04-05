@@ -52,7 +52,7 @@
   if (hodnota) { /* najít a kliknout na řádek s data-hodnota == hodnota */ }
   ```
 - **Obnova scroll pozice** — viz [UI_GUIDE.md § 13](docs/UI_GUIDE.md). Dva vzory:
-  - **Back URL (hash)**: řádky mají `id`, back URL obsahuje `#hash`, stránka volá `scrollToHash()` z `app.js`. **Scroll kontejner MUSÍ mít `overflow-y-auto overflow-x-hidden min-h-0`** (ne `overflow-auto`) — jinak HTMX boost neobnoví scroll pozici. CSS `scroll-margin-top: 40px` v `custom.css` zabraňuje zakrytí řádku sticky hlavičkou
+  - **Back URL (hash)**: řádky mají `id`, back URL obsahuje `#hash`, stránka volá `scrollToHash()` z `app.js`. Pro HTMX boost navigaci (AJAX body swap) řeší scroll `MutationObserver` v `app.js` — inline scripty se spustí před swapem (starý DOM), observer detekuje nový DOM a scrolluje po 80ms. HTMX config `scrollIntoViewOnBoost: false` v `base.html` zabraňuje výchozímu scrollu na začátek. **Scroll kontejner MUSÍ mít `overflow-y-auto overflow-x-hidden min-h-0`** (ne `overflow-auto`) — jinak HTMX boost neobnoví scroll pozici. CSS `scroll-margin-top: 40px` v `custom.css` zabraňuje zakrytí řádku sticky hlavičkou
   - **POST+redirect (sessionStorage)**: pro inline formuláře na stejné stránce — `sessionStorage` uloží `scrollTop` před submitem, obnoví přesnou pixel pozici po redirectu. Hash se stripne přes `history.replaceState` aby prohlížeč nepřeskočil
 - **Kontrola při přidání `<a href>` na entitu** — VŽDY ověřit 3 věci: (1) odkaz má `?back=`, (2) router předává `list_url` do kontextu, (3) cílová stránka má odpovídající `back_label` větev
 
@@ -252,6 +252,16 @@
   - Plná varianta: `partials/wizard_stepper.html` — samostatný stepper nad obsahem
   - Kompaktní varianta: `partials/wizard_stepper_compact.html` — inline v kartě na seznamu
   - Stavy kroků: `done` (zelená), `active` (zelená), `current+done` (tmavší zelená s ring efektem), `pending` (šedá), `sending` (oranžová pulzace)
+- **Sdílený progress bar pro dávkové odesílání** — `partials/_send_progress.html` + `partials/_send_progress_inner.html`:
+  - Používá se v: nesrovnalosti (platby) i hromadné rozesílání (daně)
+  - Vnější partial (`_send_progress.html`): polling div + tlačítka (Pozastavit/Pokračovat/Zrušit) **mimo polled oblast** + JS synchronizace stavu
+  - Vnitřní partial (`_send_progress_inner.html`): progress bar, statistiky, stav — swapuje se HTMX pollingem (500ms)
+  - **Tlačítka MUSÍ být mimo HTMX-polled oblast** — jinak `data-confirm` modal přestane fungovat (HTMX swap odstraní formulář z DOM během potvrzování)
+  - Stav se synchronizuje přes hidden inputy (`#progress-done`, `#progress-paused`, `#progress-waiting`) + `htmx:afterSwap` event
+  - Po dokončení (`done=True`) polling čeká 3 sekundy před redirectem (uživatel vidí výsledek)
+  - Router helper `_*_eta(progress)` MUSÍ předávat `done` flag do šablony
+  - Router `finished_at = time.monotonic()` se ukládá v `finally` bloku i v cancel endpointu
+  - Volání: `{% with poll_url=..., pause_url=..., resume_url=..., cancel_url=..., cancel_label=..., cancel_confirm=... %}{% include "partials/_send_progress.html" %}{% endwith %}`
 - Registrace v `app/main.py` (`include_router`)
 - Export modelů v `app/models/__init__.py`
 - Odkaz v sidebar (`base.html`) s `active_nav` kontrolou

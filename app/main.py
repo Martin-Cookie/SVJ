@@ -324,6 +324,10 @@ def _ensure_indexes():
         ("ix_payment_allocations_space_id", "payment_allocations", "space_id"),
         ("ix_unit_balances_space_id", "unit_balances", "space_id"),
     ]
+    # Složené indexy: (název, tabulka, "sloupec1, sloupec2")
+    _COMPOUND_INDEXES = [
+        ("ix_email_logs_module_reference", "email_logs", "module, reference_id"),
+    ]
     import re
     _SAFE_IDENT = re.compile(r'^"?[a-z_][a-z0-9_]*"?$')
     with engine.connect() as conn:
@@ -337,6 +341,17 @@ def _ensure_indexes():
                 ))
             except Exception as e:
                 logger.warning("Index %s creation failed: %s", idx_name, e)
+        for idx_name, table, columns in _COMPOUND_INDEXES:
+            parts = [c.strip() for c in columns.split(",")]
+            if not _SAFE_IDENT.match(idx_name) or not _SAFE_IDENT.match(table) or not all(_SAFE_IDENT.match(p) for p in parts):
+                logger.warning("Skipping compound index %s — invalid identifier", idx_name)
+                continue
+            try:
+                conn.execute(text(
+                    f"CREATE INDEX IF NOT EXISTS {idx_name} ON {table} ({columns})"
+                ))
+            except Exception as e:
+                logger.warning("Compound index %s creation failed: %s", idx_name, e)
         conn.commit()
     logger.info("Database indexes ensured")
 
@@ -377,21 +392,49 @@ def _seed_code_lists():
 
 
 def _seed_email_templates():
-    """Seed default email template if table is empty."""
+    """Seed default email templates if missing."""
     from sqlalchemy.orm import Session as _Session
     from app.models.administration import EmailTemplate
 
     with _Session(engine) as session:
-        if session.query(EmailTemplate).first() is not None:
-            return
-        session.add(EmailTemplate(
-            name="Rozúčtování příjmů",
-            subject_template="Rozúčtování příjmů za rok {rok}",
-            body_template="Dobrý den,\n\nv příloze zasíláme rozúčtování příjmů za rok {rok}.\n\nS pozdravem,\nSVJ",
-            order=0,
-        ))
+        existing = {t.name for t in session.query(EmailTemplate).all()}
+
+        if "Rozúčtování příjmů" not in existing:
+            session.add(EmailTemplate(
+                name="Rozúčtování příjmů",
+                subject_template="Rozúčtování příjmů za rok {rok}",
+                body_template="Dobrý den,\n\nv příloze zasíláme rozúčtování příjmů za rok {rok}.\n\nS pozdravem,\nSVJ",
+                order=0,
+            ))
+
+        if "Upozornění na nesrovnalost v platbě" not in existing:
+            session.add(EmailTemplate(
+                name="Upozornění na nesrovnalost v platbě",
+                subject_template="Upozornění na nesrovnalost v platbě za {{ mesic_nazev }} {{ rok }}",
+                body_template=(
+                    "Dobrý den, {{ jmeno }},\n\n"
+                    "při zpracování plateb za {{ mesic_nazev }} {{ rok }} jsme zjistili nesrovnalost:\n\n"
+                    "{% for chyba in chyby %}"
+                    "- {{ chyba }}\n"
+                    "{% endfor %}\n"
+                    "Vaše platba:\n"
+                    "- Datum: {{ datum_platby }}\n"
+                    "- Částka: {{ castka_zaplaceno }} Kč\n"
+                    "- Variabilní symbol: {{ vs_platby }}\n\n"
+                    "Očekávaný předpis:\n"
+                    "- {{ entita }}\n"
+                    "- Měsíční předpis: {{ castka_predpis }} Kč\n"
+                    "- Variabilní symbol: {{ vs_predpisu }}\n\n"
+                    "Prosíme o úpravu platby tak, aby odpovídala předpisu. "
+                    "V případě dotazů nás kontaktujte.\n\n"
+                    "S pozdravem,\n"
+                    "{{ svj_nazev }}"
+                ),
+                order=10,
+            ))
+
         session.commit()
-        logger.info("Default email template seeded")
+        logger.info("Email templates seeded")
 
 
 def _migrate_payment_allocations():
@@ -524,6 +567,36 @@ def _migrate_spaces_tables():
         conn.commit()
 
 
+def _migrate_svj_send_settings():
+    """Přidat sdílená nastavení odesílání do svj_info."""
+    with engine.connect() as conn:
+        cols = [r[1] for r in conn.execute(text("PRAGMA table_info('svj_info')")).fetchall()]
+        for col_name, col_def in [
+            ("send_batch_size", "INTEGER DEFAULT 10"),
+            ("send_batch_interval", "INTEGER DEFAULT 5"),
+            ("send_confirm_each_batch", "BOOLEAN DEFAULT 0"),
+            ("send_test_email_address", "VARCHAR(200)"),
+        ]:
+            if col_name not in cols:
+                conn.execute(text(f"ALTER TABLE svj_info ADD COLUMN {col_name} {col_def}"))
+                logger.info("Added %s column to svj_info", col_name)
+        conn.commit()
+
+
+def _migrate_payment_notified_at():
+    """Přidat sloupec notified_at do payments a discrepancy_test_passed do bank_statements."""
+    with engine.connect() as conn:
+        cols = [r[1] for r in conn.execute(text("PRAGMA table_info('payments')")).fetchall()]
+        if "notified_at" not in cols:
+            conn.execute(text("ALTER TABLE payments ADD COLUMN notified_at DATETIME"))
+            logger.info("Added notified_at column to payments")
+        bs_cols = [r[1] for r in conn.execute(text("PRAGMA table_info('bank_statements')")).fetchall()]
+        if "discrepancy_test_passed" not in bs_cols:
+            conn.execute(text("ALTER TABLE bank_statements ADD COLUMN discrepancy_test_passed BOOLEAN DEFAULT 0"))
+            logger.info("Added discrepancy_test_passed column to bank_statements")
+        conn.commit()
+
+
 _ALL_MIGRATIONS = [
     ("units table", _migrate_units_table),
     ("owner_units history", _migrate_owner_units_history),
@@ -537,6 +610,8 @@ _ALL_MIGRATIONS = [
     ("bank_statement locked_at", _migrate_bank_statement_locked),
     ("unit_balances owner columns", _migrate_unit_balances_owner),
     ("spaces tables migration", _migrate_spaces_tables),
+    ("svj send settings", _migrate_svj_send_settings),
+    ("payment notified_at", _migrate_payment_notified_at),
     ("index creation", _ensure_indexes),
     ("code list seeding", _seed_code_lists),
     ("email template seeding", _seed_email_templates),

@@ -13,11 +13,15 @@
 <h1 class="text-2xl font-bold text-gray-800 mb-6">Odesílání &mdash; {{ session.title }}</h1>
 
 <div class="bg-white rounded-lg shadow p-6 max-w-xl">
-    <div id="send-progress-area"
-         hx-get="/dane/{{ session.id }}/rozeslat/prubeh-stav"
-         hx-trigger="every 500ms"
-         hx-swap="innerHTML">
-        {% include "partials/tax_send_progress.html" %}
-    </div>
+    {% with
+        poll_url="/dane/" ~ session.id ~ "/rozeslat/prubeh-stav",
+        pause_url="/dane/" ~ session.id ~ "/rozeslat/pozastavit",
+        resume_url="/dane/" ~ session.id ~ "/rozeslat/pokracovat",
+        cancel_url="/dane/" ~ session.id ~ "/rozeslat/zrusit",
+        cancel_label="Zrušit rozesílku",
+        cancel_confirm="Zrušit rozesílku? Již odeslané emaily zůstanou, zbývající se neodešlou."
+    %}
+    {% include "partials/_send_progress.html" %}
+    {% endwith %}
 </div>
 {% endblock %}

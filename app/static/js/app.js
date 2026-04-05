@@ -295,8 +295,6 @@ function scrollToHash() {
     if (!location.hash) return;
     var el = document.querySelector(location.hash);
     if (!el) return;
-    // CSS scroll-margin-top on tr[id] handles the sticky header offset.
-    // For HTMX boost navigation, we need to trigger scroll explicitly.
     var container = el.closest('.overflow-y-auto');
     if (container) {
         container.scrollTop = Math.max(0, el.offsetTop - 40);
@@ -304,6 +302,27 @@ function scrollToHash() {
         el.scrollIntoView({block: 'center'});
     }
 }
+
+// Auto-scroll to hash after HTMX boost body swap — MutationObserver
+// catches the moment when the new DOM is in place.
+// Prefers exact sessionStorage position; falls back to hash-based scroll.
+(function() {
+    var _hashScrollPending = false;
+    new MutationObserver(function() {
+        if (!location.hash || _hashScrollPending) return;
+        var el = document.querySelector(location.hash);
+        if (!el) return;
+        _hashScrollPending = true;
+        setTimeout(function() {
+            _hashScrollPending = false;
+            // Prefer exact pixel position from sessionStorage (saved before navigation)
+            if (!_restoreScrollPos()) {
+                // Fallback: scroll target element to top of container
+                scrollToHash();
+            }
+        }, 80);
+    }).observe(document.body, {childList: true});
+})();
 
 // Generic client-side table column sorting
 function sortTableCol(th) {
@@ -462,7 +481,7 @@ function _restoreScrollPos() {
     if (val === null) return false;
     try { sessionStorage.removeItem(key); } catch(e) {}
     var top = parseInt(val, 10);
-    if (isNaN(top) || top <= 0) return false;
+    if (isNaN(top) || top < 0) return false;
     var sc = _getScrollContainer();
     if (!sc) return false;
     setTimeout(function() { sc.scrollTop = top; }, 50);
@@ -485,7 +504,7 @@ document.body.addEventListener('htmx:beforeRequest', function(event) {
 });
 
 // Restore after ANY htmx settle (partial swap into tbody OR full boost page swap)
-document.body.addEventListener('htmx:afterSettle', function(event) {
+document.addEventListener('htmx:afterSettle', function(event) {
     initThemeUI();
     _restoreCheckedKeys();
     _restoreTaxChecked();
@@ -500,8 +519,11 @@ document.body.addEventListener('htmx:afterSettle', function(event) {
             }
         } catch(e) {}
     }
-    // Restore exact scroll position when returning to a page
-    _restoreScrollPos();
+    // Scroll restore: MutationObserver handles hash-based scroll (see above).
+    // Here we try sessionStorage restore as well (covers non-hash returns).
+    if (!location.hash) {
+        _restoreScrollPos();
+    }
 });
 
 // Initial page load
@@ -536,6 +558,8 @@ document.addEventListener('change', function(e) {
 
 function toggleAllRecipients(master) {
     document.querySelectorAll('.rcpt-cb:not(:disabled)').forEach(function(cb) {
+        // Při "vybrat vše" přeskočit již odeslaná (data-notified), při "zrušit vše" odškrtnout všechna
+        if (master.checked && cb.dataset.notified) return;
         cb.checked = master.checked;
     });
     _saveCheckedKeys();

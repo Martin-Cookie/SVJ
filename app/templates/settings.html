@@ -101,4 +101,14 @@
         </table>
     </div>
 </div>
+
+<script>
+function toggleEmailBody(btn) {
+    var row = btn.closest('tr');
+    var bodyRow = row.nextElementSibling;
+    if (bodyRow && bodyRow.classList.contains('email-body-row')) {
+        bodyRow.classList.toggle('hidden');
+    }
+}
+</script>
 {% endblock %}
