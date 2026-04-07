@@ -59,17 +59,30 @@
 
         <!-- Filtr bubliny — typ prostoru (jen pro jednotky) -->
         {% if entita != 'prostory' and space_types %}
-        <div class="flex flex-wrap gap-2 mb-3">
+        <div class="flex flex-wrap items-center gap-2 mb-3">
             <a href="{{ _base }}{{ _back }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
                 {% if not typ %}bg-green-600 text-white ring-2 ring-green-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
                 Vše <span class="ml-1 text-xs opacity-75">{{ total_units }}</span>
             </a>
+            {% if space_types|length <= 6 %}
             {% for st in space_types %}
             <a href="{{ _base }}&typ={{ st|urlencode }}{{ _back }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
                 {% if typ == st %}bg-green-600 text-white ring-2 ring-green-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
                 {{ st }}
             </a>
             {% endfor %}
+            {% else %}
+            <select onchange="if(this.value)window.location=this.value"
+                    class="px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-green-500">
+                <option value="">Typ prostoru…</option>
+                {% for st in space_types %}
+                <option value="{{ _base }}&typ={{ st|urlencode }}{{ _back }}" {% if typ == st %}selected{% endif %}>{{ st }}</option>
+                {% endfor %}
+            </select>
+            {% if typ %}
+            <a href="{{ _base }}{{ _back }}" class="px-2 py-1 text-xs text-red-600 hover:text-red-800">✕ Zrušit filtr</a>
+            {% endif %}
+            {% endif %}
         </div>
         {% endif %}
 

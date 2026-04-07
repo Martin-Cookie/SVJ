@@ -20,7 +20,7 @@
         </div>
     </div>
     <div class="flex items-center gap-2">
-        {% set _export_qs = "q=" ~ q ~ "&stav=" ~ stav ~ "&sekce=" ~ sekce ~ "&sort=" ~ sort ~ "&order=" ~ order %}
+        {% set _export_qs = "q=" ~ q ~ "&stav=" ~ stav ~ "&sekce=" ~ sekce ~ "&najemce=" ~ najemce ~ "&sort=" ~ sort ~ "&order=" ~ order %}
         <a href="/prostory/exportovat/xlsx?{{ _export_qs }}" hx-boost="false"
            onclick="var b=this,t=b.textContent;b.textContent='Generuji…';b.classList.add('opacity-50');setTimeout(function(){b.textContent=t;b.classList.remove('opacity-50')},3000)"
            class="px-2.5 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 text-xs font-medium transition-colors border border-gray-200 dark:border-gray-600"
@@ -41,7 +41,7 @@
 <div id="space-create-section"></div>
 
 {% set _back = "&back=" ~ (back_url|default('')|urlencode) if back_url else "" %}
-{% set _ubase = "q=" ~ q ~ "&sekce=" ~ sekce ~ "&sort=" ~ sort ~ "&order=" ~ order ~ _back %}
+{% set _ubase = "q=" ~ q ~ "&sekce=" ~ sekce ~ "&najemce=" ~ najemce ~ "&sort=" ~ sort ~ "&order=" ~ order ~ _back %}
 <div class="bg-white dark:bg-gray-800 rounded-lg shadow mb-2">
 <!-- Status filter bubbles -->
 <div class="flex gap-2 p-3 pb-2">
@@ -63,6 +63,25 @@
     </a>
 </div>
 
+<!-- Tenant filter bubbles -->
+{% if stats.with_tenant > 0 and stats.without_tenant > 0 %}
+{% set _tbase = "q=" ~ q ~ "&stav=" ~ stav ~ "&sekce=" ~ sekce ~ "&sort=" ~ sort ~ "&order=" ~ order ~ _back %}
+<div class="flex gap-2 px-3 pb-2">
+    <a href="/prostory?{{ _tbase }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
+        {% if not najemce %}bg-blue-600 text-white{% else %}bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
+        Vše
+    </a>
+    <a href="/prostory?najemce=with&{{ _tbase }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
+        {% if najemce == 'with' %}bg-blue-600 text-white{% else %}bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
+        S nájemcem <span class="ml-0.5 opacity-75">{{ stats.with_tenant }}</span>
+    </a>
+    <a href="/prostory?najemce=without&{{ _tbase }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
+        {% if najemce == 'without' %}bg-blue-600 text-white{% else %}bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
+        Bez nájemce <span class="ml-0.5 opacity-75">{{ stats.without_tenant }}</span>
+    </a>
+</div>
+{% endif %}
+
 <!-- Separator -->
 <div class="border-t border-gray-100 dark:border-gray-700"></div>
 
@@ -71,12 +90,13 @@
     <input type="hidden" name="sort" value="{{ sort }}">
     <input type="hidden" name="order" value="{{ order }}">
     <input type="hidden" name="stav" value="{{ stav }}">
+    <input type="hidden" name="najemce" value="{{ najemce }}">
     <input type="hidden" name="back" value="{{ back_url|default('') }}">
     <div class="flex-1 relative">
         <input type="text" name="q" value="{{ q }}" placeholder="Hledat označení, sekci, nájemce..."
                aria-label="Hledat"
                hx-get="/prostory" hx-trigger="keyup changed delay:300ms"
-               hx-target="#space-table-body" hx-include="[name='stav'],[name='sekce'],[name='sort'],[name='order'],[name='back']"
+               hx-target="#space-table-body" hx-include="[name='stav'],[name='sekce'],[name='najemce'],[name='sort'],[name='order'],[name='back']"
                hx-push-url="true"
                hx-indicator="#search-spinner"
                class="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs">
@@ -85,7 +105,7 @@
     {% if stats.sections %}
     <select name="sekce"
             hx-get="/prostory" hx-trigger="change"
-            hx-target="#space-table-body" hx-include="[name='q'],[name='stav'],[name='sort'],[name='order'],[name='back']"
+            hx-target="#space-table-body" hx-include="[name='q'],[name='stav'],[name='najemce'],[name='sort'],[name='order'],[name='back']"
             hx-push-url="true"
             class="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 text-xs h-[30px]">
         <option value="">Všechny sekce</option>

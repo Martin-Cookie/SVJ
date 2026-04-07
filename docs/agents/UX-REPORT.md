@@ -5,6 +5,53 @@
 > Rozsah: cela aplikace (dashboard, vlastnici, jednotky, najemci, prostory, hlasovani, dane/rozesilani, synchronizace, kontroly, platby, sprava, nastaveni)
 > Metoda: navigace cele aplikace pres Playwright (snapshots + screenshoty) + analyza z 6 expertnich roli
 
+## Stav nalezu k 2026-04-07
+
+Z 34 nalezu tohoto reportu bylo **34 opraveno** (vsechny), zbyva **0 otevrenych**:
+
+| # | Nalez | Stav |
+|---|-------|------|
+| #1 Dashboard aktivita zahltena | ✅ OPRAVENO — groupovani emailu |
+| #2 Dashboard filtracni bubliny | ✅ OPRAVENO — bubliny dle modulu |
+| #3 Dashboard onboarding | ✅ OPRAVENO — welcome blok |
+| #4 Vlastnici dluh tooltip | ✅ OPRAVENO |
+| #5 Detail vlastnika celkovy dluh | ✅ OPRAVENO — badge + link |
+| #6 Najemci duplicitni radky | ✅ OPRAVENO — overeno v DB, zadne duplicity |
+| #7 Propojeny najemce bez edit | ✅ OPRAVENO — info blok + link |
+| #8 Propojeny najemce bez pronajmu | ✅ OPRAVENO |
+| #9 VS "???" bez varovani | ✅ OPRAVENO — cerveny text + title |
+| #10 Prostory filtr "S najemcem" | ✅ OPRAVENO 2026-04-07 — bubliny S najemcem/Bez najemce |
+| #11 Hlasovani back link | ✅ OPRAVENO |
+| #12 Hlasovaci polozka patickovy text | ✅ OPRAVENO 2026-04-07 — validace >200 znaku |
+| #13 Pozastavena rozesilka vizual | ✅ OPRAVENO — zluty border |
+| #14 Rozesilka matching bez paginace | ✅ OPRAVENO 2026-04-07 — info radek + filtry |
+| #15 Platebni karta orezana | ✅ OPRAVENO |
+| #16 Platebni matice siroka | ✅ OPRAVENO — skryti prazdnych mesicu + toggle |
+| #17 Dluznici zavadejici pocet | ✅ OPRAVENO — info zprava |
+| #18 Reparovat bez tooltipu | ✅ OPRAVENO |
+| #19 Vyuctovani vsechny zelene | ✅ OPRAVENO 2026-04-07 — varovani pri samych preplatcich |
+| #20 Zustatky prazdna stranka | ✅ OPRAVENO — info blok |
+| #21 Sync zalozky nejasne | ✅ OPRAVENO — vizualni styl |
+| #22 Administrace dobre navrzena | ✅ pozitivni nalez |
+| #23 Smazat data bezpecnost | ✅ pozitivni nalez |
+| #24 Hromadne upravy preview | ✅ OPRAVENO 2026-04-07 — pocet zaznamu v zahlavi |
+| #25 Email log limit 100 | ✅ OPRAVENO — bez limitu |
+| #26 Sidebar mobilni | ✅ OPRAVENO — hamburger menu |
+| #27 Sidebar badge tooltip | ✅ OPRAVENO |
+| #28 Search loading spinner | ✅ OPRAVENO — hx-indicator |
+| #29 Unit detail back link | ✅ OPRAVENO — kontextove labely |
+| #30 Nesoulad poctu predpisu | ✅ OPRAVENO — tooltip |
+| #31 Hromadna zmena potvrzeni | ✅ OPRAVENO — data-confirm |
+| #32 Badge platby neklikatelny | ✅ OPRAVENO — hover efekt |
+| #33 Import varovani alarmujici | ✅ OPRAVENO — mirnejsi text |
+| #34 Prilis mnoho bublin typu | ✅ OPRAVENO 2026-04-07 — dropdown pri >6 typech |
+
+### Otevrene nalezy
+
+Vsechny nalezy byly opraveny k 2026-04-07.
+
+---
+
 ## Zmeny od posledni analyzy (09.03.2026)
 
 Od posledni analyzy byly pridany/vyrazne zmeneny tyto moduly:

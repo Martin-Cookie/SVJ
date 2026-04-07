@@ -18,7 +18,7 @@ set -e
 
 cd "$(dirname "$0")"
 PROJECT_DIR="$(pwd)"
-DATA_SRC="/Users/martinkoci/Library/CloudStorage/Dropbox/Dokumenty/SVJ/DATA"
+DATA_SRC="${SVJ_DATA_SRC:-/Users/martinkoci/Library/CloudStorage/Dropbox/Dokumenty/SVJ/DATA}"
 
 # Barvy
 GREEN='\033[92m'

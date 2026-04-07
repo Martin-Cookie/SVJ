@@ -24,7 +24,7 @@ SORT_COLUMNS = {
 }
 
 
-def _filter_spaces(db: Session, q="", stav="", sekce="", sort="space_number", order="asc"):
+def _filter_spaces(db: Session, q="", stav="", sekce="", najemce="", sort="space_number", order="asc"):
     """Filter and sort spaces. Returns list[Space] with eager-loaded tenants."""
     query = db.query(Space).options(
         joinedload(Space.tenants).joinedload(SpaceTenant.tenant).joinedload(Tenant.owner)
@@ -46,6 +46,10 @@ def _filter_spaces(db: Session, q="", stav="", sekce="", sort="space_number", or
         query = query.filter(Space.status == stav)
     if sekce:
         query = query.filter(Space.section == sekce)
+    if najemce == "with":
+        query = query.filter(Space.tenants.any(SpaceTenant.is_active == True))  # noqa: E712
+    elif najemce == "without":
+        query = query.filter(~Space.tenants.any(SpaceTenant.is_active == True))  # noqa: E712
 
     # SQL sort
     sort_col = SORT_COLUMNS.get(sort)
@@ -88,6 +92,9 @@ def _space_stats(db: Session):
     total_rent = db.query(func.sum(SpaceTenant.monthly_rent)).filter(
         SpaceTenant.is_active
     ).scalar() or 0
+    with_tenant = db.query(Space).filter(
+        Space.tenants.any(SpaceTenant.is_active == True)  # noqa: E712
+    ).count()
 
     return {
         "total": total,
@@ -96,6 +103,8 @@ def _space_stats(db: Session):
         "blocked": status_counts.get(SpaceStatus.BLOCKED, 0),
         "sections": sections,
         "total_rent": total_rent,
+        "with_tenant": with_tenant,
+        "without_tenant": total - with_tenant,
     }
 
 

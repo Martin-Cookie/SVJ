@@ -453,6 +453,10 @@ async def voting_detail(
     elif info == "zadne-body":
         ctx["flash_message"] = "Nejdříve přidejte alespoň jeden bod hlasování."
         ctx["flash_type"] = "error"
+    elif info == "dlouhy-text":
+        chars = request.query_params.get("chars", "?")
+        ctx["flash_message"] = f"Bod nebyl přidán — název je neobvykle dlouhý ({chars} znaků). Zkontrolujte, zda neobsahuje text patičky lístku."
+        ctx["flash_type"] = "warning"
 
     # HTMX partial: return only the results table
     if is_htmx_partial(request):
@@ -857,6 +861,14 @@ async def add_voting_item(
         return RedirectResponse("/hlasovani", status_code=302)
 
     max_order = max((i.order for i in voting.items), default=0)
+    title = title.strip()
+    description = description.strip()
+    # Varování při neobvykle dlouhém textu (může obsahovat patičku lístku)
+    if len(title) > 200:
+        return RedirectResponse(
+            f"/hlasovani/{voting_id}?info=dlouhy-text&chars={len(title)}",
+            status_code=302,
+        )
     item = VotingItem(
         voting_id=voting.id,
         order=max_order + 1,
@@ -883,8 +895,15 @@ async def edit_voting_item(
     voting = db.query(Voting).get(voting_id)
     if not voting or voting.status != VotingStatus.DRAFT:
         return RedirectResponse(f"/hlasovani/{voting_id}", status_code=302)
-    item.title = title.strip()
-    item.description = description.strip()
+    title = title.strip()
+    description = description.strip()
+    if len(title) > 200:
+        return RedirectResponse(
+            f"/hlasovani/{voting_id}?info=dlouhy-text&chars={len(title)}",
+            status_code=302,
+        )
+    item.title = title
+    item.description = description
     db.commit()
     return RedirectResponse(f"/hlasovani/{voting_id}", status_code=302)
 

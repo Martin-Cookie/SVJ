@@ -9,6 +9,24 @@
 > - fix: pinované závislosti (requirements.txt) + podpora SMTP SSL (port 465)
 > - feat: skript pro přenos aplikace na jiný Mac + vylepšené kontroly při spuštění
 
+## Stav nálezů k 2026-04-07
+
+Z 11 nálezů tohoto auditu bylo **11 opraveno** (všechny), zbývá **0 otevřených**:
+
+| # | Nález | Stav |
+|---|-------|------|
+| N1 | SMTP SSL duplikace v settings_page | ✅ OPRAVENO — používá `_create_smtp()` |
+| N2 | Logger import ordering | ✅ OPRAVENO |
+| N3 | Return type `_create_smtp()` | ✅ OPRAVENO — `SMTP \| SMTP_SSL` |
+| N4 | Temp form hidden fields | ✅ OPRAVENO — `cloneNode(true)` |
+| N5 | `datetime.utcnow` v 7 modelech | ✅ OPRAVENO — všude `utcnow()` |
+| N6 | `datetime.utcnow()` v dashboard | ✅ OPRAVENO |
+| N7 | Playwright logy | ✅ OPRAVENO 2026-04-07 |
+| N8 | test_prostory.xlsx | ✅ OPRAVENO — smazáno |
+| N9 | Hardcoded Dropbox cesta | ✅ OPRAVENO 2026-04-07 — env `SVJ_DATA_SRC` |
+| N10 | sqlite3 CLI check | ✅ OPRAVENO — `command -v` guard |
+| N11 | WHEEL_COUNT undefined | ✅ OPRAVENO — `${WHEEL_COUNT:-0}` |
+
 ## Stav předchozího auditu (2026-03-24)
 
 Z 13 nálezů předchozího auditu bylo **9 opraveno**:

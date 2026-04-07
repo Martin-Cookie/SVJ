@@ -473,6 +473,7 @@ async def space_list(
     q: str = Query("", alias="q"),
     stav: str = Query("", alias="stav"),
     sekce: str = Query("", alias="sekce"),
+    najemce: str = Query("", alias="najemce"),
     sort: str = Query("space_number", alias="sort"),
     order: str = Query("asc", alias="order"),
     back: str = Query("", alias="back"),
@@ -480,7 +481,7 @@ async def space_list(
     db: Session = Depends(get_db),
 ):
     """Seznam prostorů s filtry, hledáním a řazením."""
-    spaces = _filter_spaces(db, q, stav, sekce, sort, order)
+    spaces = _filter_spaces(db, q, stav, sekce, najemce, sort, order)
 
     list_url = build_list_url(request)
 
@@ -513,6 +514,7 @@ async def space_list(
         "q": q,
         "stav": stav,
         "sekce": sekce,
+        "najemce": najemce,
         "sort": sort,
         "order": order,
         "stats": stats,

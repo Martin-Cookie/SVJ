@@ -189,6 +189,14 @@
         </div>
     </div>
 
+    <!-- Info řádek -->
+    {% if filtr or q %}
+    <div class="flex-shrink-0 px-3 py-1 text-xs text-gray-500 dark:text-gray-400">
+        {% if filtr == 'missing' %}{{ missing_list|length }} jednotek bez PDF{% else %}Zobrazeno {{ documents|length }} z {{ stat_total }} dokumentů{% endif %}
+        {% if q %} · hledání „{{ q }}"{% endif %}
+    </div>
+    {% endif %}
+
     <!-- Scrollable table -->
     <div class="flex-1 overflow-y-auto overflow-x-auto min-h-0 bg-white rounded-lg shadow">
         {% if filtr == 'missing' %}
