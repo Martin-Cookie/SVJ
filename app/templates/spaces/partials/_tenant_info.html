@@ -1,0 +1,128 @@
+{% if edit_mode|default(false) %}
+<!-- Edit form -->
+<form hx-post="/prostory/{{ space.id }}/upravit-najemce" hx-target="#tenant-edit-form" hx-swap="innerHTML">
+    <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-semibold text-gray-700">Aktuální nájemce</h2>
+        <div class="flex gap-2">
+            <button type="submit" class="px-3 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 transition-colors">Uložit</button>
+            <button type="button" hx-get="/prostory/{{ space.id }}/najemce-info" hx-target="#tenant-edit-form" hx-swap="innerHTML"
+                    class="px-3 py-1 bg-gray-200 text-gray-600 rounded text-xs hover:bg-gray-300 transition-colors">Zrušit</button>
+        </div>
+    </div>
+    {% if error|default('') %}
+    <div class="bg-red-50 border border-red-200 rounded-lg p-3 mb-3 text-sm text-red-700">{{ error }}</div>
+    {% endif %}
+    <div class="space-y-3">
+        <!-- Tenant info (read-only) -->
+        <div class="flex items-center gap-3">
+            <div class="flex-1">
+                <p class="text-sm font-medium text-gray-800">
+                    {% if active_rel.tenant.is_linked %}
+                    <span class="text-blue-600">{{ active_rel.tenant.display_name }}</span>
+                    <span class="px-1.5 py-0.5 text-xs bg-blue-100 text-blue-700 rounded-full ml-1">vlastník</span>
+                    {% else %}
+                    <span class="text-blue-600">{{ active_rel.tenant.display_name }}</span>
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+
+        <!-- Editable fields -->
+        <div class="grid grid-cols-2 gap-3">
+            <div>
+                <label class="text-xs text-gray-500">Měsíční nájemné (Kč)</label>
+                <input type="number" step="any" min="0" name="monthly_rent" value="{{ active_rel.monthly_rent or 0 }}" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="text-xs text-gray-500">Variabilní symbol</label>
+                <input type="text" name="variable_symbol" value="{{ active_rel.variable_symbol or '' }}" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+            </div>
+        </div>
+        <div class="grid grid-cols-3 gap-3">
+            <div>
+                <label class="text-xs text-gray-500">Č. smlouvy</label>
+                <input type="text" name="contract_number" value="{{ active_rel.contract_number or '' }}" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="text-xs text-gray-500">Začátek smlouvy</label>
+                <input type="date" name="contract_start" value="{{ active_rel.contract_start.isoformat() if active_rel.contract_start else '' }}" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="text-xs text-gray-500">Konec smlouvy</label>
+                <input type="date" name="contract_end" value="{{ active_rel.contract_end.isoformat() if active_rel.contract_end else '' }}" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+            </div>
+        </div>
+        <div>
+            <label class="text-xs text-gray-500">Poznámka</label>
+            <input type="text" name="note" value="{{ active_rel.note or '' }}" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+        </div>
+    </div>
+</form>
+{% else %}
+<!-- Display mode -->
+<div class="flex items-center justify-between mb-4">
+    <h2 class="text-lg font-semibold text-gray-700">Aktuální nájemce</h2>
+    <button hx-get="/prostory/{{ space.id }}/najemce-formular" hx-target="#tenant-edit-form" hx-swap="innerHTML"
+            class="px-3 py-1 bg-gray-100 text-gray-600 rounded text-xs hover:bg-gray-200 transition-colors border border-gray-200">Upravit</button>
+</div>
+{% if saved|default(false) %}
+<div class="bg-green-50 border border-green-200 rounded-lg p-2 mb-3 text-xs text-green-700">Změny uloženy.</div>
+{% endif %}
+<div class="space-y-3">
+    <div class="flex items-center gap-3">
+        <div class="flex-1">
+            <p class="text-sm font-medium text-gray-800">
+                {% if active_rel.tenant.is_linked %}
+                <a href="/vlastnici/{{ active_rel.tenant.owner_id }}?back={{ (('/prostory/' ~ space.id ~ '?back=' ~ (back_url|default('')|urlencode))|urlencode) }}" class="text-blue-600 hover:underline">{{ active_rel.tenant.display_name }}</a>
+                <span class="px-1.5 py-0.5 text-xs bg-blue-100 text-blue-700 rounded-full ml-1">vlastník</span>
+                {% else %}
+                <a href="/najemci/{{ active_rel.tenant.id }}?back={{ (('/prostory/' ~ space.id ~ '?back=' ~ (back_url|default('')|urlencode))|urlencode) }}" class="text-blue-600 hover:underline">{{ active_rel.tenant.display_name }}</a>
+                {% endif %}
+            </p>
+            {% if active_rel.tenant.resolved_email %}
+            <p class="text-xs text-gray-500 mt-0.5">{{ active_rel.tenant.resolved_email }}</p>
+            {% endif %}
+            {% if active_rel.tenant.resolved_phone %}
+            <p class="text-xs text-gray-500">{{ active_rel.tenant.resolved_phone }}</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="border-t border-gray-100 pt-3">
+        <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+            <div>
+                <span class="text-gray-500">Měsíční nájemné:</span>
+                <span class="font-medium text-gray-800 ml-1">{{ active_rel.monthly_rent|fmt_num }} Kč</span>
+            </div>
+            <div>
+                <span class="text-gray-500">VS:</span>
+                <span class="font-mono text-gray-800 ml-1">{{ active_rel.variable_symbol or '—' }}</span>
+            </div>
+            <div>
+                <span class="text-gray-500">Č. smlouvy:</span>
+                <span class="text-gray-800 ml-1">{{ active_rel.contract_number or '—' }}</span>
+            </div>
+            <div>
+                <span class="text-gray-500">Od:</span>
+                <span class="text-gray-800 ml-1">{{ active_rel.contract_start.strftime('%d.%m.%Y') if active_rel.contract_start else '—' }}</span>
+            </div>
+            <div>
+                <span class="text-gray-500">Do:</span>
+                <span class="text-gray-800 ml-1">{{ active_rel.contract_end.strftime('%d.%m.%Y') if active_rel.contract_end else '—' }}</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="border-t border-gray-100 pt-3">
+        <span class="text-xs text-gray-500">Poznámka:</span>
+        <p class="text-xs text-gray-700 mt-0.5">{{ active_rel.note or '—' }}</p>
+    </div>
+
+    <!-- Terminate button -->
+    <div class="border-t border-gray-100 pt-3">
+        <form method="post" action="/prostory/{{ space.id }}/ukoncit-najem" data-confirm="Opravdu ukončit nájem?">
+            <button type="submit" class="px-3 py-1.5 bg-red-100 text-red-700 rounded text-xs font-medium hover:bg-red-200 transition-colors">Ukončit nájem</button>
+        </form>
+    </div>
+</div>
+{% endif %}

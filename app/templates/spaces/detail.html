@@ -37,73 +37,9 @@
 
     <!-- Current tenant -->
     <div class="md:col-span-7 bg-white rounded-lg shadow p-6">
-        <h2 class="text-lg font-semibold text-gray-700 mb-4">Aktuální nájemce</h2>
         {% if active_rel %}
-        <div class="space-y-3">
-            <div class="flex items-center gap-3">
-                <div class="flex-1">
-                    <p class="text-sm font-medium text-gray-800">
-                        {% if active_rel.tenant.is_linked %}
-                        <a href="/vlastnici/{{ active_rel.tenant.owner_id }}?back={{ (('/prostory/' ~ space.id ~ '?back=' ~ (back_url|urlencode))|urlencode) }}" class="text-blue-600 hover:underline">{{ active_rel.tenant.display_name }}</a>
-                        <span class="px-1.5 py-0.5 text-xs bg-blue-100 text-blue-700 rounded-full ml-1">vlastník</span>
-                        {% else %}
-                        <a href="/najemci/{{ active_rel.tenant.id }}?back={{ (('/prostory/' ~ space.id ~ '?back=' ~ (back_url|urlencode))|urlencode) }}" class="text-blue-600 hover:underline">{{ active_rel.tenant.display_name }}</a>
-                        {% endif %}
-                    </p>
-                    {% if active_rel.tenant.resolved_email %}
-                    <p class="text-xs text-gray-500 mt-0.5">{{ active_rel.tenant.resolved_email }}</p>
-                    {% endif %}
-                    {% if active_rel.tenant.resolved_phone %}
-                    <p class="text-xs text-gray-500">{{ active_rel.tenant.resolved_phone }}</p>
-                    {% endif %}
-                </div>
-            </div>
-
-            <div class="border-t border-gray-100 pt-3">
-                <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
-                    <div>
-                        <span class="text-gray-500">Měsíční nájemné:</span>
-                        <span class="font-medium text-gray-800 ml-1">{{ active_rel.monthly_rent|fmt_num }} Kč</span>
-                    </div>
-                    {% if active_rel.variable_symbol %}
-                    <div>
-                        <span class="text-gray-500">VS:</span>
-                        <span class="font-mono text-gray-800 ml-1">{{ active_rel.variable_symbol }}</span>
-                    </div>
-                    {% endif %}
-                    {% if active_rel.contract_number %}
-                    <div>
-                        <span class="text-gray-500">Č. smlouvy:</span>
-                        <span class="text-gray-800 ml-1">{{ active_rel.contract_number }}</span>
-                    </div>
-                    {% endif %}
-                    {% if active_rel.contract_start %}
-                    <div>
-                        <span class="text-gray-500">Od:</span>
-                        <span class="text-gray-800 ml-1">{{ active_rel.contract_start.strftime('%d.%m.%Y') }}</span>
-                    </div>
-                    {% endif %}
-                    {% if active_rel.contract_end %}
-                    <div>
-                        <span class="text-gray-500">Do:</span>
-                        <span class="text-gray-800 ml-1">{{ active_rel.contract_end.strftime('%d.%m.%Y') }}</span>
-                    </div>
-                    {% endif %}
-                </div>
-            </div>
-
-            {% if active_rel.note %}
-            <div class="border-t border-gray-100 pt-3">
-                <p class="text-xs text-gray-500">{{ active_rel.note }}</p>
-            </div>
-            {% endif %}
-
-            <!-- Terminate button -->
-            <div class="border-t border-gray-100 pt-3">
-                <form method="post" action="/prostory/{{ space.id }}/ukoncit-najem" data-confirm="Opravdu ukončit nájem?">
-                    <button type="submit" class="px-3 py-1.5 bg-red-100 text-red-700 rounded text-xs font-medium hover:bg-red-200 transition-colors">Ukončit nájem</button>
-                </form>
-            </div>
+        <div id="tenant-edit-form">
+            {% include "spaces/partials/_tenant_info.html" %}
         </div>
         {% else %}
         <!-- No active tenant — show assignment form -->

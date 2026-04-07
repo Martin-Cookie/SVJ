@@ -329,6 +329,154 @@ async def space_delete(
 # ── Správa nájmů ──────────────────────────────────────────────────────
 
 
+@router.get("/{space_id}/najemce-formular")
+async def tenant_edit_form(
+    space_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Inline edit formulář pro nájemce."""
+    space = db.query(Space).options(
+        joinedload(Space.tenants).joinedload(SpaceTenant.tenant),
+    ).get(space_id)
+    if not space:
+        return RedirectResponse("/prostory", status_code=302)
+    active_rel = next((st for st in space.tenants if st.is_active), None)
+    if not active_rel:
+        return RedirectResponse(f"/prostory/{space_id}", status_code=302)
+    return templates.TemplateResponse("spaces/partials/_tenant_info.html", {
+        "request": request,
+        "space": space,
+        "active_rel": active_rel,
+        "edit_mode": True,
+    })
+
+
+@router.get("/{space_id}/najemce-info")
+async def tenant_info_display(
+    space_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Display-only info sekce nájemce."""
+    space = db.query(Space).options(
+        joinedload(Space.tenants).joinedload(SpaceTenant.tenant),
+    ).get(space_id)
+    if not space:
+        return RedirectResponse("/prostory", status_code=302)
+    active_rel = next((st for st in space.tenants if st.is_active), None)
+    if not active_rel:
+        return RedirectResponse(f"/prostory/{space_id}", status_code=302)
+    return templates.TemplateResponse("spaces/partials/_tenant_info.html", {
+        "request": request,
+        "space": space,
+        "active_rel": active_rel,
+        "edit_mode": False,
+    })
+
+
+@router.post("/{space_id}/upravit-najemce")
+async def tenant_update(
+    space_id: int,
+    request: Request,
+    monthly_rent: str = Form("0"),
+    variable_symbol: str = Form(""),
+    contract_number: str = Form(""),
+    contract_start: str = Form(""),
+    contract_end: str = Form(""),
+    note: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    """Uložení úprav nájemce (VS, nájemné, smlouva)."""
+    space = db.query(Space).options(
+        joinedload(Space.tenants).joinedload(SpaceTenant.tenant),
+    ).get(space_id)
+    if not space:
+        return RedirectResponse("/prostory", status_code=302)
+    active_rel = next((st for st in space.tenants if st.is_active), None)
+    if not active_rel:
+        return RedirectResponse(f"/prostory/{space_id}", status_code=302)
+
+    # Parse rent
+    rent_float = 0.0
+    if monthly_rent.strip():
+        try:
+            rent_float = float(monthly_rent.strip().replace(",", "."))
+        except (ValueError, TypeError):
+            rent_float = 0.0
+
+    # Parse dates
+    start_date = None
+    end_date = None
+    if contract_start.strip():
+        try:
+            start_date = date_type.fromisoformat(contract_start.strip())
+        except ValueError:
+            pass
+    if contract_end.strip():
+        try:
+            end_date = date_type.fromisoformat(contract_end.strip())
+        except ValueError:
+            pass
+
+    old_vs = active_rel.variable_symbol
+    new_vs = variable_symbol.strip() or None
+
+    # Update SpaceTenant
+    active_rel.monthly_rent = rent_float
+    active_rel.variable_symbol = new_vs
+    active_rel.contract_number = contract_number.strip() or None
+    active_rel.contract_start = start_date
+    active_rel.contract_end = end_date
+    active_rel.note = note.strip() or None
+    active_rel.updated_at = utcnow()
+
+    # Update VariableSymbolMapping if VS changed
+    if old_vs != new_vs:
+        if old_vs:
+            old_mapping = db.query(VariableSymbolMapping).filter_by(
+                variable_symbol=old_vs, space_id=space.id
+            ).first()
+            if old_mapping:
+                db.delete(old_mapping)
+        if new_vs:
+            existing_vs = db.query(VariableSymbolMapping).filter_by(variable_symbol=new_vs).first()
+            if not existing_vs:
+                db.add(VariableSymbolMapping(
+                    variable_symbol=new_vs,
+                    space_id=space.id,
+                    unit_id=None,
+                    source=SymbolSource.AUTO,
+                    description=f"Prostor {space.space_number} — {space.designation}",
+                    is_active=True,
+                    created_at=utcnow(),
+                ))
+
+    # Update Prescription if exists
+    latest_py = db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).first()
+    if latest_py:
+        existing_presc = db.query(Prescription).filter_by(
+            prescription_year_id=latest_py.id, space_id=space.id
+        ).first()
+        if existing_presc:
+            existing_presc.monthly_total = rent_float
+            existing_presc.variable_symbol = new_vs
+            existing_presc.owner_name = active_rel.tenant.display_name
+            existing_presc.updated_at = utcnow()
+
+    db.commit()
+
+    if request.headers.get("HX-Request"):
+        return templates.TemplateResponse("spaces/partials/_tenant_info.html", {
+            "request": request,
+            "space": space,
+            "active_rel": active_rel,
+            "edit_mode": False,
+            "saved": True,
+        })
+    return RedirectResponse(f"/prostory/{space_id}", status_code=302)
+
+
 @router.post("/{space_id}/pridat-najemce")
 async def space_assign_tenant(
     space_id: int,
@@ -365,7 +513,6 @@ async def space_assign_tenant(
             rent_float = 0.0
 
     # Parse dates
-    from datetime import date as date_type
     start_date = None
     end_date = None
     if contract_start.strip():
