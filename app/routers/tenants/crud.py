@@ -503,13 +503,14 @@ async def tenant_export(
 
     tenants = _filter_tenants(db, q, typ, stav, sort, order)
 
-    headers = ["Jméno", "Typ", "RČ/IČ", "Telefon", "Email", "Prostor", "Nájemné", "VS"]
+    headers = ["Jméno", "Propojení", "Typ", "RČ/IČ", "Telefon", "Email", "Prostor", "Nájemné", "VS"]
     type_labels = {"physical": "FO", "legal": "PO"}
 
     def _row(t):
         asr = t.active_space_rel
         return [
             t.display_name,
+            "Vlastník" if t.is_linked else "Nájemník",
             type_labels.get((t.resolved_type or OwnerType.PHYSICAL).value, ""),
             t.birth_number or t.company_id or "",
             t.resolved_phone or "",
