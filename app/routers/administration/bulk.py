@@ -76,13 +76,18 @@ async def purge_data(request: Request, db: Session = Depends(get_db)):
 
     # Cascade: owners → sync (sync records reference owners, useless without them)
     if "owners" in categories and "sync" not in categories:
-        from app.models import SyncRecord, SyncSession
         for model in _PURGE_CATEGORIES["sync"]["models"]:
+            db.query(model).delete()
+
+    # Cascade: owners → spaces (tenant.owner_id FK → Owner)
+    if "owners" in categories and "spaces" not in categories:
+        for model in _PURGE_CATEGORIES["spaces"]["models"]:
             db.query(model).delete()
 
     # Clean uploaded files per category (only delete subdirectories of deleted categories)
     _CATEGORY_UPLOAD_DIRS = {
         "owners": ["excel"],
+        "spaces": ["contracts"],
         "votings": ["word_templates", "scanned_ballots"],
         "tax": ["tax_pdfs"],
         "sync": ["csv"],
@@ -95,12 +100,17 @@ async def purge_data(request: Request, db: Session = Depends(get_db)):
             if target.is_dir():
                 shutil.rmtree(target, ignore_errors=True)
                 target.mkdir(parents=True, exist_ok=True)
-    # Cascade: owners purge also cleans sync files
+    # Cascade: owners purge also cleans sync + spaces files
     if "owners" in categories and "sync" not in categories:
         csv_dir = UPLOADS_DIR / "csv"
         if csv_dir.is_dir():
             shutil.rmtree(csv_dir, ignore_errors=True)
             csv_dir.mkdir(parents=True, exist_ok=True)
+    if "owners" in categories and "spaces" not in categories:
+        contracts_dir = UPLOADS_DIR / "contracts"
+        if contracts_dir.is_dir():
+            shutil.rmtree(contracts_dir, ignore_errors=True)
+            contracts_dir.mkdir(parents=True, exist_ok=True)
 
     # Clean generated files (ballot PDFs etc.) only if votings are deleted
     if "votings" in categories and GENERATED_DIR.is_dir():

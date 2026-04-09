@@ -15,7 +15,8 @@ from app.models import (
     SyncSession, SyncRecord,
     ShareCheckSession, ShareCheckRecord, ShareCheckColumnMapping,
     PrescriptionYear, Prescription, PrescriptionItem,
-    VariableSymbolMapping, BankStatement, Payment,
+    VariableSymbolMapping, BankStatement, Payment, PaymentAllocation,
+    BankStatementColumnMapping,
     UnitBalance, Settlement, SettlementItem,
     EmailTemplate, EmailLog, ImportLog, ActivityLog,
 )
@@ -93,7 +94,7 @@ _PURGE_CATEGORIES = {
         "description": "Předpisy, VS mapování, výpisy, platby, zůstatky, vyúčtování",
         "models": [
             SettlementItem, Settlement,
-            Payment, BankStatement,
+            PaymentAllocation, Payment, BankStatementColumnMapping, BankStatement,
             PrescriptionItem, Prescription, PrescriptionYear,
             VariableSymbolMapping, UnitBalance,
         ],

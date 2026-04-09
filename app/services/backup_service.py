@@ -355,9 +355,27 @@ def _verify_db_integrity(db_path: str) -> None:
 def _get_table_counts(db_path: str) -> dict:
     """Get row counts for key tables (for manifest metadata)."""
     tables = [
-        "owners", "units", "owner_units", "votings", "tax_sessions", "email_logs",
-        "prescription_years", "prescriptions", "variable_symbol_mappings",
-        "bank_statements", "payments", "settlements", "unit_balances",
+        # Vlastníci a jednotky
+        "owners", "units", "owner_units", "proxies",
+        # Prostory a nájemci
+        "spaces", "tenants", "space_tenants",
+        # Hlasování
+        "votings", "voting_items", "ballots", "ballot_votes",
+        # Daňové podklady
+        "tax_sessions", "tax_documents", "tax_distributions",
+        # Synchronizace a kontroly
+        "sync_sessions", "sync_records",
+        "share_check_sessions", "share_check_records", "share_check_column_mappings",
+        # Platby
+        "prescription_years", "prescriptions", "prescription_items",
+        "variable_symbol_mappings", "bank_statements", "payments",
+        "payment_allocations", "bank_statement_column_mappings",
+        "unit_balances", "settlements", "settlement_items",
+        # Logy
+        "email_logs", "import_logs", "activity_logs",
+        # Administrace
+        "svj_info", "svj_addresses", "board_members",
+        "code_list_items", "email_templates",
     ]
     counts = {}
     try:
