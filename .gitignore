@@ -20,3 +20,4 @@ wheels/
 *.csv
 data/*.xlsx
 .playwright-mcp/
+data/purge_restore_reports/
