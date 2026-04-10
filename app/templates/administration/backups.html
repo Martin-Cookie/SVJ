@@ -133,8 +133,12 @@
                 {% endif %}
             </div>
             {% if backups %}
+            {% if backups|length > 5 %}
+            <input type="text" id="backup-search" placeholder="Hledat zálohu..." oninput="filterBackups(this.value)"
+                   class="w-full px-2 py-1 mb-2 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+            {% endif %}
             <div class="overflow-x-auto">
-            <table class="w-full text-sm" style="table-layout:fixed">
+            <table class="w-full text-sm" style="table-layout:fixed" id="backups-table">
                 <colgroup>
                     <col style="width:50%">
                     <col style="width:18%">
@@ -307,6 +311,14 @@ function restoreFolderCheck(input) {
         info.className = 'text-xs text-red-600 mt-1';
         btn.disabled = true;
     }
+}
+function filterBackups(q) {
+    var norm = (q || '').toLowerCase().trim();
+    var rows = document.querySelectorAll('#backups-table tbody tr');
+    rows.forEach(function(tr) {
+        var name = (tr.querySelector('[title]') || {}).title || '';
+        tr.style.display = (!norm || name.toLowerCase().indexOf(norm) !== -1) ? '' : 'none';
+    });
 }
 function restoreFolderValidate(form) {
     var files = form.querySelector('input[type="file"]').files;

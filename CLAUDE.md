@@ -311,7 +311,7 @@
   - Suffix = český popis aktivního filtru bez diakritiky. Bez filtru = `_vsichni` / `_vsechny` / `_vse`
   - Suffixový dict se definuje přímo v export endpointu: `typ_labels = {"physical": "fyzicke", "legal": "pravnicke"}`
   - Logika: vzít **první neprázdný filtr** (priorita: typ → kontakt → stav → vlastnictví → sekce → hledání), přidat odpovídající suffix
-  - Příklady: `vlastnici_fyzicke_20260309.xlsx`, `jednotky_sekce_A_20260309.csv`, `hlasovani_1_nezpracovane_20260309.xlsx`, `porovnani_rozdily_20260309.xlsx`
+  - Příklady: `vlastnici_fyzicke_20260309.xlsx`, `jednotky_sekce_A_20260309.csv`, `hlasovani_1_nezpracovane_20260309.xlsx`, `porovnani_rozdily_20260309.xlsx`, `vypis_3_nenaparovane_20260309.csv`
   - **Nikdy nepoužívat diakritiku v názvu** — HTTP `Content-Disposition` header kóduje latin-1
   - **Při přidání nového exportu s bublinami/filtry VŽDY přidat suffix logiku** — uživatel musí z názvu souboru poznat, co exportoval
 - **Upload limity**: centralizované v `UPLOAD_LIMITS` dict v `app/utils.py`. Volání: `validate_upload(file, **UPLOAD_LIMITS["excel"])`. Při přidání nového uploadu přidat klíč do `UPLOAD_LIMITS`

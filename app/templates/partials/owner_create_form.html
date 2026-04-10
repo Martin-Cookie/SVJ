@@ -45,7 +45,7 @@
             <p class="text-sm font-medium text-yellow-800 mb-1">Možná duplicita — nalezen podobný vlastník:</p>
             <ul class="text-sm text-yellow-700 list-disc list-inside">
                 {% for match_type, dup in duplicates %}
-                <li>Shoda ({{ match_type }}): <a href="/vlastnici/{{ dup.id }}" target="_blank" class="font-medium underline hover:text-yellow-900">{{ dup.display_name }}</a>{% if dup.birth_number %} — RČ: {{ dup.birth_number }}{% endif %}{% if dup.email %} — {{ dup.email }}{% endif %}</li>
+                <li>Shoda ({{ match_type }}): <a href="/vlastnici/{{ dup.id }}?back=/vlastnici/novy" target="_blank" class="font-medium underline hover:text-yellow-900">{{ dup.display_name }}</a>{% if dup.birth_number %} — RČ: {{ dup.birth_number }}{% endif %}{% if dup.email %} — {{ dup.email }}{% endif %}</li>
                 {% endfor %}
             </ul>
             <input type="hidden" name="force_create" value="1">

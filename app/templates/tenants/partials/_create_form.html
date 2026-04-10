@@ -11,7 +11,7 @@
                 {% for reason, dup in duplicates %}
                 <li class="text-amber-700">
                     <span class="text-xs font-medium bg-amber-100 rounded px-1.5 py-0.5 mr-1">{{ reason }}</span>
-                    <a href="/najemci/{{ dup.id }}" target="_blank" class="text-blue-600 hover:underline">{{ dup.display_name }}</a>
+                    <a href="/najemci/{{ dup.id }}?back=/najemci/novy" target="_blank" class="text-blue-600 hover:underline">{{ dup.display_name }}</a>
                 </li>
                 {% endfor %}
             </ul>
