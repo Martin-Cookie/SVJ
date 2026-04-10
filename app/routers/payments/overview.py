@@ -4,7 +4,7 @@ from datetime import datetime
 from io import BytesIO
 
 from fastapi import APIRouter, Depends, Form, Query, Request
-from fastapi.responses import RedirectResponse, StreamingResponse
+from fastapi.responses import RedirectResponse, Response, StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -276,29 +276,18 @@ SORT_COLUMNS_DEBTORS = {
 }
 
 
-@router.get("/dluznici")
-async def platby_dluznici(
-    request: Request,
-    rok: int = Query(0),
-    q: str = Query(""),
-    sort: str = Query("dluh"),
-    order: str = Query("desc"),
-    back: str = Query("", alias="back"),
-    db: Session = Depends(get_db),
+def _compute_debtors_filtered(
+    db: Session,
+    rok: int,
+    q: str = "",
+    sort: str = "dluh",
+    order: str = "desc",
+    entita: str = "",
 ):
-    """Seznam dlužníků — jednotky nebo prostory."""
-    entita = request.query_params.get("entita", "")
-
-    if not rok:
-        latest = db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).first()
-        rok = latest.year if latest else utcnow().year
-
-    years = [y.year for y in db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).all()]
-
+    """Sdílená logika — výpočet + filtrování + řazení dlužníků (jednotky nebo prostory)."""
     if entita == "prostory":
         debtors, months_with_data = compute_space_debtor_list(db, rok)
 
-        # Compute months_unpaid for sorting
         for r in debtors:
             r["months_unpaid"] = sum(
                 1 for m in range(1, 13)
@@ -333,7 +322,6 @@ async def platby_dluznici(
     else:
         debtors, months_with_data = compute_debtor_list(db, rok)
 
-        # Compute months_unpaid for sorting
         for r in debtors:
             r["months_unpaid"] = sum(
                 1 for m in range(1, 13)
@@ -361,6 +349,30 @@ async def platby_dluznici(
             "mesice": lambda r: r["months_unpaid"],
         }
         debtors.sort(key=sort_fns.get(sort_key, sort_fns["dluh"]), reverse=reverse)
+
+    return debtors, months_with_data, sort_key
+
+
+@router.get("/dluznici")
+async def platby_dluznici(
+    request: Request,
+    rok: int = Query(0),
+    q: str = Query(""),
+    sort: str = Query("dluh"),
+    order: str = Query("desc"),
+    back: str = Query("", alias="back"),
+    db: Session = Depends(get_db),
+):
+    """Seznam dlužníků — jednotky nebo prostory."""
+    entita = request.query_params.get("entita", "")
+
+    if not rok:
+        latest = db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).first()
+        rok = latest.year if latest else utcnow().year
+
+    years = [y.year for y in db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).all()]
+
+    debtors, months_with_data, sort_key = _compute_debtors_filtered(db, rok, q, sort, order, entita)
 
     list_url = build_list_url(request)
 
@@ -391,87 +403,105 @@ async def platby_dluznici(
 # ── Export dlužníků ──────────────────────────────────────────────────
 
 
-@router.post("/dluznici/exportovat")
+@router.get("/dluznici/exportovat/{fmt}")
 async def dluznici_export(
-    request: Request,
-    rok: int = Form(0),
-    q: str = Form(""),
-    sort: str = Form("dluh"),
-    order: str = Form("desc"),
+    fmt: str,
+    rok: int = Query(0),
+    q: str = Query(""),
+    sort: str = Query("dluh"),
+    order: str = Query("desc"),
+    entita: str = Query(""),
     db: Session = Depends(get_db),
 ):
-    """Export dlužníků do Excelu."""
+    """Export dlužníků (xlsx/csv) — jednotky nebo prostory, respektuje filtry."""
+    import csv as csv_mod
+    import io as io_mod
     from openpyxl import Workbook
     from openpyxl.styles import Font
+
+    if fmt not in ("xlsx", "csv"):
+        return RedirectResponse("/platby/dluznici", status_code=302)
 
     if not rok:
         latest = db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).first()
         rok = latest.year if latest else utcnow().year
 
-    debtors, months_with_data_export = compute_debtor_list(db, rok)
+    debtors, _months_with_data, _sort_key = _compute_debtors_filtered(db, rok, q, sort, order, entita)
 
-    # Compute months_unpaid for sorting/export
-    for r in debtors:
-        r["months_unpaid"] = sum(
-            1 for m in range(1, 13)
-            if r["months"].get(m, {}).get("status") in ("unpaid", "partial")
-            and m in months_with_data_export
-        )
+    is_spaces = entita == "prostory"
+    if is_spaces:
+        headers = ["Č. prostoru", "Označení", "Nájemce", "Předpis/měs", "Zaplaceno", "Dluh", "Měsíce"]
 
-    if q:
-        q_ascii = strip_diacritics(q)
-        debtors = [
-            r for r in debtors
-            if q_ascii in strip_diacritics(str(r["unit"].unit_number))
-            or q_ascii in strip_diacritics(r["owner"].display_name if r["owner"] else "")
-            or q_ascii in strip_diacritics(r["prescription"].owner_name or "")
-        ]
+        def _row(r):
+            tenant_name = ""
+            if r.get("tenant_rel") and r["tenant_rel"].tenant:
+                tenant_name = r["tenant_rel"].tenant.display_name or ""
+            return [
+                r["space"].space_number,
+                r["space"].designation or "",
+                tenant_name,
+                r["monthly"],
+                r["total_paid"],
+                r["debt"],
+                r["months_unpaid"],
+            ]
+    else:
+        headers = ["Č. jednotky", "Vlastník", "Předpis/měs", "Zaplaceno", "Dluh", "Měsíce"]
 
-    sort_key = sort if sort in SORT_COLUMNS_DEBTORS else "dluh"
-    reverse = order == "desc"
-    sort_fns = {
-        "cislo": lambda r: r["unit"].unit_number or 0,
-        "vlastnik": lambda r: strip_diacritics(r["owner"].display_name if r["owner"] else r["prescription"].owner_name or ""),
-        "predpis": lambda r: r["monthly"],
-        "zaplaceno": lambda r: r["total_paid"],
-        "dluh": lambda r: r["debt"],
-        "mesice": lambda r: r["months_unpaid"],
-    }
-    debtors.sort(key=sort_fns.get(sort_key, sort_fns["dluh"]), reverse=reverse)
+        def _row(r):
+            owner_name = ", ".join(o.display_name for o in r["owners"]) if r["owners"] else (r["prescription"].owner_name or "")
+            return [
+                r["unit"].unit_number,
+                owner_name,
+                r["monthly"],
+                r["total_paid"],
+                r["debt"],
+                r["months_unpaid"],
+            ]
 
-    wb = Workbook()
-    ws = wb.active
-    ws.title = f"Dlužníci {rok}"
-
-    headers = ["Č. jednotky", "Vlastník", "Předpis/měs", "Zaplaceno", "Dluh", "Měsíce"]
-    for col, h in enumerate(headers, 1):
-        cell = ws.cell(row=1, column=col, value=h)
-        cell.font = Font(bold=True)
-
-    for i, r in enumerate(debtors, 2):
-        owner_name = ", ".join(o.display_name for o in r["owners"]) if r["owners"] else r["prescription"].owner_name or ""
-        ws.cell(row=i, column=1, value=r["unit"].unit_number)
-        ws.cell(row=i, column=2, value=owner_name)
-        ws.cell(row=i, column=3, value=r["monthly"])
-        ws.cell(row=i, column=4, value=r["total_paid"])
-        ws.cell(row=i, column=5, value=r["debt"])
-        ws.cell(row=i, column=6, value=r["months_unpaid"])
-
-    excel_auto_width(ws)
-
-    buf = BytesIO()
-    wb.save(buf)
-    buf.seek(0)
-
-    suffix = f"_hledani_{q}" if q else "_vsichni"
+    # Suffix dle filtru
+    if entita == "prostory":
+        suffix = "_prostory"
+    elif q:
+        suffix = "_hledani"
+    else:
+        suffix = "_vsichni"
     date_str = datetime.now().strftime("%Y%m%d")
-    filename = f"dluznici_{rok}{suffix}_{date_str}.xlsx"
+    filename = f"dluznici_{rok}{suffix}_{date_str}"
 
-    return StreamingResponse(
-        buf,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
-    )
+    if fmt == "xlsx":
+        wb = Workbook()
+        ws = wb.active
+        ws.title = f"Dlužníci {rok}"
+
+        for col, h in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col, value=h)
+            cell.font = Font(bold=True)
+
+        for i, r in enumerate(debtors, 2):
+            for col_idx, val in enumerate(_row(r), 1):
+                ws.cell(row=i, column=col_idx, value=val)
+
+        excel_auto_width(ws)
+
+        buf = BytesIO()
+        wb.save(buf)
+        return Response(
+            content=buf.getvalue(),
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f'attachment; filename="{filename}.xlsx"'},
+        )
+    else:
+        buf = io_mod.StringIO()
+        writer = csv_mod.writer(buf, delimiter=";")
+        writer.writerow(headers)
+        for r in debtors:
+            writer.writerow(_row(r))
+        return Response(
+            content=buf.getvalue().encode("utf-8-sig"),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="{filename}.csv"'},
+        )
 
 
 # ── Detail plateb jednotky ───────────────────────────────────────────
