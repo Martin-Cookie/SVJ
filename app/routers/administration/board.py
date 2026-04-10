@@ -5,7 +5,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import BoardMember
+from app.models import ActivityAction, BoardMember, log_activity
 from app.utils import is_valid_email
 
 router = APIRouter()
@@ -32,6 +32,12 @@ async def add_member(
         order=max_order,
     )
     db.add(member)
+    db.flush()
+    log_activity(
+        db, ActivityAction.CREATED, "board_member", "sprava",
+        entity_id=member.id, entity_name=member.name,
+        description="Kontrolní orgán" if group == "control" else "Výbor",
+    )
     db.commit()
     return RedirectResponse("/sprava/svj-info", status_code=302)
 
@@ -52,6 +58,10 @@ async def edit_member(
         member.role = role.strip() or None
         member.email = (email.strip() if email.strip() and is_valid_email(email.strip()) else None)
         member.phone = phone.strip() or None
+        log_activity(
+            db, ActivityAction.UPDATED, "board_member", "sprava",
+            entity_id=member.id, entity_name=member.name,
+        )
         db.commit()
     return RedirectResponse("/sprava/svj-info", status_code=302)
 
@@ -61,6 +71,10 @@ async def delete_member(member_id: int, db: Session = Depends(get_db)):
     """Smazání člena výboru."""
     member = db.query(BoardMember).get(member_id)
     if member:
+        log_activity(
+            db, ActivityAction.DELETED, "board_member", "sprava",
+            entity_id=member.id, entity_name=member.name,
+        )
         db.delete(member)
         db.commit()
     return RedirectResponse("/sprava/svj-info", status_code=302)

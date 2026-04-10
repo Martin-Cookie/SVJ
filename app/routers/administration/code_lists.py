@@ -5,7 +5,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import CodeListItem, EmailTemplate
+from app.models import ActivityAction, CodeListItem, EmailTemplate, log_activity
 from app.services.code_list_service import (
     CODE_LIST_CATEGORIES, CODE_LIST_ORDER, get_all_code_lists,
 )
@@ -64,6 +64,11 @@ async def code_list_add(
     max_order = db.query(CodeListItem).filter_by(category=category).count()
     item = CodeListItem(category=category, value=value, order=max_order)
     db.add(item)
+    db.flush()
+    log_activity(
+        db, ActivityAction.CREATED, "code_list_item", "sprava",
+        entity_id=item.id, entity_name=f"{category}: {value}",
+    )
     db.commit()
     return RedirectResponse("/sprava/ciselniky", status_code=302)
 
@@ -97,6 +102,10 @@ async def code_list_edit(
             return RedirectResponse("/sprava/ciselniky", status_code=302)
 
         item.value = new_value
+        log_activity(
+            db, ActivityAction.UPDATED, "code_list_item", "sprava",
+            entity_id=item.id, entity_name=f"{item.category}: {new_value}",
+        )
 
     db.commit()
     return RedirectResponse("/sprava/ciselniky", status_code=302)
@@ -115,6 +124,10 @@ async def code_list_delete(
     # Only delete if unused
     usage = _get_usage_count(db, item.category, item.value)
     if usage == 0:
+        log_activity(
+            db, ActivityAction.DELETED, "code_list_item", "sprava",
+            entity_id=item.id, entity_name=f"{item.category}: {item.value}",
+        )
         db.delete(item)
         db.commit()
     return RedirectResponse("/sprava/ciselniky", status_code=302)
@@ -149,6 +162,11 @@ async def email_template_add(
         order=max_order,
     )
     db.add(tpl)
+    db.flush()
+    log_activity(
+        db, ActivityAction.CREATED, "email_template", "sprava",
+        entity_id=tpl.id, entity_name=tpl.name,
+    )
     db.commit()
     return RedirectResponse("/sprava/ciselniky", status_code=302)
 
@@ -181,6 +199,10 @@ async def email_template_edit(
     tpl.name = name
     tpl.subject_template = subject_template
     tpl.body_template = body_template
+    log_activity(
+        db, ActivityAction.UPDATED, "email_template", "sprava",
+        entity_id=tpl.id, entity_name=tpl.name,
+    )
     db.commit()
     return RedirectResponse("/sprava/ciselniky", status_code=302)
 
@@ -193,6 +215,10 @@ async def email_template_delete(
     """Smazání emailové šablony."""
     tpl = db.query(EmailTemplate).get(tpl_id)
     if tpl:
+        log_activity(
+            db, ActivityAction.DELETED, "email_template", "sprava",
+            entity_id=tpl.id, entity_name=tpl.name,
+        )
         db.delete(tpl)
         db.commit()
     return RedirectResponse("/sprava/ciselniky", status_code=302)

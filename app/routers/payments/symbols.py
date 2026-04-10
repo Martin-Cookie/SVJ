@@ -6,7 +6,7 @@ from sqlalchemy import asc as sa_asc, desc as sa_desc
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
-from app.models import VariableSymbolMapping, Unit, Space, SymbolSource
+from app.models import ActivityAction, VariableSymbolMapping, Unit, Space, SymbolSource, log_activity
 from app.utils import build_list_url, is_htmx_partial, strip_diacritics
 from ._helpers import templates, logger, compute_nav_stats
 
@@ -185,6 +185,12 @@ async def symbol_pridat(
         mapping.space_id = None
 
     db.add(mapping)
+    db.flush()
+    log_activity(
+        db, ActivityAction.CREATED, "vs_mapping", "platby",
+        entity_id=mapping.id,
+        entity_name=f"VS {mapping.variable_symbol}",
+    )
     db.commit()
     return RedirectResponse(_symboly_redirect_url(form_data, flash="ok"), status_code=302)
 
@@ -282,6 +288,11 @@ async def symbol_upravit(
         mapping.unit_id = unit_id if unit_id else None
         mapping.space_id = None
     mapping.description = description.strip() or None
+    log_activity(
+        db, ActivityAction.UPDATED, "vs_mapping", "platby",
+        entity_id=mapping.id,
+        entity_name=f"VS {mapping.variable_symbol}",
+    )
     db.commit()
     return RedirectResponse(_symboly_redirect_url(form_data, flash="upraveno"), status_code=302)
 
@@ -296,6 +307,11 @@ async def symbol_smazat(
     form_data = await request.form()
     mapping = db.query(VariableSymbolMapping).get(mapping_id)
     if mapping:
+        log_activity(
+            db, ActivityAction.DELETED, "vs_mapping", "platby",
+            entity_id=mapping.id,
+            entity_name=f"VS {mapping.variable_symbol}",
+        )
         db.delete(mapping)
         db.commit()
     return RedirectResponse(_symboly_redirect_url(form_data, flash="smazano"), status_code=302)

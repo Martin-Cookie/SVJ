@@ -18,7 +18,7 @@ from sqlalchemy import or_
 
 from app.config import settings
 from app.database import get_db
-from app.models import EmailLog, Owner
+from app.models import ActivityAction, EmailLog, Owner, log_activity
 from app.utils import build_list_url, excel_auto_width, is_htmx_partial, is_safe_path, strip_diacritics, templates
 
 logger = logging.getLogger(__name__)
@@ -239,6 +239,7 @@ async def save_smtp(
     smtp_from_name: str = Form(""),
     smtp_from_email: str = Form(""),
     smtp_use_tls: Optional[str] = Form(None),
+    db: Session = Depends(get_db),
 ):
     """Uložení SMTP konfigurace do .env souboru."""
     env_path = str(settings.base_dir / ".env")
@@ -262,6 +263,13 @@ async def save_smtp(
     settings.smtp_from_name = smtp_from_name
     settings.smtp_from_email = smtp_from_email
     settings.smtp_use_tls = use_tls
+
+    log_activity(
+        db, ActivityAction.UPDATED, "smtp_settings", "nastaveni",
+        entity_name="SMTP konfigurace",
+        description=smtp_host or "",
+    )
+    db.commit()
 
     return templates.TemplateResponse(request, "partials/smtp_info.html", {
         "settings": settings,

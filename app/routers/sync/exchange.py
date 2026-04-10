@@ -6,7 +6,7 @@ from sqlalchemy import cast, Integer
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import SyncRecord, SyncResolution, SyncSession, SyncStatus
+from app.models import ActivityAction, SyncRecord, SyncResolution, SyncSession, SyncStatus, log_activity
 from app.services.owner_exchange import execute_exchange, prepare_exchange_preview
 from app.utils import templates
 from ._helpers import _exchange_stats
@@ -64,6 +64,13 @@ async def exchange_confirm_single(
     except ValueError:
         ed = date.today()
     execute_exchange(db, [record_id], session_id, exchange_date=ed)
+    log_activity(
+        db, ActivityAction.UPDATED, "sync_session", "sync",
+        entity_id=session_id,
+        entity_name=f"Sync #{session_id}",
+        description="Výměna vlastníka (1 jednotka)",
+    )
+    db.commit()
     url = f"/synchronizace/{session_id}"
     if filtr:
         url += f"?filtr={filtr}"
@@ -139,6 +146,13 @@ async def exchange_confirm_batch(
         ed = date.today()
     if record_ids:
         execute_exchange(db, record_ids, session_id, exchange_date=ed)
+        log_activity(
+            db, ActivityAction.UPDATED, "sync_session", "sync",
+            entity_id=session_id,
+            entity_name=f"Sync #{session_id}",
+            description=f"Hromadná výměna vlastníků ({len(record_ids)} jednotek)",
+        )
+        db.commit()
     url = f"/synchronizace/{session_id}"
     if filtr:
         url += f"?filtr={filtr}"

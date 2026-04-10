@@ -13,8 +13,8 @@ from sqlalchemy.orm import Session, joinedload
 from app.config import settings
 from app.database import get_db
 from app.models import (
-    Owner, OwnerUnit, ShareCheckSession, SyncRecord, SyncResolution,
-    SyncSession, SyncStatus, Unit,
+    ActivityAction, Owner, OwnerUnit, ShareCheckSession, SyncRecord,
+    SyncResolution, SyncSession, SyncStatus, Unit, log_activity,
 )
 from app.services.csv_comparator import compare_owners, parse_sousede_csv
 from app.utils import (
@@ -152,6 +152,11 @@ async def sync_delete(session_id: int, db: Session = Depends(get_db)):
         except Exception:
             logger.debug("Failed to clean up CSV: %s", session.csv_path)
         # Cascade deletes SyncRecord entries
+        log_activity(
+            db, ActivityAction.DELETED, "sync_session", "sync",
+            entity_id=session.id,
+            entity_name=session.csv_filename or f"Sync #{session.id}",
+        )
         db.delete(session)
         db.commit()
     return RedirectResponse("/synchronizace", status_code=302)
@@ -263,6 +268,12 @@ async def sync_create(
         )
         db.add(record)
 
+    log_activity(
+        db, ActivityAction.IMPORTED, "sync_session", "sync",
+        entity_id=session.id,
+        entity_name=session.csv_filename or f"Sync #{session.id}",
+        description=f"{len(comparison)} záznamů",
+    )
     db.commit()
     return RedirectResponse(f"/synchronizace/{session.id}", status_code=302)
 

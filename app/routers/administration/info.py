@@ -10,8 +10,8 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.models import (
-    SvjInfo, SvjAddress, BoardMember, CodeListItem, Owner,
-    Unit, Voting, TaxSession, SyncSession, EmailLog, ImportLog,
+    ActivityAction, SvjInfo, SvjAddress, BoardMember, CodeListItem, Owner,
+    Unit, Voting, TaxSession, SyncSession, EmailLog, ImportLog, log_activity,
 )
 from app.services.code_list_service import CODE_LIST_CATEGORIES
 from app.utils import templates, utcnow
@@ -117,6 +117,10 @@ async def update_svj_info(
         total_shares_int = None
     info.total_shares = total_shares_int
     info.updated_at = utcnow()
+    log_activity(
+        db, ActivityAction.UPDATED, "svj_info", "sprava",
+        entity_name=info.name or "Informace SVJ",
+    )
     db.commit()
     return RedirectResponse("/sprava/svj-info", status_code=302)
 
@@ -136,6 +140,10 @@ async def add_address(
         order=max_order,
     )
     db.add(addr)
+    log_activity(
+        db, ActivityAction.CREATED, "svj_address", "sprava",
+        entity_name=addr.address,
+    )
     db.commit()
     return RedirectResponse("/sprava/svj-info", status_code=302)
 
@@ -150,6 +158,10 @@ async def edit_address(
     addr = db.query(SvjAddress).get(addr_id)
     if addr:
         addr.address = address.strip()
+        log_activity(
+            db, ActivityAction.UPDATED, "svj_address", "sprava",
+            entity_id=addr.id, entity_name=addr.address,
+        )
         db.commit()
     return RedirectResponse("/sprava/svj-info", status_code=302)
 
@@ -159,6 +171,10 @@ async def delete_address(addr_id: int, db: Session = Depends(get_db)):
     """Smazání adresy SVJ."""
     addr = db.query(SvjAddress).get(addr_id)
     if addr:
+        log_activity(
+            db, ActivityAction.DELETED, "svj_address", "sprava",
+            entity_id=addr.id, entity_name=addr.address,
+        )
         db.delete(addr)
         db.commit()
     return RedirectResponse("/sprava/svj-info", status_code=302)

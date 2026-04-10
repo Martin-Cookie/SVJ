@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.config import settings
 from app.database import get_db
-from app.models import UnitBalance, Unit, Owner, OwnerUnit, BalanceSource, SvjInfo
+from app.models import ActivityAction, UnitBalance, Unit, Owner, OwnerUnit, BalanceSource, SvjInfo, log_activity
 from app.utils import build_list_url, build_import_wizard, is_htmx_partial, is_safe_path, utcnow, validate_upload, UPLOAD_LIMITS
 from ._helpers import templates, logger, compute_nav_stats
 
@@ -191,6 +191,11 @@ async def zustatek_pridat(
             owner_name=_owner_name,
             note=note.strip() or None,
         ))
+    log_activity(
+        db, ActivityAction.UPDATED if existing else ActivityAction.CREATED,
+        "unit_balance", "platby",
+        entity_name=f"Zůstatek jednotky {unit_id} / {year}",
+    )
     db.commit()
     return RedirectResponse(f"/platby/zustatky?rok={year}&flash=ok", status_code=302)
 
@@ -222,6 +227,11 @@ async def zustatek_upravit(
     balance.owner_name = _owner_name
     balance.note = note.strip() or None
     balance.source = BalanceSource.MANUAL
+    log_activity(
+        db, ActivityAction.UPDATED, "unit_balance", "platby",
+        entity_id=balance.id,
+        entity_name=f"Zůstatek jednotky {balance.unit_id} / {balance.year}",
+    )
     db.commit()
     return RedirectResponse(f"/platby/zustatky?rok={balance.year}&flash=ok", status_code=302)
 
@@ -236,6 +246,11 @@ async def zustatek_smazat(
     balance = db.query(UnitBalance).get(balance_id)
     rok = balance.year if balance else 0
     if balance:
+        log_activity(
+            db, ActivityAction.DELETED, "unit_balance", "platby",
+            entity_id=balance.id,
+            entity_name=f"Zůstatek jednotky {balance.unit_id} / {balance.year}",
+        )
         db.delete(balance)
         db.commit()
     return RedirectResponse(f"/platby/zustatky?rok={rok}&flash=smazano", status_code=302)
@@ -440,6 +455,12 @@ async def zustatky_import_confirm(
     try:
         result = execute_balance_import(file_path, mapping, year, db)
         logger.info("Balance import done: %s", result)
+        log_activity(
+            db, ActivityAction.IMPORTED, "unit_balance", "platby",
+            entity_name=f"Zůstatky {year}",
+            description=f"{result.get('created', 0) + result.get('updated', 0)} jednotek",
+        )
+        db.commit()
     except Exception as e:
         logger.error("Balance import failed: %s", e)
         return RedirectResponse("/platby/zustatky?flash=import_chyba", status_code=302)

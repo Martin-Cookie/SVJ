@@ -8,8 +8,8 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import (
-    ImportLog, Owner, OwnerUnit, SyncRecord, SyncResolution,
-    SyncSession, SyncStatus, Unit,
+    ActivityAction, ImportLog, Owner, OwnerUnit, SyncRecord, SyncResolution,
+    SyncSession, SyncStatus, Unit, log_activity,
 )
 from app.services.owner_exchange import recalculate_unit_votes
 from app.utils import templates, utcnow
@@ -211,6 +211,12 @@ async def apply_selected_updates(
         session.total_differences = sum(1 for r in all_records if r.status == SyncStatus.DIFFERENCE)
         session.total_missing = sum(1 for r in all_records if r.status in (SyncStatus.MISSING_CSV, SyncStatus.MISSING_EXCEL))
 
+        log_activity(
+            db, ActivityAction.UPDATED, "sync_session", "sync",
+            entity_id=session_id,
+            entity_name=session.csv_filename or f"Sync #{session_id}",
+            description=f"Aktualizováno {success_count} polí",
+        )
     db.commit()
     filtr = form.get("filtr", "")
     url = f"/synchronizace/{session_id}"
@@ -288,5 +294,13 @@ async def apply_contacts(session_id: int, db: Session = Depends(get_db)):
                 owner.updated_at = utcnow()
                 updated += 1
 
+    if updated:
+        session = db.query(SyncSession).get(session_id)
+        log_activity(
+            db, ActivityAction.UPDATED, "sync_session", "sync",
+            entity_id=session_id,
+            entity_name=(session.csv_filename if session else f"Sync #{session_id}"),
+            description=f"Aplikováno kontaktů: {updated} vlastníků",
+        )
     db.commit()
     return RedirectResponse(f"/synchronizace/{session_id}", status_code=302)
