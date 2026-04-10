@@ -353,7 +353,7 @@ async def vypis_import_upload(
     log_activity(
         db, ActivityAction.IMPORTED, "bank_statement", "platby",
         entity_id=statement.id,
-        entity_name=statement.original_filename or f"Výpis #{statement.id}",
+        entity_name=statement.filename or f"Výpis #{statement.id}",
         description=f"{match_result.get('total', 0)} plateb",
     )
     db.commit()
@@ -1030,7 +1030,7 @@ async def vypis_smazat(
         log_activity(
             db, ActivityAction.DELETED, "bank_statement", "platby",
             entity_id=statement.id,
-            entity_name=statement.original_filename or f"Výpis #{statement.id}",
+            entity_name=statement.filename or f"Výpis #{statement.id}",
         )
         db.delete(statement)
         db.commit()
