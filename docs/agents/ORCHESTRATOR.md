@@ -80,10 +80,11 @@ Na základě odpovědí a stavu projektu navrhni plán. Vysvětli PROČ doporuč
 
 **Před releasem:**
 1. **Code Guardian** — audit kódu
-2. **Backup Agent** — ověř zálohy
-3. **Doc Sync** — dokumentace aktuální?
-4. **Test Agent** — finální testování celé aplikace
-5. **Release Agent** — pre-release kontrola + balíček
+2. **Backup Agent** — ověř zálohy (statická analýza)
+3. **Purge/Restore/Verify** — end-to-end test zálohy + obnovy
+4. **Doc Sync** — dokumentace aktuální?
+5. **Test Agent** — finální testování celé aplikace
+6. **Release Agent** — pre-release kontrola + balíček
 
 **Dokumentace projektu:**
 1. **Business Logic Agent** — extrahuj logiku z kódu
@@ -169,6 +170,7 @@ Po dokončení všech agentů vypiš souhrnnou tabulku:
 | **Doc Sync** | docs/agents/DOC-SYNC.md | Synchronizace dokumentace s realitou | ~5 min (analýza) + ~5 min (opravy) |
 | **UX Optimizer** | docs/agents/UX-OPTIMIZER.md | Analýza a návrhy zlepšení UX (6 pohledů) | ~8 min |
 | **Backup Agent** | docs/agents/BACKUP-AGENT.md | Kontrola integrity záloh | ~3 min |
+| **Purge/Restore/Verify** | docs/agents/PURGE-RESTORE-VERIFY.md | Automatizovaný end-to-end test: záloha → smazání dat → obnova → ověření | ~1 min |
 | **Release Agent** | docs/agents/RELEASE-AGENT.md | Příprava verze (pre-release + balíček) | ~5 min |
 | **Business Logic** | docs/agents/BUSINESS-LOGIC-AGENT.md | Extrakce business logiky z kódu | ~8 min |
 | **Test Agent** | docs/agents/TEST-AGENT.md | Automatické testování celé aplikace (8 fází) | ~15 min |
