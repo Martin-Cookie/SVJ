@@ -1,13 +1,18 @@
 """Router pro správu variabilních symbolů (VS → jednotka mapování)."""
 
-from fastapi import APIRouter, Depends, Form, Request
-from fastapi.responses import RedirectResponse
+import csv
+import io
+from datetime import datetime
+from io import BytesIO
+
+from fastapi import APIRouter, Depends, Form, Query, Request
+from fastapi.responses import RedirectResponse, Response
 from sqlalchemy import asc as sa_asc, desc as sa_desc
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.models import ActivityAction, VariableSymbolMapping, Unit, Space, SymbolSource, log_activity
-from app.utils import build_list_url, is_htmx_partial, strip_diacritics
+from app.utils import build_list_url, excel_auto_width, is_htmx_partial, strip_diacritics
 from ._helpers import templates, logger, compute_nav_stats
 
 router = APIRouter()
@@ -21,24 +26,14 @@ SORT_COLUMNS = {
 }
 
 
-@router.get("/symboly")
-async def symboly_seznam(
-    request: Request,
-    sort: str = "vs",
-    order: str = "asc",
-    q: str = "",
-    zdroj: str = "",
-    db: Session = Depends(get_db),
-):
-    """Seznam VS mapování."""
+def _filter_symbols(db: Session, q: str, zdroj: str, entita: str, sort: str, order: str):
+    """Sdílená filtrační logika pro seznam i export."""
     query = db.query(VariableSymbolMapping).options(
         joinedload(VariableSymbolMapping.unit),
         joinedload(VariableSymbolMapping.space),
     )
 
-    # Filtry
     if q:
-        # Escape SQL LIKE speciálních znaků
         q_escaped = q.replace("%", r"\%").replace("_", r"\_")
         q_ascii = strip_diacritics(q)
         q_ascii_escaped = q_ascii.replace("%", r"\%").replace("_", r"\_")
@@ -50,14 +45,11 @@ async def symboly_seznam(
     if zdroj:
         query = query.filter(VariableSymbolMapping.source == zdroj)
 
-    # Filtr typ entity
-    entity = request.query_params.get("entita", "")
-    if entity == "jednotky":
+    if entita == "jednotky":
         query = query.filter(VariableSymbolMapping.unit_id.isnot(None))
-    elif entity == "prostory":
+    elif entita == "prostory":
         query = query.filter(VariableSymbolMapping.space_id.isnot(None))
 
-    # Řazení
     col = SORT_COLUMNS.get(sort)
     if col is not None:
         order_fn = sa_desc if order == "desc" else sa_asc
@@ -67,12 +59,27 @@ async def symboly_seznam(
 
     mappings = query.all()
 
-    # Python-side sort pro jednotku
     if sort == "jednotka":
         mappings.sort(
             key=lambda m: m.unit.unit_number if m.unit else 0,
             reverse=(order == "desc"),
         )
+
+    return mappings
+
+
+@router.get("/symboly")
+async def symboly_seznam(
+    request: Request,
+    sort: str = "vs",
+    order: str = "asc",
+    q: str = "",
+    zdroj: str = "",
+    db: Session = Depends(get_db),
+):
+    """Seznam VS mapování."""
+    entity = request.query_params.get("entita", "")
+    mappings = _filter_symbols(db, q, zdroj, entity, sort, order)
 
     # Jednotky a prostory pro formulář přidání
     units = db.query(Unit).order_by(Unit.unit_number).all()
@@ -132,6 +139,97 @@ async def symboly_seznam(
         return templates.TemplateResponse(request, "payments/partials/symboly_tbody.html", ctx)
 
     return templates.TemplateResponse(request, "payments/symboly.html", ctx)
+
+
+@router.get("/symboly/exportovat/{fmt}")
+async def symboly_export(
+    fmt: str,
+    q: str = Query(""),
+    zdroj: str = Query(""),
+    entita: str = Query(""),
+    sort: str = Query("vs"),
+    order: str = Query("asc"),
+    db: Session = Depends(get_db),
+):
+    """Export filtrovaných variabilních symbolů."""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font
+
+    if fmt not in ("xlsx", "csv"):
+        return RedirectResponse("/platby/symboly", status_code=302)
+
+    mappings = _filter_symbols(db, q, zdroj, entita, sort, order)
+
+    headers = ["Variabilní symbol", "Entita", "Číslo", "Označení", "Zdroj", "Popis"]
+    source_labels = {"auto": "Automaticky", "manual": "Ručně", "legacy": "Historicky"}
+
+    def _row(m):
+        if m.unit:
+            entity_type = "Jednotka"
+            number = str(m.unit.unit_number)
+            designation = ""
+        elif m.space:
+            entity_type = "Prostor"
+            number = str(m.space.space_number)
+            designation = m.space.designation or ""
+        else:
+            entity_type = ""
+            number = ""
+            designation = ""
+        return [
+            m.variable_symbol or "",
+            entity_type,
+            number,
+            designation,
+            source_labels.get(m.source.value if m.source else "", ""),
+            m.description or "",
+        ]
+
+    if entita:
+        suffix = f"_{entita}"
+    elif zdroj:
+        suffix = f"_{zdroj}"
+    elif q:
+        suffix = "_hledani"
+    else:
+        suffix = "_vsechny"
+    timestamp = datetime.now().strftime("%Y%m%d")
+    filename = f"symboly{suffix}_{timestamp}"
+
+    if fmt == "xlsx":
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Variabilní symboly"
+        bold = Font(bold=True)
+
+        for col, h in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col, value=h)
+            cell.font = bold
+
+        for row_idx, m in enumerate(mappings, 2):
+            for col_idx, val in enumerate(_row(m), 1):
+                ws.cell(row=row_idx, column=col_idx, value=val)
+
+        excel_auto_width(ws)
+
+        buf = BytesIO()
+        wb.save(buf)
+        return Response(
+            content=buf.getvalue(),
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f'attachment; filename="{filename}.xlsx"'},
+        )
+    else:
+        buf = io.StringIO()
+        writer = csv.writer(buf, delimiter=";")
+        writer.writerow(headers)
+        for m in mappings:
+            writer.writerow(_row(m))
+        return Response(
+            content=buf.getvalue().encode("utf-8-sig"),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="{filename}.csv"'},
+        )
 
 
 def _symboly_redirect_url(form_data, flash: str = "", chyba: str = "") -> str:

@@ -5,12 +5,26 @@
     {% include "payments/partials/_platby_nav.html" %}
 
     <div class="flex-shrink-0">
+        {% set _export_qs = "?" ~ ("q=" ~ q ~ "&" if q else "") ~ ("zdroj=" ~ zdroj ~ "&" if zdroj else "") ~ ("entita=" ~ entita ~ "&" if entita else "") ~ "sort=" ~ sort ~ "&order=" ~ order %}
         <div class="flex items-center justify-between mb-2">
-            <h1 class="text-lg font-bold text-gray-900 dark:text-white">Variabilní symboly</h1>
-            <button onclick="document.getElementById('add-form').classList.toggle('hidden')"
-                class="px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700">
-                + Přidat VS
-            </button>
+            <div>
+                <h1 class="text-lg font-bold text-gray-900 dark:text-white">Variabilní symboly</h1>
+                <p class="text-xs text-gray-500 dark:text-gray-400">{{ mappings|length }} záznamů{% if mappings|length != total_vs_count %} (z {{ total_vs_count }} celkem){% endif %}</p>
+            </div>
+            <div class="flex items-center space-x-2">
+                <a href="/platby/symboly/exportovat/xlsx{{ _export_qs }}" hx-boost="false"
+                   class="inline-flex items-center px-3 py-1.5 bg-gray-100 text-gray-600 border border-gray-200 text-xs font-medium rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600">
+                    ↓ Excel
+                </a>
+                <a href="/platby/symboly/exportovat/csv{{ _export_qs }}" hx-boost="false"
+                   class="inline-flex items-center px-3 py-1.5 bg-gray-100 text-gray-600 border border-gray-200 text-xs font-medium rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600">
+                    ↓ CSV
+                </a>
+                <button onclick="document.getElementById('add-form').classList.toggle('hidden')"
+                    class="px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700">
+                    + Přidat VS
+                </button>
+            </div>
         </div>
 
         <!-- Formulář přidání (skrytý) -->
