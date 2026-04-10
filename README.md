@@ -54,7 +54,7 @@ python3 -m pytest tests/ -v          # spustit všechny testy
 python3 -m pytest tests/ -q --tb=short  # stručný výstup
 ```
 
-**298 testů** (~2.5s, in-memory SQLite) pokrývá:
+**310 testů** (~2.5s, in-memory SQLite) pokrývá:
 
 | Soubor | Testů | Oblast |
 |--------|-------|--------|
@@ -63,6 +63,7 @@ python3 -m pytest tests/ -q --tb=short  # stručný výstup
 | `test_voting.py` | 72 | wizard, ballot stats, import, SJM párování |
 | `test_backup.py` | 43 | lock, ZIP create/restore, cleanup, integrity |
 | `test_csv_comparator.py` | 77 | CSV parsing, fuzzy matching, Czech stemming |
+| `test_tenants.py` | 12 | dedup helper, resolved properties, multi-space, /prostory/novy flow |
 | `test_smoke.py` | 3 | app start, dashboard |
 | ostatní | 20 | email, import mapping, voting aggregation |
 
@@ -288,6 +289,7 @@ Evidence pronajímaných společných prostorů SVJ (sklady, nebytové prostory,
 - **Nájemci** — CRUD s per-section inline editací (identita, kontakt, adresy), propojení na vlastníky (Tenant ↔ Owner), resolved properties (jméno, telefon, email, RČ, IČ, typ se čtou z Owner pokud propojený), export Excel/CSV
   - **Multi-space**: 1 nájemce může mít souběžně více prostor (více smluv). Seznam zobrazuje jeden řádek per nájemce se stacked prostory/nájemným/VS pod sebou, detail má sekci „Aktuální prostory (N)", export 1 řádek per smlouva
   - **Deduplikace**: `find_existing_tenant()` helper (priorita owner_id → RČ → IČ → jméno+typ) zabraňuje vytváření duplicitních nájemců při create přes `/najemci/novy` i při inline vytvoření v `/prostory/novy`. Historické duplicity řeší startup migrace `_migrate_dedupe_tenants` (sloučí záznamy, vítěz = nejvíce vyplněných polí, SpaceTenant vztahy se přesunou na vítěze)
+  - **Rozdělené pole jméno** v `/prostory/novy`: formulář má dvě pole `tenant_last_name` + `tenant_first_name` (ne jedno `tenant_name`). Validace: při zadání jakéhokoliv údaje nájemce je příjmení povinné
 - **Nájemní vztahy** (SpaceTenant) — přiřazení nájemce k prostoru s detaily smlouvy (číslo, datum, nájemné, VS, PDF příloha)
 - **Platební integrace**:
   - Auto-vytvoření `VariableSymbolMapping` (space_id) při přiřazení nájemce s VS
@@ -501,6 +503,7 @@ app/
 │   │   ├── balances.py        #   Počáteční zůstatky
 │   │   ├── overview.py        #   Matice plateb, dlužníci, detail jednotky
 │   │   ├── settlement.py      #   Vyúčtování CRUD, export
+│   │   ├── discrepancies.py   #   Nesrovnalosti v platbách, email upozornění, progress
 │   │   └── _helpers.py        #   compute_nav_stats, sdílené funkce
 │   ├── spaces/                #   /prostory (CRUD, import)
 │   │   ├── __init__.py
@@ -643,10 +646,14 @@ app/
 │   │   ├── space_import.html  #     Import — upload
 │   │   ├── space_import_mapping.html # Import — mapování sloupců
 │   │   ├── space_import_preview.html # Import — náhled
-│   │   └── space_import_result.html #  Import — výsledek
+│   │   ├── space_import_result.html #  Import — výsledek
+│   │   └── partials/          #     HTMX partials (_create_form, _row, _tbody, _space_info, _tenant_info)
 │   ├── tenants/               #   Stránky nájemců
 │   │   ├── list.html          #     Seznam nájemců
-│   │   └── detail.html        #     Detail nájemce (per-section inline edit)
+│   │   ├── detail.html        #     Detail nájemce (per-section inline edit)
+│   │   └── partials/          #     HTMX partials (_create_form, _row, _tbody, _tenant_info,
+│   │                          #       _tenant_identity_form/info, _tenant_contact_form/info,
+│   │                          #       _tenant_address_form/info)
 │   └── partials/              #   HTMX komponenty
 │       ├── owner_row.html
 │       ├── owner_table_body.html
