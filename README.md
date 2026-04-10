@@ -721,6 +721,8 @@ wheels/                        # Offline Python balíčky (gitignored)
 | GET | `/` | Hlavní dashboard (statistiky, poslední aktivita) |
 | GET | `/prehled/rozdil-podilu` | Breakdown rozdílu podílů |
 
+**Poslední aktivita** — tabulka sdružuje `ActivityLog` (CRUD napříč moduly: vlastníci, jednotky, prostory, nájemci, hlasování, rozesílání, platby, kontroly, administrace, nastavení) s `EmailLog` (odeslané emaily). Bubliny filtrují podle modulu, hledání podle popisu/detailu, řádky jsou klikací na detail entity. CRUD operace volají `log_activity(db, action, entity_type, module, entity_id, entity_name, description)` z `app/models/common.py` před `db.commit()`.
+
 ### Vlastníci (`/vlastnici`)
 
 | Metoda | Cesta | Popis |
