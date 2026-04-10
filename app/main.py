@@ -646,11 +646,18 @@ def _migrate_dedupe_tenants():
     try:
         tenants = db.query(Tenant).all()
         groups: dict = {}
+        skipped = 0
         for t in tenants:
             k = _key(t)
             if k is None:
+                skipped += 1
                 continue
             groups.setdefault(k, []).append(t)
+        if skipped:
+            logger.info(
+                "_migrate_dedupe_tenants: přeskočeno %d Tenantů bez dedup klíče (chybí owner_id, RČ/IČ i jméno)",
+                skipped,
+            )
 
         merged_count = 0
         for key, group in groups.items():

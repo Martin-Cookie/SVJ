@@ -123,14 +123,15 @@ def _filter_tenants(db: Session, q="", typ="", stav="", sort="name", order="asc"
                         break
         tenants = filtered
 
-    # Python-side sort
+    # Python-side sort — cache active rels per tenant (property je neindexovaná)
+    rels_cache = {t.id: t.active_space_rels for t in tenants}
     sort_fns = {
         "name": lambda t: t.resolved_name_normalized or "",
         "type": lambda t: (t.resolved_type or OwnerType.PHYSICAL).value,
         "phone": lambda t: t.resolved_phone or "",
         "email": lambda t: t.resolved_email or "",
-        "space": lambda t: (t.active_space_rel.space.space_number if t.active_space_rel else 0),
-        "rent": lambda t: sum((sr.monthly_rent or 0) for sr in t.active_space_rels),
+        "space": lambda t: (rels_cache[t.id][0].space.space_number if rels_cache[t.id] else 0),
+        "rent": lambda t: sum((sr.monthly_rent or 0) for sr in rels_cache[t.id]),
     }
     fn = sort_fns.get(sort, sort_fns["name"])
     tenants.sort(key=fn, reverse=(order == "desc"))

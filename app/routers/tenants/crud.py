@@ -4,7 +4,7 @@ from datetime import datetime
 from io import BytesIO
 
 from fastapi import APIRouter, Depends, Form, Query, Request
-from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi.responses import RedirectResponse, Response
 from openpyxl import Workbook
 from openpyxl.styles import Font
 from sqlalchemy.orm import Session, joinedload
@@ -16,7 +16,7 @@ from app.utils import (
     is_htmx_partial, is_valid_email, strip_diacritics, templates, utcnow,
 )
 
-from ._helpers import _filter_tenants, _tenant_stats, find_existing_tenant, logger
+from ._helpers import _filter_tenants, _tenant_stats, logger
 
 router = APIRouter()
 
@@ -44,22 +44,31 @@ async def tenant_create(
     phone: str = Form(""),
     email: str = Form(""),
     note: str = Form(""),
+    force_create: str = Form(""),
     db: Session = Depends(get_db),
 ):
     """Vytvoření nového nájemce."""
     first_name = first_name.strip()
     last_name = last_name.strip()
 
+    form_data = {
+        "first_name": first_name, "last_name": last_name, "title": title.strip(),
+        "tenant_type": tenant_type, "birth_number": birth_number.strip(),
+        "company_id": company_id.strip(), "phone": phone.strip(), "email": email.strip(),
+    }
+
     if not first_name and not last_name:
         return templates.TemplateResponse("tenants/partials/_create_form.html", {
             "request": request,
             "error": "Jméno nebo příjmení je povinné.",
+            "form_data": form_data,
         })
 
     if email.strip() and not is_valid_email(email.strip()):
         return templates.TemplateResponse("tenants/partials/_create_form.html", {
             "request": request,
             "error": "Neplatný formát emailu.",
+            "form_data": form_data,
         })
 
     name_with_titles = build_name_with_titles(title.strip(), first_name, last_name)
@@ -67,21 +76,37 @@ async def tenant_create(
 
     t_type = OwnerType.LEGAL_ENTITY if tenant_type == "legal" else OwnerType.PHYSICAL
 
-    existing = find_existing_tenant(
-        db,
-        birth_number=birth_number.strip() or None,
-        company_id=company_id.strip() or None,
-        first_name=first_name,
-        last_name=last_name,
-        tenant_type=t_type,
-    )
-    if existing:
-        if request.headers.get("HX-Request"):
-            return HTMLResponse(
-                content=f'<p class="text-sm text-amber-700 p-4">Nájemce <strong>{existing.display_name}</strong> již existuje. '
-                        f'<a href="/najemci/{existing.id}" class="text-blue-600 hover:underline">Otevřít</a></p>',
-            )
-        return RedirectResponse(f"/najemci/{existing.id}?flash=exists", status_code=302)
+    # Sběr duplicit (RČ / IČ / jméno+typ) — uživatel musí potvrdit přes force_create
+    duplicates = []
+    seen_ids = set()
+    bn = birth_number.strip()
+    if bn:
+        dup = db.query(Tenant).filter(Tenant.birth_number == bn).first()
+        if dup:
+            duplicates.append(("RČ", dup))
+            seen_ids.add(dup.id)
+    ci = company_id.strip()
+    if ci:
+        dup = db.query(Tenant).filter(Tenant.company_id == ci).first()
+        if dup and dup.id not in seen_ids:
+            duplicates.append(("IČ", dup))
+            seen_ids.add(dup.id)
+    if name_normalized:
+        dup = db.query(Tenant).filter(
+            Tenant.owner_id.is_(None),
+            Tenant.name_normalized == name_normalized,
+            Tenant.tenant_type == t_type,
+        ).first()
+        if dup and dup.id not in seen_ids:
+            duplicates.append(("jméno", dup))
+            seen_ids.add(dup.id)
+
+    if duplicates and force_create != "1":
+        return templates.TemplateResponse("tenants/partials/_create_form.html", {
+            "request": request,
+            "duplicates": duplicates,
+            "form_data": form_data,
+        })
 
     tenant = Tenant(
         first_name=first_name or None,
@@ -103,10 +128,7 @@ async def tenant_create(
     db.commit()
 
     if request.headers.get("HX-Request"):
-        return HTMLResponse(
-            content=f'<p class="text-sm text-green-600 p-4">Nájemce {tenant.display_name} vytvořen. '
-                    f'<a href="/najemci/{tenant.id}" class="text-blue-600 hover:underline">Zobrazit</a></p>',
-        )
+        return Response(status_code=204, headers={"HX-Redirect": f"/najemci/{tenant.id}"})
     return RedirectResponse(f"/najemci/{tenant.id}", status_code=302)
 
 
@@ -627,7 +649,6 @@ async def tenant_detail(
 
     # Active + history spaces
     active_rels = tenant.active_space_rels
-    active_rel = active_rels[0] if active_rels else None
     history = [st for st in tenant.spaces if not st.is_active]
     history.sort(key=lambda st: st.contract_end or st.created_at, reverse=True)
 
@@ -645,7 +666,6 @@ async def tenant_detail(
         "request": request,
         "active_nav": "tenants",
         "tenant": tenant,
-        "active_rel": active_rel,
         "active_rels": active_rels,
         "history": history,
         "owners": owners,

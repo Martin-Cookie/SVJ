@@ -4,7 +4,7 @@ from datetime import date as date_type, datetime
 from io import BytesIO
 
 from fastapi import APIRouter, Depends, Form, Query, Request
-from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi.responses import RedirectResponse, Response
 from openpyxl import Workbook
 from openpyxl.styles import Font
 from sqlalchemy.orm import Session, joinedload
@@ -127,17 +127,24 @@ async def space_create(
     db.flush()
 
     # Create tenant + contract if tenant_name provided
+    tenant_reused = False
     if tenant_name:
+        # Form očekává "Příjmení Jméno" (viz placeholder v _create_form.html)
         parts = tenant_name.split()
         last_name = parts[0] if parts else None
         first_name = " ".join(parts[1:]) if len(parts) > 1 else None
 
+        # Inline UX: dedup jen podle jména (formulář prostoru nesbírá RČ/IČ).
+        # Pokud jmenovec už existuje, přiřadí se existující — uživatel je o tom
+        # informován přes flash na detailu prostoru (viz flash=tenant_reused).
         tenant = find_existing_tenant(
             db,
             first_name=first_name,
             last_name=last_name,
             tenant_type=OwnerType.PHYSICAL,
         )
+        if tenant is not None:
+            tenant_reused = True
         if tenant is None:
             tenant = Tenant(
                 first_name=first_name,
@@ -223,12 +230,11 @@ async def space_create(
 
     db.commit()
 
+    flash_suffix = "?flash=tenant_reused" if tenant_reused else ""
+    target = f"/prostory/{space.id}{flash_suffix}"
     if request.headers.get("HX-Request"):
-        return HTMLResponse(
-            content=f'<p class="text-sm text-green-600 p-4">Prostor {space_number_int} vytvořen. '
-                    f'<a href="/prostory/{space.id}" class="text-blue-600 hover:underline">Zobrazit</a></p>',
-        )
-    return RedirectResponse(f"/prostory/{space.id}", status_code=302)
+        return Response(status_code=204, headers={"HX-Redirect": target})
+    return RedirectResponse(target, status_code=302)
 
 
 # ── Detail ────────────────────────────────────────────────────────────
@@ -828,6 +834,12 @@ async def space_detail(
     elif flash == "tenant_not_found":
         flash_message = "Nájemce nenalezen."
         flash_type = "error"
+    elif flash == "tenant_reused":
+        flash_message = (
+            "Nájemce se shodným jménem už existuje — prostor byl přiřazen stávajícímu záznamu. "
+            "Pokud jde o jinou osobu, upravte přiřazení v sekci nájemců."
+        )
+        flash_type = "warning"
 
     return templates.TemplateResponse("spaces/detail.html", {
         "request": request,

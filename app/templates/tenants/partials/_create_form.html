@@ -4,41 +4,59 @@
         {% if error|default('') %}
         <div class="bg-red-50 border border-red-200 rounded-lg p-2 mb-3 text-sm text-red-700">{{ error }}</div>
         {% endif %}
+        {% if duplicates|default([]) %}
+        <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-3 text-sm">
+            <p class="font-medium text-amber-800 mb-2">Nalezeni možní duplicitní nájemci:</p>
+            <ul class="space-y-1 mb-2">
+                {% for reason, dup in duplicates %}
+                <li class="text-amber-700">
+                    <span class="text-xs font-medium bg-amber-100 rounded px-1.5 py-0.5 mr-1">{{ reason }}</span>
+                    <a href="/najemci/{{ dup.id }}" target="_blank" class="text-blue-600 hover:underline">{{ dup.display_name }}</a>
+                </li>
+                {% endfor %}
+            </ul>
+            <label class="flex items-center gap-2 text-xs text-amber-800 mt-2">
+                <input type="checkbox" name="force_create" value="1" class="rounded border-amber-300">
+                Přesto vytvořit nový záznam
+            </label>
+        </div>
+        {% endif %}
+        {% set fd = form_data|default({}) %}
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
             <div>
                 <label class="text-xs text-gray-500">Titul</label>
-                <input type="text" name="title" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+                <input type="text" name="title" value="{{ fd.title|default('') }}" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
             </div>
             <div>
                 <label class="text-xs text-gray-500">Příjmení *</label>
-                <input type="text" name="last_name" required class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+                <input type="text" name="last_name" value="{{ fd.last_name|default('') }}" required class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
             </div>
             <div>
                 <label class="text-xs text-gray-500">Jméno</label>
-                <input type="text" name="first_name" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+                <input type="text" name="first_name" value="{{ fd.first_name|default('') }}" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
             </div>
             <div>
                 <label class="text-xs text-gray-500">Typ</label>
                 <select name="tenant_type" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
-                    <option value="physical">Fyzická osoba</option>
-                    <option value="legal">Právnická osoba</option>
+                    <option value="physical"{% if fd.tenant_type|default('physical') == 'physical' %} selected{% endif %}>Fyzická osoba</option>
+                    <option value="legal"{% if fd.tenant_type|default('') == 'legal' %} selected{% endif %}>Právnická osoba</option>
                 </select>
             </div>
             <div>
                 <label class="text-xs text-gray-500">RČ</label>
-                <input type="text" name="birth_number" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+                <input type="text" name="birth_number" value="{{ fd.birth_number|default('') }}" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
             </div>
             <div>
                 <label class="text-xs text-gray-500">IČ</label>
-                <input type="text" name="company_id" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+                <input type="text" name="company_id" value="{{ fd.company_id|default('') }}" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
             </div>
             <div>
                 <label class="text-xs text-gray-500">Telefon</label>
-                <input type="text" name="phone" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+                <input type="text" name="phone" value="{{ fd.phone|default('') }}" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
             </div>
             <div>
                 <label class="text-xs text-gray-500">Email</label>
-                <input type="text" name="email" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+                <input type="text" name="email" value="{{ fd.email|default('') }}" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
             </div>
         </div>
         <div class="flex gap-2 mt-3">

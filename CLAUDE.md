@@ -232,6 +232,13 @@
       })
   ```
 
+### Tenants — dedup helper a resolved properties
+- **`find_existing_tenant()`** v `app/routers/tenants/_helpers.py` — jediný zdroj pravdy pro vyhledávání existujícího nájemce při create (`/najemci/novy`) i při inline vytvoření nájemce v novém prostoru (`/prostory/novy`). Prevence duplicit = merge místo insert
+- Priorita hledání: `owner_id` → `birth_number` → `company_id` → `name_normalized + tenant_type` (pouze pro nepropojené). Vrací první shodu nebo `None`
+- **Resolved properties** na `Tenant` modelu (analogicky k `resolved_phone`, `resolved_email`): `resolved_birth_number`, `resolved_company_id`, `resolved_type`, `resolved_name_normalized` — pokud je tenant propojený na Owner (`owner_id`), čtou se z Owner; jinak z vlastních polí. **Vždy používat resolved varianty** v šablonách, exportu i hledání — přímý přístup k `tenant.birth_number` selže u propojených nájemců
+- **Multi-space podpora**: `Tenant.active_space_rels` vrací list aktivních SpaceTenants seřazený podle `space_number`, `Tenant.active_space_rel` vrací první (zpětná kompatibilita). Jeden nájemce může mít více současných smluv — seznam i detail zobrazují všechny prostory stacked pod sebou, export má 1 řádek per smlouva
+- Historická duplicita v DB je řešena startup migrací `_migrate_dedupe_tenants` (viz § Startup)
+
 ### Dynamické formuláře
 - `Form(...)` pro fixní pole. `await request.form()` + `.get()`/`.getlist()` pro dynamické názvy polí (např. `vote_5`, `update__12__field`)
 
@@ -383,8 +390,8 @@
 
 ## Startup (lifespan)
 
-- `main.py` lifespan: (1) import modelů, (2) `create_all`, (3) `_ALL_MIGRATIONS` list (14 migračních funkcí + `_ensure_indexes()` + `_seed_code_lists()` + `_seed_email_templates()`), (4) `recover_stuck_sending_sessions()`, (5) vytvoření upload/generated/temp adresářů
-- Migrace zahrnují mj. `_migrate_svj_send_settings` (SvjInfo send_batch_size/interval/confirm/test_email) a `_migrate_payment_notified_at` (Payment.notified_at sloupec)
+- `main.py` lifespan: (1) import modelů, (2) `create_all`, (3) `_ALL_MIGRATIONS` list (15 migračních funkcí + `_ensure_indexes()` + `_seed_code_lists()` + `_seed_email_templates()`), (4) `recover_stuck_sending_sessions()`, (5) vytvoření upload/generated/temp adresářů
+- Migrace zahrnují mj. `_migrate_svj_send_settings` (SvjInfo send_batch_size/interval/confirm/test_email), `_migrate_payment_notified_at` (Payment.notified_at sloupec) a `_migrate_dedupe_tenants` (sloučí duplicitní Tenant záznamy podle priority owner_id → RČ → IČ → jméno+typ; vítěz = nejvíce vyplněných polí, SpaceTenant vztahy se přesunou na vítěze)
 - `_ALL_MIGRATIONS` se sdílí s `run_post_restore_migrations()` — po obnově zálohy se spustí stejné migrace
 - Nové funkce vyžadující adresáře: přidat do lifespan. Nové indexy: přidat do `_ensure_indexes()`. Nové migrace: přidat do `_ALL_MIGRATIONS`
 

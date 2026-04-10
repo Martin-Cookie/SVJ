@@ -112,6 +112,22 @@ Zpětný odkaz na KAŽDÉ stránce s `back_url` — jednotný styl napříč cel
 - `table-layout: fixed` s `<colgroup>` pro přesné šířky sloupců
 - Dlouhé názvy: `truncate` + `title` tooltip
 
+### Stacked buňky (1 entita = více sub-záznamů)
+- Když má entita v tabulce více souvisejících záznamů (vlastník → více jednotek, nájemce → více prostor), zobrazit **jeden řádek per entitu** a sub-záznamy naskládat pod sebou ve sloupcové buňce:
+  ```html
+  <td>
+      <div class="flex flex-col gap-0.5">
+          {% for rel in entity.active_rels %}
+              <span>{{ rel.label }}</span>
+          {% endfor %}
+      </div>
+  </td>
+  ```
+- Sub-záznamy ve více sloupcích (prostor / nájemné / VS) musí být **zarovnané pořadím** — každý sloupec iteruje stejný list ve stejném pořadí (řazení dle `space_number` / `unit_number`)
+- Hledání musí prohledávat **všechny** sub-záznamy (ne jen první), řazení podle součtu (např. `rent`) sumuje přes celý list
+- Export v tomto případě obvykle tvoří **1 řádek per sub-záznam** (per smlouva / per jednotka) — uvést v hlavičce exportu
+- Používáno v: vlastníci (více jednotek), nájemci (více prostor)
+
 ---
 
 ## 3. Formuláře

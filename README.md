@@ -285,7 +285,9 @@ Modul pro správu předpisů, bankovních výpisů, variabilních symbolů a př
 Evidence pronajímaných společných prostorů SVJ (sklady, nebytové prostory, kočárkárny) a jejich nájemců.
 
 - **Prostory** — CRUD s řaditelnými sloupci, hledáním, filtry (stav, sekce), bubliny (pronajato/volné/blokované), export Excel/CSV; formulář vytvoření prostoru s volitelnými poli nájemce (auto-vytvoří Tenant + SpaceTenant + VS mapping + Prescription)
-- **Nájemci** — CRUD s per-section inline editací (identita, kontakt, adresy), propojení na vlastníky (Tenant ↔ Owner), resolved properties (jméno, telefon, email se čtou z Owner pokud propojený), export Excel/CSV
+- **Nájemci** — CRUD s per-section inline editací (identita, kontakt, adresy), propojení na vlastníky (Tenant ↔ Owner), resolved properties (jméno, telefon, email, RČ, IČ, typ se čtou z Owner pokud propojený), export Excel/CSV
+  - **Multi-space**: 1 nájemce může mít souběžně více prostor (více smluv). Seznam zobrazuje jeden řádek per nájemce se stacked prostory/nájemným/VS pod sebou, detail má sekci „Aktuální prostory (N)", export 1 řádek per smlouva
+  - **Deduplikace**: `find_existing_tenant()` helper (priorita owner_id → RČ → IČ → jméno+typ) zabraňuje vytváření duplicitních nájemců při create přes `/najemci/novy` i při inline vytvoření v `/prostory/novy`. Historické duplicity řeší startup migrace `_migrate_dedupe_tenants` (sloučí záznamy, vítěz = nejvíce vyplněných polí, SpaceTenant vztahy se přesunou na vítěze)
 - **Nájemní vztahy** (SpaceTenant) — přiřazení nájemce k prostoru s detaily smlouvy (číslo, datum, nájemné, VS, PDF příloha)
 - **Platební integrace**:
   - Auto-vytvoření `VariableSymbolMapping` (space_id) při přiřazení nájemce s VS
@@ -1048,7 +1050,7 @@ LIBREOFFICE_PATH=/Applications/LibreOffice.app/Contents/MacOS/soffice
 - **OwnerUnit** — vazba vlastník-jednotka (typ vlastnictví, podíl, hlasovací váha, valid_from, valid_to); valid_to=NULL = aktuálně platný, valid_to=datum = historický záznam
 - **Proxy** — plná moc pro hlasování
 - **Space** — prostor SVJ (číslo, označení, sekce, podlaží, výměra, stav: rented/vacant/blocked)
-- **Tenant** — nájemce (identity vlastní nebo z Owner přes owner_id FK; resolved properties)
+- **Tenant** — nájemce (identity vlastní nebo z Owner přes owner_id FK; resolved properties pro jméno/kontakt/RČ/IČ/typ; `active_space_rels` list aktivních SpaceTenants pro multi-space zobrazení)
 - **SpaceTenant** — nájemní vztah (smlouva, nájemné, VS, is_active, contract_path)
 - **Voting** (partial_owner_mode, import_column_mapping) → VotingItem → Ballot (scan_path, voted_by_proxy, shared_owners_text) → BallotVote
 - **TaxSession** → TaxDocument → TaxDistribution
