@@ -8,15 +8,24 @@
         <div class="flex items-center justify-between mb-3">
             <div>
                 <h1 class="text-lg font-bold text-gray-900 dark:text-white">Počáteční zůstatky</h1>
-                {% if balances %}
                 <p class="text-xs text-gray-500 dark:text-gray-400">
-                    {{ balances|length }} jednotek ·
+                    {{ balances|length }} záznamů{% if balances|length != total_count %} (z {{ total_count }} celkem){% endif %}
+                    {% if balances %}·
                     Dluhy: <span class="text-red-600">{{ total_dluh|fmt_num }} Kč</span> ·
                     Přeplatky: <span class="text-green-600">{{ total_preplatek|fmt_num }} Kč</span>
+                    {% endif %}
                 </p>
-                {% endif %}
             </div>
             <div class="flex gap-2">
+                {% set _export_qs = "?rok=" ~ rok ~ ("&q=" ~ q if q else "") ~ "&sort=" ~ sort ~ "&order=" ~ order %}
+                <a href="/platby/zustatky/exportovat/xlsx{{ _export_qs }}" hx-boost="false"
+                   class="inline-flex items-center px-3 py-1.5 bg-gray-100 text-gray-600 border border-gray-200 text-xs font-medium rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600">
+                    ↓ Excel
+                </a>
+                <a href="/platby/zustatky/exportovat/csv{{ _export_qs }}" hx-boost="false"
+                   class="inline-flex items-center px-3 py-1.5 bg-gray-100 text-gray-600 border border-gray-200 text-xs font-medium rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600">
+                    ↓ CSV
+                </a>
                 <a href="/platby/zustatky/import" class="px-3 py-1.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-xs font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700">
                     Import z Excelu
                 </a>
@@ -74,15 +83,34 @@
         <!-- Filtr roky -->
         {% if years %}
         {% set _back = "&back=" ~ (back_url|default('')|urlencode) if back_url else "" %}
-        <div class="flex flex-wrap gap-2 mb-3">
+        <div class="flex flex-wrap gap-2 mb-2">
             {% for y in years %}
-            <a href="/platby/zustatky?rok={{ y }}{{ _back }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
+            <a href="/platby/zustatky?rok={{ y }}{{ ('&q=' ~ q) if q else '' }}{{ _back }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
                 {% if rok == y %}bg-blue-600 text-white ring-2 ring-blue-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
                 {{ y }}
             </a>
             {% endfor %}
         </div>
         {% endif %}
+
+        <!-- Hledání -->
+        <div class="mb-3">
+            <div class="relative inline-block w-full sm:w-72">
+                <input type="text" name="q" value="{{ q }}" placeholder="Hledat jednotku, vlastníka, VS..."
+                    aria-label="Hledat"
+                    hx-get="/platby/zustatky"
+                    hx-trigger="keyup changed delay:300ms"
+                    hx-target="#zustatky-tbody"
+                    hx-include="[name='rok'],[name='sort'],[name='order'],[name='back']"
+                    hx-indicator="#search-spinner"
+                    class="w-full px-3 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500">
+                <svg id="search-spinner" class="htmx-indicator absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-500 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+            </div>
+            <input type="hidden" name="rok" value="{{ rok }}">
+            <input type="hidden" name="sort" value="{{ sort }}">
+            <input type="hidden" name="order" value="{{ order }}">
+            <input type="hidden" name="back" value="{{ back_url }}">
+        </div>
     </div>
 
     <!-- Info text -->

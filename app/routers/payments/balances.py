@@ -1,19 +1,28 @@
 """Router pro počáteční zůstatky jednotek — seznam, ruční správa, import z Excelu."""
 from __future__ import annotations
 
+import csv
+import io
 import json
 import shutil
 from datetime import datetime
+from io import BytesIO
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
-from fastapi.responses import RedirectResponse
+from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
+from fastapi.responses import RedirectResponse, Response
 from sqlalchemy.orm import Session, joinedload
 
 from app.config import settings
 from app.database import get_db
-from app.models import ActivityAction, UnitBalance, Unit, Owner, OwnerUnit, BalanceSource, SvjInfo, log_activity
-from app.utils import build_list_url, build_import_wizard, is_htmx_partial, is_safe_path, utcnow, validate_upload, UPLOAD_LIMITS
+from app.models import (
+    ActivityAction, BalanceSource, Owner, OwnerUnit, SvjInfo, Unit, UnitBalance,
+    VariableSymbolMapping, log_activity,
+)
+from app.utils import (
+    build_list_url, build_import_wizard, excel_auto_width, is_htmx_partial,
+    is_safe_path, strip_diacritics, utcnow, validate_upload, UPLOAD_LIMITS,
+)
 from ._helpers import templates, logger, compute_nav_stats
 
 router = APIRouter()
@@ -54,10 +63,71 @@ def _owners_for_units(db: Session) -> dict[int, list]:
 
 # ── Seznam zůstatků ──────────────────────────────────────────────────────
 
+
+def _unit_vs_map(db: Session) -> dict[int, list[str]]:
+    """unit_id → list variabilních symbolů (pro vyhledávání)."""
+    mappings = db.query(VariableSymbolMapping).filter(VariableSymbolMapping.unit_id.isnot(None)).all()
+    result: dict[int, list[str]] = {}
+    for m in mappings:
+        if m.unit_id and m.variable_symbol:
+            result.setdefault(m.unit_id, []).append(m.variable_symbol)
+    return result
+
+
+def _filter_balances(
+    db: Session,
+    rok: int,
+    q: str = "",
+    sort: str = "jednotka",
+    order: str = "asc",
+) -> list:
+    """Sdílená filtrační logika pro seznam i export."""
+    query = (
+        db.query(UnitBalance)
+        .options(joinedload(UnitBalance.unit), joinedload(UnitBalance.owner))
+    )
+    if rok:
+        query = query.filter(UnitBalance.year == rok)
+
+    balances = query.all()
+
+    if q:
+        q_ascii = strip_diacritics(q)
+        vs_map = _unit_vs_map(db)
+
+        def _match(b):
+            unit_num = str(b.unit.unit_number) if b.unit else ""
+            owner_name = b.owner.name_normalized if b.owner else (b.owner_name or "")
+            haystack = strip_diacritics(f"{unit_num} {owner_name}")
+            if q_ascii in haystack:
+                return True
+            # VS match (ponecháváme přesně)
+            if b.unit_id:
+                for vs in vs_map.get(b.unit_id, []):
+                    if q in vs:
+                        return True
+            return False
+
+        balances = [b for b in balances if _match(b)]
+
+    if sort == "jednotka":
+        balances.sort(key=lambda b: b.unit.unit_number if b.unit else 0, reverse=(order == "desc"))
+    elif sort == "castka":
+        balances.sort(key=lambda b: b.opening_amount, reverse=(order == "desc"))
+    elif sort == "vlastnik":
+        balances.sort(
+            key=lambda b: (b.owner.name_normalized if b.owner else b.owner_name or ""),
+            reverse=(order == "desc"),
+        )
+
+    return balances
+
+
 @router.get("/zustatky")
 async def zustatky_seznam(
     request: Request,
     rok: int = 0,
+    q: str = "",
     sort: str = "jednotka",
     order: str = "asc",
     db: Session = Depends(get_db),
@@ -74,25 +144,8 @@ async def zustatky_seznam(
     if rok == 0:
         rok = years[0] if years else utcnow().year
 
-    query = (
-        db.query(UnitBalance)
-        .options(joinedload(UnitBalance.unit), joinedload(UnitBalance.owner))
-    )
-    if rok:
-        query = query.filter(UnitBalance.year == rok)
-
-    balances = query.all()
-
-    # Řazení
-    if sort == "jednotka":
-        balances.sort(key=lambda b: b.unit.unit_number if b.unit else 0, reverse=(order == "desc"))
-    elif sort == "castka":
-        balances.sort(key=lambda b: b.opening_amount, reverse=(order == "desc"))
-    elif sort == "vlastnik":
-        balances.sort(
-            key=lambda b: (b.owner.name_normalized if b.owner else b.owner_name or ""),
-            reverse=(order == "desc"),
-        )
+    balances = _filter_balances(db, rok, q, sort, order)
+    total_count = db.query(UnitBalance).filter(UnitBalance.year == rok).count() if rok else 0
 
     units = db.query(Unit).order_by(Unit.unit_number).all()
     existing_unit_ids = {b.unit_id for b in balances}
@@ -129,6 +182,8 @@ async def zustatky_seznam(
         "units": units,
         "years": years,
         "rok": rok,
+        "q": q,
+        "total_count": total_count,
         "sort": sort,
         "order": order,
         "existing_unit_ids": existing_unit_ids,
@@ -147,6 +202,98 @@ async def zustatky_seznam(
         return templates.TemplateResponse(request, "payments/partials/zustatky_tbody.html", ctx)
 
     return templates.TemplateResponse(request, "payments/zustatky.html", ctx)
+
+
+# ── Export zůstatků ──────────────────────────────────────────────────────
+
+
+@router.get("/zustatky/exportovat/{fmt}")
+async def zustatky_export(
+    fmt: str,
+    rok: int = Query(0),
+    q: str = Query(""),
+    sort: str = Query("jednotka"),
+    order: str = Query("asc"),
+    db: Session = Depends(get_db),
+):
+    """Export počátečních zůstatků (xlsx/csv) respektující rok a hledání."""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font
+
+    if fmt not in ("xlsx", "csv"):
+        return RedirectResponse("/platby/zustatky", status_code=302)
+
+    if rok == 0:
+        latest = db.query(UnitBalance.year).order_by(UnitBalance.year.desc()).first()
+        rok = latest[0] if latest else utcnow().year
+
+    balances = _filter_balances(db, rok, q, sort, order)
+
+    headers = ["Rok", "Č. jednotky", "Vlastník", "Částka (Kč)", "Typ", "Zdroj", "Poznámka"]
+
+    source_labels = {
+        "manual": "Ručně",
+        "import": "Import",
+        "legacy": "Historicky",
+    }
+
+    def _row(b):
+        owner_name = ""
+        if b.owner and b.owner.display_name:
+            owner_name = b.owner.display_name
+        elif b.owner_name:
+            owner_name = b.owner_name
+        amount = b.opening_amount or 0
+        typ = "Dluh" if amount > 0 else ("Přeplatek" if amount < 0 else "Vyrovnáno")
+        source_val = b.source.value if b.source else ""
+        return [
+            b.year,
+            b.unit.unit_number if b.unit else "",
+            owner_name,
+            round(amount, 2),
+            typ,
+            source_labels.get(source_val, source_val),
+            b.note or "",
+        ]
+
+    suffix = "_hledani" if q else f"_{rok}"
+    timestamp = datetime.now().strftime("%Y%m%d")
+    filename = f"zustatky{suffix}_{timestamp}"
+
+    if fmt == "xlsx":
+        wb = Workbook()
+        ws = wb.active
+        ws.title = f"Zůstatky {rok}"
+        bold = Font(bold=True)
+
+        for col, h in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col, value=h)
+            cell.font = bold
+
+        for row_idx, b in enumerate(balances, 2):
+            for col_idx, val in enumerate(_row(b), 1):
+                ws.cell(row=row_idx, column=col_idx, value=val)
+
+        excel_auto_width(ws)
+
+        buf = BytesIO()
+        wb.save(buf)
+        return Response(
+            content=buf.getvalue(),
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f'attachment; filename="{filename}.xlsx"'},
+        )
+    else:
+        buf = io.StringIO()
+        writer = csv.writer(buf, delimiter=";")
+        writer.writerow(headers)
+        for b in balances:
+            writer.writerow(_row(b))
+        return Response(
+            content=buf.getvalue().encode("utf-8-sig"),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="{filename}.csv"'},
+        )
 
 
 # ── Ruční správa ─────────────────────────────────────────────────────────
