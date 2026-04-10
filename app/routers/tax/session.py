@@ -41,8 +41,14 @@ router = APIRouter()
 # ---------------------------------------------------------------------------
 
 @router.get("/")
-async def tax_list(request: Request, back: str = Query("", alias="back"), stav: str = Query("", alias="stav"), db: Session = Depends(get_db)):
-    """Seznam daňových sessions s filtrováním podle stavu."""
+async def tax_list(
+    request: Request,
+    back: str = Query("", alias="back"),
+    stav: str = Query("", alias="stav"),
+    sort: str = Query("created_desc", alias="sort"),
+    db: Session = Depends(get_db),
+):
+    """Seznam daňových sessions s filtrováním podle stavu a řazením."""
     sessions = (
         db.query(TaxSession)
         .options(
@@ -126,6 +132,17 @@ async def tax_list(request: Request, back: str = Query("", alias="back"), stav: 
     if stav and stav in ("draft", "ready", "sending", "completed"):
         sessions = [s for s in sessions if session_status_map[s.id] == stav]
 
+    # Python-side sort
+    SORT_KEYS = {
+        "created_desc": (lambda s: s.created_at or datetime.min, True),
+        "created_asc": (lambda s: s.created_at or datetime.min, False),
+        "updated_desc": (lambda s: s.updated_at or s.created_at or datetime.min, True),
+        "name": (lambda s: strip_diacritics(s.title or ""), False),
+        "docs": (lambda s: session_stats[s.id]["total"], True),
+    }
+    sort_fn, sort_reverse = SORT_KEYS.get(sort, SORT_KEYS["created_desc"])
+    sessions.sort(key=sort_fn, reverse=sort_reverse)
+
     back_label = ""
     if back:
         back_label = (
@@ -143,6 +160,7 @@ async def tax_list(request: Request, back: str = Query("", alias="back"), stav: 
         "session_stats": session_stats,
         "status_counts": status_counts,
         "current_stav": stav,
+        "current_sort": sort,
     })
 
 

@@ -13,7 +13,7 @@ from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
-from app.models import Owner, OwnerType, OwnerUnit, PrescriptionYear, SvjInfo, Unit, UnitBalance
+from app.models import ActivityAction, Owner, OwnerType, OwnerUnit, PrescriptionYear, SvjInfo, Unit, UnitBalance, log_activity
 from app.routers.payments._helpers import compute_debt_map
 from app.services.code_list_service import get_all_code_lists
 from app.services.owner_exchange import recalculate_unit_votes
@@ -138,6 +138,9 @@ async def owner_create(
         created_at=utcnow(),
     )
     db.add(owner)
+    db.flush()
+    log_activity(db, ActivityAction.CREATED, "owner", "vlastnici",
+                 entity_id=owner.id, entity_name=owner.display_name)
     db.commit()
 
     redirect_url = f"/vlastnici/{owner.id}?info=vytvoren"
@@ -501,6 +504,9 @@ async def owner_identity_update(
 
     _rebuild_owner_name(owner)
     owner.updated_at = utcnow()
+    log_activity(db, ActivityAction.UPDATED, "owner", "vlastnici",
+                 entity_id=owner.id, entity_name=owner.display_name,
+                 description="Upravena identita")
     db.commit()
 
     # Find duplicates by OLD name (before edit)
@@ -555,6 +561,9 @@ async def owner_merge(
             duplicates.append(dup)
 
     merge_owners(owner, duplicates, db)
+    log_activity(db, ActivityAction.UPDATED, "owner", "vlastnici",
+                 entity_id=owner.id, entity_name=owner.display_name,
+                 description=f"Sloučeno {len(duplicates)} duplicit")
     db.commit()
     db.refresh(owner)
 
@@ -678,6 +687,10 @@ async def owner_address_update(
     setattr(owner, f"{prefix}_zip", zip.strip() or None)
     setattr(owner, f"{prefix}_country", country.strip() or None)
     owner.updated_at = utcnow()
+    addr_label = "trvalá adresa" if prefix == "perm" else "korespondenční adresa"
+    log_activity(db, ActivityAction.UPDATED, "owner", "vlastnici",
+                 entity_id=owner.id, entity_name=owner.display_name,
+                 description=f"Upravena {addr_label}")
     db.commit()
 
     if request.headers.get("HX-Request"):
@@ -709,6 +722,9 @@ async def owner_update(
         owner.phone_secondary = phone_secondary.strip() or None
         owner.phone_landline = phone_landline.strip() or None
         owner.updated_at = utcnow()
+        log_activity(db, ActivityAction.UPDATED, "owner", "vlastnici",
+                     entity_id=owner.id, entity_name=owner.display_name,
+                     description="Upraveny kontaktní údaje")
         db.commit()
 
     if request.headers.get("HX-Request"):

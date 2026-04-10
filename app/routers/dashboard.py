@@ -207,6 +207,16 @@ async def home(
         "owner": "/vlastnici/{id}",
     }
 
+    # Normalizace raw module stringů na kanonické klíče — sjednocuje EmailLog vs ActivityLog,
+    # aby `tax` a `dane` splynuly v jednu bublinu "Rozesílání".
+    _MODULE_CANONICAL = {
+        "tax": "dane",
+        "voting": "hlasovani",
+        "tenants": "najemci",
+    }
+    def _norm_module(m: str) -> str:
+        return _MODULE_CANONICAL.get(m or "", m or "")
+
     # Seskupení payment_notice emailů (a jiných hromadných emailů) dle den+modul+subject
     from collections import defaultdict
     _group_key_counts = defaultdict(list)
@@ -220,7 +230,7 @@ async def home(
             unified.append({
                 "type": "email",
                 "created_at": e.created_at,
-                "module": e.module or "",
+                "module": _norm_module(e.module),
                 "description": e.subject or "",
                 "detail": e.recipient_name or e.recipient_email or "",
                 "status": e.status.value if e.status else "",
@@ -242,7 +252,7 @@ async def home(
         unified.append({
             "type": "email",
             "created_at": latest.created_at,
-            "module": mod,
+            "module": _norm_module(mod),
             "description": f"{subject}" if count == 1 else f"{subject} ({count}×)",
             "detail": detail,
             "status": "sent" if failed_count == 0 else "failed",
@@ -257,7 +267,7 @@ async def home(
         unified.append({
             "type": "activity",
             "created_at": a.created_at,
-            "module": a.module or "",
+            "module": _norm_module(a.module),
             "description": a.entity_name or "",
             "detail": a.description or "",
             "status": a.action.value if a.action else "",
@@ -273,9 +283,24 @@ async def home(
     for item in unified:
         module_counts[item["module"]] += 1
 
-    # Filtr dle modulu
+    # Fixní pořadí bublin shodné se sidebarem (skryje se položka s 0 záznamy)
+    _MODULE_ORDER = [
+        "vlastnici", "jednotky", "najemci", "prostory",
+        "hlasovani", "dane", "sync", "platby", "payment_notice",
+        "sprava", "nastaveni",
+    ]
+    module_counts_ordered = [
+        (key, module_counts[key]) for key in _MODULE_ORDER if module_counts.get(key, 0) > 0
+    ]
+    # Zbytek (neznámé klíče) na konec
+    for key, cnt in module_counts.items():
+        if key not in _MODULE_ORDER and cnt > 0:
+            module_counts_ordered.append((key, cnt))
+
+    # Filtr dle modulu (akceptuje i legacy raw klíče jako `tax`, `voting`)
     if modul:
-        unified = [item for item in unified if item["module"] == modul]
+        modul_canonical = _norm_module(modul)
+        unified = [item for item in unified if item["module"] == modul_canonical]
 
     # Search filtering
     if q:
@@ -368,6 +393,7 @@ async def home(
         "recent_activity": unified,
         "modul": modul,
         "module_counts": dict(module_counts),
+        "module_counts_ordered": module_counts_ordered,
         "declared_shares": declared_shares,
         "owners_scd": owners_scd,
         "units_scd": units_scd,
@@ -392,13 +418,14 @@ async def home(
     return templates.TemplateResponse(request, "dashboard.html", ctx)
 
 
-# Module labels for export
+# Module labels for export — klíče jsou kanonické (po _norm_module)
 _MODULE_LABELS = {
-    "tax": "Rozesílání", "dane": "Rozesílání", "voting": "Hlasování",
-    "sync": "Synchronizace", "import": "Import", "sprava": "Administrace",
-    "owners": "Vlastníci", "units": "Jednotky", "payments": "Platby",
-    "spaces": "Prostory", "tenants": "Nájemci", "backup": "Zálohy",
-    "settings": "Nastavení", "share_check": "Kontrola podílů",
+    "dane": "Rozesílání", "hlasovani": "Hlasování", "prostory": "Prostory",
+    "najemci": "Nájemci", "vlastnici": "Vlastníci", "jednotky": "Jednotky",
+    "sprava": "Administrace", "nastaveni": "Nastavení",
+    "sync": "Kontroly", "platby": "Platby", "import": "Import",
+    "backup": "Zálohy", "share_check": "Kontrola podílů",
+    "payment_notice": "Platební upozornění",
 }
 
 _STATUS_LABELS = {
@@ -426,11 +453,15 @@ async def dashboard_export(
     recent_emails = db.query(EmailLog).order_by(EmailLog.created_at.desc()).all()
     recent_acts = db.query(ActivityLog).order_by(ActivityLog.created_at.desc()).all()
 
+    _MODULE_CANONICAL = {"tax": "dane", "voting": "hlasovani", "tenants": "najemci"}
+    def _norm(m: str) -> str:
+        return _MODULE_CANONICAL.get(m or "", m or "")
+
     unified = []
     for e in recent_emails:
         unified.append({
             "created_at": e.created_at,
-            "module": e.module or "",
+            "module": _norm(e.module),
             "description": e.subject or "",
             "detail": e.recipient_name or e.recipient_email or "",
             "status": e.status.value if e.status else "",
@@ -438,7 +469,7 @@ async def dashboard_export(
     for a in recent_acts:
         unified.append({
             "created_at": a.created_at,
-            "module": a.module or "",
+            "module": _norm(a.module),
             "description": a.entity_name or "",
             "detail": a.description or "",
             "status": a.action.value if a.action else "",

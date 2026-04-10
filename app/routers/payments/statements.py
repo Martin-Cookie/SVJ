@@ -13,8 +13,9 @@ from sqlalchemy.orm import Session, joinedload
 from app.database import get_db
 from app.config import settings
 from app.models import (
-    BankStatement, Owner, OwnerUnit, Payment, PaymentAllocation, PaymentDirection,
-    PaymentMatchStatus, Space, SpaceTenant, Tenant, Unit,
+    ActivityAction, BankStatement, Owner, OwnerUnit, Payment, PaymentAllocation,
+    PaymentDirection, PaymentMatchStatus, Space, SpaceTenant, Tenant, Unit,
+    log_activity,
 )
 from app.utils import build_list_url, is_htmx_partial, is_safe_path, validate_upload, strip_diacritics, utcnow, UPLOAD_LIMITS
 from ._helpers import templates, compute_nav_stats, MONTH_NAMES_LONG
@@ -349,6 +350,12 @@ async def vypis_import_upload(
         match_result["matched"] += restored
 
     statement.matched_count = match_result["matched"]
+    log_activity(
+        db, ActivityAction.IMPORTED, "bank_statement", "platby",
+        entity_id=statement.id,
+        entity_name=statement.original_filename or f"Výpis #{statement.id}",
+        description=f"{match_result.get('total', 0)} plateb",
+    )
     db.commit()
 
     # Cleanup temp souboru
@@ -1020,6 +1027,11 @@ async def vypis_smazat(
                 Path(statement.file_path).unlink()
             except OSError:
                 logger.debug("Nelze smazat soubor %s", statement.file_path, exc_info=True)
+        log_activity(
+            db, ActivityAction.DELETED, "bank_statement", "platby",
+            entity_id=statement.id,
+            entity_name=statement.original_filename or f"Výpis #{statement.id}",
+        )
         db.delete(statement)
         db.commit()
     return RedirectResponse("/platby/vypisy", status_code=302)

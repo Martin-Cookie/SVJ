@@ -11,8 +11,9 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.models import (
-    OwnerType, Space, SpaceStatus, SpaceTenant, Tenant,
+    ActivityAction, OwnerType, Space, SpaceStatus, SpaceTenant, Tenant,
     Prescription, PrescriptionYear, SymbolSource, VariableSymbolMapping,
+    log_activity,
 )
 from app.utils import (
     build_list_url, build_name_with_titles, excel_auto_width,
@@ -227,6 +228,11 @@ async def space_create(
                     updated_at=now,
                 ))
 
+    log_activity(
+        db, ActivityAction.CREATED, "space", "prostory",
+        entity_id=space.id,
+        entity_name=f"{space.designation or 'Prostor'} č. {space.space_number}",
+    )
     db.commit()
 
     flash_suffix = "?flash=tenant_reused" if tenant_reused else ""
@@ -317,6 +323,11 @@ async def space_update(
     space.blocked_reason = blocked_reason.strip() or None
     space.note = note.strip() or None
     space.updated_at = utcnow()
+    log_activity(
+        db, ActivityAction.UPDATED, "space", "prostory",
+        entity_id=space.id,
+        entity_name=f"{space.designation or 'Prostor'} č. {space.space_number}",
+    )
     db.commit()
 
     if request.headers.get("HX-Request"):
@@ -336,6 +347,11 @@ async def space_delete(
     """Smazání prostoru."""
     space = db.query(Space).get(space_id)
     if space:
+        log_activity(
+            db, ActivityAction.DELETED, "space", "prostory",
+            entity_id=space.id,
+            entity_name=f"{space.designation or 'Prostor'} č. {space.space_number}",
+        )
         db.delete(space)
         db.commit()
     return RedirectResponse("/prostory?flash=deleted", status_code=302)
@@ -477,6 +493,12 @@ async def tenant_update(
             existing_presc.owner_name = active_rel.tenant.display_name
             existing_presc.updated_at = utcnow()
 
+    log_activity(
+        db, ActivityAction.UPDATED, "space", "prostory",
+        entity_id=space.id,
+        entity_name=f"{space.designation or 'Prostor'} č. {space.space_number}",
+        description="Upraveny údaje nájmu",
+    )
     db.commit()
 
     if request.headers.get("HX-Request"):
@@ -598,6 +620,12 @@ async def space_assign_tenant(
                 existing_presc.owner_name = tenant.display_name
                 existing_presc.updated_at = utcnow()
 
+    log_activity(
+        db, ActivityAction.UPDATED, "space", "prostory",
+        entity_id=space.id,
+        entity_name=f"{space.designation or 'Prostor'} č. {space.space_number}",
+        description=f"Přiřazen nájemce {tenant.display_name}",
+    )
     db.commit()
     return RedirectResponse(f"/prostory/{space_id}?flash=tenant_assigned", status_code=302)
 
@@ -618,6 +646,12 @@ async def space_terminate_tenant(
 
     space.status = SpaceStatus.VACANT
     space.updated_at = utcnow()
+    log_activity(
+        db, ActivityAction.UPDATED, "space", "prostory",
+        entity_id=space.id,
+        entity_name=f"{space.designation or 'Prostor'} č. {space.space_number}",
+        description="Ukončen nájem",
+    )
     db.commit()
 
     return RedirectResponse(f"/prostory/{space_id}?flash=tenant_terminated", status_code=302)

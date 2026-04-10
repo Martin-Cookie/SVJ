@@ -10,7 +10,7 @@ from openpyxl.styles import Font
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
-from app.models import Owner, OwnerType, Space, SpaceTenant, Tenant
+from app.models import ActivityAction, Owner, OwnerType, Space, SpaceTenant, Tenant, log_activity
 from app.utils import (
     build_list_url, build_name_with_titles, excel_auto_width,
     is_htmx_partial, is_valid_email, strip_diacritics, templates, utcnow,
@@ -121,6 +121,9 @@ async def tenant_create(
         created_at=utcnow(),
     )
     db.add(tenant)
+    db.flush()
+    log_activity(db, ActivityAction.CREATED, "tenant", "najemci",
+                 entity_id=tenant.id, entity_name=tenant.display_name)
     db.commit()
 
     if request.headers.get("HX-Request"):
@@ -199,6 +202,9 @@ async def tenant_identity_update(
     tenant.birth_number = birth_number.strip() or None
     tenant.company_id = company_id.strip() or None
     tenant.updated_at = utcnow()
+    log_activity(db, ActivityAction.UPDATED, "tenant", "najemci",
+                 entity_id=tenant.id, entity_name=tenant.display_name,
+                 description="Upravena identita")
     db.commit()
 
     return templates.TemplateResponse(request, "tenants/partials/_tenant_identity_info.html", { "tenant": tenant, "saved": True,
@@ -271,6 +277,9 @@ async def tenant_contact_update(
     tenant.phone_secondary = phone_secondary.strip() or None
     tenant.phone_landline = phone_landline.strip() or None
     tenant.updated_at = utcnow()
+    log_activity(db, ActivityAction.UPDATED, "tenant", "najemci",
+                 entity_id=tenant.id, entity_name=tenant.display_name,
+                 description="Upraveny kontaktní údaje")
     db.commit()
 
     return templates.TemplateResponse(request, "tenants/partials/_tenant_contact_info.html", { "tenant": tenant, "saved": True,
@@ -365,6 +374,10 @@ async def tenant_address_update(
         tenant.corr_country = country.strip() or None
 
     tenant.updated_at = utcnow()
+    addr_label = "trvalá adresa" if prefix == "perm" else "korespondenční adresa"
+    log_activity(db, ActivityAction.UPDATED, "tenant", "najemci",
+                 entity_id=tenant.id, entity_name=tenant.display_name,
+                 description=f"Upravena {addr_label}")
     db.commit()
 
     return templates.TemplateResponse(request, "tenants/partials/_tenant_address_info.html", { **_address_ctx(tenant, prefix, saved=True),
@@ -392,6 +405,9 @@ async def tenant_link_owner(
 
     tenant.owner_id = owner.id
     tenant.updated_at = utcnow()
+    log_activity(db, ActivityAction.UPDATED, "tenant", "najemci",
+                 entity_id=tenant.id, entity_name=tenant.display_name,
+                 description=f"Propojeno s vlastníkem {owner.display_name}")
     db.commit()
 
     return RedirectResponse(f"/najemci/{tenant_id}?flash=linked", status_code=302)
@@ -436,6 +452,9 @@ async def tenant_unlink_owner(
 
     tenant.owner_id = None
     tenant.updated_at = utcnow()
+    log_activity(db, ActivityAction.UPDATED, "tenant", "najemci",
+                 entity_id=tenant.id, entity_name=tenant.display_name,
+                 description="Odpojen od vlastníka")
     db.commit()
 
     return RedirectResponse(f"/najemci/{tenant_id}?flash=unlinked", status_code=302)
@@ -449,6 +468,8 @@ async def tenant_delete(
     """Smazání nájemce."""
     tenant = db.query(Tenant).get(tenant_id)
     if tenant:
+        log_activity(db, ActivityAction.DELETED, "tenant", "najemci",
+                     entity_id=tenant.id, entity_name=tenant.display_name)
         db.delete(tenant)
         db.commit()
     return RedirectResponse("/najemci?flash=deleted", status_code=302)

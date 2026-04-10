@@ -1,5 +1,5 @@
 import shutil
-from datetime import date
+from datetime import date, datetime
 from io import BytesIO
 from pathlib import Path
 
@@ -38,13 +38,25 @@ async def voting_list(
     request: Request,
     back: str = Query("", alias="back"),
     stav: str = Query("", alias="stav"),
+    sort: str = Query("created_desc", alias="sort"),
     db: Session = Depends(get_db),
 ):
-    """Seznam hlasování s filtrováním podle stavu a statistikami."""
+    """Seznam hlasování s filtrováním podle stavu a řazením."""
     q = db.query(Voting).options(joinedload(Voting.items))
     if stav:
         q = q.filter(Voting.status == stav)
     votings = q.order_by(Voting.created_at.desc()).all()
+
+    # Python-side sort
+    SORT_KEYS = {
+        "created_desc": (lambda v: v.created_at or datetime.min, True),
+        "created_asc": (lambda v: v.created_at or datetime.min, False),
+        "updated_desc": (lambda v: v.updated_at or v.created_at or datetime.min, True),
+        "name": (lambda v: strip_diacritics(v.title or ""), False),
+        "items": (lambda v: len(v.items or []), True),
+    }
+    sort_fn, sort_reverse = SORT_KEYS.get(sort, SORT_KEYS["created_desc"])
+    votings.sort(key=sort_fn, reverse=sort_reverse)
 
     # Count per status (always from all votings, not filtered) — single GROUP BY query
     status_rows = db.query(Voting.status, func.count(Voting.id)).group_by(Voting.status).all()
@@ -145,6 +157,7 @@ async def voting_list(
         "voting_stats": voting_stats,
         "status_counts": status_counts,
         "current_stav": stav,
+        "current_sort": sort,
         "back_url": back,
         "list_url": list_url,
     })

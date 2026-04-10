@@ -10,8 +10,8 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.models import (
-    PrescriptionYear, Prescription, PrescriptionItem, Unit,
-    VariableSymbolMapping, SymbolSource,
+    ActivityAction, PrescriptionYear, Prescription, PrescriptionItem, Unit,
+    VariableSymbolMapping, SymbolSource, log_activity,
 )
 from app.config import settings
 from app.utils import build_list_url, is_htmx_partial, is_safe_path, utcnow, validate_upload, UPLOAD_LIMITS
@@ -270,6 +270,12 @@ async def predpisy_import_upload(
                 ))
                 vs_created += 1
 
+    log_activity(
+        db, ActivityAction.IMPORTED, "prescription_year", "platby",
+        entity_id=prescription_year.id,
+        entity_name=f"Předpisy {year}",
+        description=f"{len(result['prescriptions'])} jednotek",
+    )
     db.commit()
 
     # Cleanup temp souboru
@@ -441,6 +447,11 @@ async def predpisy_smazat(
     """Smazání celého roku předpisů."""
     prescription_year = db.query(PrescriptionYear).get(year_id)
     if prescription_year:
+        log_activity(
+            db, ActivityAction.DELETED, "prescription_year", "platby",
+            entity_id=prescription_year.id,
+            entity_name=f"Předpisy {prescription_year.year}",
+        )
         db.delete(prescription_year)
         db.commit()
     return RedirectResponse("/platby/predpisy", status_code=302)

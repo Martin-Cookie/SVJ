@@ -12,7 +12,7 @@ from sqlalchemy import cast, func, String
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
-from app.models import Owner, OwnerUnit, SvjInfo, Unit, UnitBalance, Payment, PaymentAllocation, PaymentDirection, PaymentMatchStatus, Prescription, PrescriptionYear
+from app.models import ActivityAction, Owner, OwnerUnit, SvjInfo, Unit, UnitBalance, Payment, PaymentAllocation, PaymentDirection, PaymentMatchStatus, Prescription, PrescriptionYear, log_activity
 from app.routers.payments._helpers import compute_debt_map
 from app.services.code_list_service import get_all_code_lists
 from app.services.owner_exchange import recalculate_unit_votes
@@ -172,6 +172,9 @@ async def unit_create(
         created_at=utcnow(),
     )
     db.add(unit)
+    db.flush()
+    log_activity(db, ActivityAction.CREATED, "unit", "jednotky",
+                 entity_id=unit.id, entity_name=f"Jednotka {unit_number_int}")
     db.commit()
 
     if request.headers.get("HX-Request"):
@@ -251,6 +254,9 @@ async def owner_unit_update(
     # Recalculate votes for all owners of the unit
     recalculate_unit_votes(unit, db)
 
+    log_activity(db, ActivityAction.UPDATED, "unit", "jednotky",
+                 entity_id=unit.id, entity_name=f"Jednotka {unit.unit_number}",
+                 description=f"Upraven podíl vlastníka {ou.owner.display_name if ou.owner else ''}")
     db.commit()
 
     # Refresh relationships
@@ -376,6 +382,8 @@ async def unit_update(
 
     recalculate_unit_votes(unit, db)
 
+    log_activity(db, ActivityAction.UPDATED, "unit", "jednotky",
+                 entity_id=unit.id, entity_name=f"Jednotka {unit.unit_number}")
     db.commit()
 
     if request.headers.get("HX-Request"):

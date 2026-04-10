@@ -187,14 +187,14 @@
 
     <!-- Filtr modulu (bubliny) -->
     {% if module_counts %}
-    {% set _mod_labels = {"payment_notice": "Platební upozornění", "dane": "Rozesílání", "tax": "Rozesílání", "owners": "Vlastníci", "voting": "Hlasování", "units": "Jednotky", "sync": "Kontroly", "sprava": "Administrace", "settings": "Nastavení", "import": "Import", "payments": "Platby", "spaces": "Prostory", "tenants": "Nájemci", "backup": "Zálohy", "share_check": "Kontrola podílů"} %}
+    {% set _mod_labels = {"payment_notice": "Platební upozornění", "dane": "Rozesílání", "hlasovani": "Hlasování", "prostory": "Prostory", "najemci": "Nájemci", "vlastnici": "Vlastníci", "jednotky": "Jednotky", "sprava": "Administrace", "nastaveni": "Nastavení", "sync": "Kontroly", "platby": "Platby", "import": "Import", "backup": "Zálohy", "share_check": "Kontrola podílů"} %}
     <div class="flex flex-wrap gap-1.5 mb-2">
         <a href="/?sort={{ sort }}&order={{ order }}{% if q %}&q={{ q|urlencode }}{% endif %}"
            class="px-2 py-0.5 text-xs font-medium rounded-full transition-colors
             {% if not modul %}bg-blue-600 text-white ring-2 ring-blue-400{% else %}bg-gray-100 text-gray-700 hover:bg-gray-200{% endif %}">
             Vše <span class="ml-0.5 opacity-70">{{ module_counts.values()|sum }}</span>
         </a>
-        {% for mod_key, mod_count in module_counts|dictsort(by='value', reverse=true) %}
+        {% for mod_key, mod_count in module_counts_ordered %}
         <a href="/?modul={{ mod_key }}&sort={{ sort }}&order={{ order }}{% if q %}&q={{ q|urlencode }}{% endif %}"
            class="px-2 py-0.5 text-xs font-medium rounded-full transition-colors
             {% if modul == mod_key %}bg-blue-600 text-white ring-2 ring-blue-400{% else %}bg-gray-100 text-gray-700 hover:bg-gray-200{% endif %}">
