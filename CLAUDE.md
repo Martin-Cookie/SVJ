@@ -558,7 +558,7 @@
 6. **POČKEJ NA SCHVÁLENÍ** — neimplementuj dokud uživatel neschválí plán
 6. **Implementuj** po schválení
 7. **Ověř** že existující funkce stále fungují (spusť server, otestuj dotčené stránky)
-8. **Nabídni otestování** — po implementaci se zeptej uživatele: "Chceš otestovat? (konkrétní URL a kroky)". Testovat přes Playwright (browser_navigate + browser_snapshot/screenshot). Po testování smazat soubory v `.playwright-mcp/` (screenshoty, logy)
+8. **Otestuj rovnou přes Playwright** — NEPTAT SE, rovnou projet dotčené stránky (browser_navigate → browser_snapshot → kliknout na klíčové prvky: bubliny, export linky, search, HTMX swap). curl testuje jen HTTP status, neověří UI interakce, HTMX delay, vizuální konzistenci, ani zda tlačítka reálně něco dělají. **curl = sanity check, Playwright = skutečný test.** Pro každou stránku s daty otestovat alespoň: (a) načtení + snapshot bez chyb v konzoli, (b) kliknutí na jednu z bublin/filtrů, (c) vyplnění search (pokud existuje HTMX search), (d) kliknutí na export (ověřit stažení souboru + název). Po testování smazat soubory v `.playwright-mcp/` (screenshoty, logy, stažené soubory) a testovací screenshoty z kořene
 9. **Vyžádej si potvrzení pro commit** — ukaž co se změnilo a zeptej se "Mám commitnout?"
 10. **Commitni** každý úkol zvlášť s výstižnou českou commit message
 11. Pokud měníš strukturu projektu → **aktualizuj CLAUDE.md**
