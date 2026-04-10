@@ -28,12 +28,13 @@
                 <!-- Export -->
                 {% set _export_qs = "rok=" ~ rok ~ "&stav=" ~ stav ~ "&q=" ~ q %}
                 <a href="/platby/vyuctovani/exportovat/xlsx?{{ _export_qs }}" hx-boost="false"
-                   onclick="var b=this,t=b.textContent;b.textContent='Generuji\u2026';b.classList.add('opacity-50','pointer-events-none');setTimeout(function(){b.textContent=t;b.classList.remove('opacity-50','pointer-events-none')},4000)"
-                   class="px-2.5 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 text-xs font-medium transition-colors border border-gray-200 dark:border-gray-600"
+                   class="inline-flex items-center px-3 py-1.5 bg-gray-100 text-gray-600 border border-gray-200 text-xs font-medium rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600"
                    title="Export souhrn do Excelu">↓ Excel</a>
+                <a href="/platby/vyuctovani/exportovat/csv?{{ _export_qs }}" hx-boost="false"
+                   class="inline-flex items-center px-3 py-1.5 bg-gray-100 text-gray-600 border border-gray-200 text-xs font-medium rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600"
+                   title="Export souhrn do CSV">↓ CSV</a>
                 <a href="/platby/vyuctovani/exportovat/xlsx?{{ _export_qs }}&detail=1" hx-boost="false"
-                   onclick="var b=this,t=b.textContent;b.textContent='Generuji\u2026';b.classList.add('opacity-50','pointer-events-none');setTimeout(function(){b.textContent=t;b.classList.remove('opacity-50','pointer-events-none')},4000)"
-                   class="px-2.5 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 text-xs font-medium transition-colors border border-gray-200 dark:border-gray-600"
+                   class="inline-flex items-center px-3 py-1.5 bg-gray-100 text-gray-600 border border-gray-200 text-xs font-medium rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600"
                    title="Export s položkami do Excelu">↓ Excel + položky</a>
                 <form method="post" action="/platby/vyuctovani/generovat" class="inline" hx-boost="false">
                     <input type="hidden" name="rok" value="{{ rok }}">
@@ -54,15 +55,20 @@
         </div>
 
         <!-- Bubliny -->
-        <div class="flex flex-wrap gap-1.5 mb-2">
+        <div class="flex flex-wrap gap-2 mb-2">
             {% set _base = "/platby/vyuctovani?rok=" ~ rok ~ "&" ~ ("q=" ~ q ~ "&" if q else "") ~ ("sort=" ~ sort ~ "&order=" ~ order ~ "&" if sort else "") %}
             {% set _back = "back=" ~ (back_url|default('')|urlencode) if back_url else "" %}
+            <a href="{{ _base }}{{ _back }}"
+               class="px-3 py-1 text-xs font-medium rounded-full transition-colors
+                {% if not stav %}bg-blue-600 text-white ring-2 ring-blue-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
+                Vše <span class="ml-1 text-xs opacity-75">{{ bubble_counts[''] }}</span>
+            </a>
             {% for key, label in status_labels.items() %}
             {% set count = bubble_counts.get(key, 0) %}
             <a href="{{ _base }}stav={{ key }}&{{ _back }}"
-               class="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full transition-colors
-                {% if stav == key %}bg-blue-600 text-white ring-2 ring-blue-400{% else %}bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600{% endif %}">
-                {{ label }} <span class="ml-1 opacity-70">{{ count }}</span>
+               class="px-3 py-1 text-xs font-medium rounded-full transition-colors
+                {% if stav == key %}bg-blue-600 text-white ring-2 ring-blue-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
+                {{ label }} <span class="ml-1 text-xs opacity-75">{{ count }}</span>
             </a>
             {% endfor %}
         </div>
