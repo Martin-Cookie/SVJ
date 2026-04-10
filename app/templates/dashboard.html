@@ -83,7 +83,7 @@
             <div class="flex items-center gap-1 text-xs -mx-1 px-1">
                 {% if space_rented %}<span class="px-1 py-0.5 font-medium bg-green-100 text-green-800 rounded-full text-xs leading-none">{{ space_rented }} pronaj.</span>{% endif %}
                 {% if space_vacant %}<span class="px-1 py-0.5 font-medium bg-gray-100 text-gray-700 rounded-full text-xs leading-none">{{ space_vacant }} volné</span>{% endif %}
-                {% if space_blocked %}<span class="px-1 py-0.5 font-medium bg-red-100 text-red-800 rounded-full text-xs leading-none">{{ space_blocked }} blok.</span>{% endif %}
+                {% if space_blocked %}<span class="px-1 py-0.5 font-medium bg-red-100 text-red-800 rounded-full text-xs leading-none">{{ space_blocked }} blokováno</span>{% endif %}
             </div>
             {% if expiring_contracts > 0 %}
             <a href="/prostory?back=/" class="flex items-center gap-1 text-xs hover:bg-gray-50 rounded -mx-1 px-1" onclick="event.stopPropagation()">
@@ -169,7 +169,7 @@
             <a href="/platby/vypisy?back=/" class="flex flex-wrap items-center gap-1 text-xs hover:bg-gray-50 rounded -mx-1 px-1" onclick="event.stopPropagation()">
                 <span class="shrink-0 px-1 py-0.5 font-medium bg-gray-100 text-gray-700 rounded-full text-xs leading-none">{{ statement_count }} {% if statement_count == 1 %}výpis{% elif statement_count < 5 %}výpisy{% else %}výpisů{% endif %}</span>
                 {% if unmatched_payments %}<span class="shrink-0 px-1 py-0.5 font-medium bg-yellow-100 text-yellow-700 rounded-full text-xs leading-none">{{ unmatched_payments }} nenapár.</span>{% endif %}
-                {% if debtor_count %}<span class="shrink-0 px-1 py-0.5 font-medium bg-red-100 text-red-800 rounded-full text-xs leading-none">{{ debtor_count }} dlužn.</span>{% endif %}
+                {% if debtor_count %}<span class="shrink-0 px-1 py-0.5 font-medium bg-red-100 text-red-800 rounded-full text-xs leading-none">{{ debtor_count }} dlužníků</span>{% endif %}
             </a>
         </div>
     </div>
