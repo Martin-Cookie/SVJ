@@ -359,30 +359,10 @@ async def home(
         pass
 
     # Tenant stats
-    from app.models import OwnerType
     tenants_count = db.query(Tenant).filter_by(is_active=True).count()
     tenants_with_contract = (
         db.query(func.count(func.distinct(SpaceTenant.tenant_id)))
         .filter(SpaceTenant.is_active == True)
-        .scalar() or 0
-    )
-    # Rozklad dle typu: bere resolved_type přes owner_id coalesce
-    tenants_physical = (
-        db.query(func.count(Tenant.id))
-        .outerjoin(Owner, Tenant.owner_id == Owner.id)
-        .filter(
-            Tenant.is_active == True,
-            func.coalesce(Owner.owner_type, Tenant.tenant_type) == OwnerType.PHYSICAL,
-        )
-        .scalar() or 0
-    )
-    tenants_legal = (
-        db.query(func.count(Tenant.id))
-        .outerjoin(Owner, Tenant.owner_id == Owner.id)
-        .filter(
-            Tenant.is_active == True,
-            func.coalesce(Owner.owner_type, Tenant.tenant_type) == OwnerType.LEGAL_ENTITY,
-        )
         .scalar() or 0
     )
     tenants_linked = (
@@ -440,8 +420,6 @@ async def home(
         "debtor_count": debtor_count,
         "tenants_count": tenants_count,
         "tenants_with_contract": tenants_with_contract,
-        "tenants_physical": tenants_physical,
-        "tenants_legal": tenants_legal,
         "tenants_linked": tenants_linked,
         "space_total": space_total,
         "space_rented": space_rented,
