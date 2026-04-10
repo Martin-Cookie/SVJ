@@ -565,7 +565,7 @@ async def unit_export(
     if typ and typ in typ_labels:
         suffix = f"_{typ_labels[typ]}"
     elif sekce:
-        suffix = f"_sekce_{sekce}"
+        suffix = f"_sekce_{strip_diacritics(sekce)}"
     elif q:
         suffix = "_hledani"
     else:

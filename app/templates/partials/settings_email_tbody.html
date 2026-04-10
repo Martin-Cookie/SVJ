@@ -39,7 +39,7 @@
 {% if email.body_preview %}
 <tr class="email-body-row hidden">
     <td colspan="6" class="px-3 py-3 bg-gray-50 dark:bg-gray-700">
-        <div class="text-xs text-gray-700 dark:text-gray-300 max-h-64 overflow-y-auto">{{ email.body_preview|safe }}</div>
+        <div class="text-xs text-gray-700 dark:text-gray-300 max-h-64 overflow-y-auto whitespace-pre-wrap">{{ email.body_preview }}</div>
     </td>
 </tr>
 {% endif %}

@@ -6,6 +6,7 @@ Email sending service using smtplib with attachment support.
 import asyncio
 import html as html_module
 import logging
+import re
 import smtplib
 import socket
 from email.header import Header
@@ -22,6 +23,19 @@ from app.models.common import EmailLog, EmailStatus
 from app.utils import strip_diacritics, utcnow
 
 logger = logging.getLogger(__name__)
+
+
+_TAG_RE = re.compile(r"<[^>]+>")
+
+
+def _html_to_plain(html: str | None) -> str | None:
+    if not html:
+        return None
+    text = html.replace("<br>", "\n").replace("<br/>", "\n").replace("<br />", "\n")
+    text = text.replace("</p>", "\n").replace("</div>", "\n").replace("</tr>", "\n")
+    text = _TAG_RE.sub("", text)
+    text = html_module.unescape(text)
+    return re.sub(r"\n{3,}", "\n\n", text).strip()
 
 
 def _create_smtp(host: str, port: int, use_tls: bool, timeout: int = 30) -> smtplib.SMTP | smtplib.SMTP_SSL:
@@ -89,7 +103,7 @@ def _create_error_log(db: Session, to_email: str, to_name: str, subject: str,
         recipient_name=to_name,
         name_normalized=strip_diacritics(to_name or ""),
         subject=subject,
-        body_preview=body_html[:500] if body_html else None,
+        body_preview=(_html_to_plain(body_html) or "")[:500] if body_html else None,
         status=EmailStatus.FAILED,
         module=module,
         reference_id=reference_id,
@@ -156,7 +170,7 @@ def send_email(
                 recipient_email=addr,
                 recipient_name=to_name, name_normalized=strip_diacritics(to_name or ""),
                 subject=subject,
-                body_preview=body_html[:500] if body_html else None,
+                body_preview=(_html_to_plain(body_html) or "")[:500] if body_html else None,
                 status=EmailStatus.PENDING,
                 module=module,
                 reference_id=reference_id,

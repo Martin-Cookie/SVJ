@@ -303,6 +303,7 @@
 - Export musí vždy odrážet **aktuální filtrovaný pohled** — ne všechna data
 - Filtr se přenáší přes hidden input ve formuláři: `<input type="hidden" name="filtr" value="{{ filtr }}">`
 - Export endpoint aplikuje **stejnou logiku filtrování** jako zobrazovací endpoint
+- **URL vzor**: seznamové exporty na `/{modul}/exportovat/{fmt}`, detailové exporty (dokumenty patřící jedné entitě, např. matice plateb pro rok, hlasovací lístky) na `/{modul}/{id}/exportovat/{fmt}`. Vždy `{fmt}` jako poslední segment — přijímá `xlsx`/`csv`
 - **Excel**: generování přes `openpyxl` (ne pandas): bold hlavička (`Font(bold=True)`), auto-width sloupců (max 45 znaků), žlutá `PatternFill` pro zvýraznění rozdílů. Response: `media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"`
 - **CSV**: UTF-8 s BOM (`\ufeff` na začátku), středník jako oddělovač. Response: `media_type="text/csv; charset=utf-8"`, filename `{modul}_YYYYMMDD.csv`
 - **Název souboru musí odrážet aktivní filtr/bublinu**:

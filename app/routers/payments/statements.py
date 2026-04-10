@@ -10,7 +10,7 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, Depends, Form, Query, Request, UploadFile, File
-from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
 from sqlalchemy import asc as sa_asc, desc as sa_desc, func
 from sqlalchemy.orm import Session, joinedload
 
@@ -223,7 +223,7 @@ async def vypisy_export(
     if rok:
         suffix = f"_{rok}"
     elif stav:
-        suffix = f"_{stav}"
+        suffix = f"_{strip_diacritics(stav)}"
     elif q:
         suffix = "_hledani"
     else:
@@ -763,26 +763,32 @@ async def vypis_detail(
                 if presc.variable_symbol:
                     unit_vs[presc.unit_id] = presc.variable_symbol
 
-    # Units + owner names for assignment dropdown
-    all_units_list = db.query(Unit).order_by(Unit.unit_number).all()
+    # Units + owner names for assignment dropdown (1 JOIN místo 3 dotazů)
     unit_owner_names = {}  # unit_id → owner display_name
-    active_ous = db.query(OwnerUnit).filter(OwnerUnit.valid_to.is_(None)).all()
-    all_owners = {o.id: o for o in db.query(Owner).all()}
-    for ou in active_ous:
-        owner = all_owners.get(ou.owner_id)
-        if owner and owner.display_name:
-            unit_owner_names[ou.unit_id] = owner.display_name
+    unit_name_index = []  # list of (words_set, unit_id)
+    units_by_id = {}
+    unit_owner_rows = (
+        db.query(Unit, Owner)
+        .outerjoin(OwnerUnit, (OwnerUnit.unit_id == Unit.id) & (OwnerUnit.valid_to.is_(None)))
+        .outerjoin(Owner, Owner.id == OwnerUnit.owner_id)
+        .all()
+    )
+    for unit, owner in unit_owner_rows:
+        units_by_id[unit.id] = unit
+        if owner:
+            if owner.display_name:
+                unit_owner_names[unit.id] = owner.display_name
+            if owner.name_normalized:
+                words = {w for w in strip_diacritics(owner.name_normalized).split() if len(w) > 2}
+                if words:
+                    unit_name_index.append((words, unit.id))
     # Řadit podle jména vlastníka (bez diakritiky), jednotky bez vlastníka na konec
-    all_units_list.sort(key=lambda u: strip_diacritics(unit_owner_names.get(u.id, "zzz")))
+    all_units_list = sorted(
+        units_by_id.values(),
+        key=lambda u: strip_diacritics(unit_owner_names.get(u.id, "zzz")),
+    )
 
     # Suggest map: payment_id → unit_id (pre-select based on counterparty name / message)
-    unit_name_index = []  # list of (words_set, unit_id)
-    for ou in active_ous:
-        owner = all_owners.get(ou.owner_id)
-        if owner and owner.name_normalized:
-            words = {w for w in strip_diacritics(owner.name_normalized).split() if len(w) > 2}
-            if words:
-                unit_name_index.append((words, ou.unit_id))
     unit_suggest_map = _build_suggest_map(payments, unit_name_index)
 
     # Spaces + tenant names for assignment dropdown
@@ -861,6 +867,28 @@ async def vypis_detail(
         return templates.TemplateResponse(request, "payments/partials/vypis_tbody.html", ctx)
 
     return templates.TemplateResponse(request, "payments/vypis_detail.html", ctx)
+
+
+# ── Download zdrojového CSV souboru výpisu ────────────────────────────
+
+
+@router.get("/vypisy/{statement_id}/soubor")
+async def vypis_download_source(statement_id: int, db: Session = Depends(get_db)):
+    """Stažení původního CSV souboru bankovního výpisu."""
+    statement = db.query(BankStatement).get(statement_id)
+    if not statement or not statement.file_path:
+        return RedirectResponse("/platby/vypisy", status_code=302)
+
+    file_path = Path(statement.file_path)
+    allowed_root = Path(settings.upload_dir)
+    if not file_path.exists() or not is_safe_path(file_path, allowed_root):
+        return RedirectResponse(f"/platby/vypisy/{statement_id}", status_code=302)
+
+    return FileResponse(
+        path=str(file_path),
+        filename=statement.filename,
+        media_type="text/csv",
+    )
 
 
 # ── Export plateb z výpisu ─────────────────────────────────────────────
@@ -953,11 +981,11 @@ async def vypis_detail_export(
     smer_labels = {"prijem": "prijem", "vydej": "vydej"}
     typ_labels = {"jednotky": "jednotky", "prostory": "prostory"}
     if stav:
-        suffix = f"_{stav_labels.get(stav, stav)}"
+        suffix = f"_{stav_labels.get(stav, strip_diacritics(stav))}"
     elif smer:
-        suffix = f"_{smer_labels.get(smer, smer)}"
+        suffix = f"_{smer_labels.get(smer, strip_diacritics(smer))}"
     elif typ:
-        suffix = f"_{typ_labels.get(typ, typ)}"
+        suffix = f"_{typ_labels.get(typ, strip_diacritics(typ))}"
     elif q:
         suffix = "_hledani"
     else:

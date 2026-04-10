@@ -232,6 +232,10 @@ def _send_discrepancy_emails_batch(
                                 db.commit()
                         except Exception:
                             logger.warning("Failed to set notified_at for payment %s", rcpt["payment_id"])
+                            try:
+                                db.rollback()
+                            except Exception:
+                                pass
                     else:
                         _discrepancy_progress[statement_id]["failed"] += 1
                         _discrepancy_progress[statement_id].setdefault("failed_ids", []).append(rcpt["payment_id"])

@@ -21,7 +21,7 @@
                 </p>
             </div>
             <div class="flex items-center gap-2">
-                {% set _export_qs = "?rok=" ~ rok ~ ("&typ=" ~ typ if typ else "") ~ ("&q=" ~ q if q else "") ~ "&sort=" ~ sort ~ "&order=" ~ order %}
+                {% set _export_qs = "?rok=" ~ rok ~ ("&typ=" ~ typ if typ else "") ~ ("&q=" ~ q if q else "") ~ ("&entita=" ~ entita if entita else "") ~ "&sort=" ~ sort ~ "&order=" ~ order %}
                 <a href="/platby/prehled/exportovat/xlsx{{ _export_qs }}" hx-boost="false"
                    class="inline-flex items-center px-3 py-1.5 bg-gray-100 text-gray-600 border border-gray-200 text-xs font-medium rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600">
                     ↓ Excel

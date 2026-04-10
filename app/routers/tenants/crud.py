@@ -569,7 +569,7 @@ async def tenant_export(
     if typ and typ in typ_labels:
         suffix = f"_{typ_labels[typ]}"
     elif stav:
-        suffix = f"_{stav}"
+        suffix = f"_{strip_diacritics(stav)}"
     elif q:
         suffix = "_hledani"
     else:

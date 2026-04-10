@@ -272,7 +272,7 @@
                             <td class="px-3 py-1.5 max-w-[250px]" title="{{ log.subject }}">
                                 {% if log.body_preview %}
                                 <button type="button" onclick="this.nextElementSibling.classList.toggle('hidden')" class="text-blue-600 hover:text-blue-800 hover:underline text-left cursor-pointer truncate block max-w-[250px]">{{ log.subject }}</button>
-                                <div class="hidden mt-2 p-2 bg-gray-50 dark:bg-gray-700 rounded text-xs text-gray-700 dark:text-gray-300 max-h-64 overflow-y-auto">{{ log.body_preview|safe }}</div>
+                                <div class="hidden mt-2 p-2 bg-gray-50 dark:bg-gray-700 rounded text-xs text-gray-700 dark:text-gray-300 max-h-64 overflow-y-auto whitespace-pre-wrap">{{ log.body_preview }}</div>
                                 {% else %}
                                 <span class="truncate block max-w-[250px]">{{ log.subject }}</span>
                                 {% endif %}

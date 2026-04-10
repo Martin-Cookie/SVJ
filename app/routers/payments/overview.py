@@ -43,6 +43,42 @@ SORT_COLUMNS_MATRIX = {
 }
 
 
+def _matrix_sort_fns(entita: str) -> dict:
+    """Sort fn mapa pro matici plateb — sdílená mezi GET view a exportem."""
+    if entita == "prostory":
+        fns = {
+            "cislo": lambda r: r["space"].space_number or "",
+            "sekce": lambda r: "",
+            "vlastnik": lambda r: strip_diacritics(
+                r["tenant_rel"].tenant.display_name if r.get("tenant_rel") and r["tenant_rel"].tenant else ""
+            ),
+            "predpis": lambda r: r["monthly"],
+            "prevod": lambda r: r.get("opening", 0),
+            "celkem": lambda r: r["total_paid"],
+            "dluh": lambda r: r["debt"],
+        }
+    else:
+        fns = {
+            "cislo": lambda r: r["unit"].unit_number or 0,
+            "sekce": lambda r: (r["prescription"].section or "").lower(),
+            "vlastnik": lambda r: strip_diacritics(r["owner"].display_name if r["owner"] else r["prescription"].owner_name or ""),
+            "predpis": lambda r: r["monthly"],
+            "prevod": lambda r: r.get("opening", 0),
+            "celkem": lambda r: r["total_paid"],
+            "dluh": lambda r: r["debt"],
+        }
+    for mi in range(1, 13):
+        fns[f"m{mi}"] = (lambda m: lambda r: r["months"].get(m, {}).get("paid", 0))(mi)
+    return fns
+
+
+def _sorted_owners_names(owners) -> str:
+    """Stabilní pořadí spoluvlastníků pro export — podle name_normalized."""
+    if not owners:
+        return ""
+    return ", ".join(o.display_name for o in sorted(owners, key=lambda o: (o.name_normalized or "").lower()))
+
+
 @router.get("/prehled")
 async def platby_prehled(
     request: Request,
@@ -81,23 +117,6 @@ async def platby_prehled(
                 )
             ]
 
-        sort_key = sort if sort in SORT_COLUMNS_MATRIX else "cislo"
-        reverse = order == "desc"
-        sort_fns = {
-            "cislo": lambda r: r["space"].space_number or "",
-            "sekce": lambda r: "",
-            "vlastnik": lambda r: strip_diacritics(
-                r["tenant_rel"].tenant.display_name if r.get("tenant_rel") and r["tenant_rel"].tenant else ""
-            ),
-            "predpis": lambda r: r["monthly"],
-            "prevod": lambda r: r.get("opening", 0),
-            "celkem": lambda r: r["total_paid"],
-            "dluh": lambda r: r["debt"],
-        }
-        for mi in range(1, 13):
-            sort_fns[f"m{mi}"] = (lambda m: lambda r: r["months"].get(m, {}).get("paid", 0))(mi)
-        rows.sort(key=sort_fns.get(sort_key, sort_fns["cislo"]), reverse=reverse)
-
         total_units = len(matrix["rows"])
         space_types = []
     else:
@@ -115,23 +134,13 @@ async def platby_prehled(
                 or q_ascii in strip_diacritics(r["prescription"].section or "")
             ]
 
-        sort_key = sort if sort in SORT_COLUMNS_MATRIX else "cislo"
-        reverse = order == "desc"
-        sort_fns = {
-            "cislo": lambda r: r["unit"].unit_number or 0,
-            "sekce": lambda r: (r["prescription"].section or "").lower(),
-            "vlastnik": lambda r: strip_diacritics(r["owner"].display_name if r["owner"] else r["prescription"].owner_name or ""),
-            "predpis": lambda r: r["monthly"],
-            "prevod": lambda r: r.get("opening", 0),
-            "celkem": lambda r: r["total_paid"],
-            "dluh": lambda r: r["debt"],
-        }
-        for mi in range(1, 13):
-            sort_fns[f"m{mi}"] = (lambda m: lambda r: r["months"].get(m, {}).get("paid", 0))(mi)
-        rows.sort(key=sort_fns.get(sort_key, sort_fns["cislo"]), reverse=reverse)
-
         total_units = len(matrix["units"])
         space_types = matrix["space_types"]
+
+    sort_key = sort if sort in SORT_COLUMNS_MATRIX else "cislo"
+    reverse = order == "desc"
+    sort_fns = _matrix_sort_fns(entita)
+    rows.sort(key=sort_fns.get(sort_key, sort_fns["cislo"]), reverse=reverse)
 
     list_url = build_list_url(request)
 
@@ -177,9 +186,10 @@ async def matice_export(
     q: str = Query(""),
     sort: str = Query("cislo"),
     order: str = Query("asc"),
+    entita: str = Query(""),
     db: Session = Depends(get_db),
 ):
-    """Export matice plateb do Excelu nebo CSV."""
+    """Export matice plateb do Excelu nebo CSV — jednotky i prostory."""
     import csv as csv_mod
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill
@@ -191,31 +201,43 @@ async def matice_export(
         latest = db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).first()
         rok = latest.year if latest else utcnow().year
 
-    matrix = compute_payment_matrix(db, rok, space_type=typ)
-    rows = matrix["units"]
+    if entita == "prostory":
+        matrix = compute_space_payment_matrix(db, rok)
+        rows = matrix["rows"]
+        if q:
+            q_ascii = strip_diacritics(q)
+            rows = [
+                r for r in rows
+                if q_ascii in strip_diacritics(str(r["space"].space_number))
+                or q_ascii in strip_diacritics(r["space"].designation or "")
+                or q_ascii in strip_diacritics(
+                    r["tenant_rel"].tenant.display_name if r.get("tenant_rel") and r["tenant_rel"].tenant else ""
+                )
+            ]
+    else:
+        matrix = compute_payment_matrix(db, rok, space_type=typ)
+        rows = matrix["units"]
+        if q:
+            q_ascii = strip_diacritics(q)
+            rows = [
+                r for r in rows
+                if q_ascii in strip_diacritics(str(r["unit"].unit_number))
+                or q_ascii in strip_diacritics(r["owner"].display_name if r["owner"] else "")
+                or q_ascii in strip_diacritics(r["prescription"].owner_name or "")
+                or q_ascii in strip_diacritics(r["prescription"].variable_symbol or "")
+                or q_ascii in strip_diacritics(r["prescription"].section or "")
+            ]
+
     months_with_data = sorted(matrix["months_with_data"])
 
-    if q:
-        q_ascii = strip_diacritics(q)
-        rows = [
-            r for r in rows
-            if q_ascii in strip_diacritics(str(r["unit"].unit_number))
-            or q_ascii in strip_diacritics(r["owner"].display_name if r["owner"] else "")
-            or q_ascii in strip_diacritics(r["prescription"].owner_name or "")
-        ]
-
-    sort_fns = {
-        "cislo": lambda r: r["unit"].unit_number or 0,
-        "sekce": lambda r: (r["prescription"].section or "").lower(),
-        "vlastnik": lambda r: strip_diacritics(r["owner"].display_name if r["owner"] else r["prescription"].owner_name or ""),
-        "predpis": lambda r: r["monthly"],
-        "celkem": lambda r: r["total_paid"],
-        "dluh": lambda r: r["debt"],
-    }
+    sort_fns = _matrix_sort_fns(entita)
     rows.sort(key=sort_fns.get(sort, sort_fns["cislo"]), reverse=(order == "desc"))
 
-    month_labels = ["Led", "Úno", "Bře", "Dub", "Kvě", "Čer", "Čvc", "Srp", "Zář", "Říj", "Lis", "Pro"]
-    headers = ["Č. jedn.", "Sekce", "Vlastník", "Předpis/měs", "Převod"]
+    month_labels = ["Led", "Uno", "Bre", "Dub", "Kve", "Cer", "Cvc", "Srp", "Zar", "Rij", "Lis", "Pro"]
+    if entita == "prostory":
+        headers = ["Č. prost.", "Označení", "Nájemce", "Předpis/měs", "Převod"]
+    else:
+        headers = ["Č. jedn.", "Sekce", "Vlastník", "Předpis/měs", "Převod"]
     for m in months_with_data:
         headers.append(month_labels[m - 1])
     headers += ["Celkem", "Dluh"]
@@ -224,6 +246,18 @@ async def matice_export(
     q_suffix = f"_hledani" if q else ""
     suffix = typ_suffix or q_suffix or "_vse"
     date_str = datetime.now().strftime("%Y%m%d")
+    base_name = "matice_prostor" if entita == "prostory" else "matice_plateb"
+
+    def _row_values(r):
+        """Vrátí (cislo, popis, jmeno) podle entity."""
+        if entita == "prostory":
+            space = r["space"]
+            tenant = r.get("tenant_rel")
+            name = tenant.tenant.display_name if tenant and tenant.tenant else ""
+            return (space.space_number, space.designation or "", name)
+        else:
+            owner_name = _sorted_owners_names(r["owners"]) or (r["prescription"].owner_name or "")
+            return (r["unit"].unit_number, r["prescription"].section or "", owner_name)
 
     if fmt == "csv":
         buf_csv = io.StringIO()
@@ -231,19 +265,13 @@ async def matice_export(
         writer = csv_mod.writer(buf_csv, delimiter=";")
         writer.writerow(headers)
         for r in rows:
-            owner_name = ", ".join(o.display_name for o in r["owners"]) if r["owners"] else r["prescription"].owner_name or ""
-            row_out = [
-                r["unit"].unit_number,
-                r["prescription"].section or "",
-                owner_name,
-                r["monthly"],
-                r.get("opening", 0),
-            ]
+            cislo, popis, jmeno = _row_values(r)
+            row_out = [cislo, popis, jmeno, r["monthly"], r.get("opening", 0)]
             for m in months_with_data:
                 row_out.append(r["months"].get(m, {}).get("paid", 0))
             row_out += [r["total_paid"], r["debt"]]
             writer.writerow(row_out)
-        filename = f"matice_plateb_{rok}{suffix}_{date_str}.csv"
+        filename = f"{base_name}_{rok}{suffix}_{date_str}.csv"
         return Response(
             content=buf_csv.getvalue().encode("utf-8"),
             media_type="text/csv; charset=utf-8",
@@ -252,7 +280,7 @@ async def matice_export(
 
     wb = Workbook()
     ws = wb.active
-    ws.title = f"Matice plateb {rok}"
+    ws.title = f"Matice {rok}"
 
     bold = Font(bold=True)
     red_fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
@@ -262,10 +290,10 @@ async def matice_export(
         cell.font = bold
 
     for i, r in enumerate(rows, 2):
-        owner_name = ", ".join(o.display_name for o in r["owners"]) if r["owners"] else r["prescription"].owner_name or ""
-        ws.cell(row=i, column=1, value=r["unit"].unit_number)
-        ws.cell(row=i, column=2, value=r["prescription"].section or "")
-        ws.cell(row=i, column=3, value=owner_name)
+        cislo, popis, jmeno = _row_values(r)
+        ws.cell(row=i, column=1, value=cislo)
+        ws.cell(row=i, column=2, value=popis)
+        ws.cell(row=i, column=3, value=jmeno)
         ws.cell(row=i, column=4, value=r["monthly"])
         ws.cell(row=i, column=5, value=r.get("opening", 0))
         col = 6
@@ -286,7 +314,7 @@ async def matice_export(
     wb.save(buf)
     buf.seek(0)
 
-    filename = f"matice_plateb_{rok}{suffix}_{date_str}.xlsx"
+    filename = f"{base_name}_{rok}{suffix}_{date_str}.xlsx"
 
     return StreamingResponse(
         buf,

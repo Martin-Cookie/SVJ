@@ -12,6 +12,7 @@
                 </h1>
                 <p class="text-xs text-gray-500 dark:text-gray-400">
                     {% if statement.period_from %}{{ statement.period_from.strftime('%d.%m.') }} – {{ statement.period_to.strftime('%d.%m.%Y') }} · {% endif %}
+                    {% if statement.file_path %}<a href="/platby/vypisy/{{ statement.id }}/soubor" hx-boost="false" target="_blank" class="text-blue-600 hover:underline" title="Stáhnout zdrojový CSV">{{ statement.filename }}</a> · {% endif %}
                     {{ statement.bank_account or "" }} ·
                     {{ payments|length }} plateb ·
                     Příjmy: <span class="text-green-600">+{{ total_income|round(0)|int|fmt_num }} Kč</span> ·

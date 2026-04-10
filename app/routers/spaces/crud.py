@@ -759,7 +759,7 @@ async def space_export(
     if stav and stav in stav_labels:
         suffix = f"_{stav_labels[stav]}"
     elif sekce:
-        suffix = f"_sekce_{sekce}"
+        suffix = f"_sekce_{strip_diacritics(sekce)}"
     elif q:
         suffix = "_hledani"
     else:

@@ -1,5 +1,6 @@
 import csv
 import io
+import logging
 from datetime import datetime
 from io import BytesIO
 
@@ -16,7 +17,20 @@ from app.models.voting import Ballot, BallotStatus, BallotVote
 from app.models.tax import TaxDocument, TaxSession, TaxDistribution, EmailDeliveryStatus
 from app.utils import excel_auto_width, strip_diacritics, templates, utcnow
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
+
+# Normalizace raw module stringů na kanonické klíče — sjednocuje EmailLog vs ActivityLog,
+# aby `tax` a `dane` splynuly v jednu bublinu "Rozesílání".
+_MODULE_CANONICAL = {
+    "tax": "dane",
+    "voting": "hlasovani",
+    "tenants": "najemci",
+}
+
+
+def _norm_module(m: str) -> str:
+    return _MODULE_CANONICAL.get(m or "", m or "")
 
 
 @router.get("/prehled/rozdil-podilu")
@@ -104,45 +118,66 @@ async def home(
     )
     total_votings = sum(c for _, c in voting_counts)
 
-    # Nejnovější hlasování per status — bez eager loadingu ballots+votes
+    # Nejnovější hlasování per status — jedna agregace přes max(updated_at)
     voting_by_status = {}
-    for status, count in voting_counts:
-        latest = (
-            db.query(Voting)
-            .filter(Voting.status == status)
-            .order_by(Voting.updated_at.desc())
-            .first()
+    if voting_counts:
+        latest_per_status_subq = (
+            db.query(
+                Voting.status.label("status"),
+                func.max(Voting.updated_at).label("max_updated"),
+            )
+            .group_by(Voting.status)
+            .subquery()
         )
-        if latest:
-            # SQL agregace: počet lístků a kvórum (suma hlasů zpracovaných lístků s ≥1 hlasem)
-            total_ballots = db.query(func.count(Ballot.id)).filter(
-                Ballot.voting_id == latest.id
-            ).scalar() or 0
+        latest_votings = (
+            db.query(Voting)
+            .join(
+                latest_per_status_subq,
+                (Voting.status == latest_per_status_subq.c.status)
+                & (Voting.updated_at == latest_per_status_subq.c.max_updated),
+            )
+            .all()
+        )
+        latest_ids = [v.id for v in latest_votings]
 
-            # Kvórum: suma total_votes z PROCESSED lístků, které mají ≥1 BallotVote.vote IS NOT NULL
-            voted_ballots_subq = (
-                db.query(Ballot.id)
+        # Počet lístků per voting (1 dotaz)
+        ballot_counts = dict(
+            db.query(Ballot.voting_id, func.count(Ballot.id))
+            .filter(Ballot.voting_id.in_(latest_ids))
+            .group_by(Ballot.voting_id)
+            .all()
+        ) if latest_ids else {}
+
+        # Kvórum: sum(total_votes) distinct PROCESSED lístků s ≥1 vote (1 dotaz, group by)
+        processed_votes_map: dict = {}
+        if latest_ids:
+            voted_sub = (
+                db.query(Ballot.voting_id, Ballot.id, Ballot.total_votes)
                 .join(BallotVote, BallotVote.ballot_id == Ballot.id)
                 .filter(
-                    Ballot.voting_id == latest.id,
+                    Ballot.voting_id.in_(latest_ids),
                     Ballot.status == BallotStatus.PROCESSED,
                     BallotVote.vote.isnot(None),
                 )
                 .distinct()
                 .subquery()
             )
-            processed_votes = (
-                db.query(func.coalesce(func.sum(Ballot.total_votes), 0))
-                .filter(Ballot.id.in_(db.query(voted_ballots_subq.c.id)))
-                .scalar()
-            ) or 0
+            for vid, total in (
+                db.query(voted_sub.c.voting_id, func.coalesce(func.sum(voted_sub.c.total_votes), 0))
+                .group_by(voted_sub.c.voting_id)
+                .all()
+            ):
+                processed_votes_map[vid] = total or 0
 
+        status_counts_map = {s: c for s, c in voting_counts}
+        for latest in latest_votings:
+            processed_votes = processed_votes_map.get(latest.id, 0)
             quorum_pct = round(processed_votes / declared_shares * 100, 2) if declared_shares else 0
-            voting_by_status[status.value] = {
-                "count": count,
+            voting_by_status[latest.status.value] = {
+                "count": status_counts_map.get(latest.status, 0),
                 "latest": latest,
                 "date": latest.start_date or latest.created_at,
-                "total_ballots": total_ballots,
+                "total_ballots": ballot_counts.get(latest.id, 0),
                 "quorum_pct": quorum_pct,
             }
 
@@ -153,21 +188,33 @@ async def home(
         .all()
     )
 
-    # Latest session per status (one query per status)
+    # Latest session per status — jedna agregace přes max(created_at)
     latest_session_ids = {}
     tax_by_status = {}
-    for status, count in tax_status_counts:
-        latest = (
-            db.query(TaxSession)
-            .filter(TaxSession.send_status == status)
-            .order_by(TaxSession.created_at.desc())
-            .first()
+    if tax_status_counts:
+        latest_tax_subq = (
+            db.query(
+                TaxSession.send_status.label("status"),
+                func.max(TaxSession.created_at).label("max_created"),
+            )
+            .group_by(TaxSession.send_status)
+            .subquery()
         )
-        if latest:
-            s = status.value
+        latest_tax_sessions = (
+            db.query(TaxSession)
+            .join(
+                latest_tax_subq,
+                (TaxSession.send_status == latest_tax_subq.c.status)
+                & (TaxSession.created_at == latest_tax_subq.c.max_created),
+            )
+            .all()
+        )
+        tax_status_map = {s: c for s, c in tax_status_counts}
+        for latest in latest_tax_sessions:
+            s = latest.send_status.value
             latest_session_ids[latest.id] = s
             tax_by_status[s] = {
-                "count": count,
+                "count": tax_status_map.get(latest.send_status, 0),
                 "latest": latest,
                 "date": latest.created_at,
                 "sent": 0,
@@ -195,9 +242,9 @@ async def home(
             tax_by_status[s]["total_dists"] = total
             tax_by_status[s]["sent"] = sent or 0
 
-    # Unified activity: EmailLog + ActivityLog
-    recent_emails = db.query(EmailLog).order_by(EmailLog.created_at.desc()).all()
-    recent_activity = db.query(ActivityLog).order_by(ActivityLog.created_at.desc()).all()
+    # Unified activity: EmailLog + ActivityLog (limit 200 pro výkon)
+    recent_emails = db.query(EmailLog).order_by(EmailLog.created_at.desc()).limit(200).all()
+    recent_activity = db.query(ActivityLog).order_by(ActivityLog.created_at.desc()).limit(200).all()
 
     unified = []
     # URL mapování pro entity_type → detail stránka
@@ -206,16 +253,6 @@ async def home(
         "tax_session": "/dane/{id}",
         "owner": "/vlastnici/{id}",
     }
-
-    # Normalizace raw module stringů na kanonické klíče — sjednocuje EmailLog vs ActivityLog,
-    # aby `tax` a `dane` splynuly v jednu bublinu "Rozesílání".
-    _MODULE_CANONICAL = {
-        "tax": "dane",
-        "voting": "hlasovani",
-        "tenants": "najemci",
-    }
-    def _norm_module(m: str) -> str:
-        return _MODULE_CANONICAL.get(m or "", m or "")
 
     # Seskupení payment_notice emailů (a jiných hromadných emailů) dle den+modul+subject
     from collections import defaultdict
@@ -330,23 +367,20 @@ async def home(
     owners_scd = db.query(func.sum(OwnerUnit.votes)).filter(OwnerUnit.valid_to.is_(None)).scalar() or 0
     units_scd = db.query(func.sum(Unit.podil_scd)).scalar() or 0
 
-    # Payment stats
+    # Payment stats — jedna agregace místo 4 samostatných dotazů
     statement_count = db.query(BankStatement).count()
     confirmed_statuses = [PaymentMatchStatus.AUTO_MATCHED, PaymentMatchStatus.MANUAL]
-    matched_payments = db.query(Payment).filter(
-        Payment.direction == PaymentDirection.INCOME,
-        Payment.match_status.in_(confirmed_statuses),
-    ).count()
-    unmatched_payments = db.query(Payment).filter_by(
-        match_status=PaymentMatchStatus.UNMATCHED,
-        direction=PaymentDirection.INCOME,
-    ).count()
-    total_income = db.query(
-        func.coalesce(func.sum(Payment.amount), 0)
-    ).filter(
-        Payment.direction == PaymentDirection.INCOME,
-        Payment.match_status.in_(confirmed_statuses),
-    ).scalar() or 0
+    payment_stats = db.query(
+        func.sum(case((Payment.match_status.in_(confirmed_statuses), 1), else_=0)).label("matched"),
+        func.sum(case((Payment.match_status == PaymentMatchStatus.UNMATCHED, 1), else_=0)).label("unmatched"),
+        func.coalesce(
+            func.sum(case((Payment.match_status.in_(confirmed_statuses), Payment.amount), else_=0)),
+            0,
+        ).label("income"),
+    ).filter(Payment.direction == PaymentDirection.INCOME).one()
+    matched_payments = payment_stats.matched or 0
+    unmatched_payments = payment_stats.unmatched or 0
+    total_income = payment_stats.income or 0
 
     # Debtor count (imported from payments helpers if available)
     debtor_count = 0
@@ -355,8 +389,8 @@ async def home(
         latest_py = db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).first()
         if latest_py:
             debtor_count = _count_debtors_fast(db, latest_py.year)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("Debtor count failed: %s", e)
 
     # Tenant stats
     tenants_count = db.query(Tenant).filter_by(is_active=True).count()
@@ -469,15 +503,11 @@ async def dashboard_export(
     recent_emails = db.query(EmailLog).order_by(EmailLog.created_at.desc()).all()
     recent_acts = db.query(ActivityLog).order_by(ActivityLog.created_at.desc()).all()
 
-    _MODULE_CANONICAL = {"tax": "dane", "voting": "hlasovani", "tenants": "najemci"}
-    def _norm(m: str) -> str:
-        return _MODULE_CANONICAL.get(m or "", m or "")
-
     unified = []
     for e in recent_emails:
         unified.append({
             "created_at": e.created_at,
-            "module": _norm(e.module),
+            "module": _norm_module(e.module),
             "description": e.subject or "",
             "detail": e.recipient_name or e.recipient_email or "",
             "status": e.status.value if e.status else "",
@@ -485,7 +515,7 @@ async def dashboard_export(
     for a in recent_acts:
         unified.append({
             "created_at": a.created_at,
-            "module": _norm(a.module),
+            "module": _norm_module(a.module),
             "description": a.entity_name or "",
             "detail": a.description or "",
             "status": a.action.value if a.action else "",

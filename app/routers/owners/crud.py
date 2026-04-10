@@ -322,11 +322,11 @@ async def owner_export(
     elif kontakt and kontakt in kontakt_labels:
         suffix = f"_{kontakt_labels[kontakt]}"
     elif stav:
-        suffix = f"_{stav}"
+        suffix = f"_{strip_diacritics(stav)}"
     elif vlastnictvi:
-        suffix = f"_{vlastnictvi}"
+        suffix = f"_{strip_diacritics(vlastnictvi)}"
     elif sekce:
-        suffix = f"_sekce_{sekce}"
+        suffix = f"_sekce_{strip_diacritics(sekce)}"
     elif q:
         suffix = "_hledani"
     else:
