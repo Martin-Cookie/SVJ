@@ -99,7 +99,7 @@ async def vypisy_seznam(request: Request, db: Session = Depends(get_db)):
         "month_names": MONTH_NAMES_LONG,
         **compute_nav_stats(db),
     }
-    return templates.TemplateResponse("payments/vypisy.html", ctx)
+    return templates.TemplateResponse(request, "payments/vypisy.html", ctx)
 
 
 # ── Import CSV ─────────────────────────────────────────────────────────
@@ -109,8 +109,7 @@ async def vypisy_seznam(request: Request, db: Session = Depends(get_db)):
 async def vypis_import_form(request: Request, db: Session = Depends(get_db)):
     """Formulář pro import bankovního výpisu z CSV."""
     back_url = request.query_params.get("back", "")
-    return templates.TemplateResponse("payments/vypis_import.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "payments/vypis_import.html", {
         "active_nav": "platby",
         "active_tab": "vypisy",
         "back_url": back_url,
@@ -136,16 +135,14 @@ async def vypis_import_upload(
     if force and saved_path:
         saved_file = Path(saved_path)
         if not is_safe_path(saved_file, Path(settings.upload_dir) / "temp"):
-            return templates.TemplateResponse("payments/vypis_import.html", {
-                "request": request,
+            return templates.TemplateResponse(request, "payments/vypis_import.html", {
                 "active_nav": "platby",
                 "active_tab": "vypisy",
                 "error": "Neplatná cesta k souboru.",
                 **compute_nav_stats(db),
             })
         if not saved_file.is_file():
-            return templates.TemplateResponse("payments/vypis_import.html", {
-                "request": request,
+            return templates.TemplateResponse(request, "payments/vypis_import.html", {
                 "active_nav": "platby",
                 "active_tab": "vypisy",
                 "error": "Uložený soubor expiroval. Nahrajte soubor znovu.",
@@ -156,8 +153,7 @@ async def vypis_import_upload(
     else:
         # Nový upload — validace
         if not file or not file.filename:
-            return templates.TemplateResponse("payments/vypis_import.html", {
-                "request": request,
+            return templates.TemplateResponse(request, "payments/vypis_import.html", {
                 "active_nav": "platby",
                 "active_tab": "vypisy",
                 "error": "Vyberte soubor CSV.",
@@ -165,8 +161,7 @@ async def vypis_import_upload(
             })
         error = await validate_upload(file, **UPLOAD_LIMITS["csv"])
         if error:
-            return templates.TemplateResponse("payments/vypis_import.html", {
-                "request": request,
+            return templates.TemplateResponse(request, "payments/vypis_import.html", {
                 "active_nav": "platby",
                 "active_tab": "vypisy",
                 "error": error,
@@ -180,8 +175,7 @@ async def vypis_import_upload(
         result = parse_fio_csv(file_content, original_filename)
     except Exception as e:
         logger.error("CSV parse error: %s", e)
-        return templates.TemplateResponse("payments/vypis_import.html", {
-            "request": request,
+        return templates.TemplateResponse(request, "payments/vypis_import.html", {
             "active_nav": "platby",
             "active_tab": "vypisy",
             "error": f"Chyba při čtení CSV: {e}",
@@ -189,8 +183,7 @@ async def vypis_import_upload(
         })
 
     if result["errors"]:
-        return templates.TemplateResponse("payments/vypis_import.html", {
-            "request": request,
+        return templates.TemplateResponse(request, "payments/vypis_import.html", {
             "active_nav": "platby",
             "active_tab": "vypisy",
             "error": "Chyby při parsování: " + "; ".join(result["errors"][:5]),
@@ -198,8 +191,7 @@ async def vypis_import_upload(
         })
 
     if not result["transactions"]:
-        return templates.TemplateResponse("payments/vypis_import.html", {
-            "request": request,
+        return templates.TemplateResponse(request, "payments/vypis_import.html", {
             "active_nav": "platby",
             "active_tab": "vypisy",
             "error": "CSV neobsahuje žádné transakce.",
@@ -234,8 +226,7 @@ async def vypis_import_upload(
             )
             .count()
         )
-        return templates.TemplateResponse("payments/vypis_import.html", {
-            "request": request,
+        return templates.TemplateResponse(request, "payments/vypis_import.html", {
             "active_nav": "platby",
             "active_tab": "vypisy",
             "confirm_overwrite": True,
@@ -684,9 +675,9 @@ async def vypis_detail(
     }
 
     if is_htmx_partial(request):
-        return templates.TemplateResponse("payments/partials/vypis_tbody.html", ctx)
+        return templates.TemplateResponse(request, "payments/partials/vypis_tbody.html", ctx)
 
-    return templates.TemplateResponse("payments/vypis_detail.html", ctx)
+    return templates.TemplateResponse(request, "payments/vypis_detail.html", ctx)
 
 
 # ── Ruční přiřazení platby ─────────────────────────────────────────────

@@ -178,9 +178,9 @@ async def vyuctovani_seznam(
     }
 
     if is_htmx_partial(request):
-        return templates.TemplateResponse("payments/partials/vyuctovani_tbody.html", ctx)
+        return templates.TemplateResponse(request, "payments/partials/vyuctovani_tbody.html", ctx)
 
-    return templates.TemplateResponse("payments/vyuctovani.html", ctx)
+    return templates.TemplateResponse(request, "payments/vyuctovani.html", ctx)
 
 
 def _annual_prescription(s: Settlement) -> float:
@@ -225,8 +225,7 @@ async def vyuctovani_detail(
         stav_label = request.query_params.get("stav_label", "")
         flash_message = f"Stav změněn na {stav_label}."
 
-    return templates.TemplateResponse("payments/vyuctovani_detail.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "payments/vyuctovani_detail.html", {
         "active_nav": "platby",
         "active_tab": "vyuctovani",
         "settlement": settlement,

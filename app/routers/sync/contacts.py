@@ -32,8 +32,7 @@ async def accept_change(
         db.commit()
 
     if request.headers.get("HX-Request"):
-        return templates.TemplateResponse("partials/sync_row.html", {
-            "request": request,
+        return templates.TemplateResponse(request, "partials/sync_row.html", {
             "record": record,
         })
     return RedirectResponse(f"/synchronizace/{session_id}", status_code=302)
@@ -53,8 +52,7 @@ async def reject_change(
         db.commit()
 
     if request.headers.get("HX-Request"):
-        return templates.TemplateResponse("partials/sync_row.html", {
-            "request": request,
+        return templates.TemplateResponse(request, "partials/sync_row.html", {
             "record": record,
         })
     return RedirectResponse(f"/synchronizace/{session_id}", status_code=302)
@@ -76,8 +74,7 @@ async def manual_edit(
         db.commit()
 
     if request and request.headers.get("HX-Request"):
-        return templates.TemplateResponse("partials/sync_row.html", {
-            "request": request,
+        return templates.TemplateResponse(request, "partials/sync_row.html", {
             "record": record,
         })
     return RedirectResponse(f"/synchronizace/{session_id}", status_code=302)
@@ -236,8 +233,7 @@ async def contacts_preview(
     preview = _build_contact_preview(session_id, db)
     back_url = f"/synchronizace/{session_id}"
 
-    return templates.TemplateResponse("sync/contacts_preview.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "sync/contacts_preview.html", {
         "active_nav": "kontroly",
         "session": session,
         "preview": preview,

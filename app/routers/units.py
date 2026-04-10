@@ -88,8 +88,7 @@ SORT_COLUMNS = {
 @router.get("/nova-formular")
 async def unit_create_form(request: Request, db: Session = Depends(get_db)):
     """Formulář pro vytvoření nové jednotky."""
-    return templates.TemplateResponse("partials/unit_create_form.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "partials/unit_create_form.html", {
         "code_lists": get_all_code_lists(db),
     })
 
@@ -114,14 +113,12 @@ async def unit_create(
     try:
         unit_number_int = int(unit_number)
     except (ValueError, TypeError):
-        return templates.TemplateResponse("partials/unit_create_form.html", {
-            "request": request,
+        return templates.TemplateResponse(request, "partials/unit_create_form.html", {
             "error": "Číslo jednotky musí být celé číslo.",
             "code_lists": get_all_code_lists(db),
         })
     if unit_number_int < 1 or unit_number_int > 99999:
-        return templates.TemplateResponse("partials/unit_create_form.html", {
-            "request": request,
+        return templates.TemplateResponse(request, "partials/unit_create_form.html", {
             "error": "Číslo jednotky musí být v rozsahu 1–99999.",
             "code_lists": get_all_code_lists(db),
         })
@@ -129,8 +126,7 @@ async def unit_create(
     # Check uniqueness
     existing = db.query(Unit).filter(Unit.unit_number == unit_number_int).first()
     if existing:
-        return templates.TemplateResponse("partials/unit_create_form.html", {
-            "request": request,
+        return templates.TemplateResponse(request, "partials/unit_create_form.html", {
             "error": f"Jednotka s číslem {unit_number_int} již existuje.",
             "code_lists": get_all_code_lists(db),
         })
@@ -141,8 +137,7 @@ async def unit_create(
         try:
             bn_int = int(bn_clean)
             if bn_int < 1 or bn_int > 99999:
-                return templates.TemplateResponse("partials/unit_create_form.html", {
-                    "request": request,
+                return templates.TemplateResponse(request, "partials/unit_create_form.html", {
                     "error": f"Číslo budovy {bn_int} mimo rozsah 1–99999.",
                     "code_lists": get_all_code_lists(db),
                 })
@@ -159,8 +154,7 @@ async def unit_create(
 
     # Validace: pokud uživatel zadal neplatné číselné hodnoty, vrátit formulář s chybou
     if parse_errors:
-        return templates.TemplateResponse("partials/unit_create_form.html", {
-            "request": request,
+        return templates.TemplateResponse(request, "partials/unit_create_form.html", {
             "error": " ".join(parse_errors),
             "code_lists": get_all_code_lists(db),
         })
@@ -199,8 +193,7 @@ async def unit_owners_section(
     ).get(unit_id)
     if not unit:
         return HTMLResponse("<p class='text-sm text-red-600'>Jednotka nenalezena.</p>")
-    return templates.TemplateResponse("partials/unit_owners.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "partials/unit_owners.html", {
         "unit": unit,
     })
 
@@ -217,8 +210,7 @@ async def owner_unit_edit_form(
     ou = db.query(OwnerUnit).options(joinedload(OwnerUnit.owner)).get(ou_id)
     if not unit or not ou or ou.unit_id != unit_id:
         return HTMLResponse("<tr><td colspan='5' class='text-sm text-red-600 px-3 py-2'>Záznam nenalezen.</td></tr>")
-    return templates.TemplateResponse("partials/unit_owner_edit_row.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "partials/unit_owner_edit_row.html", {
         "unit": unit,
         "ou": ou,
     })
@@ -264,8 +256,7 @@ async def owner_unit_update(
     # Refresh relationships
     db.refresh(unit)
 
-    return templates.TemplateResponse("partials/unit_owners.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "partials/unit_owners.html", {
         "unit": unit,
     })
 
@@ -280,8 +271,7 @@ async def unit_edit_form(
     unit = db.query(Unit).get(unit_id)
     if not unit:
         return RedirectResponse("/jednotky", status_code=302)
-    return templates.TemplateResponse("partials/unit_edit_form.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "partials/unit_edit_form.html", {
         "unit": unit,
         "code_lists": get_all_code_lists(db),
     })
@@ -297,8 +287,7 @@ async def unit_info(
     unit = db.query(Unit).get(unit_id)
     if not unit:
         return RedirectResponse("/jednotky", status_code=302)
-    return templates.TemplateResponse("partials/unit_info.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "partials/unit_info.html", {
         "unit": unit,
     })
 
@@ -329,15 +318,13 @@ async def unit_update(
     try:
         unit_number_int = int(unit_number)
     except (ValueError, TypeError):
-        return templates.TemplateResponse("partials/unit_edit_form.html", {
-            "request": request,
+        return templates.TemplateResponse(request, "partials/unit_edit_form.html", {
             "unit": unit,
             "error": "Číslo jednotky musí být celé číslo.",
             "code_lists": get_all_code_lists(db),
         })
     if unit_number_int < 1 or unit_number_int > 99999:
-        return templates.TemplateResponse("partials/unit_edit_form.html", {
-            "request": request,
+        return templates.TemplateResponse(request, "partials/unit_edit_form.html", {
             "unit": unit,
             "error": "Číslo jednotky musí být v rozsahu 1–99999.",
             "code_lists": get_all_code_lists(db),
@@ -348,8 +335,7 @@ async def unit_update(
         Unit.unit_number == unit_number_int, Unit.id != unit_id
     ).first()
     if existing:
-        return templates.TemplateResponse("partials/unit_edit_form.html", {
-            "request": request,
+        return templates.TemplateResponse(request, "partials/unit_edit_form.html", {
             "unit": unit,
             "error": f"Jednotka s číslem {unit_number_int} již existuje.",
             "code_lists": get_all_code_lists(db),
@@ -371,8 +357,7 @@ async def unit_update(
 
     # Validace: pokud uživatel zadal neplatné číselné hodnoty, vrátit formulář s chybou
     if parse_errors:
-        return templates.TemplateResponse("partials/unit_edit_form.html", {
-            "request": request,
+        return templates.TemplateResponse(request, "partials/unit_edit_form.html", {
             "unit": unit,
             "error": " ".join(parse_errors),
             "code_lists": get_all_code_lists(db),
@@ -396,13 +381,11 @@ async def unit_update(
     if request.headers.get("HX-Request"):
         # Refresh unit + owners (recalculate changed owner votes)
         db.expire(unit, ["owners"])
-        info_html = templates.TemplateResponse("partials/unit_info.html", {
-            "request": request,
+        info_html = templates.TemplateResponse(request, "partials/unit_info.html", {
             "unit": unit,
             "saved": True,
         }).body.decode()
-        owners_html = templates.TemplateResponse("partials/unit_owners.html", {
-            "request": request,
+        owners_html = templates.TemplateResponse(request, "partials/unit_owners.html", {
             "unit": unit,
         }).body.decode()
         # OOB swap: main target gets unit_info, owners section updates out-of-band
@@ -488,8 +471,7 @@ async def unit_list(
 
     # HTMX partial
     if is_htmx_partial(request):
-        return templates.TemplateResponse("partials/unit_table_body.html", {
-            "request": request,
+        return templates.TemplateResponse(request, "partials/unit_table_body.html", {
             "units": units,
             "list_url": list_url,
             "debt_map": debt_map,
@@ -514,8 +496,7 @@ async def unit_list(
         db.query(Unit.section).filter(Unit.section.isnot(None)).distinct().order_by(Unit.section).all()
     ]
 
-    return templates.TemplateResponse("units/list.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "units/list.html", {
         "active_nav": "units",
         "units": units,
         "list_url": list_url,
@@ -713,8 +694,7 @@ async def unit_detail(
                 payment_status = "unpaid"
                 payment_debt = expected
 
-    return templates.TemplateResponse("units/detail.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "units/detail.html", {
         "active_nav": "units",
         "unit": unit,
         "back_url": back or "/jednotky",

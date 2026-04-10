@@ -352,8 +352,7 @@ async def tax_processing(
     if not session:
         return RedirectResponse("/dane", status_code=302)
 
-    return templates.TemplateResponse("tax/processing.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "tax/processing.html", {
         "active_nav": "tax",
         "session": session,
         "error": progress.get("error"),
@@ -377,8 +376,7 @@ async def tax_processing_status(session_id: int, request: Request):
                 # Show error in progress partial — don't redirect
                 progress = dict(progress)
                 _processing_progress.pop(session_id, None)
-                return templates.TemplateResponse("partials/tax_progress.html", {
-                    "request": request,
+                return templates.TemplateResponse(request, "partials/tax_progress.html", {
                     "error": error,
                     **_progress_eta(progress),
                 })
@@ -388,8 +386,7 @@ async def tax_processing_status(session_id: int, request: Request):
             return response
         progress = dict(progress)  # snapshot under lock
 
-    return templates.TemplateResponse("partials/tax_progress.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "partials/tax_progress.html", {
         "error": None,
         **_progress_eta(progress),
     })

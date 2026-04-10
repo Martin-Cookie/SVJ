@@ -90,8 +90,7 @@ async def import_upload_page(
     saved_mapping = _load_saved_mapping(voting, db)
 
     has_processed = voting.has_processed_ballots
-    return templates.TemplateResponse("voting/import_upload.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "voting/import_upload.html", {
         "active_nav": "voting",
         "voting": voting,
         "saved_mapping": saved_mapping,
@@ -121,8 +120,7 @@ async def import_upload(
     has_processed = voting.has_processed_ballots
     err = await validate_upload(file, **UPLOAD_LIMITS["excel"]) if file.filename else "Nahrajte soubor ve formátu .xlsx"
     if err:
-        return templates.TemplateResponse("voting/import_upload.html", {
-            "request": request,
+        return templates.TemplateResponse(request, "voting/import_upload.html", {
             "active_nav": "voting",
             "voting": voting,
             "saved_mapping": None,
@@ -146,8 +144,7 @@ async def import_upload(
     # Load saved mapping if available (per-voting or global fallback)
     saved_mapping = _load_saved_mapping(voting, db)
 
-    return templates.TemplateResponse("voting/import_mapping.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "voting/import_mapping.html", {
         "active_nav": "voting",
         "voting": voting,
         "headers": headers,
@@ -184,8 +181,7 @@ async def import_back_to_mapping(
     saved_mapping = _load_saved_mapping(voting, db)
     has_processed = voting.has_processed_ballots
 
-    return templates.TemplateResponse("voting/import_mapping.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "voting/import_mapping.html", {
         "active_nav": "voting",
         "voting": voting,
         "headers": headers,
@@ -242,8 +238,7 @@ async def import_preview(
     item_lookup = {item.id: item for item in voting.items}
 
     has_processed = voting.has_processed_ballots
-    return templates.TemplateResponse("voting/import_preview.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "voting/import_preview.html", {
         "active_nav": "voting",
         "voting": voting,
         "preview": preview,
@@ -315,8 +310,7 @@ async def import_confirm(
         logger.debug("Failed to clean up import file: %s", file_path)
 
     has_processed = voting.has_processed_ballots
-    return templates.TemplateResponse("voting/import_result.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "voting/import_result.html", {
         "active_nav": "voting",
         "voting": voting,
         "result": result,

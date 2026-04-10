@@ -129,9 +129,9 @@ async def symboly_seznam(
     }
 
     if is_htmx_partial(request):
-        return templates.TemplateResponse("payments/partials/symboly_tbody.html", ctx)
+        return templates.TemplateResponse(request, "payments/partials/symboly_tbody.html", ctx)
 
-    return templates.TemplateResponse("payments/symboly.html", ctx)
+    return templates.TemplateResponse(request, "payments/symboly.html", ctx)
 
 
 def _symboly_redirect_url(form_data, flash: str = "", chyba: str = "") -> str:
@@ -206,8 +206,7 @@ async def symbol_edit_form(
     units = db.query(Unit).order_by(Unit.unit_number).all()
     spaces = db.query(Space).order_by(Space.space_number).all()
 
-    return templates.TemplateResponse("payments/partials/_symboly_edit_row.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "payments/partials/_symboly_edit_row.html", {
         "m": mapping,
         "units": units,
         "spaces": spaces,
@@ -237,8 +236,7 @@ async def symbol_info_row(
 
     list_url = request.query_params.get("list_url", "/platby/symboly")
 
-    return templates.TemplateResponse("payments/partials/_symboly_view_row.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "payments/partials/_symboly_view_row.html", {
         "m": mapping,
         "q": request.query_params.get("q", ""),
         "sort": request.query_params.get("sort", "vs"),

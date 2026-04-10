@@ -416,9 +416,9 @@ async def tax_send_preview(
         ctx["flash_type"] = "warning"
 
     if request.headers.get("HX-Request") and not request.headers.get("HX-Boosted"):
-        return templates.TemplateResponse("partials/tax_send_body.html", ctx)
+        return templates.TemplateResponse(request, "partials/tax_send_body.html", ctx)
 
-    return templates.TemplateResponse("tax/send.html", ctx)
+    return templates.TemplateResponse(request, "tax/send.html", ctx)
 
 
 @router.post("/{session_id}/rozeslat/email/{dist_id}")
@@ -449,8 +449,7 @@ async def update_recipient_email(
         key = f"owner_{dist.owner_id}" if dist.owner_id else f"ext_{dist.id}"
         recipient = next((r for r in recipients if r["key"] == key), None)
         if recipient:
-            return templates.TemplateResponse("partials/tax_recipient_row.html", {
-                "request": request,
+            return templates.TemplateResponse(request, "partials/tax_recipient_row.html", {
                 "r": recipient,
                 "session": db.query(TaxSession).get(session_id),
                 "list_url": build_list_url(request),
@@ -513,8 +512,7 @@ async def update_recipient_email(
     if not recipient:
         return RedirectResponse(f"/dane/{session_id}/rozeslat", status_code=302)
 
-    return templates.TemplateResponse("partials/tax_recipient_row.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "partials/tax_recipient_row.html", {
         "r": recipient,
         "session": db.query(TaxSession).get(session_id),
         "list_url": build_list_url(request),
@@ -598,8 +596,7 @@ async def toggle_recipient_email(
 
     list_url = build_list_url(request)
 
-    return templates.TemplateResponse("partials/tax_recipient_row.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "partials/tax_recipient_row.html", {
         "r": recipient,
         "session": db.query(TaxSession).get(session_id),
         "list_url": list_url,
@@ -695,8 +692,7 @@ async def send_test_email(
     count_failed = sum(1 for r in all_recipients if r["email_status"] == "failed")
 
     back_url = f"/dane/{session_id}/rozeslat"
-    return templates.TemplateResponse("tax/send.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "tax/send.html", {
         "active_nav": "tax",
         "session": session,
         "recipients": recipients,
@@ -1069,8 +1065,7 @@ async def sending_progress_page(
             return RedirectResponse(f"/dane/{session_id}/rozeslat", status_code=302)
         progress = dict(progress)
 
-    return templates.TemplateResponse("tax/sending.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "tax/sending.html", {
         "active_nav": "tax",
         "session": session,
         **_sending_eta(progress),
@@ -1100,8 +1095,7 @@ async def sending_progress_status(
                 return response
         progress = dict(progress)  # snapshot under lock
 
-    return templates.TemplateResponse("partials/_send_progress_inner.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "partials/_send_progress_inner.html", {
         "session_id": session_id,
         **_sending_eta(progress),
     })

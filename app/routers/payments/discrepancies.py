@@ -345,7 +345,7 @@ async def discrepancy_preview(
     elif flash == "settings_ok":
         ctx["flash_message"] = "Nastavení odesílání uloženo"
 
-    return templates.TemplateResponse("payments/nesrovnalosti_preview.html", ctx)
+    return templates.TemplateResponse(request, "payments/nesrovnalosti_preview.html", ctx)
 
 
 @router.post("/vypisy/{statement_id}/nesrovnalosti/nastaveni")
@@ -545,7 +545,7 @@ async def discrepancy_progress_page(
         **_discrepancy_eta(progress),
         **(compute_nav_stats(db)),
     }
-    return templates.TemplateResponse("payments/nesrovnalosti_progress.html", ctx)
+    return templates.TemplateResponse(request, "payments/nesrovnalosti_progress.html", ctx)
 
 
 @router.get("/vypisy/{statement_id}/nesrovnalosti/prubeh-stav")
@@ -572,8 +572,7 @@ async def discrepancy_progress_status(
                 return response
         progress = dict(progress)
 
-    return templates.TemplateResponse("partials/_send_progress_inner.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "partials/_send_progress_inner.html", {
         "statement_id": statement_id,
         "progress_label": "Odesílání upozornění",
         **_discrepancy_eta(progress),

@@ -139,8 +139,7 @@ async def voting_list(
 
     list_url = build_list_url(request)
 
-    return templates.TemplateResponse("voting/index.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "voting/index.html", {
         "active_nav": "voting",
         "votings": votings,
         "voting_stats": voting_stats,
@@ -178,7 +177,7 @@ async def voting_create_page(
     elif chyba:
         ctx["flash_message"] = chyba
         ctx["flash_type"] = "error"
-    return templates.TemplateResponse("voting/create.html", ctx)
+    return templates.TemplateResponse(request, "voting/create.html", ctx)
 
 
 @router.post("/nova/nahled-metadat")
@@ -460,9 +459,9 @@ async def voting_detail(
 
     # HTMX partial: return only the results table
     if is_htmx_partial(request):
-        return templates.TemplateResponse("voting/detail_results.html", ctx)
+        return templates.TemplateResponse(request, "voting/detail_results.html", ctx)
 
-    return templates.TemplateResponse("voting/detail.html", ctx)
+    return templates.TemplateResponse(request, "voting/detail.html", ctx)
 
 
 @router.post("/{voting_id}/generovat")

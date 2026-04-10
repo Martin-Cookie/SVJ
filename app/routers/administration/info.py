@@ -63,8 +63,7 @@ async def administration_page(request: Request, db: Session = Depends(get_db)):
         .scalar()
     ) or 0
 
-    return templates.TemplateResponse("administration/index.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "administration/index.html", {
         "active_nav": "administration",
         "info": info,
         "board_count": board_count,
@@ -90,8 +89,7 @@ async def svj_info_page(request: Request, db: Session = Depends(get_db)):
     board_members = db.query(BoardMember).filter_by(group="board").order_by(_ROLE_SORT, BoardMember.name).all()
     control_members = db.query(BoardMember).filter_by(group="control").order_by(_ROLE_SORT, BoardMember.name).all()
 
-    return templates.TemplateResponse("administration/svj_info.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "administration/svj_info.html", {
         "active_nav": "administration",
         "info": info,
         "board_members": board_members,

@@ -31,8 +31,7 @@ async def code_lists_page(request: Request, db: Session = Depends(get_db)):
         .all()
     )
 
-    return templates.TemplateResponse("administration/code_lists.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "administration/code_lists.html", {
         "active_nav": "administration",
         "code_lists": code_lists,
         "code_list_usage": code_list_usage,

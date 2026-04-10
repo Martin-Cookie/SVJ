@@ -82,7 +82,7 @@ async def sync_list(
             "list_url": list_url,
             "q": _sync_q,
         }
-        return templates.TemplateResponse("partials/sync_list_body.html", ctx)
+        return templates.TemplateResponse(request, "partials/sync_list_body.html", ctx)
 
     # --- Share check sessions (for full page only) ---
     sc_sessions = db.query(ShareCheckSession).order_by(ShareCheckSession.created_at.desc()).all()
@@ -136,7 +136,7 @@ async def sync_list(
         "flash_type": flash_type,
     }
 
-    return templates.TemplateResponse("sync/index.html", ctx)
+    return templates.TemplateResponse(request, "sync/index.html", ctx)
 
 
 @router.post("/{session_id}/smazat")
@@ -390,8 +390,7 @@ async def sync_detail(
     back_url = back or "/synchronizace"
     back_label = "Zpět na přehled" if back == "/" else "Zpět na kontroly" if "/synchronizace" in (back or "") else "Zpět"
 
-    return templates.TemplateResponse("sync/compare.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "sync/compare.html", {
         "active_nav": "kontroly",
         "session": session,
         "records": records,

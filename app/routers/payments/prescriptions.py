@@ -44,7 +44,7 @@ async def predpisy_seznam(request: Request, db: Session = Depends(get_db)):
         "back_url": back_url,
         **compute_nav_stats(db),
     }
-    return templates.TemplateResponse("payments/predpisy.html", ctx)
+    return templates.TemplateResponse(request, "payments/predpisy.html", ctx)
 
 
 # ── Import předpisů z DOCX ────────────────────────────────────────────
@@ -54,8 +54,7 @@ async def predpisy_seznam(request: Request, db: Session = Depends(get_db)):
 async def predpisy_import_form(request: Request, db: Session = Depends(get_db)):
     """Formulář pro import předpisů z DOCX."""
     back_url = request.query_params.get("back", "")
-    return templates.TemplateResponse("payments/predpisy_import.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "payments/predpisy_import.html", {
         "active_nav": "platby",
         "active_tab": "predpisy",
         "back_url": back_url,
@@ -82,8 +81,7 @@ async def predpisy_import_upload(
     if force and saved_path:
         saved_file = Path(saved_path)
         if not is_safe_path(saved_file, Path(settings.upload_dir) / "temp"):
-            return templates.TemplateResponse("payments/predpisy_import.html", {
-                "request": request,
+            return templates.TemplateResponse(request, "payments/predpisy_import.html", {
                 "active_nav": "platby",
                 "active_tab": "predpisy",
                 "error": "Neplatná cesta k souboru.",
@@ -91,8 +89,7 @@ async def predpisy_import_upload(
                 **compute_nav_stats(db),
             })
         if not saved_file.is_file():
-            return templates.TemplateResponse("payments/predpisy_import.html", {
-                "request": request,
+            return templates.TemplateResponse(request, "payments/predpisy_import.html", {
                 "active_nav": "platby",
                 "active_tab": "predpisy",
                 "error": "Uložený soubor expiroval. Nahrajte soubor znovu.",
@@ -104,8 +101,7 @@ async def predpisy_import_upload(
     else:
         # Nový upload — validace
         if not file or not file.filename:
-            return templates.TemplateResponse("payments/predpisy_import.html", {
-                "request": request,
+            return templates.TemplateResponse(request, "payments/predpisy_import.html", {
                 "active_nav": "platby",
         "active_tab": "predpisy",
                 "error": "Vyberte soubor DOCX.",
@@ -114,8 +110,7 @@ async def predpisy_import_upload(
             })
         error = await validate_upload(file, **UPLOAD_LIMITS["docx"])
         if error:
-            return templates.TemplateResponse("payments/predpisy_import.html", {
-                "request": request,
+            return templates.TemplateResponse(request, "payments/predpisy_import.html", {
                 "active_nav": "platby",
         "active_tab": "predpisy",
                 "error": error,
@@ -135,8 +130,7 @@ async def predpisy_import_upload(
             temp_path = temp_dir / f"{timestamp}_{file.filename}"
             temp_path.write_bytes(file_content)
 
-            return templates.TemplateResponse("payments/predpisy_import.html", {
-                "request": request,
+            return templates.TemplateResponse(request, "payments/predpisy_import.html", {
                 "active_nav": "platby",
         "active_tab": "predpisy",
                 "confirm_overwrite": True,
@@ -158,8 +152,7 @@ async def predpisy_import_upload(
         result = parse_prescription_docx(file_content, year)
     except Exception as e:
         logger.error("DOCX parse error: %s", e)
-        return templates.TemplateResponse("payments/predpisy_import.html", {
-            "request": request,
+        return templates.TemplateResponse(request, "payments/predpisy_import.html", {
             "active_nav": "platby",
         "active_tab": "predpisy",
             "error": f"Chyba při čtení DOCX: {e}",
@@ -197,8 +190,7 @@ async def predpisy_import_upload(
             temp_path.write_bytes(file_content)
             saved_path = str(temp_path)
 
-        return templates.TemplateResponse("payments/predpisy_import.html", {
-            "request": request,
+        return templates.TemplateResponse(request, "payments/predpisy_import.html", {
             "active_nav": "platby",
             "active_tab": "predpisy",
             "confirm_vs_conflicts": True,
@@ -397,9 +389,9 @@ async def predpisy_detail(
     }
 
     if is_htmx_partial(request):
-        return templates.TemplateResponse("payments/partials/predpisy_tbody.html", ctx)
+        return templates.TemplateResponse(request, "payments/partials/predpisy_tbody.html", ctx)
 
-    return templates.TemplateResponse("payments/predpisy_detail.html", ctx)
+    return templates.TemplateResponse(request, "payments/predpisy_detail.html", ctx)
 
 
 # ── Detail jednoho předpisu (jednotka) ─────────────────────────────────
@@ -426,8 +418,7 @@ async def predpis_jednotka_detail(
     list_url = build_list_url(request)
     back_url = request.query_params.get("back", "")
 
-    return templates.TemplateResponse("payments/predpis_detail.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "payments/predpis_detail.html", {
         "active_nav": "platby",
         "active_tab": "predpisy",
         "prescription_year": prescription_year,

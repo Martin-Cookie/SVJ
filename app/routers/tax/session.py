@@ -134,8 +134,7 @@ async def tax_list(request: Request, back: str = Query("", alias="back"), stav: 
             else "Zpět"
         )
 
-    return templates.TemplateResponse("tax/index.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "tax/index.html", {
         "active_nav": "tax",
         "sessions": sessions,
         "back_url": back,
@@ -172,7 +171,7 @@ async def tax_create_page(
     if chyba:
         ctx["flash_message"] = chyba
         ctx["flash_type"] = "error"
-    return templates.TemplateResponse("tax/upload.html", ctx)
+    return templates.TemplateResponse(request, "tax/upload.html", ctx)
 
 
 @router.post("/nova")
@@ -276,7 +275,7 @@ async def tax_upload_page(
     if chyba:
         ctx["flash_message"] = chyba
         ctx["flash_type"] = "error"
-    return templates.TemplateResponse("tax/upload_additional.html", ctx)
+    return templates.TemplateResponse(request, "tax/upload_additional.html", ctx)
 
 
 @router.post("/{session_id}/upload")
@@ -461,8 +460,7 @@ async def tax_detail(
 
     # HTMX partial response — skip stats, missing units, owners (not in tbody)
     if is_partial:
-        return templates.TemplateResponse("partials/tax_table_body.html", {
-            "request": request,
+        return templates.TemplateResponse(request, "partials/tax_table_body.html", {
             "documents": documents,
             "is_locked": is_locked,
             "list_url": list_url,
@@ -504,8 +502,7 @@ async def tax_detail(
         else "Zpět na rozesílání"
     )
 
-    return templates.TemplateResponse("tax/matching.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "tax/matching.html", {
         "active_nav": "tax",
         "session": session,
         "documents": documents,

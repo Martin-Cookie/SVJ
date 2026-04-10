@@ -103,8 +103,7 @@ def _contact_mapping_page(
 
     ctx = build_mapping_context(headers, CONTACT_FIELD_DEFS, CONTACT_FIELD_GROUPS, saved_mapping)
 
-    return templates.TemplateResponse("owners/contact_import_mapping.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "owners/contact_import_mapping.html", {
         "active_nav": "owners",
         **build_import_wizard(2),
         "file_path": file_path,
@@ -216,8 +215,7 @@ async def contact_import_processing(
     if progress.get("done"):
         return RedirectResponse(f"/vlastnici/import-kontaktu/nahled-vysledek?soubor={quote(soubor)}", status_code=302)
 
-    return templates.TemplateResponse("owners/contact_import_processing.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "owners/contact_import_processing.html", {
         "active_nav": "owners",
         "file_key": soubor,
         **_contact_progress_ctx(progress),
@@ -241,8 +239,7 @@ async def contact_import_status(
         response.headers["HX-Redirect"] = f"/vlastnici/import-kontaktu/nahled-vysledek?soubor={quote(soubor)}"
         return response
 
-    return templates.TemplateResponse("partials/contact_import_progress.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "partials/contact_import_progress.html", {
         **_contact_progress_ctx(progress),
     })
 
@@ -263,8 +260,7 @@ async def contact_import_preview_page(
     mapping = data.get("mapping")
     mapping_json_str = json.dumps(mapping, ensure_ascii=False) if mapping else ""
 
-    return templates.TemplateResponse("owners/contact_import_preview.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "owners/contact_import_preview.html", {
         "active_nav": "owners",
         **build_import_wizard(3),
         "preview": data["result"],
@@ -355,8 +351,7 @@ async def contact_import_confirm(
                  description=f"{result['owners_updated']} vlastníků, {result['fields_updated']} polí")
     db.commit()
 
-    return templates.TemplateResponse("owners/contact_import_result.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "owners/contact_import_result.html", {
         "active_nav": "owners",
         "result": result,
         "file_path": file_path,

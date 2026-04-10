@@ -159,9 +159,9 @@ async def platby_prehled(
     }
 
     if is_htmx_partial(request):
-        return templates.TemplateResponse("payments/partials/prehled_tbody.html", ctx)
+        return templates.TemplateResponse(request, "payments/partials/prehled_tbody.html", ctx)
 
-    return templates.TemplateResponse("payments/prehled.html", ctx)
+    return templates.TemplateResponse(request, "payments/prehled.html", ctx)
 
 
 # ── Export matice plateb ──────────────────────────────────────────────
@@ -383,9 +383,9 @@ async def platby_dluznici(
     }
 
     if is_htmx_partial(request):
-        return templates.TemplateResponse("payments/partials/dluznici_tbody.html", ctx)
+        return templates.TemplateResponse(request, "payments/partials/dluznici_tbody.html", ctx)
 
-    return templates.TemplateResponse("payments/dluznici.html", ctx)
+    return templates.TemplateResponse(request, "payments/dluznici.html", ctx)
 
 
 # ── Export dlužníků ──────────────────────────────────────────────────
@@ -510,8 +510,7 @@ async def platby_jednotka(
     else:
         back_label = "Zpět na platby"
 
-    return templates.TemplateResponse("payments/jednotka_platby.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "payments/jednotka_platby.html", {
         "active_nav": "platby",
         "active_tab": "prehled",
         "unit": unit,
@@ -562,8 +561,7 @@ async def platby_prostor(
     else:
         back_label = "Zpět na platby"
 
-    return templates.TemplateResponse("payments/prostor_platby.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "payments/prostor_platby.html", {
         "active_nav": "platby",
         "active_tab": "prehled",
         "space": space,

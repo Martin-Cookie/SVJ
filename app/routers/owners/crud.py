@@ -38,8 +38,7 @@ router = APIRouter()
 @router.get("/novy-formular")
 async def owner_create_form(request: Request):
     """Formulář pro vytvoření nového vlastníka."""
-    return templates.TemplateResponse("partials/owner_create_form.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "partials/owner_create_form.html", {
     })
 
 
@@ -77,8 +76,7 @@ async def owner_create(
     # Validate email — return form with error if invalid
     email_clean = email.strip() if email else ""
     if email_clean and not is_valid_email(email_clean):
-        return templates.TemplateResponse("partials/owner_create_form.html", {
-            "request": request,
+        return templates.TemplateResponse(request, "partials/owner_create_form.html", {
             "error": f"Neplatný formát emailu: {email_clean}",
             "form_data": {
                 "first_name": first_name, "last_name": last_name,
@@ -115,8 +113,7 @@ async def owner_create(
 
     # If duplicates found and user hasn't confirmed, show warning
     if duplicates and force_create != "1":
-        return templates.TemplateResponse("partials/owner_create_form.html", {
-            "request": request,
+        return templates.TemplateResponse(request, "partials/owner_create_form.html", {
             "duplicates": duplicates,
             "form_data": {
                 "first_name": first_name, "last_name": last_name,
@@ -187,8 +184,7 @@ async def owner_list(
 
     # Return partial only for targeted HTMX requests (search/filter), not boosted navigation
     if is_htmx_partial(request):
-        return templates.TemplateResponse("partials/owner_table_body.html", {
-            "request": request,
+        return templates.TemplateResponse(request, "partials/owner_table_body.html", {
             "owners": owners,
             "list_url": list_url,
             "debt_map": debt_map,
@@ -242,8 +238,7 @@ async def owner_list(
     )
     ownership_counts = {ot or "": cnt for ot, cnt in ownership_counts_raw}
 
-    return templates.TemplateResponse("owners/list.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "owners/list.html", {
         "active_nav": "owners",
         "owners": owners,
         "list_url": list_url,
@@ -433,7 +428,7 @@ async def owner_detail(
     elif info == "neplatny-email":
         ctx["flash_message"] = "Vlastník vytvořen, ale zadaný email měl neplatný formát a nebyl uložen."
         ctx["flash_type"] = "warning"
-    return templates.TemplateResponse("owners/detail.html", ctx)
+    return templates.TemplateResponse(request, "owners/detail.html", ctx)
 
 
 @router.get("/{owner_id}/identita-formular")
@@ -446,8 +441,7 @@ async def owner_identity_edit_form(
     owner = db.query(Owner).get(owner_id)
     if not owner:
         return RedirectResponse("/vlastnici", status_code=302)
-    return templates.TemplateResponse("partials/owner_identity_form.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "partials/owner_identity_form.html", {
         "owner": owner,
     })
 
@@ -462,8 +456,7 @@ async def owner_identity_info(
     owner = db.query(Owner).get(owner_id)
     if not owner:
         return RedirectResponse("/vlastnici", status_code=302)
-    return templates.TemplateResponse("partials/owner_identity_info.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "partials/owner_identity_info.html", {
         "owner": owner,
     })
 
@@ -525,8 +518,7 @@ async def owner_identity_update(
         )
 
     if request.headers.get("HX-Request"):
-        identity_html = templates.TemplateResponse("partials/owner_identity_info.html", {
-            "request": request,
+        identity_html = templates.TemplateResponse(request, "partials/owner_identity_info.html", {
             "owner": owner,
             "saved": True,
             "duplicates": duplicates,
@@ -568,8 +560,7 @@ async def owner_merge(
 
     if request.headers.get("HX-Request"):
         # Refresh identity section (no more duplicates)
-        identity_html = templates.TemplateResponse("partials/owner_identity_info.html", {
-            "request": request,
+        identity_html = templates.TemplateResponse(request, "partials/owner_identity_info.html", {
             "owner": owner,
             "saved": True,
             "duplicates": [],
@@ -578,8 +569,7 @@ async def owner_merge(
         available_units, declared_shares = _owner_units_context(owner, db)
         _bal_py = db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).first()
         _udm = compute_debt_map(db, _bal_py.year) if _bal_py else {}
-        units_html = templates.TemplateResponse("partials/owner_units_section.html", {
-            "request": request,
+        units_html = templates.TemplateResponse(request, "partials/owner_units_section.html", {
             "owner": owner,
             "available_units": available_units,
             "declared_shares": declared_shares,
@@ -605,8 +595,7 @@ async def owner_edit_form(
     owner = db.query(Owner).get(owner_id)
     if not owner:
         return RedirectResponse("/vlastnici", status_code=302)
-    return templates.TemplateResponse("partials/owner_contact_form.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "partials/owner_contact_form.html", {
         "owner": owner,
     })
 
@@ -621,8 +610,7 @@ async def owner_info(
     owner = db.query(Owner).get(owner_id)
     if not owner:
         return RedirectResponse("/vlastnici", status_code=302)
-    return templates.TemplateResponse("partials/owner_contact_info.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "partials/owner_contact_info.html", {
         "owner": owner,
     })
 
@@ -640,8 +628,7 @@ async def owner_address_edit_form(
     owner = db.query(Owner).get(owner_id)
     if not owner:
         return RedirectResponse("/vlastnici", status_code=302)
-    return templates.TemplateResponse("partials/owner_address_form.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "partials/owner_address_form.html", {
         "owner": owner,
         **_address_context(owner, prefix),
     })
@@ -660,8 +647,7 @@ async def owner_address_info(
     owner = db.query(Owner).get(owner_id)
     if not owner:
         return RedirectResponse("/vlastnici", status_code=302)
-    return templates.TemplateResponse("partials/owner_address_info.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "partials/owner_address_info.html", {
         "owner": owner,
         **_address_context(owner, prefix),
     })
@@ -695,8 +681,7 @@ async def owner_address_update(
     db.commit()
 
     if request.headers.get("HX-Request"):
-        return templates.TemplateResponse("partials/owner_address_info.html", {
-            "request": request,
+        return templates.TemplateResponse(request, "partials/owner_address_info.html", {
             "owner": owner,
             "saved": True,
             **_address_context(owner, prefix),
@@ -727,8 +712,7 @@ async def owner_update(
         db.commit()
 
     if request.headers.get("HX-Request"):
-        return templates.TemplateResponse("partials/owner_contact_info.html", {
-            "request": request,
+        return templates.TemplateResponse(request, "partials/owner_contact_info.html", {
             "owner": owner,
             "saved": True,
         })
@@ -781,8 +765,7 @@ async def owner_add_unit(
         available_units, declared_shares = _owner_units_context(owner, db)
         _bal_py = db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).first()
         _udm = compute_debt_map(db, _bal_py.year) if _bal_py else {}
-        return templates.TemplateResponse("partials/owner_units_section.html", {
-            "request": request,
+        return templates.TemplateResponse(request, "partials/owner_units_section.html", {
             "owner": owner,
             "available_units": available_units,
             "declared_shares": declared_shares,
@@ -813,8 +796,7 @@ async def owner_remove_unit(
         available_units, declared_shares = _owner_units_context(owner, db)
         _bal_py = db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).first()
         _udm = compute_debt_map(db, _bal_py.year) if _bal_py else {}
-        return templates.TemplateResponse("partials/owner_units_section.html", {
-            "request": request,
+        return templates.TemplateResponse(request, "partials/owner_units_section.html", {
             "owner": owner,
             "available_units": available_units,
             "declared_shares": declared_shares,

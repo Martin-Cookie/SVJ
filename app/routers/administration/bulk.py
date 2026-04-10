@@ -44,8 +44,7 @@ router = APIRouter()
 async def purge_page(request: Request, db: Session = Depends(get_db)):
     """Stránka pro hromadné mazání dat podle kategorií."""
     purge_counts = _purge_counts(db)
-    return templates.TemplateResponse("administration/purge.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "administration/purge.html", {
         "active_nav": "administration",
         "purge_categories": _PURGE_CATEGORIES,
         "purge_order": _PURGE_ORDER,
@@ -141,8 +140,7 @@ async def purge_data(request: Request, db: Session = Depends(get_db)):
 async def export_page(request: Request, db: Session = Depends(get_db)):
     """Stránka pro export dat podle kategorií."""
     purge_counts = _purge_counts(db)
-    return templates.TemplateResponse("administration/export.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "administration/export.html", {
         "active_nav": "administration",
         "export_categories": EXPORT_CATEGORIES,
         "export_order": EXPORT_ORDER,
@@ -245,8 +243,7 @@ async def bulk_edit_page(request: Request, db: Session = Depends(get_db)):
             "model_label": "jednotek" if info["model"] == "unit" else "vazeb",
         }
 
-    return templates.TemplateResponse("administration/bulk_edit.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "administration/bulk_edit.html", {
         "active_nav": "administration",
         "fields": _BULK_FIELDS,
         "field_stats": field_stats,
@@ -258,8 +255,7 @@ async def bulk_edit_values(request: Request, pole: str, db: Session = Depends(ge
     """Seznam unikátních hodnot pro hromadnou úpravu daného pole."""
     field_info = _BULK_FIELDS.get(pole)
     if not field_info:
-        return templates.TemplateResponse("administration/bulk_edit_values.html", {
-            "request": request, "values": [], "field_key": pole, "field_label": "",
+        return templates.TemplateResponse(request, "administration/bulk_edit_values.html", { "values": [], "field_key": pole, "field_label": "",
         })
 
     model = Unit if field_info["model"] == "unit" else OwnerUnit
@@ -284,8 +280,7 @@ async def bulk_edit_values(request: Request, pole: str, db: Session = Depends(ge
         ]
         suggestions = sorted(set(suggestions) | set(cl_values))
 
-    return templates.TemplateResponse("administration/bulk_edit_values.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "administration/bulk_edit_values.html", {
         "values": values,
         "field_key": pole,
         "field_label": field_info["label"],
@@ -300,8 +295,7 @@ async def bulk_edit_records(
     """Záznamy s konkrétní hodnotou pole pro hromadnou úpravu."""
     field_info = _BULK_FIELDS.get(pole)
     if not field_info:
-        return templates.TemplateResponse("administration/bulk_edit_records.html", {
-            "request": request, "records": [], "model_type": "",
+        return templates.TemplateResponse(request, "administration/bulk_edit_records.html", { "records": [], "model_type": "",
         })
 
     is_null = hodnota == "__null__"
@@ -317,8 +311,7 @@ async def bulk_edit_records(
         else:
             q = q.filter(col == hodnota)
         records = q.order_by(Unit.unit_number).all()
-        return templates.TemplateResponse("administration/bulk_edit_records.html", {
-            "request": request, "records": records, "model_type": "unit",
+        return templates.TemplateResponse(request, "administration/bulk_edit_records.html", { "records": records, "model_type": "unit",
             "back_url": back_url,
         })
     else:
@@ -332,8 +325,7 @@ async def bulk_edit_records(
         else:
             q = q.filter(col == hodnota)
         records = q.order_by(OwnerUnit.unit_id).all()
-        return templates.TemplateResponse("administration/bulk_edit_records.html", {
-            "request": request, "records": records, "model_type": "owner_unit",
+        return templates.TemplateResponse(request, "administration/bulk_edit_records.html", { "records": records, "model_type": "owner_unit",
             "back_url": back_url,
         })
 
@@ -433,8 +425,7 @@ async def duplicates_page(
     groups = find_duplicate_groups(db)
     back_url = back or "/sprava"
 
-    return templates.TemplateResponse("administration/duplicates.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "administration/duplicates.html", {
         "active_nav": "administration",
         "groups": groups,
         "total_groups": len(groups),

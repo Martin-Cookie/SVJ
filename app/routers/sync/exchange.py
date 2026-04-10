@@ -37,8 +37,7 @@ async def exchange_preview_single(
         back_url += f"?filtr={filtr}"
     back_url += f"#sync-{record_id}"
 
-    return templates.TemplateResponse("sync/exchange_preview.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "sync/exchange_preview.html", {
         "active_nav": "kontroly",
         "session": session,
         "previews": previews,
@@ -109,8 +108,7 @@ async def exchange_preview_batch(
     if filtr:
         back_url += f"?filtr={filtr}"
 
-    return templates.TemplateResponse("sync/exchange_preview.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "sync/exchange_preview.html", {
         "active_nav": "kontroly",
         "session": session,
         "previews": previews,

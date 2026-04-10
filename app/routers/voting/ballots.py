@@ -133,9 +133,9 @@ async def ballot_list(
 
     # HTMX partial: return only the table
     if is_htmx_partial(request):
-        return templates.TemplateResponse("voting/ballots_table.html", ctx)
+        return templates.TemplateResponse(request, "voting/ballots_table.html", ctx)
 
-    return templates.TemplateResponse("voting/ballots.html", ctx)
+    return templates.TemplateResponse(request, "voting/ballots.html", ctx)
 
 
 @router.get("/{voting_id}/listek/{ballot_id}")
@@ -176,7 +176,7 @@ async def ballot_detail(
         **_ballot_stats(voting, db),
         **_voting_wizard(voting, 3),
     }
-    return templates.TemplateResponse("voting/ballot_detail.html", ctx)
+    return templates.TemplateResponse(request, "voting/ballot_detail.html", ctx)
 
 
 @router.get("/{voting_id}/zpracovani")
@@ -280,9 +280,9 @@ async def process_page(
             logger.debug("Cannot parse batch process count from info param: '%s'", info)
 
     if is_htmx_partial(request):
-        return templates.TemplateResponse("voting/process_cards.html", ctx)
+        return templates.TemplateResponse(request, "voting/process_cards.html", ctx)
 
-    return templates.TemplateResponse("voting/process.html", ctx)
+    return templates.TemplateResponse(request, "voting/process.html", ctx)
 
 
 @router.post("/{voting_id}/zpracovat/{ballot_id}")
@@ -317,8 +317,7 @@ async def process_ballot(
         db.rollback()
         if request.headers.get("HX-Request"):
             voting = db.query(Voting).options(joinedload(Voting.items)).get(voting_id)
-            return templates.TemplateResponse("partials/ballot_vote_error.html", {
-                "request": request,
+            return templates.TemplateResponse(request, "partials/ballot_vote_error.html", {
                 "ballot": ballot,
                 "voting": voting,
                 "error": "Vyberte hlas alespoň u jednoho bodu.",
@@ -330,8 +329,7 @@ async def process_ballot(
     db.commit()
 
     if request.headers.get("HX-Request"):
-        return templates.TemplateResponse("partials/ballot_processed.html", {
-            "request": request,
+        return templates.TemplateResponse(request, "partials/ballot_processed.html", {
             "ballot": ballot,
         })
     # If submitted from ballot detail, redirect there; otherwise to bulk processing
@@ -537,9 +535,9 @@ async def not_submitted(
     }
 
     if is_htmx_partial(request):
-        return templates.TemplateResponse("voting/not_submitted_table.html", ctx)
+        return templates.TemplateResponse(request, "voting/not_submitted_table.html", ctx)
 
-    return templates.TemplateResponse("voting/not_submitted.html", ctx)
+    return templates.TemplateResponse(request, "voting/not_submitted.html", ctx)
 
 
 @router.get("/{voting_id}/neodevzdane/exportovat")

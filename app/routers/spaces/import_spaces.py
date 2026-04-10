@@ -54,8 +54,7 @@ async def space_import_page(
         flash_message = "Nahraný soubor již neexistuje. Nahrajte soubor znovu."
         flash_type = "error"
 
-    return templates.TemplateResponse("spaces/space_import.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "spaces/space_import.html", {
         "active_nav": "spaces",
         **build_import_wizard(1),
         "imports": imports,
@@ -74,8 +73,7 @@ async def space_import_upload(
     """Step 1: Upload Excel -> show mapping page."""
     err = await validate_upload(file, **UPLOAD_LIMITS["excel"]) if file.filename else "Nahrajte prosím soubor ve formátu .xlsx"
     if err:
-        return templates.TemplateResponse("spaces/space_import.html", {
-            "request": request,
+        return templates.TemplateResponse(request, "spaces/space_import.html", {
             "active_nav": "spaces",
             **build_import_wizard(1),
             "flash_message": err,
@@ -146,8 +144,7 @@ def _space_mapping_page(
 
     space_count = db.query(Space).count()
 
-    return templates.TemplateResponse("spaces/space_import_mapping.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "spaces/space_import_mapping.html", {
         "active_nav": "spaces",
         **build_import_wizard(2),
         "file_path": file_path,
@@ -196,8 +193,7 @@ async def space_import_preview(
 
     space_count = db.query(Space).count()
 
-    return templates.TemplateResponse("spaces/space_import_preview.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "spaces/space_import_preview.html", {
         "active_nav": "spaces",
         **build_import_wizard(3),
         "preview": preview,

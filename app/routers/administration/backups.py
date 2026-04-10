@@ -75,8 +75,7 @@ async def backups_page(
     elif zprava == "vytvoreno":
         flash_message = "Záloha úspěšně vytvořena."
 
-    return templates.TemplateResponse("administration/backups.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "administration/backups.html", {
         "active_nav": "administration",
         "backups": backups,
         "restore_log": restore_log,

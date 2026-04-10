@@ -144,9 +144,9 @@ async def zustatky_seznam(
     }
 
     if is_htmx_partial(request):
-        return templates.TemplateResponse("payments/partials/zustatky_tbody.html", ctx)
+        return templates.TemplateResponse(request, "payments/partials/zustatky_tbody.html", ctx)
 
-    return templates.TemplateResponse("payments/zustatky.html", ctx)
+    return templates.TemplateResponse(request, "payments/zustatky.html", ctx)
 
 
 # ── Ruční správa ─────────────────────────────────────────────────────────
@@ -268,8 +268,7 @@ async def zustatky_import_upload(
     db: Session = Depends(get_db),
 ):
     """Upload formulář pro import zůstatků."""
-    return templates.TemplateResponse("payments/zustatky_import.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "payments/zustatky_import.html", {
         "active_nav": "platby",
         "active_tab": "zustatky",
         **build_import_wizard(1),
@@ -288,8 +287,7 @@ async def zustatky_import_upload_post(
     """Zpracování uploadu — uložit soubor, redirect na mapování."""
     err = await validate_upload(file, **UPLOAD_LIMITS["excel"])
     if err:
-        return templates.TemplateResponse("payments/zustatky_import.html", {
-            "request": request,
+        return templates.TemplateResponse(request, "payments/zustatky_import.html", {
             "active_nav": "platby",
             "active_tab": "zustatky",
             **build_import_wizard(1),
@@ -361,8 +359,7 @@ def _balance_mapping_page(
     headers = read_excel_headers(file_path, sheet_name=sheet_name, header_row=start_row)
     ctx = build_mapping_context(headers, BALANCE_FIELD_DEFS, BALANCE_FIELD_GROUPS, saved_mapping)
 
-    return templates.TemplateResponse("payments/zustatky_mapping.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "payments/zustatky_mapping.html", {
         "active_nav": "platby",
         "active_tab": "zustatky",
         **build_import_wizard(2),
@@ -408,8 +405,7 @@ async def zustatky_import_preview(
     from app.services.balance_import import preview_balance_import
     result = preview_balance_import(file_path, mapping, year, db)
 
-    return templates.TemplateResponse("payments/zustatky_preview.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "payments/zustatky_preview.html", {
         "active_nav": "platby",
         "active_tab": "zustatky",
         **build_import_wizard(3),

@@ -67,8 +67,7 @@ async def shares_breakdown(request: Request, vse: int = 0, db: Session = Depends
     show_all = bool(vse)
     filtered_items = items if show_all else [i for i in items if i["diff"] != 0]
 
-    return templates.TemplateResponse("dashboard_shares.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "dashboard_shares.html", {
         "active_nav": "dashboard",
         "declared_shares": declared_shares,
         "total_units_scd": total_units_scd,
@@ -388,9 +387,9 @@ async def home(
     }
 
     if request.headers.get("HX-Request") and not request.headers.get("HX-Boosted"):
-        return templates.TemplateResponse("partials/dashboard_activity_body.html", ctx)
+        return templates.TemplateResponse(request, "partials/dashboard_activity_body.html", ctx)
 
-    return templates.TemplateResponse("dashboard.html", ctx)
+    return templates.TemplateResponse(request, "dashboard.html", ctx)
 
 
 # Module labels for export

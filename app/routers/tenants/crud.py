@@ -27,8 +27,7 @@ router = APIRouter()
 @router.get("/novy-formular")
 async def tenant_create_form(request: Request):
     """Formulář pro vytvoření nového nájemce."""
-    return templates.TemplateResponse("tenants/partials/_create_form.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "tenants/partials/_create_form.html", {
     })
 
 
@@ -58,15 +57,13 @@ async def tenant_create(
     }
 
     if not first_name and not last_name:
-        return templates.TemplateResponse("tenants/partials/_create_form.html", {
-            "request": request,
+        return templates.TemplateResponse(request, "tenants/partials/_create_form.html", {
             "error": "Jméno nebo příjmení je povinné.",
             "form_data": form_data,
         })
 
     if email.strip() and not is_valid_email(email.strip()):
-        return templates.TemplateResponse("tenants/partials/_create_form.html", {
-            "request": request,
+        return templates.TemplateResponse(request, "tenants/partials/_create_form.html", {
             "error": "Neplatný formát emailu.",
             "form_data": form_data,
         })
@@ -102,8 +99,7 @@ async def tenant_create(
             seen_ids.add(dup.id)
 
     if duplicates and force_create != "1":
-        return templates.TemplateResponse("tenants/partials/_create_form.html", {
-            "request": request,
+        return templates.TemplateResponse(request, "tenants/partials/_create_form.html", {
             "duplicates": duplicates,
             "form_data": form_data,
         })
@@ -145,8 +141,7 @@ async def tenant_identity_form(
     tenant = db.query(Tenant).options(joinedload(Tenant.owner)).get(tenant_id)
     if not tenant:
         return RedirectResponse("/najemci", status_code=302)
-    return templates.TemplateResponse("tenants/partials/_tenant_identity_form.html", {
-        "request": request, "tenant": tenant,
+    return templates.TemplateResponse(request, "tenants/partials/_tenant_identity_form.html", { "tenant": tenant,
     })
 
 
@@ -160,8 +155,7 @@ async def tenant_identity_info(
     tenant = db.query(Tenant).options(joinedload(Tenant.owner)).get(tenant_id)
     if not tenant:
         return RedirectResponse("/najemci", status_code=302)
-    return templates.TemplateResponse("tenants/partials/_tenant_identity_info.html", {
-        "request": request, "tenant": tenant,
+    return templates.TemplateResponse(request, "tenants/partials/_tenant_identity_info.html", { "tenant": tenant,
     })
 
 
@@ -183,8 +177,7 @@ async def tenant_identity_update(
     if not tenant:
         return RedirectResponse("/najemci", status_code=302)
     if tenant.is_linked:
-        return templates.TemplateResponse("tenants/partials/_tenant_identity_info.html", {
-            "request": request, "tenant": tenant,
+        return templates.TemplateResponse(request, "tenants/partials/_tenant_identity_info.html", { "tenant": tenant,
             "error": "Propojený nájemce — upravte údaje v detailu vlastníka.",
         })
 
@@ -193,8 +186,7 @@ async def tenant_identity_update(
     last_name = last_name.strip()
 
     if not first_name and not last_name:
-        return templates.TemplateResponse("tenants/partials/_tenant_identity_form.html", {
-            "request": request, "tenant": tenant,
+        return templates.TemplateResponse(request, "tenants/partials/_tenant_identity_form.html", { "tenant": tenant,
             "error": "Jméno nebo příjmení je povinné.",
         })
 
@@ -209,8 +201,7 @@ async def tenant_identity_update(
     tenant.updated_at = utcnow()
     db.commit()
 
-    return templates.TemplateResponse("tenants/partials/_tenant_identity_info.html", {
-        "request": request, "tenant": tenant, "saved": True,
+    return templates.TemplateResponse(request, "tenants/partials/_tenant_identity_info.html", { "tenant": tenant, "saved": True,
     })
 
 
@@ -227,8 +218,7 @@ async def tenant_contact_form(
     tenant = db.query(Tenant).options(joinedload(Tenant.owner)).get(tenant_id)
     if not tenant:
         return RedirectResponse("/najemci", status_code=302)
-    return templates.TemplateResponse("tenants/partials/_tenant_contact_form.html", {
-        "request": request, "tenant": tenant,
+    return templates.TemplateResponse(request, "tenants/partials/_tenant_contact_form.html", { "tenant": tenant,
     })
 
 
@@ -242,8 +232,7 @@ async def tenant_contact_info(
     tenant = db.query(Tenant).options(joinedload(Tenant.owner)).get(tenant_id)
     if not tenant:
         return RedirectResponse("/najemci", status_code=302)
-    return templates.TemplateResponse("tenants/partials/_tenant_contact_info.html", {
-        "request": request, "tenant": tenant,
+    return templates.TemplateResponse(request, "tenants/partials/_tenant_contact_info.html", { "tenant": tenant,
     })
 
 
@@ -263,19 +252,16 @@ async def tenant_contact_update(
     if not tenant:
         return RedirectResponse("/najemci", status_code=302)
     if tenant.is_linked:
-        return templates.TemplateResponse("tenants/partials/_tenant_contact_info.html", {
-            "request": request, "tenant": tenant,
+        return templates.TemplateResponse(request, "tenants/partials/_tenant_contact_info.html", { "tenant": tenant,
             "error": "Propojený nájemce — upravte údaje v detailu vlastníka.",
         })
 
     if email.strip() and not is_valid_email(email.strip()):
-        return templates.TemplateResponse("tenants/partials/_tenant_contact_form.html", {
-            "request": request, "tenant": tenant,
+        return templates.TemplateResponse(request, "tenants/partials/_tenant_contact_form.html", { "tenant": tenant,
             "error": "Neplatný formát emailu.",
         })
     if email_secondary.strip() and not is_valid_email(email_secondary.strip()):
-        return templates.TemplateResponse("tenants/partials/_tenant_contact_form.html", {
-            "request": request, "tenant": tenant,
+        return templates.TemplateResponse(request, "tenants/partials/_tenant_contact_form.html", { "tenant": tenant,
             "error": "Neplatný formát sekundárního emailu.",
         })
 
@@ -287,8 +273,7 @@ async def tenant_contact_update(
     tenant.updated_at = utcnow()
     db.commit()
 
-    return templates.TemplateResponse("tenants/partials/_tenant_contact_info.html", {
-        "request": request, "tenant": tenant, "saved": True,
+    return templates.TemplateResponse(request, "tenants/partials/_tenant_contact_info.html", { "tenant": tenant, "saved": True,
     })
 
 
@@ -322,8 +307,7 @@ async def tenant_address_form(
     tenant = db.query(Tenant).options(joinedload(Tenant.owner)).get(tenant_id)
     if not tenant:
         return RedirectResponse("/najemci", status_code=302)
-    return templates.TemplateResponse("tenants/partials/_tenant_address_form.html", {
-        "request": request, **_address_ctx(tenant, prefix),
+    return templates.TemplateResponse(request, "tenants/partials/_tenant_address_form.html", { **_address_ctx(tenant, prefix),
     })
 
 
@@ -340,8 +324,7 @@ async def tenant_address_info(
     tenant = db.query(Tenant).options(joinedload(Tenant.owner)).get(tenant_id)
     if not tenant:
         return RedirectResponse("/najemci", status_code=302)
-    return templates.TemplateResponse("tenants/partials/_tenant_address_info.html", {
-        "request": request, **_address_ctx(tenant, prefix),
+    return templates.TemplateResponse(request, "tenants/partials/_tenant_address_info.html", { **_address_ctx(tenant, prefix),
     })
 
 
@@ -364,8 +347,7 @@ async def tenant_address_update(
     if not tenant:
         return RedirectResponse("/najemci", status_code=302)
     if tenant.is_linked:
-        return templates.TemplateResponse("tenants/partials/_tenant_address_info.html", {
-            "request": request, **_address_ctx(tenant, prefix),
+        return templates.TemplateResponse(request, "tenants/partials/_tenant_address_info.html", { **_address_ctx(tenant, prefix),
             "error": "Propojený nájemce — upravte údaje v detailu vlastníka.",
         })
 
@@ -385,8 +367,7 @@ async def tenant_address_update(
     tenant.updated_at = utcnow()
     db.commit()
 
-    return templates.TemplateResponse("tenants/partials/_tenant_address_info.html", {
-        "request": request, **_address_ctx(tenant, prefix, saved=True),
+    return templates.TemplateResponse(request, "tenants/partials/_tenant_address_info.html", { **_address_ctx(tenant, prefix, saved=True),
     })
 
 
@@ -494,8 +475,7 @@ async def tenant_list(
     list_url = build_list_url(request)
 
     if is_htmx_partial(request):
-        return templates.TemplateResponse("tenants/partials/_tbody.html", {
-            "request": request,
+        return templates.TemplateResponse(request, "tenants/partials/_tbody.html", {
             "tenants": tenants,
             "list_url": list_url,
         })
@@ -506,8 +486,7 @@ async def tenant_list(
     if flash == "deleted":
         flash_message = "Nájemce byl smazán."
 
-    return templates.TemplateResponse("tenants/list.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "tenants/list.html", {
         "active_nav": "tenants",
         "tenants": tenants,
         "list_url": list_url,
@@ -662,8 +641,7 @@ async def tenant_detail(
     elif flash == "unlinked":
         flash_message = "Propojení s vlastníkem zrušeno."
 
-    return templates.TemplateResponse("tenants/detail.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "tenants/detail.html", {
         "active_nav": "tenants",
         "tenant": tenant,
         "active_rels": active_rels,

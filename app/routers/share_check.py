@@ -76,7 +76,7 @@ async def share_check_list(
             "list_url": list_url,
             "q": q,
         }
-        return templates.TemplateResponse("partials/share_check_list_body.html", ctx)
+        return templates.TemplateResponse(request, "partials/share_check_list_body.html", ctx)
 
     # Full page → redirect to combined page
     return RedirectResponse("/synchronizace#kontrola-podilu", status_code=302)
@@ -138,8 +138,7 @@ async def share_check_mapping(
         logger.debug("Failed to load file preview for %s", file_path, exc_info=True)
         preview = {}
 
-    return templates.TemplateResponse("share_check/mapping.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "share_check/mapping.html", {
         "active_nav": "kontroly",
         "headers": headers,
         "col_unit": col_unit,
@@ -334,8 +333,7 @@ async def share_check_detail(
     back_url = back or "/synchronizace#kontrola-podilu"
     back_label = "Zpět na přehled" if back == "/" else "Zpět na kontroly" if "/synchronizace" in (back or "") else "Zpět"
 
-    return templates.TemplateResponse("share_check/compare.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "share_check/compare.html", {
         "active_nav": "kontroly",
         "session": session,
         "records": records,

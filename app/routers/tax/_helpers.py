@@ -184,8 +184,7 @@ def _reload_doc_row(doc_id: int, session_id: int, request: Request, db: Session)
 
     is_locked = doc.session.send_status in (SendStatus.READY, SendStatus.SENDING, SendStatus.PAUSED, SendStatus.COMPLETED) if doc.session.send_status else False
 
-    return templates.TemplateResponse("partials/tax_match_row.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "partials/tax_match_row.html", {
         "doc": doc,
         "session": doc.session,
         "list_url": list_url,

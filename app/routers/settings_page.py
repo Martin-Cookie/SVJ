@@ -125,8 +125,8 @@ async def settings_view(
     }
 
     if is_htmx_partial(request):
-        return templates.TemplateResponse("partials/settings_email_tbody.html", ctx)
-    return templates.TemplateResponse("settings.html", ctx)
+        return templates.TemplateResponse(request, "partials/settings_email_tbody.html", ctx)
+    return templates.TemplateResponse(request, "settings.html", ctx)
 
 
 @router.get("/exportovat/{fmt}")
@@ -216,8 +216,7 @@ async def email_log_export(
 @router.get("/smtp/formular")
 async def smtp_form(request: Request):
     """Formulář pro editaci SMTP nastavení."""
-    return templates.TemplateResponse("partials/smtp_form.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "partials/smtp_form.html", {
         "settings": settings,
     })
 
@@ -225,8 +224,7 @@ async def smtp_form(request: Request):
 @router.get("/smtp/info")
 async def smtp_info(request: Request):
     """Zobrazení aktuálního SMTP nastavení (read-only)."""
-    return templates.TemplateResponse("partials/smtp_info.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "partials/smtp_info.html", {
         "settings": settings,
     })
 
@@ -265,8 +263,7 @@ async def save_smtp(
     settings.smtp_from_email = smtp_from_email
     settings.smtp_use_tls = use_tls
 
-    return templates.TemplateResponse("partials/smtp_info.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "partials/smtp_info.html", {
         "settings": settings,
         "saved": True,
     })
@@ -277,8 +274,7 @@ async def test_smtp_connection(request: Request):
     """Test SMTP connection and return result as partial HTML."""
     try:
         if settings.smtp_host in ("smtp.example.com", ""):
-            return templates.TemplateResponse("partials/smtp_info.html", {
-                "request": request,
+            return templates.TemplateResponse(request, "partials/smtp_info.html", {
                 "settings": settings,
                 "smtp_test_error": "SMTP server není nakonfigurován.",
             })
@@ -287,21 +283,18 @@ async def test_smtp_connection(request: Request):
         if settings.smtp_user:
             server.login(settings.smtp_user, settings.smtp_password)
         server.quit()
-        return templates.TemplateResponse("partials/smtp_info.html", {
-            "request": request,
+        return templates.TemplateResponse(request, "partials/smtp_info.html", {
             "settings": settings,
             "smtp_test_ok": True,
         })
     except smtplib.SMTPAuthenticationError:
-        return templates.TemplateResponse("partials/smtp_info.html", {
-            "request": request,
+        return templates.TemplateResponse(request, "partials/smtp_info.html", {
             "settings": settings,
             "smtp_test_error": "Přihlášení selhalo — zkontrolujte uživatele a heslo.",
         })
     except Exception as e:
         logger.warning("SMTP test failed: %s", e)
-        return templates.TemplateResponse("partials/smtp_info.html", {
-            "request": request,
+        return templates.TemplateResponse(request, "partials/smtp_info.html", {
             "settings": settings,
             "smtp_test_error": "Připojení k SMTP serveru selhalo.",
         })

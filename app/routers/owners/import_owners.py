@@ -59,8 +59,7 @@ async def import_page(
     elif chyba_kontakty == "soubor_chybi":
         contact_flash = "Nahraný soubor již neexistuje. Nahrajte soubor znovu."
 
-    return templates.TemplateResponse("owners/import.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "owners/import.html", {
         "active_nav": "import",
         "imports": imports,
         "contact_imports": contact_imports,
@@ -80,8 +79,7 @@ async def import_excel_upload(
     """Step 1: Upload Excel -> show mapping page."""
     err = await validate_upload(file, **UPLOAD_LIMITS["excel"]) if file.filename else "Nahrajte prosím soubor ve formátu .xlsx"
     if err:
-        return templates.TemplateResponse("owners/import.html", {
-            "request": request,
+        return templates.TemplateResponse(request, "owners/import.html", {
             "active_nav": "import",
             "flash_message": err,
             "flash_type": "error",
@@ -138,8 +136,7 @@ def _owner_mapping_page(
 
     owner_count = db.query(Owner).count()
 
-    return templates.TemplateResponse("owners/owner_import_mapping.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "owners/owner_import_mapping.html", {
         "active_nav": "import",
         **build_import_wizard(2),
         "file_path": file_path,
@@ -185,8 +182,7 @@ async def import_excel_preview(
 
     preview = preview_owners_from_excel(file_path, mapping=mapping)
 
-    return templates.TemplateResponse("owners/import_preview.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "owners/import_preview.html", {
         "active_nav": "import",
         **build_import_wizard(3),
         "preview": preview,
@@ -243,8 +239,7 @@ async def import_excel_confirm(
                  description=f"{result['owners_created']} vlastníků, {result.get('units_created', 0)} jednotek")
     db.commit()
 
-    return templates.TemplateResponse("owners/import_result.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "owners/import_result.html", {
         "active_nav": "import",
         "result": result,
     })
