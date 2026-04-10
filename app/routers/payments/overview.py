@@ -1,5 +1,6 @@
 """Přehled plateb — matice, dlužníci, detail jednotky."""
 
+import io
 from datetime import datetime
 from io import BytesIO
 
@@ -167,19 +168,24 @@ async def platby_prehled(
 # ── Export matice plateb ──────────────────────────────────────────────
 
 
-@router.post("/prehled/exportovat")
+@router.get("/prehled/exportovat/{fmt}")
 async def matice_export(
     request: Request,
-    rok: int = Form(0),
-    typ: str = Form(""),
-    q: str = Form(""),
-    sort: str = Form("cislo"),
-    order: str = Form("asc"),
+    fmt: str,
+    rok: int = Query(0),
+    typ: str = Query(""),
+    q: str = Query(""),
+    sort: str = Query("cislo"),
+    order: str = Query("asc"),
     db: Session = Depends(get_db),
 ):
-    """Export matice plateb do Excelu."""
+    """Export matice plateb do Excelu nebo CSV."""
+    import csv as csv_mod
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill
+
+    if fmt not in ("xlsx", "csv"):
+        return RedirectResponse("/platby/prehled", status_code=302)
 
     if not rok:
         latest = db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).first()
@@ -208,15 +214,45 @@ async def matice_export(
     }
     rows.sort(key=sort_fns.get(sort, sort_fns["cislo"]), reverse=(order == "desc"))
 
-    wb = Workbook()
-    ws = wb.active
-    ws.title = f"Matice plateb {rok}"
-
     month_labels = ["Led", "Úno", "Bře", "Dub", "Kvě", "Čer", "Čvc", "Srp", "Zář", "Říj", "Lis", "Pro"]
     headers = ["Č. jedn.", "Sekce", "Vlastník", "Předpis/měs", "Převod"]
     for m in months_with_data:
         headers.append(month_labels[m - 1])
     headers += ["Celkem", "Dluh"]
+
+    typ_suffix = f"_{strip_diacritics(typ)}" if typ else ""
+    q_suffix = f"_hledani" if q else ""
+    suffix = typ_suffix or q_suffix or "_vse"
+    date_str = datetime.now().strftime("%Y%m%d")
+
+    if fmt == "csv":
+        buf_csv = io.StringIO()
+        buf_csv.write("\ufeff")
+        writer = csv_mod.writer(buf_csv, delimiter=";")
+        writer.writerow(headers)
+        for r in rows:
+            owner_name = ", ".join(o.display_name for o in r["owners"]) if r["owners"] else r["prescription"].owner_name or ""
+            row_out = [
+                r["unit"].unit_number,
+                r["prescription"].section or "",
+                owner_name,
+                r["monthly"],
+                r.get("opening", 0),
+            ]
+            for m in months_with_data:
+                row_out.append(r["months"].get(m, {}).get("paid", 0))
+            row_out += [r["total_paid"], r["debt"]]
+            writer.writerow(row_out)
+        filename = f"matice_plateb_{rok}{suffix}_{date_str}.csv"
+        return Response(
+            content=buf_csv.getvalue().encode("utf-8"),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = f"Matice plateb {rok}"
 
     bold = Font(bold=True)
     red_fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
@@ -250,10 +286,6 @@ async def matice_export(
     wb.save(buf)
     buf.seek(0)
 
-    typ_suffix = f"_{strip_diacritics(typ)}" if typ else ""
-    q_suffix = f"_hledani_{q}" if q else ""
-    suffix = typ_suffix or q_suffix or "_vse"
-    date_str = datetime.now().strftime("%Y%m%d")
     filename = f"matice_plateb_{rok}{suffix}_{date_str}.xlsx"
 
     return StreamingResponse(
