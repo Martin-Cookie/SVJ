@@ -6,17 +6,26 @@
 
     <!-- Header (fixed) -->
     <div class="flex-shrink-0">
+        {% set _export_qs = "?" ~ ("q=" ~ q ~ "&" if q else "") ~ ("typ=" ~ typ ~ "&" if typ else "") ~ "sort=" ~ sort ~ "&order=" ~ order %}
         <div class="flex items-center justify-between mb-3">
             <div>
                 <h1 class="text-lg font-bold text-gray-900 dark:text-white">
                     Předpisy {{ prescription_year.year }}
                 </h1>
                 <p class="text-xs text-gray-500 dark:text-gray-400">
-                    <span title="Počet předpisů může být vyšší než počet jednotek — spoluvlastníci mají každý svůj předpis">{{ prescription_year.total_units }} předpisů <span class="cursor-help border-b border-dotted border-gray-400">ⓘ</span></span> · {{ prescription_year.total_monthly|fmt_num }} Kč/měsíc celkem
+                    <span title="Počet předpisů může být vyšší než počet jednotek — spoluvlastníci mají každý svůj předpis">{{ prescriptions|length }} záznamů <span class="cursor-help border-b border-dotted border-gray-400">ⓘ</span></span>{% if prescriptions|length != prescription_year.total_units %} <span class="text-gray-400">(z {{ prescription_year.total_units }} celkem)</span>{% endif %} · {{ prescription_year.total_monthly|fmt_num }} Kč/měsíc celkem
                     {% if prescription_year.valid_from %} · platné od {{ prescription_year.valid_from.strftime('%d.%m.%Y') }}{% endif %}
                 </p>
             </div>
             <div class="flex items-center space-x-2">
+                <a href="/platby/predpisy/{{ prescription_year.id }}/exportovat/xlsx{{ _export_qs }}" hx-boost="false"
+                   class="inline-flex items-center px-3 py-1.5 bg-gray-100 text-gray-600 border border-gray-200 text-xs font-medium rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600">
+                    ↓ Excel
+                </a>
+                <a href="/platby/predpisy/{{ prescription_year.id }}/exportovat/csv{{ _export_qs }}" hx-boost="false"
+                   class="inline-flex items-center px-3 py-1.5 bg-gray-100 text-gray-600 border border-gray-200 text-xs font-medium rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600">
+                    ↓ CSV
+                </a>
                 <form method="post" action="/platby/predpisy/{{ prescription_year.id }}/smazat" hx-boost="false"
                       data-confirm="Smazání předpisů pro rok {{ prescription_year.year }} odstraní {{ prescription_year.total_units }} předpisů. Vyúčtování a dlužníci budou nepřesné až do reimportu. Pokračovat?">
                     <button type="submit" class="px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-700">

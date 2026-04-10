@@ -1,10 +1,13 @@
 """Router pro předpisy plateb — seznam, import DOCX, detail."""
 
+import csv
+import io
 from datetime import datetime
+from io import BytesIO
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, Form, Request, UploadFile, File
-from fastapi.responses import RedirectResponse
+from fastapi import APIRouter, Depends, Form, Query, Request, UploadFile, File
+from fastapi.responses import RedirectResponse, Response
 from sqlalchemy import asc as sa_asc, desc as sa_desc
 from sqlalchemy.orm import Session, joinedload
 
@@ -14,7 +17,10 @@ from app.models import (
     VariableSymbolMapping, SymbolSource, log_activity,
 )
 from app.config import settings
-from app.utils import build_list_url, is_htmx_partial, is_safe_path, utcnow, validate_upload, UPLOAD_LIMITS
+from app.utils import (
+    build_list_url, excel_auto_width, is_htmx_partial, is_safe_path,
+    strip_diacritics, utcnow, validate_upload, UPLOAD_LIMITS,
+)
 from ._helpers import templates, logger, compute_nav_stats
 
 router = APIRouter()
@@ -305,6 +311,38 @@ SORT_COLUMNS = {
 }
 
 
+def _filter_prescriptions(db: Session, year_id: int, q: str, typ: str, sort: str, order: str):
+    """Sdílená filtrační logika pro detail i export."""
+    query = (
+        db.query(Prescription)
+        .filter_by(prescription_year_id=year_id)
+        .options(joinedload(Prescription.items), joinedload(Prescription.unit))
+    )
+
+    if typ:
+        query = query.filter(Prescription.space_type == typ)
+
+    col = SORT_COLUMNS.get(sort, "space_number")
+    if col:
+        order_fn = sa_desc if order == "desc" else sa_asc
+        query = query.order_by(order_fn(getattr(Prescription, col)).nulls_last())
+
+    prescriptions = query.all()
+
+    # Python-side search s diakritikou (Prescription nemá name_normalized)
+    if q:
+        q_ascii = strip_diacritics(q)
+        prescriptions = [
+            p for p in prescriptions
+            if q_ascii in strip_diacritics(p.owner_name or "")
+            or q.lower() in (p.variable_symbol or "").lower()
+            or q.lower() in (p.section or "").lower()
+            or q in str(p.space_number or "")
+        ]
+
+    return prescriptions
+
+
 @router.get("/predpisy/{year_id}")
 async def predpisy_detail(
     request: Request,
@@ -320,34 +358,7 @@ async def predpisy_detail(
     if not prescription_year:
         return RedirectResponse("/platby/predpisy", status_code=302)
 
-    query = (
-        db.query(Prescription)
-        .filter_by(prescription_year_id=year_id)
-        .options(joinedload(Prescription.items), joinedload(Prescription.unit))
-    )
-
-    if typ:
-        query = query.filter(Prescription.space_type == typ)
-
-    # Řazení
-    col = SORT_COLUMNS.get(sort, "space_number")
-    if col:
-        order_fn = sa_desc if order == "desc" else sa_asc
-        query = query.order_by(order_fn(getattr(Prescription, col)).nulls_last())
-
-    prescriptions = query.all()
-
-    # Python-side search s diakritikou (Prescription nemá name_normalized)
-    if q:
-        from app.utils import strip_diacritics
-        q_ascii = strip_diacritics(q)
-        prescriptions = [
-            p for p in prescriptions
-            if q_ascii in strip_diacritics(p.owner_name or "")
-            or q.lower() in (p.variable_symbol or "").lower()
-            or q.lower() in (p.section or "").lower()
-            or q in str(p.space_number or "")
-        ]
+    prescriptions = _filter_prescriptions(db, year_id, q, typ, sort, order)
 
     # Typy pro bubliny
     space_types = (
@@ -398,6 +409,91 @@ async def predpisy_detail(
         return templates.TemplateResponse(request, "payments/partials/predpisy_tbody.html", ctx)
 
     return templates.TemplateResponse(request, "payments/predpisy_detail.html", ctx)
+
+
+# ── Export předpisů ───────────────────────────────────────────────────
+
+
+@router.get("/predpisy/{year_id}/exportovat/{fmt}")
+async def predpisy_export(
+    year_id: int,
+    fmt: str,
+    q: str = Query(""),
+    typ: str = Query(""),
+    sort: str = Query("prostor"),
+    order: str = Query("asc"),
+    db: Session = Depends(get_db),
+):
+    """Export filtrovaných předpisů do Excelu nebo CSV."""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font
+
+    if fmt not in ("xlsx", "csv"):
+        return RedirectResponse(f"/platby/predpisy/{year_id}", status_code=302)
+
+    prescription_year = db.query(PrescriptionYear).get(year_id)
+    if not prescription_year:
+        return RedirectResponse("/platby/predpisy", status_code=302)
+
+    prescriptions = _filter_prescriptions(db, year_id, q, typ, sort, order)
+
+    headers = ["Prostor", "Sekce", "Typ", "VS", "Vlastník", "Měsíčně (Kč)", "Jednotka v evidenci"]
+
+    def _row(p):
+        return [
+            p.space_number or "",
+            p.section or "",
+            p.space_type or "",
+            p.variable_symbol or "",
+            p.owner_name or "",
+            p.monthly_total or 0,
+            p.unit.unit_number if p.unit else "",
+        ]
+
+    # Suffix dle aktivního filtru
+    if typ:
+        suffix = f"_{strip_diacritics(typ)}"
+    elif q:
+        suffix = "_hledani"
+    else:
+        suffix = "_vse"
+    timestamp = datetime.now().strftime("%Y%m%d")
+    filename = f"predpisy_{prescription_year.year}{suffix}_{timestamp}"
+
+    if fmt == "xlsx":
+        wb = Workbook()
+        ws = wb.active
+        ws.title = f"Předpisy {prescription_year.year}"
+        bold = Font(bold=True)
+
+        for col, h in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col, value=h)
+            cell.font = bold
+
+        for row_idx, p in enumerate(prescriptions, 2):
+            for col_idx, val in enumerate(_row(p), 1):
+                ws.cell(row=row_idx, column=col_idx, value=val)
+
+        excel_auto_width(ws)
+
+        buf = BytesIO()
+        wb.save(buf)
+        return Response(
+            content=buf.getvalue(),
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f'attachment; filename="{filename}.xlsx"'},
+        )
+    else:
+        buf = io.StringIO()
+        writer = csv.writer(buf, delimiter=";")
+        writer.writerow(headers)
+        for p in prescriptions:
+            writer.writerow(_row(p))
+        return Response(
+            content=buf.getvalue().encode("utf-8-sig"),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="{filename}.csv"'},
+        )
 
 
 # ── Detail jednoho předpisu (jednotka) ─────────────────────────────────
