@@ -46,8 +46,12 @@
             <p class="text-xs text-gray-400 mb-2">Nájemce (volitelné — vyplňte pro automatické vytvoření nájmu)</p>
             <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                 <div>
+                    <label class="text-xs text-gray-500">Příjmení nájemce</label>
+                    <input type="text" name="tenant_last_name" value="{{ form_data.tenant_last_name|default('') }}" placeholder="Novák" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
                     <label class="text-xs text-gray-500">Jméno nájemce</label>
-                    <input type="text" name="tenant_name" value="{{ form_data.tenant_name|default('') }}" placeholder="Příjmení Jméno" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+                    <input type="text" name="tenant_first_name" value="{{ form_data.tenant_first_name|default('') }}" placeholder="Jan" class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
                 </div>
                 <div>
                     <label class="text-xs text-gray-500">Telefon</label>

@@ -31,8 +31,7 @@ router = APIRouter()
 @router.get("/novy-formular")
 async def space_create_form(request: Request):
     """Formulář pro vytvoření nového prostoru."""
-    return templates.TemplateResponse("spaces/partials/_create_form.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "spaces/partials/_create_form.html", {
         "form_data": {},
     })
 
@@ -48,7 +47,8 @@ async def space_create(
     status: str = Form("vacant"),
     blocked_reason: str = Form(""),
     note: str = Form(""),
-    tenant_name: str = Form(""),
+    tenant_last_name: str = Form(""),
+    tenant_first_name: str = Form(""),
     tenant_phone: str = Form(""),
     tenant_email: str = Form(""),
     contract_number: str = Form(""),
@@ -62,15 +62,15 @@ async def space_create(
         "space_number": space_number, "designation": designation,
         "section": section, "floor": floor, "area": area,
         "status": status, "blocked_reason": blocked_reason, "note": note,
-        "tenant_name": tenant_name, "tenant_phone": tenant_phone,
+        "tenant_last_name": tenant_last_name, "tenant_first_name": tenant_first_name,
+        "tenant_phone": tenant_phone,
         "tenant_email": tenant_email, "contract_number": contract_number,
         "contract_start": contract_start, "monthly_rent": monthly_rent,
         "variable_symbol": variable_symbol,
     }
 
     def _err(msg):
-        return templates.TemplateResponse("spaces/partials/_create_form.html", {
-            "request": request, "error": msg, "form_data": form_data,
+        return templates.TemplateResponse(request, "spaces/partials/_create_form.html", { "error": msg, "form_data": form_data,
         })
 
     # Parse space_number
@@ -105,10 +105,14 @@ async def space_create(
     if tenant_email.strip() and not is_valid_email(tenant_email.strip()):
         return _err("Neplatný formát emailu nájemce.")
 
-    # If tenant_name provided, auto-set status to rented
-    tenant_name = tenant_name.strip()
+    # Tenant: samostatná pole příjmení + jméno (validace: příjmení povinné, pokud se zadává nájemce)
+    last_name = tenant_last_name.strip() or None
+    first_name = tenant_first_name.strip() or None
+    if first_name and not last_name:
+        return _err("Při zadání nájemce je příjmení povinné.")
+
     space_status = SpaceStatus(status) if status in [s.value for s in SpaceStatus] else SpaceStatus.VACANT
-    if tenant_name and space_status == SpaceStatus.VACANT:
+    if last_name and space_status == SpaceStatus.VACANT:
         space_status = SpaceStatus.RENTED
 
     now = utcnow()
@@ -126,14 +130,9 @@ async def space_create(
     db.add(space)
     db.flush()
 
-    # Create tenant + contract if tenant_name provided
+    # Create tenant + contract if last_name provided
     tenant_reused = False
-    if tenant_name:
-        # Form očekává "Příjmení Jméno" (viz placeholder v _create_form.html)
-        parts = tenant_name.split()
-        last_name = parts[0] if parts else None
-        first_name = " ".join(parts[1:]) if len(parts) > 1 else None
-
+    if last_name:
         # Inline UX: dedup jen podle jména (formulář prostoru nesbírá RČ/IČ).
         # Pokud jmenovec už existuje, přiřadí se existující — uživatel je o tom
         # informován přes flash na detailu prostoru (viz flash=tenant_reused).
@@ -223,7 +222,7 @@ async def space_create(
                     unit_id=None,
                     variable_symbol=vs,
                     monthly_total=rent_float,
-                    owner_name=tenant_name,
+                    owner_name=build_name_with_titles(None, first_name, last_name),
                     created_at=now,
                     updated_at=now,
                 ))
@@ -250,8 +249,7 @@ async def space_edit_form(
     space = db.query(Space).get(space_id)
     if not space:
         return RedirectResponse("/prostory", status_code=302)
-    return templates.TemplateResponse("spaces/partials/_space_info.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "spaces/partials/_space_info.html", {
         "space": space,
         "edit_mode": True,
     })
@@ -267,8 +265,7 @@ async def space_info(
     space = db.query(Space).get(space_id)
     if not space:
         return RedirectResponse("/prostory", status_code=302)
-    return templates.TemplateResponse("spaces/partials/_space_info.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "spaces/partials/_space_info.html", {
         "space": space,
         "edit_mode": False,
     })
@@ -297,8 +294,7 @@ async def space_update(
         try:
             floor_int = int(floor.strip())
         except (ValueError, TypeError):
-            return templates.TemplateResponse("spaces/partials/_space_info.html", {
-                "request": request, "space": space, "edit_mode": True,
+            return templates.TemplateResponse(request, "spaces/partials/_space_info.html", { "space": space, "edit_mode": True,
                 "error": "Podlaží musí být celé číslo.",
             })
 
@@ -307,8 +303,7 @@ async def space_update(
         try:
             area_float = float(area.strip())
         except (ValueError, TypeError):
-            return templates.TemplateResponse("spaces/partials/_space_info.html", {
-                "request": request, "space": space, "edit_mode": True,
+            return templates.TemplateResponse(request, "spaces/partials/_space_info.html", { "space": space, "edit_mode": True,
                 "error": "Výměra musí být číslo.",
             })
 
@@ -325,8 +320,7 @@ async def space_update(
     db.commit()
 
     if request.headers.get("HX-Request"):
-        return templates.TemplateResponse("spaces/partials/_space_info.html", {
-            "request": request,
+        return templates.TemplateResponse(request, "spaces/partials/_space_info.html", {
             "space": space,
             "edit_mode": False,
             "saved": True,
@@ -365,8 +359,7 @@ async def tenant_edit_form(
     active_rel = next((st for st in space.tenants if st.is_active), None)
     if not active_rel:
         return RedirectResponse(f"/prostory/{space_id}", status_code=302)
-    return templates.TemplateResponse("spaces/partials/_tenant_info.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "spaces/partials/_tenant_info.html", {
         "space": space,
         "active_rel": active_rel,
         "edit_mode": True,
@@ -388,8 +381,7 @@ async def tenant_info_display(
     active_rel = next((st for st in space.tenants if st.is_active), None)
     if not active_rel:
         return RedirectResponse(f"/prostory/{space_id}", status_code=302)
-    return templates.TemplateResponse("spaces/partials/_tenant_info.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "spaces/partials/_tenant_info.html", {
         "space": space,
         "active_rel": active_rel,
         "edit_mode": False,
@@ -488,8 +480,7 @@ async def tenant_update(
     db.commit()
 
     if request.headers.get("HX-Request"):
-        return templates.TemplateResponse("spaces/partials/_tenant_info.html", {
-            "request": request,
+        return templates.TemplateResponse(request, "spaces/partials/_tenant_info.html", {
             "space": space,
             "active_rel": active_rel,
             "edit_mode": False,
@@ -655,8 +646,7 @@ async def space_list(
 
     # HTMX partial
     if is_htmx_partial(request):
-        return templates.TemplateResponse("spaces/partials/_tbody.html", {
-            "request": request,
+        return templates.TemplateResponse(request, "spaces/partials/_tbody.html", {
             "spaces": spaces,
             "list_url": list_url,
         })
@@ -673,8 +663,7 @@ async def space_list(
         flash_message = f"Import dokončen: {imported} prostorů, {tenants} nájemců."
         flash_type = "success"
 
-    return templates.TemplateResponse("spaces/list.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "spaces/list.html", {
         "active_nav": "spaces",
         "spaces": spaces,
         "list_url": list_url,
@@ -841,8 +830,7 @@ async def space_detail(
         )
         flash_type = "warning"
 
-    return templates.TemplateResponse("spaces/detail.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "spaces/detail.html", {
         "active_nav": "spaces",
         "space": space,
         "active_rel": active_rel,

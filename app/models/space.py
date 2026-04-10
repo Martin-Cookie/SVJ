@@ -165,7 +165,7 @@ class Tenant(Base):
 
     @property
     def active_space_rel(self):
-        """Return active SpaceTenant or None (první aktivní dle space_number)."""
+        """První aktivní SpaceTenant nebo None. Pozor: rebuilduje list při každém volání — v seznamech použít `rels_cache` (viz `_filter_tenants`)."""
         rels = self.active_space_rels
         return rels[0] if rels else None
 

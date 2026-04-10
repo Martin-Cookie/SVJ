@@ -1,31 +1,52 @@
-# SVJ Audit Report – 2026-04-10
+# SVJ Audit Report – 2026-04-10 (Re-audit)
 
-> Scope: fokus na poslední 3 commity (64acbe9, 77145dd, 79bcbe9) — model `Tenant` (resolved/active properties), `find_existing_tenant()` helper, tenant create path, detail a export nájemců, template `_row.html` a `detail.html`, migrace `_migrate_dedupe_tenants`. Lehký průchod ostatními oblastmi.
+> **Scope**: verifikace 11 oprav z předchozího auditu (commity `18b7200`, `7a9ea3e`, `894f750`) + lehký sweep celého projektu.
+> **Základní otázky**: (1) jsou staré HIGH/MEDIUM pryč? (2) nezavlekly opravy regrese? (3) jsou nové problémy?
+> **Testy**: všech 310 testů projde (`.venv/bin/python -m pytest -q` → `310 passed, 37 warnings`).
+> **Server**: `:8022` odpovídá 200 na `/`, `/najemci/`, `/prostory/`, `/vlastnici/`.
 
 ## Souhrn
 
 - CRITICAL: 0
-- HIGH: 2
-- MEDIUM: 5
-- LOW: 6
+- HIGH: 0
+- MEDIUM: 2
+- LOW: 5
 
-## Souhrnná tabulka
+## Verifikace předchozích nálezů
+
+| # | Původní nález | Severita | Stav | Poznámka |
+|---|---------------|----------|------|----------|
+| 1 | `find_existing_tenant` — silent match podle jména | HIGH | **OPRAVENO** | `tenant_create` teď sbírá `duplicates` + vyžaduje `force_create=1` checkbox (`app/routers/tenants/crud.py:80-109`) — stejný vzor jako owners |
+| 2 | `tenant_create` tichá zpětná vazba při duplicitě | HIGH | **OPRAVENO** | Vrací `_create_form.html` s `duplicates` listem (`crud.py:104-109`); HTMX i non-HTMX sdílejí stejnou cestu |
+| 3 | Mrtvý `active_rel` v detail contextu | MEDIUM | **OPRAVENO** | `tenant_detail` už předává jen `active_rels` (řádek 669), žádný `active_rel` single (`app/routers/tenants/crud.py`) |
+| 4 | `active_space_rels` volané 2× v sort | MEDIUM | **OPRAVENO** | `rels_cache = {t.id: t.active_space_rels for t in tenants}` v `_filter_tenants` (`_helpers.py:127`), sort i `rent` čtou z cache |
+| 5 | Migrace skipuje záznamy bez dedup klíče tiše | MEDIUM | **OPRAVENO** | Přidán `logger.info("_migrate_dedupe_tenants: přeskočeno %d Tenantů …")` (`app/main.py:656-660`) |
+| 6 | Sort "space" bere jen první prostor bez vysvětlení | MEDIUM | **OPRAVENO** | Tooltipy na `sort_th`: "Řazeno dle nejnižšího čísla prostoru nájemce" a "Součet nájemného ze všech aktivních smluv" (`list.html:126-127`) |
+| 7 | Dedup v `spaces/crud.py` bez ID fields — bez feedbacku | MEDIUM | **OPRAVENO** | Flash `tenant_reused` při reuse (`crud.py:147,233`); detail prostoru ukazuje warning toast (`crud.py:837-842`); komentář nad `find_existing_tenant` voláním |
+| 8 | Parsing "Jméno Příjmení" obrácený (LOW, pre-existing) | LOW | **ČÁSTEČNĚ** | Placeholder ve formuláři nastaven na "Příjmení Jméno" (`spaces/partials/_create_form.html:50`) + komentář v kódu. Netvoří se dvě pole, ale očekávání je teď explicitní |
+| 9 | XSS přes `HTMLResponse(f"…{existing.display_name}")` | LOW→HIGH (XSS) | **OPRAVENO** | `HTMLResponse` nahrazen `Response(status_code=204, headers={"HX-Redirect": …})` (`crud.py:131`). Žádný surový f-string s user inputem |
+| 10 | Reporty v rootu repozitáře | LOW | **OPRAVENO** | Commit `894f750` přesunul `AUDIT-REPORT.md`, `BACKUP-REPORT.md`, `TEST-REPORT.md`, `UX-REPORT.md`, `PREHLED-KOMPLET.md`, `SESSION-START.md` do `docs/reports/` |
+| 11 | `align-top` s prázdným místem (UX, LOW) | LOW | **PONECHÁNO** | Design rozhodnutí — původní doporučení byla varianta (a) zachovat. Bez akce |
+| 12 | Chybí testy nových flows | LOW | **OPRAVENO** | `tests/test_tenants.py` (197 řádků, 12 testů): resolved props, active_space_rels, dedup helper, duplicate warning, XSS-safe, migrace idempotence |
+| 13 | CLAUDE.md / README bez nového vzoru | LOW | **OPRAVENO** | Sekce `### Tenants — dedup helper a resolved properties` v `CLAUDE.md § Router vzory` (dle diffu commitu 18b7200) |
+
+**Výsledek verifikace: 11/11 HIGH+MEDIUM nálezů z předchozího auditu je skutečně opraveno. 310 pytest testů projde.**
+
+---
+
+## Nové nálezy (po refaktoringu)
+
+### Souhrnná tabulka
 
 | # | Oblast | Soubor | Severity | Problém | Čas | Rozhodnutí |
 |---|--------|--------|----------|---------|-----|------------|
-| 1 | Kód / Bezpečnost | app/routers/tenants/_helpers.py:40-55 | HIGH | `find_existing_tenant()` — match podle samotného jména může nechtěně sloučit jmenovce (homonyma). Dedup při vytváření nájemce tak tiše přesměruje na cizí záznam bez potvrzení | ~30 min | ❓ |
-| 2 | UI / UX | app/routers/tenants/crud.py:78-84 | HIGH | `tenant_create` — když `find_existing_tenant` najde shodu, HTMX větev vrátí jen inline HTML s odkazem (uživatel zůstane na formuláři, nevidí co se stalo), non-HTMX větev tiše přesměruje s `?flash=exists`, ale `tenant_detail` `exists` neumí → flash se ztratí | ~15 min | ❓ |
-| 3 | Kód | app/routers/tenants/crud.py:648 | MEDIUM | `tenant_detail` stále předává `active_rel` do contextu, ale žádná šablona ho už nepoužívá (po commitu 64acbe9) — mrtvý kód | ~2 min | 🔧 |
-| 4 | Kód / Perf | app/models/space.py:167-177 | MEDIUM | `active_space_rel` property volá `active_space_rels` (buduje a sortí list při každém přístupu). V `_filter_tenants` sort="space" se volá 2× per tenant v Python TimSortu. Triviálně cachovatelné | ~10 min | 🔧 |
-| 5 | Kód | app/main.py:597-691 | MEDIUM | Migrace `_migrate_dedupe_tenants` — `_key()` pro jmennou větev vrací `None` pro záznamy bez `last_name`/`first_name` (jen `name_with_titles`). Legacy importované záznamy bez rozdělených jmen se nededuplikují a user o tom neví | ~30 min | ❓ |
-| 6 | Kód | app/routers/tenants/_helpers.py:132 | MEDIUM | Sort klíč `"space"` stále volá `active_space_rel` (single), zatímco nájemce nově může mít víc prostor. Řazení bere jen první prostor — uživatel to nemusí očekávat | ~10 min | ❓ |
-| 7 | Kód | app/routers/spaces/crud.py:135-140 | MEDIUM | `find_existing_tenant` zde dostane POUZE `first_name`/`last_name` (bez `birth_number`). Pokud formulář prostoru vytváří nájemce se jménem, které už existuje pro jinou osobu, dojde k nechtěnému propojení. Pokud je to úmyslné (inline UX), chybí komentář | ~5–15 min | ❓ |
-| 8 | Kód | app/routers/spaces/crud.py:131-133 | LOW | `parts = tenant_name.split(); last_name = parts[0]; first_name = parts[1:]` — parsing "Jan Novák" uloží `last="Jan"`. Pre-existing, ale zhoršené tím, že dedup teď matchuje podle `name_normalized` → nekonzistence | ~10 min | ❓ |
-| 9 | Bezpečnost | app/routers/tenants/crud.py:81 | LOW | HTMX větev vrací surový f-string s `existing.display_name` — pokud nájemce má titul `<script>`, XSS. Nahradit TemplateResponse (Jinja2 autoescape) | ~10 min | 🔧 |
-| 10 | Git hygiene | / (root) | LOW | Reporty `AUDIT-REPORT.md`, `BACKUP-REPORT.md`, `TEST-REPORT.md`, `UX-REPORT.md`, `PREHLED-KOMPLET.md`, `SESSION-START.md` v rootu (~100 KB). `.playwright-mcp/` neexistuje (OK), žádné `*.png`/`*.jpeg` v rootu (OK) | ~5 min | ❓ |
-| 11 | UI | app/templates/tenants/partials/_row.html | LOW | `align-top` je dobře, ale sloupce Jméno/Telefon/Email s `nowrap` zanechají velké bílé místo vpravo u nájemců s 3+ prostory | ~10 min | ❓ |
-| 12 | Testy | tests/ | LOW | Pro nové chování (1 nájemce = N prostor, dedup, export 1 řádek per smlouva, `resolved_*`, migrace dedupe) neexistují testy | ~2 hod | 🔧 |
-| 13 | Dokumentace | CLAUDE.md / README.md | LOW | CLAUDE.md nezmiňuje vzor `find_existing_*`, README nepíše že nájemce může mít více prostor současně (stacked) | ~20 min | 🔧 |
+| A1 | Git hygiene | `.playwright-mcp/` | MEDIUM | 24 souborů (`console-*.log`, `page-*.yml`) ze staršího testování v ignored adresáři — plýtvá místem, matoucí při dalším Playwright runu | ~1 min | 🔧 |
+| A2 | Testy | `tests/test_tenants.py:162, 180` | MEDIUM | `DeprecationWarning` ze Starlette: `TemplateResponse(name, {"request": …})` má novou API `TemplateResponse(request, name)`. Varování jen v nových testech — jinde v projektu už bude stejný problém, ale tiskne se jen v testech (používajících TestClient) | ~10 min | 🔧 |
+| A3 | Kód (UI — mrtvý kód) | `app/templates/tenants/partials/_row.html:2` | LOW | `{% set asr = active_rels[0] if active_rels else None %}` — proměnná `asr` nikde v šabloně nepoužitá (zbytek po přechodu na stacked layout) | ~1 min | 🔧 |
+| A4 | Kód (UX) | `app/routers/spaces/crud.py:131-136` | LOW | Parsing `tenant_name` pořád jeden split bez validace; placeholder pomáhá, ale neexistuje UI varování pokud user napíše jen "Jan" (pak `last_name="Jan"`, `first_name=None`) nebo obráceně. Dedup přes `name_normalized` pak matchuje podle "jan" a může vtáhnout jmenovce | ~15 min | ❓ |
+| A5 | Výkon / model | `app/models/space.py:167-177` | LOW | `active_space_rel` (single) stále volá `self.active_space_rels` (rebuilduje list). Triviální, použit už jen v 2 místech (`Tenant.active_space_rel` property). `rels_cache` v seznamu řešeno, ale detail stránky volá property přímo | ~5 min | 🔧 |
+| A6 | Konzistence | `app/routers/tenants/_helpers.py:132-134` | LOW | Sort klíč `rent` = součet (`sum(sr.monthly_rent ...)`), klíč `space` = jen první (`rels[0].space_number`). Nekonzistentní — uživatel vidí "Nájemné" jako součet (viz tooltip), ale "Prostor" jako první. Je to záměrné (a zdůvodněné tooltipem), jen uvažte sjednocení | ~10 min | ❓ |
+| A7 | Dokumentace | `CLAUDE.md` § Tenants dedup | LOW | Sekce zmiňuje `find_existing_tenant`, ale NEzmiňuje, že v `spaces/crud.py` se dedup děje BEZ RČ/IČ (jen jméno) — jiný kontrakt, než u `tenants/crud.py`. Při reuse v dalších modulech může zmást | ~5 min | 🔧 |
 
 Legenda: 🔧 = jen opravit, ❓ = potřeba rozhodnutí uživatele
 
@@ -33,144 +54,129 @@ Legenda: 🔧 = jen opravit, ❓ = potřeba rozhodnutí uživatele
 
 ## Detailní nálezy
 
-### 1. Kódová kvalita + Bezpečnost
+### A1. `.playwright-mcp/` obsahuje zbytky po testování (MEDIUM)
 
-#### #1 HIGH — `find_existing_tenant()` příliš volný match podle jména
+**Co a kde**: `ls .playwright-mcp/` → 12× `console-*.log` + 12× `page-*.yml` z `2026-04-10T10:53-54`. Dle CLAUDE.md § Workflow: „po použití Playwright smazat soubory v `.playwright-mcp/`". Commit 894f750 přesunul reporty, ale adresář neuklidil.
 
-1. **Co a kde**: `app/routers/tenants/_helpers.py:40-55`. Při vytváření nového nájemce bez RČ/IČ (jen jméno) se dedup opře o `Tenant.name_normalized == name_norm` + `tenant_type`. Dva různí lidé se stejným jménem splynou na jednoho bez potvrzení uživatele.
-2. **Řešení**: nepoužít auto-redirect, ale vrátit formulář s bloku `duplicates` + `force_create` (vzor z `app/routers/owners/crud.py` při vytváření vlastníka). User pak explicitně potvrdí "Ano, je to nový záznam" a pošle `force_create=1`.
-3. **Varianty**:
-   - (a) návrh k potvrzení (doporučeno) — konzistentní s owners.
-   - (b) zpřísnit match (jméno + email NEBO jméno + telefon) — funguje pro část případů, ale selže pro nájemce bez kontaktů.
-4. **Náročnost**: střední, ~30 min.
-5. **Závislosti**: spojeno s #2 a #9 — řešit současně (jeden patch).
-6. **Regrese riziko**: nízké — mění chování nového workflow.
-7. **Jak otestovat**: `/najemci/novy` → "Jan Novák" FO → uložit. Znovu `/najemci/novy` → "Jan Novák" FO → musí ukázat varování v formuláři s odkazem na existující a checkbox "Přesto vytvořit". Zaškrtnout → vytvoří nový. Bez checkboxu → zůstane na formuláři.
+**Řešení**:
+```
+rm -rf .playwright-mcp/*.log .playwright-mcp/*.yml .playwright-mcp/*.png .playwright-mcp/*.jpeg
+```
+Plus ověřit, že `.playwright-mcp/` je v `.gitignore` (rychlá kontrola `git check-ignore .playwright-mcp/`).
 
-#### #2 HIGH — `tenant_create` tichá/neúplná zpětná vazba při duplicitě
+**Náročnost**: nízká, ~1 min. **Regrese**: žádné. **Jak otestovat**: `ls .playwright-mcp/` → prázdné.
 
-1. **Co a kde**: `app/routers/tenants/crud.py:78-84`. HTMX větev vrátí plain `<p>` (formulář zůstane). Non-HTMX větev dělá `RedirectResponse(f"/najemci/{existing.id}?flash=exists")`, ale `tenant_detail` v GET handleru (řádky 637-642) zpracovává jen `flash == "linked"` / `"unlinked"` — klíč `exists` se zahodí a user nedostane žádné upozornění.
-2. **Řešení**: (A) řešit společně s #1 — nahradit celou větev za návrat `_create_form.html` s `duplicates=[existing]`. (B) pokud se zachová redirect, přidat do `tenant_detail` `elif flash == "exists": flash_message = "Nájemce s těmito údaji už existuje."`.
-3. **Náročnost**: ~15 min.
-5. **Závislosti**: #1.
-6. **Regrese**: nízké.
-7. **Jak otestovat**: viz #1. Non-HTMX variantu: POST přes curl → ověřit že detail zobrazí toast "už existuje".
+### A2. Starlette TemplateResponse deprecation warnings (MEDIUM)
 
-#### #3 MEDIUM — Mrtvý klíč `active_rel` v detail contextu
+**Co a kde**: `tests/test_tenants.py::test_tenant_create_shows_duplicates_warning` a `test_tenant_create_no_xss_in_duplicate_warning` tisknou:
+```
+DeprecationWarning: The `name` is not the first parameter anymore.
+Replace `TemplateResponse(name, {"request": request})` by `TemplateResponse(request, name)`.
+```
+Jde o volání `templates.TemplateResponse("tenants/partials/_create_form.html", {"request": request, …})`. Celý projekt používá starou signaturu — teď se na to rozsvítí díky novým testům. Starlette ≥ 0.29 (cílová verze pro FastAPI 0.115+) toto API odstraní.
 
-1. **Co a kde**: `app/routers/tenants/crud.py:629-648`. Po commitu 64acbe9 `detail.html` loopuje přes `active_rels` a `active_rel` nepoužívá (ověřeno grepem v `app/templates/tenants`).
-2. **Řešení**: odstranit řádky `active_rel = active_rels[0] if active_rels else None` (řádek 630) a `"active_rel": active_rel,` (648) z contextu.
-3. **Náročnost**: ~2 min.
-6. **Regrese riziko**: nízké.
-7. **Jak otestovat**: otevřít detail nájemce s 0, 1, 2+ prostory — musí vykreslit stejně.
+**Řešení**: masový rewrite přes projekt na `TemplateResponse(request, "…", {"…": …})`. Lze pomocí `grep -r "templates.TemplateResponse(\"" app/routers/ | wc -l` → počet volání a ripgrep-replace.
 
-#### #4 MEDIUM — `active_space_rel` property není cachovaný → zbytečná práce v sort
+**Varianty**: (a) hromadný rewrite teď (~30-60 min, ~100 volání); (b) odložit, připnout Starlette verzi v `requirements.txt` (~2 min, ale dluh). Doporučuji (a) — je to mechanická úprava a odstraní warning z testů.
 
-1. **Co a kde**: `app/models/space.py:167-177`. Každé volání buduje a sortí nový list. V `_filter_tenants` při sort="space" Python TimSort volá funkci ~ O(N log N) × O(M log M). Pro běžný dataset zanedbatelné, ale zbytečné.
-2. **Řešení**: buď (a) `@functools.cached_property` pro `active_space_rels` (pozor — `cached_property` nefunguje s SQLAlchemy DeclarativeBase pokud se instance exping — ověřit), nebo (b) v `_filter_tenants` naplnit lokální dict `rels_by_tenant = {t.id: t.active_space_rels for t in tenants}` a sort klíče číst z něj.
-3. **Náročnost**: ~10 min.
-4. **Doporučení**: varianta (b) — bezpečnější a čitelnější.
-6. **Regrese**: nízké.
+**Náročnost**: střední, ~30-60 min. **Regrese**: nízké (API je kompatibilní zpětně, jen deprecated). **Jak otestovat**: `pytest -q` → 0 warnings od TemplateResponse.
 
-#### #5 MEDIUM — Migrace `_migrate_dedupe_tenants` — legacy záznamy bez `last_name` se přeskočí
+### A3. Mrtvá proměnná `asr` v `_row.html` (LOW)
 
-1. **Co a kde**: `app/main.py:_migrate_dedupe_tenants._key()` (řádky ~623-645). Pokud Tenant nemá ani `owner_id`, ani `birth_number`, ani `company_id`, ani `first_name`/`last_name`, vrátí `None` a záznam se přeskočí. Importy přes CSV/Excel mohly uložit jméno jen do `name_with_titles` — takové duplicity migrace nesliji.
-2. **Řešení**: fallback — když `_key()` vrátí `None`, zkusit `name_normalized` jako klíč. Nebo aspoň logger.info("Skipped N tenants without dedup key") po dokončení, aby user věděl.
-3. **Náročnost**: ~30 min (oprava + manuální audit DB).
-4. **Varianty**: (a) rozšířit klíč — rychlé ale riskantní; (b) jen logovat — bezpečné.
-5. **Regrese**: (a) střední — může sloučit nechtěně; (b) nízké.
+**Co a kde**: `app/templates/tenants/partials/_row.html:2`:
+```jinja
+{% set active_rels = tenant.active_space_rels %}
+{% set asr = active_rels[0] if active_rels else None %}
+```
+Proměnná `asr` se nikde dál v šabloně nepoužívá (grep nenašel). Zbytek po refaktoringu na stacked layout (commit 64acbe9).
 
-#### #6 MEDIUM — Sort `"space"` bere jen první prostor
+**Řešení**: smazat řádek 2.
 
-1. **Co a kde**: `app/routers/tenants/_helpers.py:132`: `"space": lambda t: (t.active_space_rel.space.space_number if t.active_space_rel else 0)`.
-2. **Řešení**: buď ponechat + přidat tooltip "Řazeno podle nejnižšího čísla prostoru", nebo sortovat podle tuple všech čísel. Doporučení: ponechat chování + tooltip.
-3. **Náročnost**: ~10 min.
+**Náročnost**: nízká, ~1 min. **Regrese**: žádné. **Jak otestovat**: `/najemci/` — layout identický.
 
-#### #7 MEDIUM — Dedup v `spaces/crud.py` bez ID fields
+### A4. Parsing `tenant_name` v `spaces/crud.py` stále křehký (LOW)
 
-1. **Co a kde**: `app/routers/spaces/crud.py:135-140`. `find_existing_tenant` dostává jen `first_name`/`last_name` (formulář prostoru nemá RČ/IČ). Takže se propojení dělá pouze podle jména → jmenovec se "vnutí" jako existující nájemce nového prostoru.
-2. **Řešení**: pravděpodobně úmyslné pro inline UX (rychlé vytvoření prostoru). Minimum: přidat komentář nad volání "# Dedup záměrně jen podle jména — rychlé inline vytváření". Lepší: po vytvoření zobrazit toast "Přiřazeno existujícímu nájemci Jan Novák (ID 42) — opravte pokud je to jiná osoba".
-3. **Náročnost**: ~5 min (komentář) / ~15 min (toast).
-6. **Regrese**: nízké.
+**Co a kde**: `app/routers/spaces/crud.py:131-134`:
+```python
+parts = tenant_name.split()
+last_name = parts[0] if parts else None
+first_name = " ".join(parts[1:]) if len(parts) > 1 else None
+```
+User napíše "Novák" → `last_name="Novák"`, `first_name=None`. Placeholder hinter "Příjmení Jméno" pomáhá, ale nic nebrání chybě. Dedup pak matchuje přes `name_normalized="novák"`, což může vtáhnout jmenovce.
 
-#### #8 LOW — Parsing "Jan Novák" obrácené pořadí
+**Varianty**:
+- (a) Rozdělit na dvě pole `last_name` + `first_name` (vzor z owners). Nejčistší, ~15 min.
+- (b) Validovat `len(parts) >= 2` a zobrazit chybu „Zadejte příjmení i jméno". Rychlejší, ~5 min.
+- (c) Ponechat (pre-existing, nízký dopad).
 
-1. **Co a kde**: `app/routers/spaces/crud.py:131-133` — první slovo = příjmení. User píše "Jméno Příjmení" → uloží se obráceně. Pre-existing.
-2. **Řešení**: placeholder "Příjmení Jméno" nebo dvě pole. Doporučuji dvě pole (stejný vzor jako owners).
-3. **Náročnost**: ~10 min.
+**Regrese**: nízké u (a)/(b). **Jak otestovat**: `/prostory/novy` → zadat jen „Novák" → očekávaná validace nebo dvě pole.
 
-#### #9 LOW — XSS v HTMX response `tenant_create`
+### A5. `Space.active_space_rel` property rebuild při každém volání (LOW)
 
-1. **Co a kde**: `app/routers/tenants/crud.py:81`: `HTMLResponse(content=f'<p ...>{existing.display_name}</p>')`. Jméno není escapováno. Pokud user zadá titul `<img onerror=...>`, dojde ke XSS ve formuláři. Admin-only, ale hygienicky vadí.
-2. **Řešení**: nahradit za `TemplateResponse("tenants/partials/_create_form.html", {"duplicates": [existing]})` — Jinja2 autoescape vyřeší.
-3. **Náročnost**: ~10 min (spojeno s #1, #2).
-6. **Regrese**: nízké.
+**Co a kde**: `app/models/space.py:167-170`:
+```python
+@property
+def active_space_rel(self):
+    rels = self.active_space_rels  # nový list + sort pokaždé
+    return rels[0] if rels else None
+```
+Řešeno v `_filter_tenants` přes `rels_cache`, ale volání v detail šablonách a jiných průchodech stále rebuilduje. Zanedbatelné pro běžný dataset (≤100 prostor), ale zbytečné.
 
-### 2. Dokumentace
+**Řešení**: ponechat (YAGNI) nebo `@functools.cached_property` — pozor, s SQLAlchemy expire/refresh má `cached_property` rizika. Doporučuji ponechat + komentář že se volá opakovaně.
 
-#### #13 LOW — CLAUDE.md / README nepopisují nové chování
+**Náročnost**: nízká, ~5 min.
 
-1. **Co a kde**: nikde není zmíněný vzor `find_existing_tenant` ani že nájemce teď může být vázán k více prostorům současně (stacked layout v tabulce).
-2. **Řešení**: CLAUDE.md § "Router vzory" — přidat jednovětý odkaz na `find_existing_tenant` jako šablonu dedup helperu (pro znovupoužití v dalších modulech). README § Moduly/Nájemci — krátká věta "Nájemce může mít více prostor; v tabulce se zobrazují stacked pod sebou, export dává 1 řádek per smlouva".
-3. **Náročnost**: ~20 min.
+### A6. Nekonzistence `sort="space"` vs `sort="rent"` (LOW)
 
-### 3. UI / Šablony
+**Co a kde**: `_helpers.py:133-134`:
+```python
+"space": lambda t: (rels_cache[t.id][0].space.space_number if rels_cache[t.id] else 0),
+"rent":  lambda t: sum((sr.monthly_rent or 0) for sr in rels_cache[t.id]),
+```
+`space` sort bere jen první prostor, `rent` sčítá přes všechny. Obojí je logické a zdůvodněné tooltipy, ale asymetrie může zmást.
 
-#### #11 LOW — `align-top` s prázdným místem u nájemců s více prostory
+**Řešení**: (a) ponechat (doporučeno) — tooltipy jsou explicitní. (b) `space` jako tuple všech čísel pro sekundární řazení: `tuple(sr.space.space_number for sr in rels)`. **Nedoporučuji měnit** — nemá praktický rozdíl.
 
-1. **Co a kde**: `app/templates/tenants/partials/_row.html`. Nájemce se 3 prostory → jméno/telefon/email zabírají 1 řádek, prostory/nájemné/VS 3 řádky. `align-top` je správně, ale vzniká bílé místo.
-2. **Řešení**: design rozhodnutí. Možnosti: (a) ponechat (konzistentní s vlastníky); (b) přidat pod jméno malý badge "× N prostor"; (c) `vertical-align: middle`. Doporučuji (a).
-3. **Náročnost**: ~10 min.
+### A7. CLAUDE.md nezdokumentuje dva různé kontrakty `find_existing_tenant` (LOW)
 
-### 4. Testy
+**Co a kde**: CLAUDE.md § "Tenants — dedup helper …" popisuje prioritu `owner_id → RČ → IČ → jméno`. Nezmiňuje, že `spaces/crud.py:140-145` volá helper **jen se jménem** (bez RČ/IČ) jako úmyslný inline UX kompromis. Další vývojář tuto nuance snadno přehlédne.
 
-#### #12 LOW — Chybí testy pro nové flows
+**Řešení**: do CLAUDE.md přidat větu: „V `spaces/crud.py` (rychlé vytvoření prostoru s nájemcem) se `find_existing_tenant` volá jen se jménem — reuse je indikován flash `tenant_reused` a uživatel má možnost opravit přiřazení."
 
-1. **Co a kde**: `tests/` neobsahuje cílené testy pro:
-   - `find_existing_tenant()` (po identifikátoru a po jménu)
-   - `Tenant.active_space_rels` řazení
-   - `Tenant.resolved_birth_number` / `resolved_company_id`
-   - tenant export — 2 prostory = 2 řádky
-   - migrace `_migrate_dedupe_tenants` (idempotence)
-2. **Řešení**: přidat ~5 pytest testů. Pokrývá regrese při další refaktoringu.
-3. **Náročnost**: ~2 hod.
+**Náročnost**: nízká, ~5 min.
 
-### 5. Git Hygiene
+---
 
-#### #10 LOW — Reporty v rootu, `.DS_Store`
+## Lehký sweep ostatních oblastí (bez nálezů)
 
-- **Stray reporty**: `AUDIT-REPORT.md`, `BACKUP-REPORT.md`, `TEST-REPORT.md`, `UX-REPORT.md`, `PREHLED-KOMPLET.md`, `SESSION-START.md`, `CLAUDE.md` (to je OK, ten patří), `README.md` (OK). Reporty bych přesunul do `docs/reports/` nebo do `.gitignore`.
-- **`.playwright-mcp/`**: **NEEXISTUJE** — čisté.
-- **`*.png` / `*.jpeg` v rootu**: **ŽÁDNÉ** — čisté.
-- **`.DS_Store`**: existuje v rootu. `.gitignore` ho má — ok.
-- **`.env`**: existuje, ignorován. OK.
+- **Bezpečnost**: `.env` ignorovaný, žádné hesla v kódu, SQLAlchemy ORM (žádné f-stringy v SQL), security headers v `main.py` middleware (ověřeno dle CLAUDE.md § Security headers). CSRF záměrně nepoužíván (plán rolí, interní deployment).
+- **Git status**: čistý (`git status --short` = prázdný).
+- **Screenshoty v rootu**: žádné `*.png`/`*.jpeg`.
+- **Tests pass**: 310/310.
+- **Server up**: `:8022` OK na `/`, `/najemci/`, `/prostory/`, `/vlastnici/`. `:8021` se v tomto auditu vůbec nezkoušel (user poznamenal, že ho drží cizí proces).
+- **HTMX error handling**: nedetekován nový problém.
+- **Performance**: `_filter_tenants` má správný `joinedload(Tenant.spaces).joinedload(SpaceTenant.space)` + `seen_ids` dedup — N+1 vyřešeno.
+- **Error handling**: `_migrate_dedupe_tenants` má `try/finally` s `db.close()`, migrace loguje merged i skipped počty.
 
-### 6. Výkon
+---
 
-- Viz #4. Jinak `_filter_tenants` používá správně `joinedload(Tenant.owner)` + `joinedload(Tenant.spaces).joinedload(SpaceTenant.space)` a explicitní Python dedup `seen_ids` — N+1 vyřešené.
+## Regresní riziko nově aplikovaných oprav
 
-### 7. Error Handling
-
-- `tenant_create` — bez try/except, ale nic rizikového.
-- `_migrate_dedupe_tenants` — `try/finally` s `db.close()`. SQLAlchemy rollbackuje při close implicitně, ale explicitní `except Exception: db.rollback()` by bylo čistší (viz ostatní migrace v `main.py`).
-
-### 8. Ostatní (lehký průchod)
-
-- **Bezpečnostní headers**: dle CLAUDE.md přítomné v `main.py` middleware — nekontrolováno v tomto runu.
-- **Upload limity**: centralizované v `UPLOAD_LIMITS` — OK.
-- **SQL injection**: projekt používá SQLAlchemy ORM — všechny dotazy v recent změnách parametrizované.
-- **CSRF**: projekt nepoužívá (interní síť, jedno-uživatelské nasazení dle CLAUDE.md plánu).
+- **HIGH #1+#2+#9 fix** (tenant_create + force_create + XSS): **nízké** — pokryto 3 novými testy (`test_tenant_create_shows_duplicates_warning`, `test_tenant_create_force_create_bypasses_check`, `test_tenant_create_no_xss_in_duplicate_warning`). HTMX i non-HTMX větve sdílejí jednu response cestu.
+- **MEDIUM #4 fix** (rels_cache): **nízké** — pokryto `test_tenant_active_space_rels_sorted`. Cache je lokální v listu, nemění data.
+- **MEDIUM #5 fix** (logging skipped): **žádné** — jen `logger.info()`.
+- **MEDIUM #7 fix** (tenant_reused flash): **nízké** — nová flash větev, ostatní flash hodnoty netknuté.
+- **Tenant dedup migrace** (`_migrate_dedupe_tenants`): **střední — SLEDOVAT** — idempotence je pokrytá testem, ale migrace se spouští pokaždé na startu a mění produkční data. Doporučuji sledovat počet merged v logu po nejbližším restartu.
 
 ---
 
 ## Doporučený postup oprav
 
-1. **Nejprve HIGH — jeden patch na #1 + #2 + #9** (~40 min): přepsat `tenant_create` aby vracel `_create_form.html` s `duplicates=[existing]` + `force_create` checkbox (vzor z owners). Řeší XSS (#9), tichý flash (#2) i volný match (#1).
-2. **MEDIUM — rychlé opravy #3, #4, #7** (~20 min): odstranit mrtvý `active_rel`, cache pro `active_space_rels` v `_filter_tenants`, komentář v `spaces/crud.py`.
-3. **MEDIUM — rozhodnout #5, #6** s uživatelem (co se má stát s legacy záznamy bez jmen, tooltip na sort).
-4. **LOW — dokumentace #13** (~20 min), testy #12 do dalších iterací.
-5. **Git hygiene #10** — kdykoli.
+1. **Rychlé úklidy** (~10 min): A1 (`.playwright-mcp/`), A3 (mrtvý `asr`), A7 (CLAUDE.md doplnění).
+2. **A2 Starlette rewrite** (~30-60 min): hromadné přepsání `TemplateResponse(name, ctx)` → `TemplateResponse(request, name, ctx)`. Oddělený commit, pokrývá celý projekt.
+3. **A4 parsing `tenant_name`** (~15 min): rozdělit na 2 pole nebo přidat validaci. Rozhodnutí s uživatelem (varianta a/b/c).
+4. **A5, A6**: ponechat (YAGNI / záměrné), doplnit komentáře v kódu.
 
 ---
 
-_Vygenerováno: Code Guardian audit 2026-04-10, fokus na commity 64acbe9, 77145dd, 79bcbe9._
+_Vygenerováno: Code Guardian re-audit 2026-04-10, fokus na verifikaci commitů 18b7200, 7a9ea3e, 894f750 + lehký sweep._

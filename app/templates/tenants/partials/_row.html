@@ -1,5 +1,4 @@
 {% set active_rels = tenant.active_space_rels %}
-{% set asr = active_rels[0] if active_rels else None %}
 <tr id="tenant-{{ tenant.id }}" class="hover:bg-gray-50 dark:hover:bg-gray-700/50 align-top">
     <td class="px-2 py-1.5 overflow-hidden" style="text-overflow:ellipsis;white-space:nowrap">
         {% if tenant.is_linked %}
