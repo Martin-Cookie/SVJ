@@ -71,6 +71,14 @@ html.dark-transition *::after {
 /* Teal */
 .dark .bg-teal-50 { background-color: rgba(20, 184, 166, 0.1); }
 
+/* Pink */
+.dark .bg-pink-50 { background-color: rgba(236, 72, 153, 0.1); }
+.dark .bg-pink-100 { background-color: rgba(236, 72, 153, 0.15); }
+
+/* Indigo */
+.dark .bg-indigo-50 { background-color: rgba(99, 102, 241, 0.1); }
+.dark .bg-indigo-100 { background-color: rgba(99, 102, 241, 0.15); }
+
 
 /* Globální výchozí barva textu (body nemá Tailwind text-* třídu) */
 .dark body { color: #d1d5db; }  /* gray-300 */
@@ -128,6 +136,14 @@ html.dark-transition *::after {
 
 .dark .text-emerald-700 { color: #34d399; }    /* emerald-400 */
 .dark .text-emerald-600 { color: #34d399; }    /* emerald-400 */
+
+.dark .text-pink-800 { color: #f9a8d4; }       /* pink-300 */
+.dark .text-pink-700 { color: #f472b6; }       /* pink-400 */
+.dark .text-pink-600 { color: #f472b6; }       /* pink-400 */
+
+.dark .text-indigo-800 { color: #a5b4fc; }     /* indigo-300 */
+.dark .text-indigo-700 { color: #818cf8; }     /* indigo-400 */
+.dark .text-indigo-600 { color: #818cf8; }     /* indigo-400 */
 
 .dark .text-teal-600 { color: #2dd4bf; }       /* teal-400 */
 
