@@ -228,10 +228,10 @@ Expert na kvalitu, konzistenci a integritu dat.
 
 ### Celá aplikace:
 ```
-Přečti UX-OPTIMIZER.md a analyzuj celou aplikaci. Projdi všechny moduly a navrhni zlepšení z pohledu všech 6 expertních rolí. Výstupem je UX-REPORT.md. Nic neopravuj.
+Přečti UX-OPTIMIZER.md a analyzuj celou aplikaci. Projdi všechny moduly a navrhni zlepšení z pohledu všech 6 expertních rolí. Výstupem je docs/reports/UX-REPORT.md. Nic neopravuj.
 ```
 
 ### Konkrétní proces:
 ```
-Přečti UX-OPTIMIZER.md a analyzuj proces [hlasování / import / platby / ...]. Navrhni zlepšení. Výstupem je UX-REPORT.md. Nic neopravuj.
+Přečti UX-OPTIMIZER.md a analyzuj proces [hlasování / import / platby / ...]. Navrhni zlepšení. Výstupem je docs/reports/UX-REPORT.md. Nic neopravuj.
 ```

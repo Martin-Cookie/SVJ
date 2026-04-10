@@ -7,7 +7,7 @@
 
 ## Cíl
 
-Projdi celý SVJ projekt a vytvoř **audit report** pokrývající 4 oblasti: kód, dokumentaci, UI šablony a bezpečnost. Na konci vytvoř soubor `AUDIT-REPORT.md` s nálezem a prioritami.
+Projdi celý SVJ projekt a vytvoř **audit report** pokrývající 4 oblasti: kód, dokumentaci, UI šablony a bezpečnost. Na konci vytvoř soubor `docs/reports/AUDIT-REPORT.md` s nálezem a prioritami.
 
 ---
 
@@ -216,7 +216,7 @@ Na konci vytvoř souhrnnou tabulku a seřaď podle severity.
 
 ## Formát výstupu
 
-Vytvoř soubor `AUDIT-REPORT.md` v rootu projektu s tímto formátem:
+Vytvoř soubor `docs/reports/AUDIT-REPORT.md` s tímto formátem:
 
 ```markdown
 # SVJ Audit Report – [YYYY-MM-DD]
@@ -285,5 +285,5 @@ Každý nález MUSÍ obsahovat (viz CLAUDE.md § Prezentace nálezů):
 V Claude Code zadej:
 
 ```
-Přečti soubor CODE-GUARDIAN.md a proveď kompletní audit projektu podle instrukcí. Výstupem je AUDIT-REPORT.md. Nic neopravuj, pouze reportuj.
+Přečti soubor CODE-GUARDIAN.md a proveď kompletní audit projektu podle instrukcí. Výstupem je docs/reports/AUDIT-REPORT.md. Nic neopravuj, pouze reportuj.
 ```

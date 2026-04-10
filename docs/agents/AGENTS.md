@@ -11,13 +11,13 @@
 | Agent | Příkaz |
 |-------|--------|
 | **Doc Sync** | `Přečti DOC-SYNC.md a proveď synchronizaci dokumentace s aktuálním stavem projektu.` |
-| **Code Guardian** | `Přečti CODE-GUARDIAN.md a proveď audit projektu. Výstupem je AUDIT-REPORT.md. Nic neopravuj, pouze reportuj.` |
-| **Test Agent** | `Přečti TEST-AGENT.md a proveď kompletní testování projektu. Výstupem je TEST-REPORT.md. Nic neopravuj, pouze testuj a reportuj.` |
+| **Code Guardian** | `Přečti CODE-GUARDIAN.md a proveď audit projektu. Výstupem je docs/reports/AUDIT-REPORT.md. Nic neopravuj, pouze reportuj.` |
+| **Test Agent** | `Přečti TEST-AGENT.md a proveď kompletní testování projektu. Výstupem je docs/reports/TEST-REPORT.md. Nic neopravuj, pouze testuj a reportuj.` |
 
 ### Před vydáním verze
 | Agent | Příkaz |
 |-------|--------|
-| **Test Agent** | `Přečti TEST-AGENT.md a proveď kompletní testování projektu. Výstupem je TEST-REPORT.md. Nic neopravuj, pouze testuj a reportuj.` |
+| **Test Agent** | `Přečti TEST-AGENT.md a proveď kompletní testování projektu. Výstupem je docs/reports/TEST-REPORT.md. Nic neopravuj, pouze testuj a reportuj.` |
 | **Release Agent** | `Přečti RELEASE-AGENT.md a připrav release. Nejdřív proveď pre-release kontrolu, pak po schválení připrav balíček.` |
 | **Backup Agent** | `Přečti BACKUP-AGENT.md a proveď kontrolu integrity zálohovacího systému. Testuj na kopiích dat.` |
 

@@ -1,13 +1,13 @@
 # Test Agent – Automatické testování celé aplikace
 
 > Spouštěj po bloku změn nebo před releasem pro ověření, že aplikace funguje správně.
-> Agent projde 8 fází testování a vytvoří soubor `TEST-REPORT.md` se souhrnem výsledků.
+> Agent projde 8 fází testování a vytvoří soubor `docs/reports/TEST-REPORT.md` se souhrnem výsledků.
 
 ---
 
 ## Cíl
 
-Automaticky otestovat celou SVJ aplikaci — pytest, Playwright smoke + funkční testy, route coverage, exporty, back URL integritu, N+1 detekci a JS errory. Na konci vytvořit `TEST-REPORT.md` s nálezem a prioritami.
+Automaticky otestovat celou SVJ aplikaci — pytest, Playwright smoke + funkční testy, route coverage, exporty, back URL integritu, N+1 detekci a JS errory. Na konci vytvořit `docs/reports/TEST-REPORT.md` s nálezem a prioritami.
 
 ---
 
@@ -227,7 +227,7 @@ Zaznamenej: počet dotazů per stránka + hodnocení
 
 ## Formát výstupu
 
-Vytvoř soubor `TEST-REPORT.md` v rootu projektu:
+Vytvoř soubor `docs/reports/TEST-REPORT.md`:
 
 ```markdown
 # SVJ Test Report – [YYYY-MM-DD]
@@ -279,5 +279,5 @@ rm -f *.png *.jpeg
 V Claude Code zadej:
 
 ```
-Přečti TEST-AGENT.md a proveď kompletní testování projektu podle instrukcí. Výstupem je TEST-REPORT.md. Nic neopravuj, pouze testuj a reportuj.
+Přečti TEST-AGENT.md a proveď kompletní testování projektu podle instrukcí. Výstupem je docs/reports/TEST-REPORT.md. Nic neopravuj, pouze testuj a reportuj.
 ```
