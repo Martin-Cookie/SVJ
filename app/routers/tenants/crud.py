@@ -16,7 +16,7 @@ from app.utils import (
     is_htmx_partial, is_valid_email, strip_diacritics, templates, utcnow,
 )
 
-from ._helpers import _filter_tenants, _tenant_stats, logger
+from ._helpers import _filter_tenants, _tenant_stats, find_existing_tenant, logger
 
 router = APIRouter()
 
@@ -66,6 +66,22 @@ async def tenant_create(
     name_normalized = strip_diacritics(f"{last_name} {first_name}".strip())
 
     t_type = OwnerType.LEGAL_ENTITY if tenant_type == "legal" else OwnerType.PHYSICAL
+
+    existing = find_existing_tenant(
+        db,
+        birth_number=birth_number.strip() or None,
+        company_id=company_id.strip() or None,
+        first_name=first_name,
+        last_name=last_name,
+        tenant_type=t_type,
+    )
+    if existing:
+        if request.headers.get("HX-Request"):
+            return HTMLResponse(
+                content=f'<p class="text-sm text-amber-700 p-4">Nájemce <strong>{existing.display_name}</strong> již existuje. '
+                        f'<a href="/najemci/{existing.id}" class="text-blue-600 hover:underline">Otevřít</a></p>',
+            )
+        return RedirectResponse(f"/najemci/{existing.id}?flash=exists", status_code=302)
 
     tenant = Tenant(
         first_name=first_name or None,
@@ -506,8 +522,7 @@ async def tenant_export(
     headers = ["Jméno", "Propojení", "Typ", "RČ/IČ", "Telefon", "Email", "Prostor", "Nájemné", "VS"]
     type_labels = {"physical": "FO", "legal": "PO"}
 
-    def _row(t):
-        asr = t.active_space_rel
+    def _row(t, sr):
         return [
             t.display_name,
             "Vlastník" if t.is_linked else "Nájemník",
@@ -515,10 +530,16 @@ async def tenant_export(
             t.resolved_birth_number or t.resolved_company_id or "",
             t.resolved_phone or "",
             t.resolved_email or "",
-            asr.space.designation if asr else "",
-            asr.monthly_rent if asr else "",
-            asr.variable_symbol if asr else "",
+            (sr.space.designation if sr and sr.space else "") if sr else "",
+            (sr.monthly_rent if sr else "") or "",
+            (sr.variable_symbol if sr else "") or "",
         ]
+
+    def _rows_for(t):
+        rels = t.active_space_rels
+        if not rels:
+            return [_row(t, None)]
+        return [_row(t, sr) for sr in rels]
 
     timestamp = datetime.now().strftime("%Y%m%d")
 
@@ -543,9 +564,12 @@ async def tenant_export(
             cell = ws.cell(row=1, column=col, value=h)
             cell.font = bold
 
-        for row_idx, t in enumerate(tenants, 2):
-            for col_idx, val in enumerate(_row(t), 1):
-                ws.cell(row=row_idx, column=col_idx, value=val)
+        row_idx = 2
+        for t in tenants:
+            for row in _rows_for(t):
+                for col_idx, val in enumerate(row, 1):
+                    ws.cell(row=row_idx, column=col_idx, value=val)
+                row_idx += 1
 
         excel_auto_width(ws)
 
@@ -561,7 +585,8 @@ async def tenant_export(
         writer = csv.writer(buf, delimiter=";")
         writer.writerow(headers)
         for t in tenants:
-            writer.writerow(_row(t))
+            for row in _rows_for(t):
+                writer.writerow(row)
         return Response(
             content=buf.getvalue().encode("utf-8-sig"),
             media_type="text/csv; charset=utf-8",

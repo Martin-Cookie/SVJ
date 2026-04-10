@@ -597,6 +597,101 @@ def _migrate_payment_notified_at():
         conn.commit()
 
 
+def _migrate_dedupe_tenants():
+    """Sloučit duplicitní Tenant záznamy.
+
+    Klíč duplicity (priorita): owner_id → birth_number → company_id → (name_normalized).
+    Vítěz = záznam s nejvíce vyplněnými poli. SpaceTenants se přesunou k vítězi,
+    ostatní Tenanti se smažou. Idempotentní.
+    """
+    from sqlalchemy.orm import Session as _Session
+    from app.models import Tenant, SpaceTenant
+    from app.utils import strip_diacritics
+
+    def _norm_name(s):
+        if not s:
+            return ""
+        s = s.strip()
+        if s == "*":
+            return ""
+        return strip_diacritics(s)
+
+    def _score(t: Tenant) -> int:
+        fields = [
+            t.first_name, t.last_name, t.title,
+            t.birth_number, t.company_id,
+            t.phone, t.phone_landline, t.phone_secondary,
+            t.email, t.email_secondary,
+            t.perm_street, t.perm_city, t.perm_zip,
+            t.corr_street, t.corr_city, t.corr_zip,
+            t.note,
+        ]
+        return sum(1 for f in fields if f and str(f).strip() and str(f).strip() != "*")
+
+    def _key(t: Tenant):
+        if t.owner_id:
+            return ("owner", t.owner_id)
+        if t.birth_number and t.birth_number.strip():
+            return ("rc", t.birth_number.strip())
+        if t.company_id and t.company_id.strip():
+            return ("ic", t.company_id.strip())
+        ln = _norm_name(t.last_name)
+        fn = _norm_name(t.first_name)
+        ttype = t.tenant_type.value if t.tenant_type else "physical"
+        if ln or fn:
+            return ("name", ln, fn, ttype)
+        return None  # nelze deduplikovat
+
+    db = _Session(bind=engine)
+    try:
+        tenants = db.query(Tenant).all()
+        groups: dict = {}
+        for t in tenants:
+            k = _key(t)
+            if k is None:
+                continue
+            groups.setdefault(k, []).append(t)
+
+        merged_count = 0
+        for key, group in groups.items():
+            if len(group) < 2:
+                continue
+            group.sort(key=lambda t: (-_score(t), -(t.updated_at.timestamp() if t.updated_at else 0), t.id))
+            winner = group[0]
+            losers = group[1:]
+            for loser in losers:
+                # přenos space_tenants
+                for st in db.query(SpaceTenant).filter(SpaceTenant.tenant_id == loser.id).all():
+                    st.tenant_id = winner.id
+                # doplnit prázdná pole vítěze z losera
+                for attr in [
+                    "first_name", "last_name", "title", "name_with_titles", "name_normalized",
+                    "tenant_type", "birth_number", "company_id",
+                    "phone", "phone_landline", "phone_secondary", "email", "email_secondary",
+                    "perm_street", "perm_district", "perm_city", "perm_zip", "perm_country",
+                    "corr_street", "corr_district", "corr_city", "corr_zip", "corr_country",
+                    "note",
+                ]:
+                    wv = getattr(winner, attr, None)
+                    lv = getattr(loser, attr, None)
+                    if (not wv or (isinstance(wv, str) and (not wv.strip() or wv.strip() == "*"))) and lv:
+                        setattr(winner, attr, lv)
+                db.delete(loser)
+                merged_count += 1
+            # opravit „*" v jméně vítěze
+            if winner.first_name and winner.first_name.strip() == "*":
+                winner.first_name = None
+            if winner.last_name and winner.last_name.strip() == "*":
+                winner.last_name = None
+        if merged_count:
+            db.commit()
+            logger.info("Sloučeno %d duplicitních Tenant záznamů", merged_count)
+        else:
+            db.rollback()
+    finally:
+        db.close()
+
+
 _ALL_MIGRATIONS = [
     ("units table", _migrate_units_table),
     ("owner_units history", _migrate_owner_units_history),
@@ -612,6 +707,7 @@ _ALL_MIGRATIONS = [
     ("spaces tables migration", _migrate_spaces_tables),
     ("svj send settings", _migrate_svj_send_settings),
     ("payment notified_at", _migrate_payment_notified_at),
+    ("dedupe tenants", _migrate_dedupe_tenants),
     ("index creation", _ensure_indexes),
     ("code list seeding", _seed_code_lists),
     ("email template seeding", _seed_email_templates),

@@ -20,6 +20,7 @@ from app.utils import (
 )
 
 from ._helpers import SORT_COLUMNS, _filter_spaces, _space_stats, logger
+from app.routers.tenants._helpers import find_existing_tenant
 
 router = APIRouter()
 
@@ -131,20 +132,34 @@ async def space_create(
         last_name = parts[0] if parts else None
         first_name = " ".join(parts[1:]) if len(parts) > 1 else None
 
-        tenant = Tenant(
+        tenant = find_existing_tenant(
+            db,
             first_name=first_name,
             last_name=last_name,
-            name_with_titles=build_name_with_titles(None, first_name, last_name),
-            name_normalized=strip_diacritics(tenant_name),
             tenant_type=OwnerType.PHYSICAL,
-            phone=tenant_phone.strip() or None,
-            email=tenant_email.strip() or None,
-            data_source="manual",
-            is_active=True,
-            created_at=now,
         )
-        db.add(tenant)
-        db.flush()
+        if tenant is None:
+            tenant = Tenant(
+                first_name=first_name,
+                last_name=last_name,
+                name_with_titles=build_name_with_titles(None, first_name, last_name),
+                name_normalized=strip_diacritics(f"{last_name or ''} {first_name or ''}".strip()),
+                tenant_type=OwnerType.PHYSICAL,
+                phone=tenant_phone.strip() or None,
+                email=tenant_email.strip() or None,
+                data_source="manual",
+                is_active=True,
+                created_at=now,
+            )
+            db.add(tenant)
+            db.flush()
+        else:
+            # doplnit prázdné kontakty
+            if tenant_phone.strip() and not tenant.phone:
+                tenant.phone = tenant_phone.strip()
+            if tenant_email.strip() and not tenant.email:
+                tenant.email = tenant_email.strip()
+            tenant.updated_at = now
 
         # Parse rent
         rent_float = 0.0

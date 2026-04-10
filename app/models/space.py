@@ -165,11 +165,16 @@ class Tenant(Base):
 
     @property
     def active_space_rel(self):
-        """Return active SpaceTenant or None."""
-        for st in self.spaces:
-            if st.is_active:
-                return st
-        return None
+        """Return active SpaceTenant or None (první aktivní dle space_number)."""
+        rels = self.active_space_rels
+        return rels[0] if rels else None
+
+    @property
+    def active_space_rels(self):
+        """Všechny aktivní SpaceTenants, seřazené podle čísla prostoru."""
+        rels = [st for st in self.spaces if st.is_active]
+        rels.sort(key=lambda st: (st.space.space_number if st.space else 0))
+        return rels
 
 
 # ── Nájemní vztah ──────────────────────────────────────────────────────

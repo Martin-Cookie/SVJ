@@ -11,6 +11,51 @@ from app.utils import strip_diacritics, templates
 logger = logging.getLogger(__name__)
 
 
+def find_existing_tenant(
+    db: Session,
+    *,
+    owner_id: int | None = None,
+    birth_number: str | None = None,
+    company_id: str | None = None,
+    first_name: str | None = None,
+    last_name: str | None = None,
+    tenant_type: OwnerType | None = None,
+) -> Tenant | None:
+    """Najít existujícího nájemce podle (v pořadí priority):
+    owner_id → birth_number → company_id → jméno+typ.
+    Vrací None pokud nic nevyhovuje.
+    """
+    if owner_id:
+        t = db.query(Tenant).filter(Tenant.owner_id == owner_id).first()
+        if t:
+            return t
+    if birth_number and birth_number.strip():
+        t = db.query(Tenant).filter(Tenant.birth_number == birth_number.strip()).first()
+        if t:
+            return t
+    if company_id and company_id.strip():
+        t = db.query(Tenant).filter(Tenant.company_id == company_id.strip()).first()
+        if t:
+            return t
+    ln = (last_name or "").strip()
+    fn = (first_name or "").strip()
+    if ln or fn:
+        ln_norm = strip_diacritics(ln) if ln and ln != "*" else ""
+        fn_norm = strip_diacritics(fn) if fn and fn != "*" else ""
+        name_norm = f"{ln_norm} {fn_norm}".strip()
+        if name_norm:
+            q = db.query(Tenant).filter(
+                Tenant.owner_id.is_(None),
+                Tenant.name_normalized == name_norm,
+            )
+            if tenant_type:
+                q = q.filter(Tenant.tenant_type == tenant_type)
+            t = q.first()
+            if t:
+                return t
+    return None
+
+
 SORT_COLUMNS = {
     "name": None,  # Python-side — resolved from owner or own fields
     "type": None,  # Python-side — resolved type
@@ -71,10 +116,11 @@ def _filter_tenants(db: Session, q="", typ="", stav="", sort="name", order="asc"
                     or q in (t.resolved_company_id or "")):
                 filtered.append(t)
             else:
-                # Search in space designation
-                asr = t.active_space_rel
-                if asr and q.lower() in (asr.space.designation or "").lower():
-                    filtered.append(t)
+                # Search in designation of any active space
+                for sr in t.active_space_rels:
+                    if sr.space and q.lower() in (sr.space.designation or "").lower():
+                        filtered.append(t)
+                        break
         tenants = filtered
 
     # Python-side sort
@@ -84,7 +130,7 @@ def _filter_tenants(db: Session, q="", typ="", stav="", sort="name", order="asc"
         "phone": lambda t: t.resolved_phone or "",
         "email": lambda t: t.resolved_email or "",
         "space": lambda t: (t.active_space_rel.space.space_number if t.active_space_rel else 0),
-        "rent": lambda t: (t.active_space_rel.monthly_rent if t.active_space_rel else 0),
+        "rent": lambda t: sum((sr.monthly_rent or 0) for sr in t.active_space_rels),
     }
     fn = sort_fns.get(sort, sort_fns["name"])
     tenants.sort(key=fn, reverse=(order == "desc"))
