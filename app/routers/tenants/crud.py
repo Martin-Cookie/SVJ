@@ -626,7 +626,8 @@ async def tenant_detail(
         back_label = "Zpět na seznam nájemců"
 
     # Active + history spaces
-    active_rel = tenant.active_space_rel
+    active_rels = tenant.active_space_rels
+    active_rel = active_rels[0] if active_rels else None
     history = [st for st in tenant.spaces if not st.is_active]
     history.sort(key=lambda st: st.contract_end or st.created_at, reverse=True)
 
@@ -645,6 +646,7 @@ async def tenant_detail(
         "active_nav": "tenants",
         "tenant": tenant,
         "active_rel": active_rel,
+        "active_rels": active_rels,
         "history": history,
         "owners": owners,
         "back_url": back or "/najemci",

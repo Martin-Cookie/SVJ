@@ -77,50 +77,56 @@
 
     <!-- Scrollable content: spaces + owner linking -->
     <div class="flex-1 overflow-y-auto overflow-x-hidden min-h-0 space-y-4">
-        <!-- Current space -->
+        <!-- Current spaces -->
         <div class="bg-white rounded-lg shadow p-4">
-            <h2 class="text-sm font-semibold text-gray-700 mb-3">Aktuální prostor</h2>
-            {% if active_rel %}
+            <h2 class="text-sm font-semibold text-gray-700 mb-3">
+                {% if active_rels|length > 1 %}Aktuální prostory ({{ active_rels|length }}){% else %}Aktuální prostor{% endif %}
+            </h2>
+            {% if active_rels %}
             <div class="space-y-3">
-                <div class="flex items-center gap-3">
-                    <div class="flex-1">
-                        <p class="text-sm font-medium text-gray-800">
-                            <a href="/prostory/{{ active_rel.space.id }}?back={{ (('/najemci/' ~ tenant.id ~ '?back=' ~ (back_url|urlencode))|urlencode) }}" class="text-blue-600 hover:underline">
-                                Prostor {{ active_rel.space.space_number }} — {{ active_rel.space.designation }}
-                            </a>
-                        </p>
+                {% for ar in active_rels %}
+                <div class="{% if not loop.first %}border-t border-gray-100 pt-3{% endif %}">
+                    <div class="flex items-center gap-3">
+                        <div class="flex-1">
+                            <p class="text-sm font-medium text-gray-800">
+                                <a href="/prostory/{{ ar.space.id }}?back={{ (('/najemci/' ~ tenant.id ~ '?back=' ~ (back_url|urlencode))|urlencode) }}" class="text-blue-600 hover:underline">
+                                    Prostor {{ ar.space.space_number }} — {{ ar.space.designation }}
+                                </a>
+                            </p>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-2 text-xs mt-2">
+                        <div>
+                            <span class="text-gray-500">Měsíční nájemné:</span>
+                            <span class="font-medium text-gray-800 ml-1">{{ (ar.monthly_rent or 0)|fmt_num }} Kč</span>
+                        </div>
+                        {% if ar.variable_symbol %}
+                        <div>
+                            <span class="text-gray-500">VS:</span>
+                            <span class="font-mono text-gray-800 ml-1">{{ ar.variable_symbol }}</span>
+                        </div>
+                        {% endif %}
+                        {% if ar.contract_number %}
+                        <div>
+                            <span class="text-gray-500">Č. smlouvy:</span>
+                            <span class="text-gray-800 ml-1">{{ ar.contract_number }}</span>
+                        </div>
+                        {% endif %}
+                        {% if ar.contract_start %}
+                        <div>
+                            <span class="text-gray-500">Od:</span>
+                            <span class="text-gray-800 ml-1">{{ ar.contract_start.strftime('%d.%m.%Y') }}</span>
+                        </div>
+                        {% endif %}
+                        {% if ar.contract_end %}
+                        <div>
+                            <span class="text-gray-500">Do:</span>
+                            <span class="text-gray-800 ml-1">{{ ar.contract_end.strftime('%d.%m.%Y') }}</span>
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-2 text-xs border-t border-gray-100 pt-3">
-                    <div>
-                        <span class="text-gray-500">Měsíční nájemné:</span>
-                        <span class="font-medium text-gray-800 ml-1">{{ active_rel.monthly_rent|fmt_num }} Kč</span>
-                    </div>
-                    {% if active_rel.variable_symbol %}
-                    <div>
-                        <span class="text-gray-500">VS:</span>
-                        <span class="font-mono text-gray-800 ml-1">{{ active_rel.variable_symbol }}</span>
-                    </div>
-                    {% endif %}
-                    {% if active_rel.contract_number %}
-                    <div>
-                        <span class="text-gray-500">Č. smlouvy:</span>
-                        <span class="text-gray-800 ml-1">{{ active_rel.contract_number }}</span>
-                    </div>
-                    {% endif %}
-                    {% if active_rel.contract_start %}
-                    <div>
-                        <span class="text-gray-500">Od:</span>
-                        <span class="text-gray-800 ml-1">{{ active_rel.contract_start.strftime('%d.%m.%Y') }}</span>
-                    </div>
-                    {% endif %}
-                    {% if active_rel.contract_end %}
-                    <div>
-                        <span class="text-gray-500">Do:</span>
-                        <span class="text-gray-800 ml-1">{{ active_rel.contract_end.strftime('%d.%m.%Y') }}</span>
-                    </div>
-                    {% endif %}
-                </div>
+                {% endfor %}
             </div>
             {% else %}
             <p class="text-sm text-gray-400">Žádný aktivní pronájem.</p>
