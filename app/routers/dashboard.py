@@ -11,7 +11,7 @@ from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import ActivityLog, EmailLog, Owner, OwnerUnit, PrescriptionYear, Space, SpaceStatus, SpaceTenant, SvjInfo, Unit, Voting, BankStatement, Payment, PaymentDirection, PaymentMatchStatus
+from app.models import ActivityLog, EmailLog, Owner, OwnerUnit, PrescriptionYear, Space, SpaceStatus, SpaceTenant, SvjInfo, Tenant, Unit, Voting, BankStatement, Payment, PaymentDirection, PaymentMatchStatus
 from app.models.voting import Ballot, BallotStatus, BallotVote
 from app.models.tax import TaxDocument, TaxSession, TaxDistribution, EmailDeliveryStatus
 from app.utils import excel_auto_width, strip_diacritics, templates, utcnow
@@ -358,6 +358,14 @@ async def home(
     except Exception:
         pass
 
+    # Tenant stats
+    tenants_count = db.query(Tenant).filter_by(is_active=True).count()
+    tenants_with_contract = (
+        db.query(func.count(func.distinct(SpaceTenant.tenant_id)))
+        .filter(SpaceTenant.is_active == True)
+        .scalar() or 0
+    )
+
     # Space stats
     space_total = db.query(Space).count()
     space_status_counts = dict(
@@ -405,6 +413,8 @@ async def home(
         "unmatched_payments": unmatched_payments,
         "total_income": total_income,
         "debtor_count": debtor_count,
+        "tenants_count": tenants_count,
+        "tenants_with_contract": tenants_with_contract,
         "space_total": space_total,
         "space_rented": space_rented,
         "space_vacant": space_vacant,
