@@ -553,23 +553,17 @@ SORT_COLUMNS_PAYMENTS = {
 }
 
 
-@router.get("/vypisy/{statement_id}")
-async def vypis_detail(
-    request: Request,
+def _filter_payments(
+    db: Session,
     statement_id: int,
-    sort: str = "datum",
-    order: str = "asc",
     q: str = "",
     stav: str = "",
     smer: str = "",
     typ: str = "",
-    db: Session = Depends(get_db),
-):
-    """Detail bankovního výpisu — seznam plateb."""
-    statement = db.query(BankStatement).get(statement_id)
-    if not statement:
-        return RedirectResponse("/platby/vypisy", status_code=302)
-
+    sort: str = "datum",
+    order: str = "asc",
+) -> list:
+    """Sdílená filtrační logika pro detail výpisu (seznam, HTMX, export)."""
     from app.models import PaymentAllocation as PA
     query = (
         db.query(Payment)
@@ -583,7 +577,6 @@ async def vypis_detail(
         )
     )
 
-    # Filtry (stav, směr, typ v SQL)
     if stav:
         query = query.filter(Payment.match_status == stav)
 
@@ -597,7 +590,6 @@ async def vypis_detail(
     elif typ == "prostory":
         query = query.filter(Payment.space_id.isnot(None))
 
-    # Řazení
     col = SORT_COLUMNS_PAYMENTS.get(sort, Payment.date)
     if col is not None:
         order_fn = sa_desc if order == "desc" else sa_asc
@@ -605,7 +597,6 @@ async def vypis_detail(
 
     payments = query.all()
 
-    # Python-side sort pro jednotka/prostor
     if sort in ("jednotka", "prostor"):
         def _unit_key(p):
             if p.unit:
@@ -626,7 +617,6 @@ async def vypis_detail(
         key_fn = _unit_key if sort == "jednotka" else _space_key
         payments.sort(key=key_fn, reverse=(order == "desc"))
 
-    # Hledání Python-side (diakritika-safe)
     if q:
         q_ascii = strip_diacritics(q)
         payments = [
@@ -636,6 +626,28 @@ async def vypis_detail(
             or q_ascii in strip_diacritics(p.note or "")
             or q_ascii in strip_diacritics(p.message or "")
         ]
+
+    return payments
+
+
+@router.get("/vypisy/{statement_id}")
+async def vypis_detail(
+    request: Request,
+    statement_id: int,
+    sort: str = "datum",
+    order: str = "asc",
+    q: str = "",
+    stav: str = "",
+    smer: str = "",
+    typ: str = "",
+    db: Session = Depends(get_db),
+):
+    """Detail bankovního výpisu — seznam plateb."""
+    statement = db.query(BankStatement).get(statement_id)
+    if not statement:
+        return RedirectResponse("/platby/vypisy", status_code=302)
+
+    payments = _filter_payments(db, statement_id, q, stav, smer, typ, sort, order)
 
     # Statistiky
     total_income = sum(p.amount for p in payments if p.direction == PaymentDirection.INCOME)
@@ -849,6 +861,144 @@ async def vypis_detail(
         return templates.TemplateResponse(request, "payments/partials/vypis_tbody.html", ctx)
 
     return templates.TemplateResponse(request, "payments/vypis_detail.html", ctx)
+
+
+# ── Export plateb z výpisu ─────────────────────────────────────────────
+
+
+@router.get("/vypisy/{statement_id}/exportovat/{fmt}")
+async def vypis_detail_export(
+    statement_id: int,
+    fmt: str,
+    q: str = Query(""),
+    stav: str = Query(""),
+    smer: str = Query(""),
+    typ: str = Query(""),
+    sort: str = Query("datum"),
+    order: str = Query("asc"),
+    db: Session = Depends(get_db),
+):
+    """Export filtrovaných plateb z detailu výpisu."""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font
+
+    if fmt not in ("xlsx", "csv"):
+        return RedirectResponse(f"/platby/vypisy/{statement_id}", status_code=302)
+
+    statement = db.query(BankStatement).get(statement_id)
+    if not statement:
+        return RedirectResponse("/platby/vypisy", status_code=302)
+
+    payments = _filter_payments(db, statement_id, q, stav, smer, typ, sort, order)
+
+    status_labels = {
+        "auto_matched": "Napárováno",
+        "suggested": "Návrh",
+        "manual": "Ručně",
+        "unmatched": "Nenapárováno",
+    }
+
+    headers = [
+        "Datum", "Směr", "Částka (Kč)", "VS", "KS", "SS",
+        "Protiúčet", "Název protistrany", "Zpráva", "Poznámka",
+        "Jednotka", "Prostor", "Vlastník / Nájemce", "Stav",
+    ]
+
+    def _row(p):
+        entity_name = ""
+        if p.owner and p.owner.display_name:
+            entity_name = p.owner.display_name
+        unit_num = ""
+        if p.unit:
+            unit_num = str(p.unit.unit_number)
+        else:
+            for a in (p.allocations or []):
+                if a.unit:
+                    unit_num = str(a.unit.unit_number)
+                    break
+        space_num = ""
+        if p.space:
+            space_num = str(p.space.space_number)
+        else:
+            for a in (p.allocations or []):
+                if a.space:
+                    space_num = str(a.space.space_number)
+                    break
+        direction = "Příjem" if p.direction == PaymentDirection.INCOME else "Výdej"
+        status_val = p.match_status.value if p.match_status else ""
+        return [
+            p.date.strftime("%d.%m.%Y") if p.date else "",
+            direction,
+            round(p.amount or 0, 2),
+            p.vs or "",
+            p.ks or "",
+            p.ss or "",
+            p.counter_account or "",
+            p.counter_account_name or "",
+            p.message or "",
+            p.note or "",
+            unit_num,
+            space_num,
+            entity_name,
+            status_labels.get(status_val, status_val),
+        ]
+
+    # Suffix dle filtru (priorita: stav → smer → typ → hledani → vse)
+    stav_labels = {
+        "auto_matched": "naparovano",
+        "suggested": "navrh",
+        "manual": "rucne",
+        "unmatched": "nenaparovano",
+    }
+    smer_labels = {"prijem": "prijem", "vydej": "vydej"}
+    typ_labels = {"jednotky": "jednotky", "prostory": "prostory"}
+    if stav:
+        suffix = f"_{stav_labels.get(stav, stav)}"
+    elif smer:
+        suffix = f"_{smer_labels.get(smer, smer)}"
+    elif typ:
+        suffix = f"_{typ_labels.get(typ, typ)}"
+    elif q:
+        suffix = "_hledani"
+    else:
+        suffix = "_vse"
+    timestamp = datetime.now().strftime("%Y%m%d")
+    filename = f"vypis_{statement_id}{suffix}_{timestamp}"
+
+    if fmt == "xlsx":
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Platby"
+        bold = Font(bold=True)
+
+        for col, h in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col, value=h)
+            cell.font = bold
+
+        for row_idx, p in enumerate(payments, 2):
+            for col_idx, val in enumerate(_row(p), 1):
+                ws.cell(row=row_idx, column=col_idx, value=val)
+
+        excel_auto_width(ws)
+
+        buf = BytesIO()
+        wb.save(buf)
+        return Response(
+            content=buf.getvalue(),
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f'attachment; filename="{filename}.xlsx"'},
+        )
+    else:
+        buf = io.StringIO()
+        writer = csv.writer(buf, delimiter=";")
+        writer.writerow(headers)
+        for p in payments:
+            writer.writerow(_row(p))
+        return Response(
+            content=buf.getvalue().encode("utf-8-sig"),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="{filename}.csv"'},
+        )
 
 
 # ── Ruční přiřazení platby ─────────────────────────────────────────────

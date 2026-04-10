@@ -41,6 +41,15 @@
                     </button>
                 </form>
                 {% endif %}
+                {% set _export_qs = "?" ~ ("q=" ~ q ~ "&" if q else "") ~ ("stav=" ~ stav ~ "&" if stav else "") ~ ("smer=" ~ smer ~ "&" if smer else "") ~ ("typ=" ~ typ ~ "&" if typ else "") ~ "sort=" ~ sort ~ "&order=" ~ order %}
+                <a href="/platby/vypisy/{{ statement.id }}/exportovat/xlsx{{ _export_qs }}" hx-boost="false"
+                   class="inline-flex items-center px-3 py-1.5 bg-gray-100 text-gray-600 border border-gray-200 text-xs font-medium rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600">
+                    ↓ Excel
+                </a>
+                <a href="/platby/vypisy/{{ statement.id }}/exportovat/csv{{ _export_qs }}" hx-boost="false"
+                   class="inline-flex items-center px-3 py-1.5 bg-gray-100 text-gray-600 border border-gray-200 text-xs font-medium rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600">
+                    ↓ CSV
+                </a>
                 <form method="post" action="/platby/vypisy/{{ statement.id }}/preparovat" class="flex items-center gap-1.5"
                       {% if not statement.locked_at %}data-confirm="Přepárování resetuje automatická a navrhovaná přiřazení. Ruční přiřazení zůstanou. Pokračovat?"{% endif %}>
                     <input type="hidden" name="q" value="{{ q }}">
