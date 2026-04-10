@@ -44,10 +44,10 @@
         </form>
         {% elif voting.status.value == 'active' %}
         <span class="px-3 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">Aktivní</span>
-        <a href="/hlasovani/{{ voting.id }}/import" class="px-3 py-1.5 text-sm font-medium text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors">
+        <a href="/hlasovani/{{ voting.id }}/import?back={{ ('/hlasovani/' ~ voting.id)|urlencode }}" class="px-3 py-1.5 text-sm font-medium text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors">
             Importovat výsledky
         </a>
-        <a href="/hlasovani/{{ voting.id }}/zpracovani" class="px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">
+        <a href="/hlasovani/{{ voting.id }}/zpracovani?back={{ ('/hlasovani/' ~ voting.id)|urlencode }}" class="px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">
             Zpracovat ručně
         </a>
         {% if active_bubble == 'neodevzdane' %}

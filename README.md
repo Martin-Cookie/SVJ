@@ -290,7 +290,7 @@ Evidence pronajímaných společných prostorů SVJ (sklady, nebytové prostory,
   - **Multi-space**: 1 nájemce může mít souběžně více prostor (více smluv). Seznam zobrazuje jeden řádek per nájemce se stacked prostory/nájemným/VS pod sebou, detail má sekci „Aktuální prostory (N)", export 1 řádek per smlouva
   - **Deduplikace**: `find_existing_tenant()` helper (priorita owner_id → RČ → IČ → jméno+typ) zabraňuje vytváření duplicitních nájemců při create přes `/najemci/novy` i při inline vytvoření v `/prostory/novy`. Historické duplicity řeší startup migrace `_migrate_dedupe_tenants` (sloučí záznamy, vítěz = nejvíce vyplněných polí, SpaceTenant vztahy se přesunou na vítěze)
   - **Rozdělené pole jméno** v `/prostory/novy`: formulář má dvě pole `tenant_last_name` + `tenant_first_name` (ne jedno `tenant_name`). Validace: při zadání jakéhokoliv údaje nájemce je příjmení povinné
-- **Nájemní vztahy** (SpaceTenant) — přiřazení nájemce k prostoru s detaily smlouvy (číslo, datum, nájemné, VS, PDF příloha)
+- **Nájemní vztahy** (SpaceTenant) — přiřazení nájemce k prostoru s detaily smlouvy (číslo, datum, nájemné, VS, PDF příloha). Detail prostoru podporuje inline editaci aktuálního nájemního vztahu (VS, nájemné, číslo smlouvy, PDF) přes HTMX info/form partial vzor
 - **Platební integrace**:
   - Auto-vytvoření `VariableSymbolMapping` (space_id) při přiřazení nájemce s VS
   - Auto-vytvoření `Prescription` (space_id) při přiřazení nájemce s nájemným
@@ -720,6 +720,7 @@ wheels/                        # Offline Python balíčky (gitignored)
 |--------|-------|-------|
 | GET | `/` | Hlavní dashboard (statistiky, poslední aktivita) |
 | GET | `/prehled/rozdil-podilu` | Breakdown rozdílu podílů |
+| GET | `/exportovat/{fmt}` | Export poslední aktivity (xlsx/csv, respektuje hledání) |
 
 **Poslední aktivita** — tabulka sdružuje `ActivityLog` (CRUD napříč moduly: vlastníci, jednotky, prostory, nájemci, hlasování, rozesílání, platby, kontroly, administrace, nastavení) s `EmailLog` (odeslané emaily). Bubliny filtrují podle modulu, hledání podle popisu/detailu, řádky jsou klikací na detail entity. CRUD operace volají `log_activity(db, action, entity_type, module, entity_id, entity_name, description)` z `app/models/common.py` před `db.commit()`.
 
@@ -951,6 +952,9 @@ wheels/                        # Offline Python balíčky (gitignored)
 | GET | `/platby/vypisy/import` | Import bankovního výpisu — formulář (upload CSV) |
 | POST | `/platby/vypisy/import` | Import bankovního výpisu — zpracování CSV |
 | GET | `/platby/vypisy/{id}` | Detail výpisu s platbami (filtry: stav, směr, entita, hledání) |
+| GET | `/platby/vypisy/{id}/soubor` | Stažení původního CSV bankovního výpisu |
+| GET | `/platby/vypisy/exportovat/{fmt}` | Export seznamu výpisů (xlsx/csv, respektuje filtry) |
+| GET | `/platby/vypisy/{id}/exportovat/{fmt}` | Export plateb z detailu výpisu (xlsx/csv) |
 | POST | `/platby/vypisy/{id}/prirazeni/{payment_id}` | Ruční přiřazení platby (single/multi-unit) |
 | POST | `/platby/vypisy/{id}/prirazeni-prostor/{payment_id}` | Ruční přiřazení platby k prostoru |
 | POST | `/platby/vypisy/{id}/potvrdit-vse` | Hromadné potvrzení všech SUGGESTED přiřazení |
@@ -960,9 +964,9 @@ wheels/                        # Offline Python balíčky (gitignored)
 | POST | `/platby/vypisy/{id}/zamknout` | Zamčení/odemčení párování výpisu |
 | POST | `/platby/vypisy/{id}/smazat` | Smazání výpisu (zamčený výpis nelze smazat) |
 | GET | `/platby/prehled` | Matice plateb (jednotky × měsíce, přepínač entity) |
-| POST | `/platby/prehled/exportovat` | Export matice plateb (xlsx) |
+| GET | `/platby/prehled/exportovat/{fmt}` | Export matice plateb (xlsx/csv, podporuje `entita=prostory`, respektuje filtry) |
 | GET | `/platby/dluznici` | Seznam dlužníků (přepínač entity) |
-| POST | `/platby/dluznici/exportovat` | Export dlužníků (xlsx) |
+| GET | `/platby/dluznici/exportovat/{fmt}` | Export dlužníků (xlsx/csv) |
 | GET | `/platby/jednotka/{unit_id}` | Platební detail jedné jednotky |
 | GET | `/platby/prostor/{space_id}` | Platební detail jednoho prostoru |
 | GET | `/platby/vyuctovani` | Seznam vyúčtování (rok, filtry, search, sort) |
@@ -997,6 +1001,9 @@ wheels/                        # Offline Python balíčky (gitignored)
 | POST | `/prostory/{id}/smazat` | Smazání prostoru |
 | POST | `/prostory/{id}/pridat-najemce` | Přiřazení nájemce (+ VS mapping + Prescription) |
 | POST | `/prostory/{id}/ukoncit-najem` | Ukončení nájmu |
+| GET | `/prostory/{id}/najemce-formular` | HTMX: inline editační formulář aktuálního nájemce (VS, nájemné, smlouva) |
+| GET | `/prostory/{id}/najemce-info` | HTMX: info karta aktuálního nájemce |
+| POST | `/prostory/{id}/upravit-najemce` | Uložení inline edit nájemního vztahu |
 | GET | `/prostory/exportovat/{fmt}` | Export prostorů (xlsx/csv) |
 | GET | `/prostory/import` | Import prostorů — upload stránka |
 | POST | `/prostory/import` | Import — upload souboru |

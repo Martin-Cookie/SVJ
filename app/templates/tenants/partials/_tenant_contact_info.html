@@ -1,7 +1,7 @@
 {% if tenant.is_linked %}
 <div class="flex items-center justify-between mb-2">
     <h2 class="text-sm font-semibold text-gray-700">Kontakty</h2>
-    <a href="/vlastnici/{{ tenant.owner_id }}" class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-600 border border-blue-300 rounded hover:bg-blue-50 transition-colors">
+    <a href="/vlastnici/{{ tenant.owner_id }}?back={{ ('/najemci/' ~ tenant.id)|urlencode }}" class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-600 border border-blue-300 rounded hover:bg-blue-50 transition-colors">
         Vlastník &rarr;
     </a>
 </div>

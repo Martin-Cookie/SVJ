@@ -80,7 +80,7 @@
                     </td>
                     <td class="px-4 py-2 text-gray-500">{{ o.id }}</td>
                     <td class="px-4 py-2">
-                        <a href="/vlastnici/{{ o.id }}" class="text-blue-600 hover:underline">{{ o.display_name }}</a>
+                        <a href="/vlastnici/{{ o.id }}?back=/sprava/duplicity" class="text-blue-600 hover:underline">{{ o.display_name }}</a>
                     </td>
                     <td class="px-4 py-2">
                         {% if o.data_source == 'excel' %}
