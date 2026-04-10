@@ -17,7 +17,7 @@
         {% endif %}
     </td>
     <td class="px-2 py-1.5 text-gray-500 dark:text-gray-400 font-mono">
-        {% if tenant.birth_number %}{{ tenant.birth_number }}{% elif tenant.company_id %}{{ tenant.company_id }}{% else %}—{% endif %}
+        {% if tenant.resolved_birth_number %}{{ tenant.resolved_birth_number }}{% elif tenant.resolved_company_id %}{{ tenant.resolved_company_id }}{% else %}—{% endif %}
     </td>
     <td class="px-2 py-1.5 text-gray-500 dark:text-gray-400 overflow-hidden" style="text-overflow:ellipsis;white-space:nowrap">{{ tenant.resolved_phone or '—' }}</td>
     <td class="px-2 py-1.5 text-gray-500 dark:text-gray-400 overflow-hidden" style="text-overflow:ellipsis;white-space:nowrap">{{ tenant.resolved_email or '—' }}</td>

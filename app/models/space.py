@@ -142,6 +142,18 @@ class Tenant(Base):
         return self.tenant_type
 
     @property
+    def resolved_birth_number(self) -> str:
+        if self.owner_id and self.owner:
+            return self.owner.birth_number or ""
+        return self.birth_number or ""
+
+    @property
+    def resolved_company_id(self) -> str:
+        if self.owner_id and self.owner:
+            return self.owner.company_id or ""
+        return self.company_id or ""
+
+    @property
     def resolved_name_normalized(self) -> str:
         if self.owner_id and self.owner:
             return self.owner.name_normalized or ""

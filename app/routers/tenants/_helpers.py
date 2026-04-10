@@ -67,8 +67,8 @@ def _filter_tenants(db: Session, q="", typ="", stav="", sort="name", order="asc"
             if (search_ascii in (t.resolved_name_normalized or "")
                     or q.lower() in (t.resolved_email or "").lower()
                     or q in (t.resolved_phone or "")
-                    or q in (t.birth_number or "")
-                    or q in (t.company_id or "")):
+                    or q in (t.resolved_birth_number or "")
+                    or q in (t.resolved_company_id or "")):
                 filtered.append(t)
             else:
                 # Search in space designation

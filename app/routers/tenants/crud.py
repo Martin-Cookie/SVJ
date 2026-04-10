@@ -512,7 +512,7 @@ async def tenant_export(
             t.display_name,
             "Vlastník" if t.is_linked else "Nájemník",
             type_labels.get((t.resolved_type or OwnerType.PHYSICAL).value, ""),
-            t.birth_number or t.company_id or "",
+            t.resolved_birth_number or t.resolved_company_id or "",
             t.resolved_phone or "",
             t.resolved_email or "",
             asr.space.designation if asr else "",
