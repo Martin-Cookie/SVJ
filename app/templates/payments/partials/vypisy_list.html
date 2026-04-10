@@ -1,0 +1,68 @@
+{% if statements %}
+<div class="bg-white dark:bg-gray-800 rounded-lg shadow">
+    <div class="divide-y divide-gray-200 dark:divide-gray-700">
+        {% for stmt in statements %}
+        <a href="/platby/vypisy/{{ stmt.id }}?back={{ list_url|urlencode }}" class="flex items-center justify-between px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+            <div class="flex items-center">
+                <div class="flex-shrink-0 p-2 bg-yellow-100 dark:bg-yellow-900 rounded-lg mr-3">
+                    <svg class="w-4 h-4 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
+                    </svg>
+                </div>
+                <div>
+                    <span class="text-sm font-bold text-gray-900 dark:text-white">
+                        {% if stmt.period_from %}{{ month_names.get(stmt.period_from.month, "") }} {{ stmt.period_from.year }}{% else %}{{ stmt.filename }}{% endif %}
+                    </span>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">
+                        {% if stmt.period_from %}{{ stmt.period_from.strftime('%d.%m.') }} – {{ stmt.period_to.strftime('%d.%m.%Y') }}{% endif %}
+                        · {{ stmt.filename }}
+                    </p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-3">
+                {% if stmt.locked_at %}
+                <span class="inline-flex items-center gap-0.5 px-2 py-0.5 text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 rounded-full" title="Zamčeno {{ stmt.locked_at.strftime('%d.%m.%Y') }}">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                </span>
+                {% endif %}
+                <span class="px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full">
+                    {{ stmt.transaction_count }} plateb
+                </span>
+                {% if stmt._stats %}
+                {% if stmt._stats.suggested > 0 %}
+                <span class="px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full">
+                    {{ stmt._stats.suggested }} návrhů
+                </span>
+                {% endif %}
+                {% if stmt._stats.unmatched > 0 %}
+                <span class="px-2 py-0.5 text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 rounded-full">
+                    {{ stmt._stats.unmatched }} nenapárováno
+                </span>
+                {% elif stmt._stats.suggested == 0 %}
+                <span class="px-2 py-0.5 text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full">
+                    vše napárováno
+                </span>
+                {% endif %}
+                {% endif %}
+                <span class="text-xs text-gray-500 dark:text-gray-400">
+                    +{{ stmt.total_income|round(0)|int|fmt_num }} / -{{ stmt.total_expense|round(0)|int|fmt_num }} Kč
+                </span>
+                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+</div>
+{% else %}
+<div class="bg-white dark:bg-gray-800 rounded-lg shadow p-8 text-center">
+    <svg class="w-12 h-12 mx-auto text-gray-300 dark:text-gray-600 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
+    </svg>
+    <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">{% if q or rok or stav %}Žádné výpisy neodpovídají filtru.{% else %}Zatím nejsou importovány žádné bankovní výpisy.{% endif %}</p>
+    {% if not (q or rok or stav) %}
+    <a href="/platby/vypisy/import" class="inline-flex items-center px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700">
+        Importovat z CSV
+    </a>
+    {% endif %}
+</div>
+{% endif %}

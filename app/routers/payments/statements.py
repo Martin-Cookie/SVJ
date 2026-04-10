@@ -1,12 +1,16 @@
 """Router pro bankovní výpisy — import CSV, seznam, detail, párování."""
 
+import csv
+import io
 import logging
+from datetime import datetime
+from io import BytesIO
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-from fastapi import APIRouter, Depends, Form, Request, UploadFile, File
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import APIRouter, Depends, Form, Query, Request, UploadFile, File
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy import asc as sa_asc, desc as sa_desc, func
 from sqlalchemy.orm import Session, joinedload
 
@@ -17,7 +21,10 @@ from app.models import (
     PaymentDirection, PaymentMatchStatus, Space, SpaceTenant, Tenant, Unit,
     log_activity,
 )
-from app.utils import build_list_url, is_htmx_partial, is_safe_path, validate_upload, strip_diacritics, utcnow, UPLOAD_LIMITS
+from app.utils import (
+    build_list_url, excel_auto_width, is_htmx_partial, is_safe_path,
+    strip_diacritics, utcnow, validate_upload, UPLOAD_LIMITS,
+)
 from ._helpers import templates, compute_nav_stats, MONTH_NAMES_LONG
 
 router = APIRouter()
@@ -55,16 +62,43 @@ def _build_suggest_map(
 # ── Seznam výpisů ──────────────────────────────────────────────────────
 
 
-@router.get("/vypisy")
-async def vypisy_seznam(request: Request, db: Session = Depends(get_db)):
-    """Seznam importovaných bankovních výpisů."""
-    statements = (
-        db.query(BankStatement)
-        .order_by(BankStatement.period_from.desc())
-        .all()
-    )
+def _filter_statements(
+    db: Session,
+    q: str = "",
+    rok: int = 0,
+    stav: str = "",
+) -> list:
+    """Sdílená filtrační logika pro výpisy (seznam, HTMX partial, export)."""
+    query = db.query(BankStatement).order_by(BankStatement.period_from.desc())
 
-    # Statistiky pro všechny výpisy jedním dotazem
+    if rok:
+        query = query.filter(func.strftime("%Y", BankStatement.period_from) == str(rok))
+
+    if stav == "zamcene":
+        query = query.filter(BankStatement.locked_at.isnot(None))
+    elif stav == "otevrene":
+        query = query.filter(BankStatement.locked_at.is_(None))
+
+    statements = query.all()
+
+    if q:
+        q_ascii = strip_diacritics(q)
+        def _match(s):
+            period = ""
+            if s.period_from:
+                period = f"{MONTH_NAMES_LONG.get(s.period_from.month, '')} {s.period_from.year}"
+            haystack = strip_diacritics(f"{period} {s.filename or ''} {s.bank_account or ''}")
+            return q_ascii in haystack
+        statements = [s for s in statements if _match(s)]
+
+    return statements
+
+
+def _attach_statement_stats(db: Session, statements: list) -> None:
+    """Doplní _stats dict každému výpisu (jedním dotazem)."""
+    if not statements:
+        return
+    stmt_ids = [s.id for s in statements]
     stats_rows = (
         db.query(
             Payment.statement_id,
@@ -74,6 +108,7 @@ async def vypisy_seznam(request: Request, db: Session = Depends(get_db)):
             func.count(Payment.id).filter(Payment.match_status == PaymentMatchStatus.MANUAL).label("manual"),
             func.count(Payment.id).filter(Payment.match_status == PaymentMatchStatus.UNMATCHED).label("unmatched"),
         )
+        .filter(Payment.statement_id.in_(stmt_ids))
         .group_by(Payment.statement_id)
         .all()
     )
@@ -87,6 +122,33 @@ async def vypisy_seznam(request: Request, db: Session = Depends(get_db)):
             "unmatched": r.unmatched if r else 0,
         }
 
+
+@router.get("/vypisy")
+async def vypisy_seznam(
+    request: Request,
+    q: str = "",
+    rok: int = 0,
+    stav: str = "",
+    db: Session = Depends(get_db),
+):
+    """Seznam importovaných bankovních výpisů."""
+    statements = _filter_statements(db, q, rok, stav)
+    _attach_statement_stats(db, statements)
+
+    # Roky pro bubliny — ze všech (nefiltrovaných) výpisů
+    all_years = (
+        db.query(func.strftime("%Y", BankStatement.period_from))
+        .filter(BankStatement.period_from.isnot(None))
+        .distinct()
+        .all()
+    )
+    years = sorted({int(y[0]) for y in all_years if y[0]}, reverse=True)
+
+    # Celkový počet pro bubliny
+    total_count = db.query(BankStatement).count()
+    locked_count = db.query(BankStatement).filter(BankStatement.locked_at.isnot(None)).count()
+    open_count = total_count - locked_count
+
     list_url = build_list_url(request)
     back_url = request.query_params.get("back", "")
 
@@ -95,12 +157,114 @@ async def vypisy_seznam(request: Request, db: Session = Depends(get_db)):
         "active_nav": "platby",
         "active_tab": "vypisy",
         "statements": statements,
+        "years": years,
+        "total_count": total_count,
+        "locked_count": locked_count,
+        "open_count": open_count,
+        "q": q,
+        "rok": rok,
+        "stav": stav,
         "list_url": list_url,
         "back_url": back_url,
         "month_names": MONTH_NAMES_LONG,
-        **compute_nav_stats(db),
+        **(compute_nav_stats(db) if not is_htmx_partial(request) else {}),
     }
+
+    if is_htmx_partial(request):
+        return templates.TemplateResponse(request, "payments/partials/vypisy_list.html", ctx)
+
     return templates.TemplateResponse(request, "payments/vypisy.html", ctx)
+
+
+@router.get("/vypisy/exportovat/{fmt}")
+async def vypisy_export(
+    fmt: str,
+    q: str = Query(""),
+    rok: int = Query(0),
+    stav: str = Query(""),
+    db: Session = Depends(get_db),
+):
+    """Export filtrovaných bankovních výpisů."""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font
+
+    if fmt not in ("xlsx", "csv"):
+        return RedirectResponse("/platby/vypisy", status_code=302)
+
+    statements = _filter_statements(db, q, rok, stav)
+    _attach_statement_stats(db, statements)
+
+    headers = [
+        "Období", "Od", "Do", "Soubor", "Účet",
+        "Počet plateb", "Příjem (Kč)", "Výdaj (Kč)",
+        "Napárováno", "Návrhů", "Nenapárováno", "Zamčeno",
+    ]
+
+    def _row(s):
+        period = ""
+        if s.period_from:
+            period = f"{MONTH_NAMES_LONG.get(s.period_from.month, '')} {s.period_from.year}"
+        stats = getattr(s, "_stats", {}) or {}
+        return [
+            period,
+            s.period_from.strftime("%d.%m.%Y") if s.period_from else "",
+            s.period_to.strftime("%d.%m.%Y") if s.period_to else "",
+            s.filename or "",
+            s.bank_account or "",
+            s.transaction_count or 0,
+            round(s.total_income or 0),
+            round(s.total_expense or 0),
+            stats.get("matched", 0),
+            stats.get("suggested", 0),
+            stats.get("unmatched", 0),
+            s.locked_at.strftime("%d.%m.%Y") if s.locked_at else "",
+        ]
+
+    if rok:
+        suffix = f"_{rok}"
+    elif stav:
+        suffix = f"_{stav}"
+    elif q:
+        suffix = "_hledani"
+    else:
+        suffix = "_vse"
+    timestamp = datetime.now().strftime("%Y%m%d")
+    filename = f"vypisy{suffix}_{timestamp}"
+
+    if fmt == "xlsx":
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Bankovní výpisy"
+        bold = Font(bold=True)
+
+        for col, h in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col, value=h)
+            cell.font = bold
+
+        for row_idx, s in enumerate(statements, 2):
+            for col_idx, val in enumerate(_row(s), 1):
+                ws.cell(row=row_idx, column=col_idx, value=val)
+
+        excel_auto_width(ws)
+
+        buf = BytesIO()
+        wb.save(buf)
+        return Response(
+            content=buf.getvalue(),
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f'attachment; filename="{filename}.xlsx"'},
+        )
+    else:
+        buf = io.StringIO()
+        writer = csv.writer(buf, delimiter=";")
+        writer.writerow(headers)
+        for s in statements:
+            writer.writerow(_row(s))
+        return Response(
+            content=buf.getvalue().encode("utf-8-sig"),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="{filename}.csv"'},
+        )
 
 
 # ── Import CSV ─────────────────────────────────────────────────────────
