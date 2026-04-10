@@ -63,7 +63,6 @@
                 {% if tenants_linked %}<span class="px-1 py-0.5 font-medium bg-blue-100 text-blue-800 rounded-full text-xs leading-none" title="Nájemce je zároveň vlastník">{{ tenants_linked }} vlastník</span>{% endif %}
                 {% set tenants_standalone = tenants_count - tenants_linked %}
                 {% if tenants_standalone %}<span class="px-1 py-0.5 font-medium bg-pink-100 text-pink-800 rounded-full text-xs leading-none" title="Samostatný nájemník (není vlastník)">{{ tenants_standalone }} nájemník</span>{% endif %}
-                {% if tenants_with_contract %}<span class="px-1 py-0.5 font-medium bg-green-100 text-green-800 rounded-full text-xs leading-none">{{ tenants_with_contract }} se smlouvou</span>{% endif %}
             </div>
         </div>
     </div>
@@ -167,7 +166,7 @@
             </div>
         </a>
         <div class="mt-1 space-y-0.5">
-            <a href="/platby/vypisy?back=/" class="flex items-center gap-1 text-xs hover:bg-gray-50 rounded -mx-1 px-1" onclick="event.stopPropagation()">
+            <a href="/platby/vypisy?back=/" class="flex flex-wrap items-center gap-1 text-xs hover:bg-gray-50 rounded -mx-1 px-1" onclick="event.stopPropagation()">
                 <span class="shrink-0 px-1 py-0.5 font-medium bg-gray-100 text-gray-700 rounded-full text-xs leading-none">{{ statement_count }} {% if statement_count == 1 %}výpis{% elif statement_count < 5 %}výpisy{% else %}výpisů{% endif %}</span>
                 {% if unmatched_payments %}<span class="shrink-0 px-1 py-0.5 font-medium bg-yellow-100 text-yellow-700 rounded-full text-xs leading-none">{{ unmatched_payments }} nenapár.</span>{% endif %}
                 {% if debtor_count %}<span class="shrink-0 px-1 py-0.5 font-medium bg-red-100 text-red-800 rounded-full text-xs leading-none">{{ debtor_count }} dlužn.</span>{% endif %}
