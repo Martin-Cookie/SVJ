@@ -1216,6 +1216,36 @@ Zbývající nálezy z druhého auditu: autentizace (plánováno), CSRF ochrana,
 - Zobrazení všech spoluvlastníků v platebním modulu (dlužníci, matice, vyúčtování, exporty)
 - Zbývá: autentizace + CSRF
 
+**Devátý audit — Code Guardian + Doc Sync + UX (2026-04-11) — 24 nálezů, opraveno 24:**
+
+*Code Guardian (13):*
+- XSS: odstraněn `|safe` u `body_preview` v email logu + HTML se stripuje před uložením (`_html_to_plain()` v email_service)
+- Dashboard: LIMIT 200 na EmailLog/ActivityLog, N+1 voting/tax aggregáty (1 dotaz místo ~16), Payment count jeden agregát místo 4 dotazů
+- `_norm_module` extrahován na module-level v dashboard.py (deduplikace view + export)
+- Matice plateb export: podpora `entita=prostory`, sdílený `_matrix_sort_fns()` helper mezi view a exportem
+- `strip_diacritics()` ve všech export suffixech (vlastníci, jednotky, prostory, nájemci, výpisy) — HTTP Content-Disposition je latin-1
+- Eager loading v detail výpisu: 1 JOIN místo 3 dotazů (Unit + OwnerUnit + Owner pro dropdown)
+- Nový endpoint `GET /platby/vypisy/{id}/soubor` + klikací filename v seznamu i detailu (stažení zdrojového CSV)
+- `db.rollback()` fallback v discrepancies po neúspěšném `notified_at` update
+- Silent `except` v dashboard debtor count → `logger.warning` s exc info
+
+*Doc Sync (5):*
+- README § Evidence plateb: doplněny endpointy `/vypisy/{id}/soubor`, `/vypisy/exportovat/{fmt}`, `/vypisy/{id}/exportovat/{fmt}`
+- README: opravena metoda POST→GET u `/platby/prehled/exportovat/{fmt}` a `/platby/dluznici/exportovat/{fmt}` + zmínka `entita=prostory`
+- README § Prostory: doplněny 3 HTMX endpointy inline edit nájemce (`najemce-formular`, `najemce-info`, `upravit-najemce`) + feature popis inline editace
+- README: doplněn `/exportovat/{fmt}` pro dashboard export poslední aktivity
+- CLAUDE.md § Export dat: příklad `vypis_{id}_filter_YYYYMMDD`
+
+*UX (6):*
+- 4 tenant partials (`_tenant_contact_info`, `_tenant_address_info`, `_tenant_identity_info`, `_tenant_info`): odkaz na vlastníka propaguje `?back=/najemci/{id}`
+- `administration/duplicates.html`: `?back=/sprava/duplicity` na odkazech vlastníků
+- `voting/_voting_header.html`: import/zpracování propagují `?back`, `import_result.html` stejné sjednocení
+- `owner_create_form.html` + `tenants/_create_form.html`: duplicita odkazy na entitu s `?back=/vlastnici/novy` / `/najemci/novy`
+- `owners/crud.py` `back_label`: nové větve pro `/najemci/` a `/sprava/duplicity`
+- `administration/backups.html`: client-side search pole nad tabulkou záloh (zobrazí se při >5 záloh)
+
+Zbývající z 9. auditu (vyžaduje rozhodnutí nebo odloženo): Business Logic — 4 kritické nálezy (OwnerUnit.votes Int vs Float podíl, SJM první import, hardcoded VS_PREFIX, přeplatky v nesrovnalostech), `administration/duplicates.html` layout (karty ponechány), autentizace + CSRF.
+
 ## UX vylepšení
 
 Projekt prošel UX analýzou klíčových modulů (6 expertních perspektiv: UX Designer, Information Architect, Accessibility Specialist, Error Prevention, Interaction Designer, Data Integrity Guardian).
