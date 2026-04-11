@@ -718,11 +718,18 @@ async def owner_update(
     """Uložení změn kontaktních údajů vlastníka."""
     owner = db.query(Owner).get(owner_id)
     if owner:
-        owner.email = (email.strip() if email.strip() and is_valid_email(email.strip()) else None)
+        new_email = email.strip() if email.strip() and is_valid_email(email.strip()) else None
+        email_changed = new_email != owner.email
+        owner.email = new_email
         owner.email_secondary = (email_secondary.strip() if email_secondary.strip() and is_valid_email(email_secondary.strip()) else None)
         owner.phone = phone.strip() or None
         owner.phone_secondary = phone_secondary.strip() or None
         owner.phone_landline = phone_landline.strip() or None
+        # Reset bounce flag when primary email is changed to a new non-empty value —
+        # nová adresa dostane novou šanci doručit, dokud neselže.
+        if email_changed and new_email and owner.email_invalid:
+            owner.email_invalid = False
+            owner.email_invalid_reason = None
         owner.updated_at = utcnow()
         log_activity(db, ActivityAction.UPDATED, "owner", "vlastnici",
                      entity_id=owner.id, entity_name=owner.display_name,
