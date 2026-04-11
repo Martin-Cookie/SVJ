@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.database import SessionLocal, get_db
 from app.models import (
-    MatchStatus, Owner, OwnerUnit,
+    MatchStatus, Owner, OwnerUnit, SendStatus,
     TaxDistribution, TaxDocument, TaxSession,
 )
 from app.utils import compute_eta
@@ -390,3 +390,58 @@ async def tax_processing_status(session_id: int, request: Request):
         "error": None,
         **_progress_eta(progress),
     })
+
+
+@router.post("/{session_id}/prepocitat-skore")
+def tax_recompute_scores(session_id: int, db: Session = Depends(get_db)):
+    """Přepočítá match_confidence u AUTO_MATCHED distribucí pomocí aktuální
+    verze fuzzy matcheru. Aktualizuje jen tam, kde by nové skóre bylo vyšší.
+    Použití: když se změní logika titulového stemmingu (TITLE_PATTERNS)
+    a existující sezení má zamrznutá stará skóre z původního uploadu."""
+    session = db.query(TaxSession).get(session_id)
+    if not session:
+        return RedirectResponse("/dane", status_code=302)
+    if session.send_status in (SendStatus.READY, SendStatus.SENDING,
+                                SendStatus.PAUSED, SendStatus.COMPLETED):
+        return RedirectResponse(f"/dane/{session_id}?flash=locked", status_code=302)
+
+    docs = (
+        db.query(TaxDocument)
+        .filter_by(session_id=session_id)
+        .options(
+            joinedload(TaxDocument.distributions).joinedload(TaxDistribution.owner)
+        )
+        .all()
+    )
+
+    updated = 0
+    for doc in docs:
+        if not doc.extracted_owner_name:
+            continue
+        candidates = [p.strip() for p in doc.extracted_owner_name.split(",") if p.strip()]
+        if not candidates:
+            candidates = [doc.extracted_owner_name]
+
+        for dist in doc.distributions:
+            if dist.match_status != MatchStatus.AUTO_MATCHED or not dist.owner:
+                continue
+            owner_dict = [{
+                "id": dist.owner.id,
+                "name": dist.owner.display_name,
+                "name_normalized": dist.owner.name_normalized,
+            }]
+            best = 0.0
+            # Zkus celou frázi i jednotlivé části — vezmi nejvyšší
+            for cand in [doc.extracted_owner_name, *candidates]:
+                r = match_name(cand, owner_dict, threshold=0.0)
+                if r and r[0]["confidence"] > best:
+                    best = r[0]["confidence"]
+            old = dist.match_confidence or 0
+            if best > old + 0.001:
+                dist.match_confidence = round(best, 3)
+                updated += 1
+
+    db.commit()
+    return RedirectResponse(
+        f"/dane/{session_id}?flash=prematched&n={updated}", status_code=302
+    )

@@ -388,6 +388,8 @@ async def tax_detail(
     q: str = Query("", alias="q"),
     sort: str = Query("unit_number", alias="sort"),
     order: str = Query("asc", alias="order"),
+    flash: str = Query("", alias="flash"),
+    n: int = Query(0, alias="n"),
     db: Session = Depends(get_db),
 ):
     """Detail daňové session s dokumenty, párováním a filtrováním."""
@@ -513,6 +515,15 @@ async def tax_detail(
         .all()
     )
 
+    flash_message = None
+    flash_type = None
+    if flash == "prematched":
+        flash_message = f"Přepočítáno skóre — aktualizováno {n} přiřazení." if n else "Přepočítáno skóre — žádné přiřazení nebylo potřeba aktualizovat."
+        flash_type = None
+    elif flash == "locked":
+        flash_message = "Přepočet skóre není možný — rozesílání je uzamčeno."
+        flash_type = "warning"
+
     back_url = back or "/dane"
     back_label = (
         "Zpět na přehled" if back == "/"
@@ -535,6 +546,8 @@ async def tax_detail(
         "is_locked": is_locked,
         "unit_by_number": _unit_by_number(db),
         "missing_list": missing_list,
+        "flash_message": flash_message,
+        "flash_type": flash_type,
         **stats,
         **_tax_wizard(session, 2, has_documents=len(documents) > 0),
     })
