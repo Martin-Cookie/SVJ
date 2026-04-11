@@ -372,7 +372,7 @@ def _get_table_counts(db_path: str) -> dict:
         "payment_allocations", "bank_statement_column_mappings",
         "unit_balances", "settlements", "settlement_items",
         # Logy
-        "email_logs", "import_logs", "activity_logs",
+        "email_logs", "email_bounces", "import_logs", "activity_logs",
         # Administrace
         "svj_info", "svj_addresses", "board_members",
         "code_list_items", "email_templates",
