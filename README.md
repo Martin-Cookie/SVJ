@@ -1260,6 +1260,9 @@ Zbývající z 9. auditu (vyžaduje rozhodnutí nebo odloženo): Business Logic 
 **Doplněk — /hlasovani sjednocení bublin+sort (1 oprava):**
 `voting/index.html` byl v 9. auditu přehlédnutý — měl bubliny a Řadit: jako dva samostatné bloky s nekanonickým `rounded-full` stylem. Sjednoceno na kanonický vzor: shared `bg-white` container s `border-t` separátorem mezi bublinami a sort pills (stejně jako /dane, /vlastnici, /jednotky a 6 dalších stránek).
 
+**Doplněk — /platby/vypisy, vypis_detail, nesrovnalosti (3 opravy):**
+Tři stránky v modulu Platby měly starý `rounded-full bg-blue-600 text-white` styl bublin s shadow a bubliny mimo shared container. Sjednoceno na kanonický plochý vzor (`rounded border bg-{color}-100 border-{color}-300 ring-2`) v shared containeru. Tím je 9. audit kompletně uzavřen.
+
 ## UX vylepšení
 
 Projekt prošel UX analýzou klíčových modulů (6 expertních perspektiv: UX Designer, Information Architect, Accessibility Specialist, Error Prevention, Interaction Designer, Data Integrity Guardian).
