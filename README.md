@@ -54,19 +54,22 @@ python3 -m pytest tests/ -v          # spustit všechny testy
 python3 -m pytest tests/ -q --tb=short  # stručný výstup
 ```
 
-**320 testů** (~3s, in-memory SQLite) pokrývá:
+**336 testů** (~4s, in-memory SQLite) pokrývá:
 
 | Soubor | Testů | Oblast |
 |--------|-------|--------|
-| `test_payment_matching.py` | 33 | matching pipeline, settlement, rounding |
-| `test_payment_advanced.py` | 50 | space matching, confirm/reject, lock, multi-unit, endpoints, diacritics |
-| `test_voting.py` | 72 | wizard, ballot stats, import, SJM párování |
-| `test_backup.py` | 43 | lock, ZIP create/restore, cleanup, integrity |
 | `test_csv_comparator.py` | 77 | CSV parsing, fuzzy matching, Czech stemming |
+| `test_voting.py` | 72 | wizard, ballot stats, import, SJM párování |
+| `test_payment_advanced.py` | 50 | space matching, confirm/reject, lock, multi-unit, endpoints, diacritics |
+| `test_backup.py` | 43 | lock, ZIP create/restore, cleanup, integrity |
+| `test_payment_matching.py` | 33 | matching pipeline, settlement, rounding |
+| `test_smoke.py` | 19 | app start, dashboard, routes smoke |
 | `test_tenants.py` | 12 | dedup helper, resolved properties, multi-space, /prostory/novy flow |
 | `test_owner_matcher.py` | 10 | TITLE_PATTERNS, Czech surname stemming, stem overlap |
-| `test_smoke.py` | 3 | app start, dashboard |
-| ostatní | 20 | email, import mapping, voting aggregation |
+| `test_import_mapping.py` | 9 | column detection, mapping validation |
+| `test_email_service.py` | 5 | SMTP, template rendering |
+| `test_voting_aggregation.py` | 3 | vote aggregation pipeline |
+| `test_contact_import.py` | 3 | contact import flow |
 
 **Automatizace:**
 - **Pre-push hook** — testy se spustí automaticky před každým `git push`. Pokud selžou, push se zablokuje
