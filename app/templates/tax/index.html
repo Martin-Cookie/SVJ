@@ -16,48 +16,50 @@
 
 {% set _sort_suffix = ('&sort=' ~ current_sort) if current_sort and current_sort != 'created_desc' else '' %}
 {% set _stav_suffix = ('&stav=' ~ current_stav) if current_stav else '' %}
-<div class="flex gap-2 mb-3">
-    <a href="/dane/{% if _sort_suffix %}?{{ _sort_suffix[1:] }}{% endif %}"
-       class="flex-1 flex flex-col items-center py-2 px-3 rounded-lg text-center transition-colors
-              {% if not current_stav %}bg-purple-100 ring-2 ring-purple-400 text-purple-800{% else %}bg-white shadow text-gray-600 hover:bg-gray-50{% endif %}">
-        <span class="text-lg font-bold">{{ status_counts.get('all', 0) }}</span>
-        <span class="text-xs">Vše</span>
-    </a>
-    <a href="/dane?stav=draft{{ _sort_suffix }}"
-       class="flex-1 flex flex-col items-center py-2 px-3 rounded-lg text-center transition-colors
-              {% if current_stav == 'draft' %}bg-yellow-100 ring-2 ring-yellow-400 text-yellow-800{% else %}bg-white shadow text-gray-600 hover:bg-gray-50{% endif %}">
-        <span class="text-lg font-bold">{{ status_counts.get('draft', 0) }}</span>
-        <span class="text-xs">Rozpracováno</span>
-    </a>
-    <a href="/dane?stav=ready{{ _sort_suffix }}"
-       class="flex-1 flex flex-col items-center py-2 px-3 rounded-lg text-center transition-colors
-              {% if current_stav == 'ready' %}bg-green-100 ring-2 ring-green-400 text-green-800{% else %}bg-white shadow text-gray-600 hover:bg-gray-50{% endif %}">
-        <span class="text-lg font-bold">{{ status_counts.get('ready', 0) }}</span>
-        <span class="text-xs">Dokončeno</span>
-    </a>
-    <a href="/dane?stav=sending{{ _sort_suffix }}"
-       class="flex-1 flex flex-col items-center py-2 px-3 rounded-lg text-center transition-colors
-              {% if current_stav == 'sending' %}bg-blue-100 ring-2 ring-blue-400 text-blue-800{% else %}bg-white shadow text-gray-600 hover:bg-gray-50{% endif %}">
-        <span class="text-lg font-bold">{{ status_counts.get('sending', 0) }}</span>
-        <span class="text-xs">Odesílá se</span>
-    </a>
-    <a href="/dane?stav=completed{{ _sort_suffix }}"
-       class="flex-1 flex flex-col items-center py-2 px-3 rounded-lg text-center transition-colors
-              {% if current_stav == 'completed' %}bg-blue-100 ring-2 ring-blue-400 text-blue-800{% else %}bg-white shadow text-gray-600 hover:bg-gray-50{% endif %}">
-        <span class="text-lg font-bold">{{ status_counts.get('completed', 0) }}</span>
-        <span class="text-xs">Odesláno</span>
-    </a>
-</div>
 
-<div class="flex items-center gap-2 mb-6 text-sm">
-    <span class="text-xs text-gray-500 mr-1">Řadit:</span>
-    {% for key, label in [('created_desc', 'Nejnovější'), ('created_asc', 'Nejstarší'), ('updated_desc', 'Poslední úprava'), ('name', 'Název'), ('docs', 'Počet dokumentů')] %}
-    <a href="/dane?sort={{ key }}{{ _stav_suffix }}"
-       class="px-3 py-1 rounded-full text-xs font-medium transition-colors
-              {% if current_sort == key %}bg-purple-100 ring-2 ring-purple-400 text-purple-800{% else %}bg-white shadow text-gray-600 hover:bg-gray-50{% endif %}">
-        {{ label }}
-    </a>
-    {% endfor %}
+<!-- Bubliny + řazení ve společném kontejneru (kanonický vzor /vlastnici) -->
+<div class="bg-white dark:bg-gray-800 rounded-lg shadow mb-4">
+    <div class="flex gap-2 p-3 pb-2">
+        <a href="/dane/{% if _sort_suffix %}?{{ _sort_suffix[1:] }}{% endif %}"
+           class="flex-1 block rounded p-2 text-center hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors {% if not current_stav %}ring-2 ring-gray-400{% endif %}">
+            <p class="text-lg font-bold text-gray-800 dark:text-gray-200">{{ status_counts.get('all', 0) }}</p>
+            <p class="text-xs text-gray-500 dark:text-gray-400">Vše</p>
+        </a>
+        <a href="/dane?stav=draft{{ _sort_suffix }}"
+           class="flex-1 block bg-yellow-50 dark:bg-yellow-900/20 rounded p-2 text-center border border-yellow-200 dark:border-yellow-800 hover:bg-yellow-100 dark:hover:bg-yellow-900/40 transition-colors {% if current_stav == 'draft' %}ring-2 ring-yellow-400{% endif %}">
+            <p class="text-lg font-bold text-yellow-600 dark:text-yellow-400">{{ status_counts.get('draft', 0) }}</p>
+            <p class="text-xs text-yellow-600 dark:text-yellow-400">Rozpracováno</p>
+        </a>
+        <a href="/dane?stav=ready{{ _sort_suffix }}"
+           class="flex-1 block bg-green-50 dark:bg-green-900/20 rounded p-2 text-center border border-green-200 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors {% if current_stav == 'ready' %}ring-2 ring-green-400{% endif %}">
+            <p class="text-lg font-bold text-green-600 dark:text-green-400">{{ status_counts.get('ready', 0) }}</p>
+            <p class="text-xs text-green-600 dark:text-green-400">Dokončeno</p>
+        </a>
+        <a href="/dane?stav=sending{{ _sort_suffix }}"
+           class="flex-1 block bg-blue-50 dark:bg-blue-900/20 rounded p-2 text-center border border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors {% if current_stav == 'sending' %}ring-2 ring-blue-400{% endif %}">
+            <p class="text-lg font-bold text-blue-600 dark:text-blue-400">{{ status_counts.get('sending', 0) }}</p>
+            <p class="text-xs text-blue-600 dark:text-blue-400">Odesílá se</p>
+        </a>
+        <a href="/dane?stav=completed{{ _sort_suffix }}"
+           class="flex-1 block bg-indigo-50 dark:bg-indigo-900/20 rounded p-2 text-center border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors {% if current_stav == 'completed' %}ring-2 ring-indigo-400{% endif %}">
+            <p class="text-lg font-bold text-indigo-600 dark:text-indigo-400">{{ status_counts.get('completed', 0) }}</p>
+            <p class="text-xs text-indigo-600 dark:text-indigo-400">Odesláno</p>
+        </a>
+    </div>
+
+    <!-- Separator -->
+    <div class="border-t border-gray-100 dark:border-gray-700"></div>
+
+    <!-- Řazení -->
+    <div class="flex flex-wrap items-center gap-2 px-3 py-2">
+        <span class="text-xs text-gray-500 dark:text-gray-400 mr-1">Řadit:</span>
+        {% for key, label in [('created_desc', 'Nejnovější'), ('created_asc', 'Nejstarší'), ('updated_desc', 'Poslední úprava'), ('name', 'Název'), ('docs', 'Počet dokumentů')] %}
+        <a href="/dane?sort={{ key }}{{ _stav_suffix }}"
+           class="px-2 py-1 text-xs rounded border {% if current_sort == key %}bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 border-purple-300 ring-2 ring-purple-400{% else %}bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-100{% endif %}">
+            {{ label }}
+        </a>
+        {% endfor %}
+    </div>
 </div>
 
 {% if sessions %}
