@@ -13,7 +13,7 @@ TITLE_PATTERNS = [
     r"\bIng\.\s*", r"\bMgr\.\s*", r"\bBc\.\s*", r"\bMUDr\.\s*",
     r"\bJUDr\.\s*", r"\bRNDr\.\s*", r"\bPhDr\.\s*", r"\bDoc\.\s*",
     r"\bProf\.\s*", r",?\s*Ph\.?D\.?\s*", r",?\s*CSc\.?\s*",
-    r",?\s*MBA\s*", r"\bDiS\.\s*",
+    r",?\s*M\.?B\.?A\.?\s*", r"\bDiS\.\s*", r"\barch\.\s*",
 ]
 
 _CZECH_SURNAME_SUFFIXES = [
