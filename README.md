@@ -1322,6 +1322,14 @@ Projekt prošel UX analýzou klíčových modulů (6 expertních perspektiv: UX 
 - M4: Path traversal ochrana + `restore_from_directory()` s rollback ve folder restore
 - M5: `owner_exchange` nastaví `is_active=False` vlastníkům bez aktivních jednotek
 
+**UX sjednocení 8 stránek + bounce-check modul (2026-04-11):**
+
+*Nový modul — nedoručené emaily (`/rozesilani/bounces`):* IMAP kontrola bounce zpráv (RFC 3464), automatické označení `Owner.email_invalid=True` u hard bounces (5.x.x), vyloučení neplatných adres z budoucích rozesílek. Deduplikace přes `imap_uid`, filtry typ/modul, export Excel/CSV. Nová šablona `bounces/index.html` + `bounces/_table.html`, router `app/routers/bounces.py`, service `app/services/bounce_service.py`. UI badge `⚠ neplatný` v kontaktech vlastníka, `⚠ skrytý` v dist list v rozesílce.
+
+*UX sjednocení s kanonickým vzorem `/vlastnici` (8 stránek):* stat-card bubliny + HTMX search ve sdíleném `bg-white rounded-lg shadow` kontejneru s `border-t` separátorem, `<a href>` sort odkazy místo `onclick`, hidden inputy pro HTMX state propagation. Stránky: `/platby/dluznici`, `/platby/prehled`, `/platby/vyuctovani`, `/platby/symboly`, `/platby/zustatky`, `/dane`, `/rozesilani/bounces`, nedoručené hlasovací lístky (už přes partial). Bounces stránka dostala stejný layout hned při vzniku.
+
+*Revert vypisy_list designu:* experimentální přepis řádků v `/platby/vypisy` odmítnut, návrat k původní verzi (commit `47f1983`).
+
 ## Dokumentace business logiky
 
 - **[docs/BUSINESS-LOGIC.md](docs/BUSINESS-LOGIC.md)** — technický popis business logiky, stavových automatů, výpočetních pravidel a integracích s odkazy na zdrojový kód
