@@ -96,78 +96,85 @@
             </div>
         </div>
 
-        <!-- Filtr typ (Jednotky / Prostory) -->
         {% set _back = "&back=" ~ (back_url|default('')|urlencode) if back_url else "" %}
         {% set _typ_base = "/platby/vypisy/" ~ statement.id ~ "?sort=" ~ sort ~ "&order=" ~ order ~ ("&q=" ~ q if q else "") ~ ("&stav=" ~ stav if stav else "") ~ ("&smer=" ~ smer if smer else "") %}
-        <div class="flex flex-wrap gap-2 mb-2">
-            <a href="{{ _typ_base }}{{ _back }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
-                {% if not typ %}bg-gray-700 text-white ring-2 ring-gray-500{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
-                Vše <span class="ml-1 opacity-75">{{ typ_counts.vse }}</span>
-            </a>
-            <a href="{{ _typ_base }}&typ=jednotky{{ _back }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
-                {% if typ == 'jednotky' %}bg-green-600 text-white ring-2 ring-green-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
-                Jednotky <span class="ml-1 opacity-75">{{ typ_counts.jednotky }}</span>
-            </a>
-            <a href="{{ _typ_base }}&typ=prostory{{ _back }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
-                {% if typ == 'prostory' %}bg-purple-600 text-white ring-2 ring-purple-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
-                Prostory <span class="ml-1 opacity-75">{{ typ_counts.prostory }}</span>
-            </a>
-        </div>
-
-        <!-- Filtr bubliny (stav) -->
         {% set _base = "/platby/vypisy/" ~ statement.id ~ "?sort=" ~ sort ~ "&order=" ~ order ~ ("&q=" ~ q if q else "") ~ ("&smer=" ~ smer if smer else "") ~ ("&typ=" ~ typ if typ else "") %}
-        <div class="flex flex-wrap gap-2 mb-2">
-            <a href="{{ _base|replace('&stav=' ~ stav, '') }}{{ _back }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
-                {% if not stav %}bg-blue-600 text-white ring-2 ring-blue-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
-                Vše <span class="ml-1 opacity-75">{{ bubble_counts.vse }}</span>
-            </a>
-            <a href="{{ _base }}&stav=auto_matched{{ _back }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
-                {% if stav == 'auto_matched' %}bg-green-600 text-white ring-2 ring-green-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
-                Napárováno <span class="ml-1 opacity-75">{{ bubble_counts.auto_matched }}</span>
-            </a>
-            <a href="{{ _base }}&stav=suggested{{ _back }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
-                {% if stav == 'suggested' %}bg-blue-600 text-white ring-2 ring-blue-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
-                Návrhy <span class="ml-1 opacity-75">{{ bubble_counts.suggested }}</span>
-            </a>
-            <a href="{{ _base }}&stav=manual{{ _back }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
-                {% if stav == 'manual' %}bg-purple-600 text-white ring-2 ring-purple-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
-                Ručně <span class="ml-1 opacity-75">{{ bubble_counts.manual }}</span>
-            </a>
-            <a href="{{ _base }}&stav=unmatched{{ _back }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
-                {% if stav == 'unmatched' %}bg-yellow-600 text-white ring-2 ring-yellow-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
-                Nenapárováno <span class="ml-1 opacity-75">{{ bubble_counts.unmatched }}</span>
-            </a>
-            <span class="text-gray-300 dark:text-gray-600">|</span>
-            {% set _base_smer = "/platby/vypisy/" ~ statement.id ~ "?sort=" ~ sort ~ "&order=" ~ order ~ ("&q=" ~ q if q else "") ~ ("&stav=" ~ stav if stav else "") ~ ("&typ=" ~ typ if typ else "") %}
-            <a href="{{ _base_smer }}&smer=prijem{{ _back }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
-                {% if smer == 'prijem' %}bg-green-600 text-white ring-2 ring-green-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
-                Příjmy <span class="ml-1 opacity-75">{{ bubble_counts.prijem }}</span>
-            </a>
-            <a href="{{ _base_smer }}&smer=vydej{{ _back }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
-                {% if smer == 'vydej' %}bg-red-600 text-white ring-2 ring-red-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
-                Výdaje <span class="ml-1 opacity-75">{{ bubble_counts.vydej }}</span>
-            </a>
-        </div>
+        {% set _base_smer = "/platby/vypisy/" ~ statement.id ~ "?sort=" ~ sort ~ "&order=" ~ order ~ ("&q=" ~ q if q else "") ~ ("&stav=" ~ stav if stav else "") ~ ("&typ=" ~ typ if typ else "") %}
 
-        <!-- Hledání -->
-        <div class="mb-2">
-            <div class="relative inline-block w-full sm:w-72">
-            <input type="text" name="q" value="{{ q }}" placeholder="Hledat VS, protiúčet, poznámku..."
-                aria-label="Hledat"
-                hx-get="/platby/vypisy/{{ statement.id }}"
-                hx-trigger="keyup changed delay:300ms"
-                hx-target="#platby-tbody"
-                hx-include="[name='sort'],[name='order'],[name='stav'],[name='smer'],[name='typ'],[name='back']"
-                hx-indicator="#search-spinner"
-                class="w-full px-3 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500">
-            <svg id="search-spinner" class="htmx-indicator absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-500 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+        <!-- Bubliny + search ve společném kontejneru (kanonický vzor /vlastnici) -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow mb-2">
+            <!-- Bubliny — typ (Jednotky / Prostory) -->
+            <div class="flex flex-wrap items-center gap-2 px-3 pt-3 pb-2">
+                <a href="{{ _typ_base }}{{ _back }}"
+                   class="px-2 py-1 text-xs rounded border {% if not typ %}bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 border-gray-400 ring-2 ring-gray-400{% else %}bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-100{% endif %}">
+                    Vše <span class="ml-1 opacity-75">{{ typ_counts.vse }}</span>
+                </a>
+                <a href="{{ _typ_base }}&typ=jednotky{{ _back }}"
+                   class="px-2 py-1 text-xs rounded border {% if typ == 'jednotky' %}bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 border-green-300 ring-2 ring-green-400{% else %}bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-100{% endif %}">
+                    Jednotky <span class="ml-1 opacity-75">{{ typ_counts.jednotky }}</span>
+                </a>
+                <a href="{{ _typ_base }}&typ=prostory{{ _back }}"
+                   class="px-2 py-1 text-xs rounded border {% if typ == 'prostory' %}bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 border-purple-300 ring-2 ring-purple-400{% else %}bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-100{% endif %}">
+                    Prostory <span class="ml-1 opacity-75">{{ typ_counts.prostory }}</span>
+                </a>
             </div>
-            <input type="hidden" name="sort" value="{{ sort }}">
-            <input type="hidden" name="order" value="{{ order }}">
-            <input type="hidden" name="stav" value="{{ stav }}">
-            <input type="hidden" name="smer" value="{{ smer }}">
-            <input type="hidden" name="typ" value="{{ typ }}">
-            <input type="hidden" name="back" value="{{ back_url }}">
+
+            <!-- Bubliny — stav a směr -->
+            <div class="flex flex-wrap items-center gap-2 px-3 pb-2">
+                <a href="{{ _base|replace('&stav=' ~ stav, '') }}{{ _back }}"
+                   class="px-2 py-1 text-xs rounded border {% if not stav %}bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border-blue-300 ring-2 ring-blue-400{% else %}bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-100{% endif %}">
+                    Vše <span class="ml-1 opacity-75">{{ bubble_counts.vse }}</span>
+                </a>
+                <a href="{{ _base }}&stav=auto_matched{{ _back }}"
+                   class="px-2 py-1 text-xs rounded border {% if stav == 'auto_matched' %}bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 border-green-300 ring-2 ring-green-400{% else %}bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-100{% endif %}">
+                    Napárováno <span class="ml-1 opacity-75">{{ bubble_counts.auto_matched }}</span>
+                </a>
+                <a href="{{ _base }}&stav=suggested{{ _back }}"
+                   class="px-2 py-1 text-xs rounded border {% if stav == 'suggested' %}bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border-blue-300 ring-2 ring-blue-400{% else %}bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-100{% endif %}">
+                    Návrhy <span class="ml-1 opacity-75">{{ bubble_counts.suggested }}</span>
+                </a>
+                <a href="{{ _base }}&stav=manual{{ _back }}"
+                   class="px-2 py-1 text-xs rounded border {% if stav == 'manual' %}bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 border-purple-300 ring-2 ring-purple-400{% else %}bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-100{% endif %}">
+                    Ručně <span class="ml-1 opacity-75">{{ bubble_counts.manual }}</span>
+                </a>
+                <a href="{{ _base }}&stav=unmatched{{ _back }}"
+                   class="px-2 py-1 text-xs rounded border {% if stav == 'unmatched' %}bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-300 border-yellow-300 ring-2 ring-yellow-400{% else %}bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-100{% endif %}">
+                    Nenapárováno <span class="ml-1 opacity-75">{{ bubble_counts.unmatched }}</span>
+                </a>
+                <span class="text-gray-300 dark:text-gray-600">|</span>
+                <a href="{{ _base_smer }}&smer=prijem{{ _back }}"
+                   class="px-2 py-1 text-xs rounded border {% if smer == 'prijem' %}bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 border-green-300 ring-2 ring-green-400{% else %}bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-100{% endif %}">
+                    Příjmy <span class="ml-1 opacity-75">{{ bubble_counts.prijem }}</span>
+                </a>
+                <a href="{{ _base_smer }}&smer=vydej{{ _back }}"
+                   class="px-2 py-1 text-xs rounded border {% if smer == 'vydej' %}bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 border-red-300 ring-2 ring-red-400{% else %}bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-100{% endif %}">
+                    Výdaje <span class="ml-1 opacity-75">{{ bubble_counts.vydej }}</span>
+                </a>
+            </div>
+
+            <!-- Separator -->
+            <div class="border-t border-gray-100 dark:border-gray-700"></div>
+
+            <!-- Hledání -->
+            <div class="flex items-center gap-2 px-3 py-2">
+                <div class="flex-1 relative">
+                    <input type="text" name="q" value="{{ q }}" placeholder="Hledat VS, protiúčet, poznámku..."
+                        aria-label="Hledat"
+                        hx-get="/platby/vypisy/{{ statement.id }}"
+                        hx-trigger="keyup changed delay:300ms"
+                        hx-target="#platby-tbody"
+                        hx-include="[name='sort'],[name='order'],[name='stav'],[name='smer'],[name='typ'],[name='back']"
+                        hx-indicator="#search-spinner"
+                        class="w-full px-3 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <svg id="search-spinner" class="htmx-indicator absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-500 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                </div>
+                <input type="hidden" name="sort" value="{{ sort }}">
+                <input type="hidden" name="order" value="{{ order }}">
+                <input type="hidden" name="stav" value="{{ stav }}">
+                <input type="hidden" name="smer" value="{{ smer }}">
+                <input type="hidden" name="typ" value="{{ typ }}">
+                <input type="hidden" name="back" value="{{ back_url }}">
+            </div>
         </div>
     </div>
 

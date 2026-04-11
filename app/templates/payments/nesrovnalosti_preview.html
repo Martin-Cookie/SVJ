@@ -91,29 +91,31 @@
         </details>
         {% endif %}
 
-        {# Filtrovací bubliny #}
+        {# Filtrovací bubliny — kanonický vzor /vlastnici #}
         {% set _base = "/platby/vypisy/" ~ statement.id ~ "/nesrovnalosti?sort=" ~ sort ~ "&order=" ~ order ~ ("&back=" ~ (back_url|urlencode) if back_url else "") %}
-        <div class="flex flex-wrap gap-2 mb-2">
-            <a href="{{ _base }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
-                {% if not filtr %}bg-gray-700 text-white ring-2 ring-gray-500{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
-                Vše <span class="ml-1 opacity-75">{{ bubble_counts.vse }}</span>
-            </a>
-            <a href="{{ _base }}&filtr=s_emailem" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
-                {% if filtr == 's_emailem' %}bg-blue-600 text-white ring-2 ring-blue-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
-                S emailem <span class="ml-1 opacity-75">{{ bubble_counts.s_emailem }}</span>
-            </a>
-            <a href="{{ _base }}&filtr=bez_emailu" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
-                {% if filtr == 'bez_emailu' %}bg-orange-600 text-white ring-2 ring-orange-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
-                Bez emailu <span class="ml-1 opacity-75">{{ bubble_counts.bez_emailu }}</span>
-            </a>
-            <a href="{{ _base }}&filtr=odeslano" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
-                {% if filtr == 'odeslano' %}bg-green-600 text-white ring-2 ring-green-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
-                Odesláno <span class="ml-1 opacity-75">{{ bubble_counts.odeslano }}</span>
-            </a>
-            <a href="{{ _base }}&filtr=neodeslano" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
-                {% if filtr == 'neodeslano' %}bg-red-600 text-white ring-2 ring-red-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
-                Neodesláno <span class="ml-1 opacity-75">{{ bubble_counts.neodeslano }}</span>
-            </a>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow mb-2">
+            <div class="flex flex-wrap items-center gap-2 px-3 py-3">
+                <a href="{{ _base }}"
+                   class="px-2 py-1 text-xs rounded border {% if not filtr %}bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 border-gray-400 ring-2 ring-gray-400{% else %}bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-100{% endif %}">
+                    Vše <span class="ml-1 opacity-75">{{ bubble_counts.vse }}</span>
+                </a>
+                <a href="{{ _base }}&filtr=s_emailem"
+                   class="px-2 py-1 text-xs rounded border {% if filtr == 's_emailem' %}bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border-blue-300 ring-2 ring-blue-400{% else %}bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-100{% endif %}">
+                    S emailem <span class="ml-1 opacity-75">{{ bubble_counts.s_emailem }}</span>
+                </a>
+                <a href="{{ _base }}&filtr=bez_emailu"
+                   class="px-2 py-1 text-xs rounded border {% if filtr == 'bez_emailu' %}bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300 border-orange-300 ring-2 ring-orange-400{% else %}bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-100{% endif %}">
+                    Bez emailu <span class="ml-1 opacity-75">{{ bubble_counts.bez_emailu }}</span>
+                </a>
+                <a href="{{ _base }}&filtr=odeslano"
+                   class="px-2 py-1 text-xs rounded border {% if filtr == 'odeslano' %}bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 border-green-300 ring-2 ring-green-400{% else %}bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-100{% endif %}">
+                    Odesláno <span class="ml-1 opacity-75">{{ bubble_counts.odeslano }}</span>
+                </a>
+                <a href="{{ _base }}&filtr=neodeslano"
+                   class="px-2 py-1 text-xs rounded border {% if filtr == 'neodeslano' %}bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 border-red-300 ring-2 ring-red-400{% else %}bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-100{% endif %}">
+                    Neodesláno <span class="ml-1 opacity-75">{{ bubble_counts.neodeslano }}</span>
+                </a>
+            </div>
         </div>
     </div>
 
