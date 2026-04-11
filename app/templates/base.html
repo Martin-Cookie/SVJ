@@ -117,6 +117,15 @@
                     </a>
                 </li>
                 <li>
+                    <a href="/rozesilani/bounces" class="flex items-center pl-8 pr-2 py-1.5 rounded-lg text-xs font-medium transition-colors
+                        {% if active_nav == 'bounces' %}bg-gray-700 text-white{% else %}text-gray-400 hover:bg-gray-700 hover:text-white{% endif %}">
+                        <svg aria-hidden="true" class="w-3.5 h-3.5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        Nedoručené
+                    </a>
+                </li>
+                <li>
                     <a href="/synchronizace" class="flex items-center px-2 py-2 rounded-lg text-xs font-medium transition-colors
                         {% if active_nav == 'kontroly' %}bg-gray-700 text-white{% else %}text-gray-300 hover:bg-gray-700 hover:text-white{% endif %}">
                         <svg aria-hidden="true" class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">

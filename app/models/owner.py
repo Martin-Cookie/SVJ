@@ -53,6 +53,8 @@ class Owner(Base):
     phone_secondary = Column(String(50), nullable=True)
     email = Column(String(200), nullable=True, index=True)
     email_secondary = Column(String(200), nullable=True)
+    email_invalid = Column(Boolean, default=False, index=True)
+    email_invalid_reason = Column(String(500), nullable=True)
 
     # Metadata (columns AD, AE)
     owner_since = Column(String(50), nullable=True)

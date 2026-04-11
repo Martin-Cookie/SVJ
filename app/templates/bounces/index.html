@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% block title %}Nedoručené emaily - SVJ Správa{% endblock %}
+
+{% block content %}
+<div class="flex flex-col h-full min-h-0">
+    {% if back_url %}
+    <div class="mb-3">
+        <a href="{{ back_url }}" class="text-sm text-blue-600 hover:text-blue-800">&larr; Zpět</a>
+    </div>
+    {% endif %}
+
+    {% set _base = "/rozesilani/bounces?" %}
+    {% set _qs_typ = ("typ=" ~ typ ~ "&") if typ else "" %}
+    {% set _qs_modul = ("modul=" ~ modul ~ "&") if modul else "" %}
+    {% set _qs_q = ("q=" ~ q ~ "&") if q else "" %}
+    {% set _export_qs = "?" ~ _qs_typ ~ _qs_modul ~ _qs_q %}
+
+    <div class="flex items-center justify-between mb-3">
+        <div>
+            <h1 class="text-lg font-bold text-gray-900 dark:text-white">Nedoručené emaily (bounces)</h1>
+            <p class="text-xs text-gray-500 dark:text-gray-400">
+                {{ items|length }} záznamů
+                {% if last_check %} · Poslední kontrola: {{ last_check.strftime('%d.%m.%Y %H:%M') }}{% endif %}
+            </p>
+        </div>
+        <div class="flex items-center space-x-2">
+            <form action="/rozesilani/bounces/zkontrolovat" method="post" class="inline" hx-boost="false">
+                <button type="submit"
+                        class="inline-flex items-center px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700">
+                    🔄 Zkontrolovat nyní
+                </button>
+            </form>
+            <a href="/rozesilani/bounces/exportovat/xlsx{{ _export_qs }}" hx-boost="false"
+               class="inline-flex items-center px-3 py-1.5 bg-gray-100 text-gray-600 border border-gray-200 text-xs font-medium rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600">
+                ↓ Excel
+            </a>
+            <a href="/rozesilani/bounces/exportovat/csv{{ _export_qs }}" hx-boost="false"
+               class="inline-flex items-center px-3 py-1.5 bg-gray-100 text-gray-600 border border-gray-200 text-xs font-medium rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600">
+                ↓ CSV
+            </a>
+        </div>
+    </div>
+
+    <!-- Filtrační bubliny — typ -->
+    <div class="flex flex-wrap items-center gap-2 mb-2">
+        <a href="{{ _base }}{{ _qs_modul }}{{ _qs_q }}"
+           class="px-3 py-1 text-xs font-medium rounded-full transition-colors
+                  {% if not typ %}bg-blue-600 text-white ring-2 ring-blue-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
+            Vše <span class="ml-1 text-xs opacity-75">{{ counts.total }}</span>
+        </a>
+        <a href="{{ _base }}typ=hard&{{ _qs_modul }}{{ _qs_q }}"
+           class="px-3 py-1 text-xs font-medium rounded-full transition-colors
+                  {% if typ == 'hard' %}bg-red-600 text-white ring-2 ring-red-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
+            🔴 Hard <span class="ml-1 text-xs opacity-75">{{ counts.hard }}</span>
+        </a>
+        <a href="{{ _base }}typ=soft&{{ _qs_modul }}{{ _qs_q }}"
+           class="px-3 py-1 text-xs font-medium rounded-full transition-colors
+                  {% if typ == 'soft' %}bg-amber-500 text-white ring-2 ring-amber-300{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
+            🟡 Soft <span class="ml-1 text-xs opacity-75">{{ counts.soft }}</span>
+        </a>
+        <a href="{{ _base }}typ=unknown&{{ _qs_modul }}{{ _qs_q }}"
+           class="px-3 py-1 text-xs font-medium rounded-full transition-colors
+                  {% if typ == 'unknown' %}bg-gray-600 text-white ring-2 ring-gray-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
+            ⚪ Neznámé <span class="ml-1 text-xs opacity-75">{{ counts.unknown }}</span>
+        </a>
+    </div>
+
+    <!-- Filtrační bubliny — modul -->
+    {% if module_counts %}
+    <div class="flex flex-wrap items-center gap-2 mb-2">
+        <a href="{{ _base }}{{ _qs_typ }}{{ _qs_q }}"
+           class="px-3 py-1 text-xs font-medium rounded-full transition-colors
+                  {% if not modul %}bg-purple-600 text-white ring-2 ring-purple-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
+            Všechny moduly
+        </a>
+        {% for mod_key, mod_count in module_counts.items() %}
+        <a href="{{ _base }}{{ _qs_typ }}modul={{ mod_key }}&{{ _qs_q }}"
+           class="px-3 py-1 text-xs font-medium rounded-full transition-colors
+                  {% if modul == mod_key %}bg-purple-600 text-white ring-2 ring-purple-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
+            {{ module_labels.get(mod_key, mod_key) }} <span class="ml-1 text-xs opacity-75">{{ mod_count }}</span>
+        </a>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Hledání -->
+    <div class="mb-3">
+        <div class="relative inline-block w-full sm:w-80">
+            <input type="text" name="q" value="{{ q }}" placeholder="Hledat email / vlastníka / důvod..."
+                   aria-label="Hledat bounce"
+                   hx-get="/rozesilani/bounces"
+                   hx-trigger="keyup changed delay:300ms"
+                   hx-target="#bounces-tbody"
+                   hx-include="[name='typ'],[name='modul'],[name='sort'],[name='order'],[name='back']"
+                   hx-indicator="#search-spinner"
+                   class="w-full px-3 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500">
+            <svg id="search-spinner" class="htmx-indicator absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-500 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+        </div>
+        <input type="hidden" name="typ" value="{{ typ }}">
+        <input type="hidden" name="modul" value="{{ modul }}">
+        <input type="hidden" name="sort" value="{{ sort }}">
+        <input type="hidden" name="order" value="{{ order }}">
+        <input type="hidden" name="back" value="{{ back_url|default('') }}">
+    </div>
+
+    <!-- Tabulka -->
+    <div class="flex-1 overflow-y-auto overflow-x-auto min-h-0 bg-white dark:bg-gray-800 rounded-lg shadow">
+        <table class="w-full text-xs">
+            <thead class="sticky top-0 z-10 bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
+                <tr>
+                    {% set _sort_qs = "&typ=" ~ typ ~ "&modul=" ~ modul ~ "&q=" ~ q %}
+                    {% for col_key, col_label in [('datum', 'Datum'), ('email', 'Email'), (None, 'Vlastník'), ('typ', 'Typ'), (None, 'Důvod'), ('modul', 'Modul'), (None, 'Akce')] %}
+                    <th class="px-3 py-2 text-left font-medium text-gray-600 dark:text-gray-300">
+                        {% if col_key %}
+                        <a href="{{ _base }}sort={{ col_key }}&order={{ 'asc' if sort == col_key and order == 'desc' else 'desc' }}{{ _sort_qs }}"
+                           class="hover:text-blue-600">
+                            {{ col_label }}
+                            {% if sort == col_key %}<span class="ml-1">{{ '▼' if order == 'desc' else '▲' }}</span>{% endif %}
+                        </a>
+                        {% else %}
+                        {{ col_label }}
+                        {% endif %}
+                    </th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody id="bounces-tbody" class="divide-y divide-gray-100 dark:divide-gray-700">
+                {% include "bounces/_table.html" %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

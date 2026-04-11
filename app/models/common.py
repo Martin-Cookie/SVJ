@@ -3,8 +3,8 @@ from datetime import datetime
 
 from app.utils import utcnow
 
-from sqlalchemy import Column, DateTime, Enum, Integer, String, Text
-from sqlalchemy.orm import Session
+from sqlalchemy import Column, DateTime, Enum, ForeignKey, Integer, String, Text
+from sqlalchemy.orm import Session, relationship
 
 from app.database import Base
 
@@ -13,6 +13,34 @@ class EmailStatus(str, enum.Enum):
     PENDING = "pending"
     SENT = "sent"
     FAILED = "failed"
+
+
+class BounceType(str, enum.Enum):
+    HARD = "hard"
+    SOFT = "soft"
+    UNKNOWN = "unknown"
+
+
+class EmailBounce(Base):
+    __tablename__ = "email_bounces"
+
+    id = Column(Integer, primary_key=True)
+    recipient_email = Column(String(200), nullable=False, index=True)
+    owner_id = Column(Integer, ForeignKey("owners.id"), nullable=True, index=True)
+    email_log_id = Column(Integer, ForeignKey("email_logs.id"), nullable=True, index=True)
+    bounce_type = Column(Enum(BounceType), default=BounceType.UNKNOWN, index=True)
+    reason = Column(Text, nullable=True)
+    diagnostic_code = Column(String(500), nullable=True)
+    subject = Column(String(500), nullable=True)
+    module = Column(String(50), nullable=True, index=True)
+    reference_id = Column(Integer, nullable=True, index=True)
+    bounced_at = Column(DateTime, nullable=True, index=True)
+    imap_uid = Column(String(50), nullable=True, index=True)
+    imap_message_id = Column(String(300), nullable=True, index=True)
+    created_at = Column(DateTime, default=utcnow, index=True)
+
+    owner = relationship("Owner", lazy="joined")
+    email_log = relationship("EmailLog", lazy="joined")
 
 
 class EmailLog(Base):

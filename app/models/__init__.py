@@ -5,7 +5,10 @@ from app.models.voting import (
 )
 from app.models.tax import TaxSession, TaxDocument, TaxDistribution, MatchStatus, SendStatus, EmailDeliveryStatus
 from app.models.sync import SyncSession, SyncRecord, SyncStatus, SyncResolution
-from app.models.common import EmailLog, ImportLog, EmailStatus, ActivityLog, ActivityAction, log_activity
+from app.models.common import (
+    EmailLog, ImportLog, EmailStatus, ActivityLog, ActivityAction, log_activity,
+    EmailBounce, BounceType,
+)
 from app.models.administration import SvjInfo, SvjAddress, BoardMember, CodeListItem, EmailTemplate
 from app.models.share_check import (
     ShareCheckSession, ShareCheckRecord, ShareCheckColumnMapping,
@@ -30,6 +33,7 @@ __all__ = [
     "SendStatus", "EmailDeliveryStatus",
     "SyncSession", "SyncRecord", "SyncStatus", "SyncResolution",
     "EmailLog", "ImportLog", "EmailStatus",
+    "EmailBounce", "BounceType",
     "ActivityLog", "ActivityAction", "log_activity",
     "SvjInfo", "SvjAddress", "BoardMember", "CodeListItem", "EmailTemplate",
     "ShareCheckSession", "ShareCheckRecord", "ShareCheckColumnMapping",

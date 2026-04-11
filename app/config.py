@@ -20,6 +20,12 @@ class Settings(BaseSettings):
     smtp_from_email: str = "svj@example.com"
     smtp_use_tls: bool = True
 
+    imap_host: str = "imap.gmail.com"
+    imap_port: int = 993
+    imap_user: str = ""
+    imap_password: str = ""
+    imap_use_ssl: bool = True
+
     libreoffice_path: str = "/Applications/LibreOffice.app/Contents/MacOS/soffice"
 
     model_config = {"env_file": ".env", "extra": "ignore"}

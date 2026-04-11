@@ -16,7 +16,10 @@
 <div class="space-y-1 text-xs">
     <div class="flex justify-between gap-2">
         <span class="text-gray-500 shrink-0">Email</span>
-        <span class="text-gray-900 truncate" title="{{ owner.email or '' }}">{{ owner.email or '—' }}</span>
+        <span class="text-gray-900 truncate flex items-center gap-1" title="{{ owner.email or '' }}">
+            {% if owner.email_invalid %}<span class="px-1.5 py-0.5 text-[10px] font-medium bg-red-100 text-red-700 rounded" title="{{ owner.email_invalid_reason or 'Email nedoručitelný — vyloučen z rozesílek' }}">⚠ neplatný</span>{% endif %}
+            {{ owner.email or '—' }}
+        </span>
     </div>
     <div class="flex justify-between gap-2">
         <span class="text-gray-500 shrink-0">Email 2</span>

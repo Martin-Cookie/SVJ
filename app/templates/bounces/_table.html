@@ -1,0 +1,61 @@
+{% if items %}
+{% for b in items %}
+<tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+    <td class="px-3 py-2 text-gray-700 dark:text-gray-300 whitespace-nowrap">
+        {% if b.bounced_at %}{{ b.bounced_at.strftime('%d.%m.%Y %H:%M') }}{% else %}—{% endif %}
+    </td>
+    <td class="px-3 py-2 font-mono text-gray-800 dark:text-gray-200">{{ b.recipient_email }}</td>
+    <td class="px-3 py-2">
+        {% if b.owner %}
+        <a href="/vlastnici/{{ b.owner.id }}?back={{ list_url|urlencode }}"
+           class="text-blue-600 hover:text-blue-800 dark:text-blue-400">
+            {{ b.owner.display_name }}
+        </a>
+        {% if b.owner.email_invalid %}
+        <span class="ml-1 px-1.5 py-0.5 text-[10px] font-medium bg-red-100 text-red-700 rounded">⚠ skrytý</span>
+        {% endif %}
+        {% else %}
+        <span class="text-gray-400 italic">nespárováno</span>
+        {% endif %}
+    </td>
+    <td class="px-3 py-2">
+        {% if b.bounce_type.value == 'hard' %}
+        <span class="px-2 py-0.5 text-[10px] font-medium bg-red-100 text-red-700 rounded-full">🔴 HARD</span>
+        {% elif b.bounce_type.value == 'soft' %}
+        <span class="px-2 py-0.5 text-[10px] font-medium bg-amber-100 text-amber-700 rounded-full">🟡 SOFT</span>
+        {% else %}
+        <span class="px-2 py-0.5 text-[10px] font-medium bg-gray-100 text-gray-700 rounded-full">⚪ ?</span>
+        {% endif %}
+    </td>
+    <td class="px-3 py-2 text-gray-600 dark:text-gray-400 max-w-md">
+        <div class="truncate" title="{{ b.reason or b.diagnostic_code or '' }}">
+            {{ b.reason or b.diagnostic_code or '—' }}
+        </div>
+    </td>
+    <td class="px-3 py-2 text-gray-600 dark:text-gray-400 whitespace-nowrap">
+        {% if b.module %}
+            {% set mod_label = module_labels.get(b.module, b.module) if module_labels is defined else b.module %}
+            {% if b.module == 'tax' and b.reference_id %}
+            <a href="/dane/{{ b.reference_id }}?back={{ list_url|urlencode }}" class="text-blue-600 hover:text-blue-800">{{ mod_label }} #{{ b.reference_id }}</a>
+            {% else %}
+            {{ mod_label }}{% if b.reference_id %} #{{ b.reference_id }}{% endif %}
+            {% endif %}
+        {% else %}
+        <span class="text-gray-400">—</span>
+        {% endif %}
+    </td>
+    <td class="px-3 py-2 text-gray-500 dark:text-gray-400 text-[10px]">
+        {% if b.email_log_id %}
+        <a href="/nastaveni#log-{{ b.email_log_id }}" class="text-blue-600 hover:underline">log #{{ b.email_log_id }}</a>
+        {% endif %}
+    </td>
+</tr>
+{% endfor %}
+{% else %}
+<tr>
+    <td colspan="7" class="px-3 py-8 text-center text-gray-500 dark:text-gray-400">
+        Žádné nedoručené emaily.<br>
+        <span class="text-xs">Klikněte na „🔄 Zkontrolovat nyní" pro načtení z IMAP schránky.</span>
+    </td>
+</tr>
+{% endif %}

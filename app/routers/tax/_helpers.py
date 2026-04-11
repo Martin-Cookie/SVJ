@@ -217,6 +217,7 @@ def _build_recipients(documents):
 
             if key not in recipients:
                 owner = dist.owner
+                owner_email_invalid = bool(owner and owner.email_invalid)
                 primary_email = owner.email if owner else None
                 secondary_email = owner.email_secondary if owner else None
 
@@ -230,6 +231,10 @@ def _build_recipients(documents):
                 elif dist.ad_hoc_email:
                     selected_emails = [dist.ad_hoc_email]
                 else:
+                    selected_emails = []
+
+                # Hard bounce flag — vyloučit z rozesílky (vlastník má email_invalid)
+                if owner_email_invalid:
                     selected_emails = []
 
                 # has_dual_email: both present and different
@@ -256,6 +261,7 @@ def _build_recipients(documents):
                     "owner_id": dist.owner_id,
                     "is_external": dist.owner_id is None,
                     "email_status": dist.email_status.value if dist.email_status else "pending",
+                    "email_invalid": owner_email_invalid,
                 }
 
             dist_status = dist.email_status.value if dist.email_status else "pending"

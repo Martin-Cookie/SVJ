@@ -848,6 +848,16 @@ wheels/                        # Offline Python balíčky (gitignored)
 | POST | `/dane/{id}/rozeslat/email-vyber/{dist_id}` | Toggle email checkboxu (duální email) |
 | GET | `/dane/{id}/exportovat` | Export do Excelu |
 
+### Nedoručené emaily — bounces (`/rozesilani/bounces`)
+
+Připojuje se na IMAP schránku (Gmail SSL imap.gmail.com:993, fallback na SMTP creds), hledá DSN bounce zprávy (Delivery Status Notification, Mail Delivery Failed, Returned Mail…), parsuje dle RFC 3464 (Final-Recipient, Diagnostic-Code, Status-Code), ukládá do `email_bounces`. Hard bounces (5.x.x) automaticky nastaví `Owner.email_invalid=True` → vlastník je vyloučen z budoucích rozesílek (daně, platby) a v UI se zobrazuje červený badge `⚠ neplatný` v kontaktech a `⚠ skrytý` v rozesílce. Manuální spuštění tlačítkem, deduplikace přes `imap_uid`, zprávy se v Gmailu označí jako přečtené. Časový rozsah: od poslední kontroly (–1 den buffer) nebo 30 dní fallback. Vyžaduje alespoň jeden indikátor selhání (status code / diagnostic / reason) — auto-reply zprávy se přeskočí. Vlastní SMTP from-adresa je vyloučena z parsování (prevence false positives).
+
+| Metoda | Cesta | Popis |
+|--------|-------|-------|
+| GET | `/rozesilani/bounces` | Seznam nedoručených emailů (filtry typ/modul, search, sort) |
+| POST | `/rozesilani/bounces/zkontrolovat` | Manuální spuštění IMAP kontroly |
+| GET | `/rozesilani/bounces/exportovat/{xlsx\|csv}` | Export do Excelu/CSV (respektuje filtry) |
+
 ### Kontroly (`/synchronizace` + `/kontrola-podilu`)
 
 | Metoda | Cesta | Popis |

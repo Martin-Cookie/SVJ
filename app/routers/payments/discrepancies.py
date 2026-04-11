@@ -12,7 +12,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db, SessionLocal
-from app.models import BankStatement, Payment
+from app.models import BankStatement, Owner, Payment
 from app.utils import build_list_url, compute_eta, utcnow
 from ._helpers import templates, compute_nav_stats, MONTH_NAMES_LONG, _discrepancy_progress, _discrepancy_lock
 
@@ -472,8 +472,19 @@ async def discrepancy_send(
 
     discrepancies = detect_discrepancies(db, statement_id)
     recipients = []
+    # Cache invalid emails — vlastníci s hard bounce
+    invalid_emails = set()
+    for o in db.query(Owner).filter(Owner.email_invalid == True).all():  # noqa: E712
+        for field in (o.email, o.email_secondary):
+            if field:
+                for e in field.replace(",", ";").split(";"):
+                    e = e.strip().lower()
+                    if e:
+                        invalid_emails.add(e)
     for d in discrepancies:
         if d.payment_id in selected_set and d.recipient_email:
+            if d.recipient_email.strip().lower() in invalid_emails:
+                continue  # vyloučeno z rozesílky
             recipients.append({
                 "payment_id": d.payment_id,
                 "name": d.recipient_name,

@@ -208,6 +208,26 @@ def _migrate_svj_import_mappings():
         conn.commit()
 
 
+def _migrate_owners_email_invalid():
+    """Add email_invalid + email_invalid_reason columns to owners table."""
+    with engine.connect() as conn:
+        columns = [
+            row[1] for row in
+            conn.execute(text("PRAGMA table_info(owners)")).fetchall()
+        ]
+        if "email_invalid" not in columns:
+            conn.execute(text(
+                "ALTER TABLE owners ADD COLUMN email_invalid BOOLEAN DEFAULT 0"
+            ))
+            logger.info("Added email_invalid column to owners")
+        if "email_invalid_reason" not in columns:
+            conn.execute(text(
+                "ALTER TABLE owners ADD COLUMN email_invalid_reason VARCHAR(500)"
+            ))
+            logger.info("Added email_invalid_reason column to owners")
+        conn.commit()
+
+
 def _migrate_email_log_name_normalized():
     """Add name_normalized column to email_logs and backfill from recipient_name."""
     with engine.connect() as conn:
@@ -264,6 +284,18 @@ def _ensure_indexes():
         ("ix_email_logs_module", "email_logs", "module"),
         ("ix_email_logs_reference_id", "email_logs", "reference_id"),
         ("ix_email_logs_name_normalized", "email_logs", "name_normalized"),
+        # email_bounces
+        ("ix_email_bounces_recipient_email", "email_bounces", "recipient_email"),
+        ("ix_email_bounces_owner_id", "email_bounces", "owner_id"),
+        ("ix_email_bounces_email_log_id", "email_bounces", "email_log_id"),
+        ("ix_email_bounces_bounce_type", "email_bounces", "bounce_type"),
+        ("ix_email_bounces_module", "email_bounces", "module"),
+        ("ix_email_bounces_reference_id", "email_bounces", "reference_id"),
+        ("ix_email_bounces_bounced_at", "email_bounces", "bounced_at"),
+        ("ix_email_bounces_imap_uid", "email_bounces", "imap_uid"),
+        ("ix_email_bounces_imap_message_id", "email_bounces", "imap_message_id"),
+        ("ix_email_bounces_created_at", "email_bounces", "created_at"),
+        ("ix_owners_email_invalid", "owners", "email_invalid"),
         ("ix_import_logs_import_type", "import_logs", "import_type"),
         # owner_units history
         ("ix_owner_units_valid_from", "owner_units", "valid_from"),
@@ -708,6 +740,7 @@ _ALL_MIGRATIONS = [
     ("svj_info voting_import_mapping", _migrate_svj_info_voting_mapping),
     ("svj_info import_mappings", _migrate_svj_import_mappings),
     ("email_logs name_normalized", _migrate_email_log_name_normalized),
+    ("owners email_invalid", _migrate_owners_email_invalid),
     ("payment_allocations migration", _migrate_payment_allocations),
     ("bank_statement locked_at", _migrate_bank_statement_locked),
     ("unit_balances owner columns", _migrate_unit_balances_owner),
@@ -887,7 +920,7 @@ except (AttributeError, KeyError, TypeError):
 app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
 
 # Register routers
-from app.routers import dashboard, owners, units, voting, tax, sync, share_check, settings_page, administration, payments, spaces, tenants  # noqa: E402
+from app.routers import dashboard, owners, units, voting, tax, sync, share_check, settings_page, administration, payments, spaces, tenants, bounces  # noqa: E402
 
 app.include_router(dashboard.router)
 app.include_router(owners.router, prefix="/vlastnici", tags=["Vlastníci"])
@@ -901,3 +934,4 @@ app.include_router(settings_page.router, prefix="/nastaveni", tags=["Nastavení"
 app.include_router(payments.router, prefix="/platby", tags=["Platby"])
 app.include_router(spaces.router, prefix="/prostory", tags=["Prostory"])
 app.include_router(tenants.router, prefix="/najemci", tags=["Nájemci"])
+app.include_router(bounces.router, tags=["Nedoručené emaily"])
