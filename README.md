@@ -1257,6 +1257,9 @@ Zbývající nálezy z druhého auditu: autentizace (plánováno), CSRF ochrana,
 
 Zbývající z 9. auditu (vyžaduje rozhodnutí nebo odloženo): Business Logic — 4 kritické nálezy (OwnerUnit.votes Int vs Float podíl, SJM první import, hardcoded VS_PREFIX, přeplatky v nesrovnalostech), `administration/duplicates.html` layout (karty ponechány), autentizace + CSRF.
 
+**Doplněk — /hlasovani sjednocení bublin+sort (1 oprava):**
+`voting/index.html` byl v 9. auditu přehlédnutý — měl bubliny a Řadit: jako dva samostatné bloky s nekanonickým `rounded-full` stylem. Sjednoceno na kanonický vzor: shared `bg-white` container s `border-t` separátorem mezi bublinami a sort pills (stejně jako /dane, /vlastnici, /jednotky a 6 dalších stránek).
+
 ## UX vylepšení
 
 Projekt prošel UX analýzou klíčových modulů (6 expertních perspektiv: UX Designer, Information Architect, Accessibility Specialist, Error Prevention, Interaction Designer, Data Integrity Guardian).
