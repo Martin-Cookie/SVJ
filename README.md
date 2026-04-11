@@ -1275,7 +1275,12 @@ Tři stránky v modulu Platby měly starý `rounded-full bg-blue-600 text-white`
 - **LOW #12** — Přejmenováno `_group_key_counts` → `grouped_emails` v `dashboard.py` (underscore prefix nepatří k lokální proměnné)
 - **LOW #13** — Nový `tests/test_owner_matcher.py` s 10 testy pro TITLE_PATTERNS (Ph.D., M.B.A., LL.M., arch., SJM), Czech stemming, stem overlap rejection a ochranu krátkých jmen. Celkem 320 testů (+10)
 
-Odloženo (vyžaduje rozhodnutí nebo UX diskuzi): #5 `|safe` SVG refactor, #8 archivace `docs/reports/`, #9 `owner_update` rename, #10 emoji → SVG badges.
+Odloženo (vyžaduje rozhodnutí nebo UX diskuzi): #9 `owner_update` rename (breaking change bez přínosu).
+
+**Desátý audit follow-up (2026-04-11) — dokončení 3 nálezů (#5, #8, #10):**
+- **#5** — `|safe` SVG sort ikony v `voting/detail.html`, `process.html`, `ballots.html` nahrazeny sdíleným partialem `partials/_sort_icon.html` (volání `{% with direction=order %}{% include ... %}{% endwith %}`). Odstraněn XSS-adjacentní raw HTML, jediný zdroj pravdy pro sort ikonu
+- **#8** — 16 starých reportů (ORCHESTRATOR-REPORT-*, UX-REPORT-*, PREHLED-KOMPLET, TEST-REPORT, BACKUP-REPORT) přesunuto do `docs/reports/archive/`. V `docs/reports/` zůstává pouze aktuální `AUDIT-REPORT.md`
+- **#10** — Emoji badges (🔴/🟡/⚪) v `bounces/_table.html` nahrazeny SVG kolečky (`w-1.5 h-1.5 rounded-full bg-*`) — konzistentní s ostatními badge v aplikaci, nezávislé na font rendering
 
 **Jedenáctý audit — follow-up z Business Logic + UX (2026-04-11) — 3 opravy:**
 - **BL-1 CRITICAL** — `excel_import.py` vytvářel pro spoluvlastníky (SJM) `share=1.0` a `votes=unit.podil_scd` každému — při re-importu z Excelu by se součet hlasů za jednotku s N spoluvlastníky nafoukl N× (→ rozbité kvórum + kontrola podílů). Přidán druhý průchod po vytvoření všech OwnerUnit: `share=1/N`, `votes` rozdělené rovnoměrně s rounding compensation (idx < remainder → +1). Stejný vzor jako v `sync/_helpers.py`
