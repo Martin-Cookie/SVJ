@@ -41,69 +41,79 @@
             </div>
         </div>
 
-        <!-- Filtr bubliny — entita -->
         {% set _base = "/platby/prehled?rok=" ~ rok ~ "&sort=" ~ sort ~ "&order=" ~ order ~ ("&q=" ~ q if q else "") %}
         {% set _back = "&back=" ~ (back_url|default('')|urlencode) if back_url else "" %}
-        <div class="flex flex-wrap gap-2 mb-2">
-            <a href="{{ _base }}{{ _back }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
-                {% if not entita %}bg-blue-600 text-white ring-2 ring-blue-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
-                Jednotky
-            </a>
-            <a href="{{ _base }}&entita=prostory{{ _back }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
-                {% if entita == 'prostory' %}bg-purple-600 text-white ring-2 ring-purple-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
-                Prostory
-            </a>
-        </div>
 
-        <!-- Filtr bubliny — typ prostoru (jen pro jednotky) -->
-        {% if entita != 'prostory' and space_types %}
-        <div class="flex flex-wrap items-center gap-2 mb-3">
-            <a href="{{ _base }}{{ _back }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
-                {% if not typ %}bg-green-600 text-white ring-2 ring-green-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
-                Vše <span class="ml-1 text-xs opacity-75">{{ total_units }}</span>
-            </a>
-            {% if space_types|length <= 6 %}
-            {% for st in space_types %}
-            <a href="{{ _base }}&typ={{ st|urlencode }}{{ _back }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
-                {% if typ == st %}bg-green-600 text-white ring-2 ring-green-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
-                {{ st }}
-            </a>
-            {% endfor %}
-            {% else %}
-            <select onchange="if(this.value)window.location=this.value"
-                    class="px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-green-500">
-                <option value="">Typ prostoru…</option>
-                {% for st in space_types %}
-                <option value="{{ _base }}&typ={{ st|urlencode }}{{ _back }}" {% if typ == st %}selected{% endif %}>{{ st }}</option>
-                {% endfor %}
-            </select>
-            {% if typ %}
-            <a href="{{ _base }}{{ _back }}" class="px-2 py-1 text-xs text-red-600 hover:text-red-800">✕ Zrušit filtr</a>
-            {% endif %}
-            {% endif %}
-        </div>
-        {% endif %}
-
-        <!-- Hledání -->
-        <div class="mb-3">
-            <div class="relative inline-block w-full sm:w-72">
-            <input type="text" name="q" value="{{ q }}" placeholder="{% if entita == 'prostory' %}Hledat č. prostoru, nájemce...{% else %}Hledat č. jednotky, vlastníka, VS...{% endif %}"
-                aria-label="Hledat"
-                hx-get="/platby/prehled"
-                hx-trigger="keyup changed delay:300ms"
-                hx-target="#prehled-tbody"
-                hx-include="[name='sort'],[name='order'],[name='typ'],[name='rok'],[name='back'],[name='entita'],[name='vse_mesice']"
-                hx-indicator="#search-spinner"
-                class="w-full px-3 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500">
-            <svg id="search-spinner" class="htmx-indicator absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-500 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+        <!-- Bubliny + search ve společném kontejneru (kanonický vzor /vlastnici) -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow mb-2">
+            <!-- Bubliny — entita -->
+            <div class="flex gap-2 p-3 pb-2">
+                <a href="{{ _base }}{{ _back }}"
+                   class="flex-1 block rounded p-2 text-center hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors {% if not entita %}ring-2 ring-blue-400{% endif %}">
+                    <p class="text-lg font-bold text-blue-600 dark:text-blue-400">{{ units_count }}</p>
+                    <p class="text-xs text-blue-600 dark:text-blue-400">Jednotky</p>
+                </a>
+                <a href="{{ _base }}&entita=prostory{{ _back }}"
+                   class="flex-1 block bg-purple-50 dark:bg-purple-900/20 rounded p-2 text-center border border-purple-200 dark:border-purple-800 hover:bg-purple-100 dark:hover:bg-purple-900/40 transition-colors {% if entita == 'prostory' %}ring-2 ring-purple-400{% endif %}">
+                    <p class="text-lg font-bold text-purple-600 dark:text-purple-400">{{ spaces_count }}</p>
+                    <p class="text-xs text-purple-600 dark:text-purple-400">Prostory</p>
+                </a>
             </div>
-            <input type="hidden" name="sort" value="{{ sort }}">
-            <input type="hidden" name="order" value="{{ order }}">
-            <input type="hidden" name="typ" value="{{ typ }}">
-            <input type="hidden" name="rok" value="{{ rok }}">
-            <input type="hidden" name="back" value="{{ back_url }}">
-            <input type="hidden" name="entita" value="{{ entita }}">
-            {% if show_all_months %}<input type="hidden" name="vse_mesice" value="1">{% endif %}
+
+            <!-- Bubliny — typ prostoru (jen pro jednotky) -->
+            {% if entita != 'prostory' and space_types %}
+            <div class="flex flex-wrap items-center gap-2 px-3 pb-2">
+                <a href="{{ _base }}{{ _back }}"
+                   class="px-2 py-1 text-xs rounded border {% if not typ %}bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 border-green-300 ring-2 ring-green-400{% else %}bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-100{% endif %}">
+                    Vše {{ total_units }}
+                </a>
+                {% if space_types|length <= 8 %}
+                {% for st in space_types %}
+                <a href="{{ _base }}&typ={{ st|urlencode }}{{ _back }}"
+                   class="px-2 py-1 text-xs rounded border {% if typ == st %}bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 border-green-300 ring-2 ring-green-400{% else %}bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-100{% endif %}">
+                    {{ st }}
+                </a>
+                {% endfor %}
+                {% else %}
+                <select onchange="if(this.value)window.location=this.value"
+                        class="px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-green-500">
+                    <option value="">Typ prostoru…</option>
+                    {% for st in space_types %}
+                    <option value="{{ _base }}&typ={{ st|urlencode }}{{ _back }}" {% if typ == st %}selected{% endif %}>{{ st }}</option>
+                    {% endfor %}
+                </select>
+                {% if typ %}
+                <a href="{{ _base }}{{ _back }}" class="px-2 py-1 text-xs text-red-600 hover:text-red-800">✕ Zrušit filtr</a>
+                {% endif %}
+                {% endif %}
+            </div>
+            {% endif %}
+
+            <!-- Separator -->
+            <div class="border-t border-gray-100 dark:border-gray-700"></div>
+
+            <!-- Search bar -->
+            <div class="flex items-center gap-2 px-3 py-2">
+                <input type="hidden" name="sort" value="{{ sort }}">
+                <input type="hidden" name="order" value="{{ order }}">
+                <input type="hidden" name="typ" value="{{ typ }}">
+                <input type="hidden" name="rok" value="{{ rok }}">
+                <input type="hidden" name="back" value="{{ back_url }}">
+                <input type="hidden" name="entita" value="{{ entita }}">
+                {% if show_all_months %}<input type="hidden" name="vse_mesice" value="1">{% endif %}
+                <div class="flex-1 relative">
+                    <input type="text" name="q" value="{{ q }}" placeholder="{% if entita == 'prostory' %}Hledat č. prostoru, nájemce...{% else %}Hledat č. jednotky, vlastníka, VS...{% endif %}"
+                        aria-label="Hledat"
+                        hx-get="/platby/prehled"
+                        hx-trigger="keyup changed delay:300ms"
+                        hx-target="#prehled-tbody"
+                        hx-include="[name='sort'],[name='order'],[name='typ'],[name='rok'],[name='back'],[name='entita'],[name='vse_mesice']"
+                        hx-push-url="true"
+                        hx-indicator="#search-spinner"
+                        class="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                    <svg id="search-spinner" class="htmx-indicator absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-500 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -120,38 +130,46 @@
                     {% endif %}
                     {% for col_key, col_label in _cols %}
                     {% set new_order = "desc" if sort == col_key and order == "asc" else "asc" %}
-                    <th class="px-2 py-2 text-left font-semibold text-gray-600 dark:text-gray-300 cursor-pointer select-none hover:text-gray-900 dark:hover:text-white whitespace-nowrap"
-                        onclick="window.location='{{ _sort_base }}sort={{ col_key }}&order={{ new_order }}{{ _back }}'">
-                        {{ col_label }}
-                        {% if sort == col_key %}
-                        <span class="ml-0.5">{{ "▲" if order == "asc" else "▼" }}</span>
-                        {% endif %}
+                    <th class="px-2 py-2 text-left font-semibold text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                        <a href="{{ _sort_base }}sort={{ col_key }}&order={{ new_order }}{{ _back }}" class="hover:text-blue-600 select-none">
+                            {{ col_label }}
+                            {% if sort == col_key %}
+                            <span class="ml-0.5">{{ "▲" if order == "asc" else "▼" }}</span>
+                            {% endif %}
+                        </a>
                     </th>
                     {% endfor %}
                     {% set prevod_order = "desc" if sort == "prevod" and order == "asc" else "asc" %}
-                    <th class="px-1 py-2 text-center font-semibold text-gray-600 dark:text-gray-300 cursor-pointer select-none hover:text-gray-900 dark:hover:text-white whitespace-nowrap"
-                        onclick="window.location='{{ _sort_base }}sort=prevod&order={{ prevod_order }}{{ _back }}'">
-                        Převod
-                        {% if sort == "prevod" %}<span class="ml-0.5">{{ "▲" if order == "asc" else "▼" }}</span>{% endif %}
+                    <th class="px-1 py-2 text-center font-semibold text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                        <a href="{{ _sort_base }}sort=prevod&order={{ prevod_order }}{{ _back }}" class="hover:text-blue-600 select-none">
+                            Převod
+                            {% if sort == "prevod" %}<span class="ml-0.5">{{ "▲" if order == "asc" else "▼" }}</span>{% endif %}
+                        </a>
                     </th>
                     {% for m in range(1, 13) %}
                     {% if m in months_with_data or show_all_months %}
                     {% set m_new_order = "desc" if sort == "m" ~ m and order == "asc" else "asc" %}
-                    <th class="px-1 py-2 text-center font-semibold text-gray-600 dark:text-gray-300 whitespace-nowrap {% if m not in months_with_data %}opacity-30{% endif %} {% if m in months_with_data %}cursor-pointer select-none hover:text-gray-900 dark:hover:text-white{% endif %}"
-                        {% if m in months_with_data %}onclick="window.location='{{ _sort_base }}sort=m{{ m }}&order={{ m_new_order }}{{ _back }}'"{% endif %}>
+                    <th class="px-1 py-2 text-center font-semibold text-gray-600 dark:text-gray-300 whitespace-nowrap {% if m not in months_with_data %}opacity-30{% endif %}">
+                        {% if m in months_with_data %}
+                        <a href="{{ _sort_base }}sort=m{{ m }}&order={{ m_new_order }}{{ _back }}" class="hover:text-blue-600 select-none">
+                            {{ month_names[m] }}
+                            {% if sort == "m" ~ m %}<span class="ml-0.5">{{ "▲" if order == "asc" else "▼" }}</span>{% endif %}
+                        </a>
+                        {% else %}
                         {{ month_names[m] }}
-                        {% if sort == "m" ~ m %}<span class="ml-0.5">{{ "▲" if order == "asc" else "▼" }}</span>{% endif %}
+                        {% endif %}
                     </th>
                     {% endif %}
                     {% endfor %}
                     {% for col_key, col_label in [("celkem", "Celkem"), ("dluh", "Dluh")] %}
                     {% set new_order = "desc" if sort == col_key and order == "asc" else "asc" %}
-                    <th class="px-2 py-2 text-right font-semibold text-gray-600 dark:text-gray-300 cursor-pointer select-none hover:text-gray-900 dark:hover:text-white whitespace-nowrap"
-                        onclick="window.location='{{ _sort_base }}sort={{ col_key }}&order={{ new_order }}{{ _back }}'">
-                        {{ col_label }}
-                        {% if sort == col_key %}
-                        <span class="ml-0.5">{{ "▲" if order == "asc" else "▼" }}</span>
-                        {% endif %}
+                    <th class="px-2 py-2 text-right font-semibold text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                        <a href="{{ _sort_base }}sort={{ col_key }}&order={{ new_order }}{{ _back }}" class="hover:text-blue-600 select-none">
+                            {{ col_label }}
+                            {% if sort == col_key %}
+                            <span class="ml-0.5">{{ "▲" if order == "asc" else "▼" }}</span>
+                            {% endif %}
+                        </a>
                     </th>
                     {% endfor %}
                 </tr>

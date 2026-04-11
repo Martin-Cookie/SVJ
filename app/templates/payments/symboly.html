@@ -76,59 +76,70 @@
             </form>
         </div>
 
-        <!-- Filtr bubliny — typ entity -->
         {% set _base = "/platby/symboly?sort=" ~ sort ~ "&order=" ~ order ~ ("&q=" ~ q if q else "") %}
         {% set _back = "&back=" ~ (back_url|default('')|urlencode) if back_url else "" %}
         {% set _entity_base = _base ~ ("&zdroj=" ~ zdroj if zdroj else "") ~ _back %}
-        <div class="flex flex-wrap gap-2 mb-2">
-            <a href="{{ _entity_base }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
-                {% if not entita %}bg-blue-600 text-white ring-2 ring-blue-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
-                Vše <span class="ml-1 text-xs opacity-75">{{ total_vs_count }}</span>
-            </a>
-            <a href="{{ _entity_base }}&entita=jednotky" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
-                {% if entita == 'jednotky' %}bg-blue-600 text-white ring-2 ring-blue-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
-                Jednotky <span class="ml-1 text-xs opacity-75">{{ unit_vs_count }}</span>
-            </a>
-            <a href="{{ _entity_base }}&entita=prostory" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
-                {% if entita == 'prostory' %}bg-blue-600 text-white ring-2 ring-blue-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
-                Prostory <span class="ml-1 text-xs opacity-75">{{ space_vs_count }}</span>
-            </a>
-        </div>
-
-        <!-- Filtr bubliny — zdroj -->
         {% set _zdroj_base = _base ~ ("&entita=" ~ entita if entita else "") %}
-        <div class="flex flex-wrap gap-2 mb-2">
-            <a href="{{ _zdroj_base }}{{ _back }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
-                {% if not zdroj %}bg-green-600 text-white ring-2 ring-green-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
-                Vše <span class="ml-1 text-xs opacity-75">{{ mappings|length if not zdroj else '' }}</span>
-            </a>
-            {% set source_labels = {"auto": "Automaticky", "manual": "Ručně", "legacy": "Historicky"} %}
-            {% for src in sources %}
-            <a href="{{ _zdroj_base }}&zdroj={{ src }}{{ _back }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
-                {% if zdroj == src %}bg-green-600 text-white ring-2 ring-green-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
-                {{ source_labels.get(src, src) }}
-            </a>
-            {% endfor %}
-        </div>
 
-        <!-- Hledání -->
-        <div class="mb-2">
-            <div class="relative inline-block w-full sm:w-72">
-            <input type="text" name="q" value="{{ q }}" placeholder="Hledat VS, popis..."
-                aria-label="Hledat"
-                hx-get="/platby/symboly"
-                hx-trigger="keyup changed delay:300ms"
-                hx-target="#symboly-tbody"
-                hx-include="[name='sort'],[name='order'],[name='zdroj'],[name='entita'],[name='back']"
-                hx-indicator="#search-spinner"
-                class="w-full px-3 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500">
-            <svg id="search-spinner" class="htmx-indicator absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-500 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+        <!-- Bubliny + search ve společném kontejneru (kanonický vzor /vlastnici) -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow mb-2">
+            <!-- Bubliny — typ entity -->
+            <div class="flex gap-2 p-3 pb-2">
+                <a href="{{ _entity_base }}"
+                   class="flex-1 block rounded p-2 text-center hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors {% if not entita %}ring-2 ring-gray-400{% endif %}">
+                    <p class="text-lg font-bold text-gray-800 dark:text-gray-200">{{ total_vs_count }}</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Vše</p>
+                </a>
+                <a href="{{ _entity_base }}&entita=jednotky"
+                   class="flex-1 block bg-blue-50 dark:bg-blue-900/20 rounded p-2 text-center border border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors {% if entita == 'jednotky' %}ring-2 ring-blue-400{% endif %}">
+                    <p class="text-lg font-bold text-blue-600 dark:text-blue-400">{{ unit_vs_count }}</p>
+                    <p class="text-xs text-blue-600 dark:text-blue-400">Jednotky</p>
+                </a>
+                <a href="{{ _entity_base }}&entita=prostory"
+                   class="flex-1 block bg-purple-50 dark:bg-purple-900/20 rounded p-2 text-center border border-purple-200 dark:border-purple-800 hover:bg-purple-100 dark:hover:bg-purple-900/40 transition-colors {% if entita == 'prostory' %}ring-2 ring-purple-400{% endif %}">
+                    <p class="text-lg font-bold text-purple-600 dark:text-purple-400">{{ space_vs_count }}</p>
+                    <p class="text-xs text-purple-600 dark:text-purple-400">Prostory</p>
+                </a>
             </div>
-            <input type="hidden" name="sort" value="{{ sort }}">
-            <input type="hidden" name="order" value="{{ order }}">
-            <input type="hidden" name="zdroj" value="{{ zdroj }}">
-            <input type="hidden" name="entita" value="{{ entita }}">
-            <input type="hidden" name="back" value="{{ back_url }}">
+
+            <!-- Bubliny — zdroj (sekundární řada) -->
+            {% set source_labels = {"auto": "Automaticky", "manual": "Ručně", "legacy": "Historicky"} %}
+            <div class="flex flex-wrap items-center gap-2 px-3 pb-2">
+                <a href="{{ _zdroj_base }}{{ _back }}"
+                   class="px-2 py-1 text-xs rounded border {% if not zdroj %}bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 border-green-300 ring-2 ring-green-400{% else %}bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-100{% endif %}">
+                    Všechny zdroje
+                </a>
+                {% for src in sources %}
+                <a href="{{ _zdroj_base }}&zdroj={{ src }}{{ _back }}"
+                   class="px-2 py-1 text-xs rounded border {% if zdroj == src %}bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 border-green-300 ring-2 ring-green-400{% else %}bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-100{% endif %}">
+                    {{ source_labels.get(src, src) }}
+                </a>
+                {% endfor %}
+            </div>
+
+            <!-- Separator -->
+            <div class="border-t border-gray-100 dark:border-gray-700"></div>
+
+            <!-- Search bar -->
+            <div class="flex items-center gap-2 px-3 py-2">
+                <input type="hidden" name="sort" value="{{ sort }}">
+                <input type="hidden" name="order" value="{{ order }}">
+                <input type="hidden" name="zdroj" value="{{ zdroj }}">
+                <input type="hidden" name="entita" value="{{ entita }}">
+                <input type="hidden" name="back" value="{{ back_url }}">
+                <div class="flex-1 relative">
+                    <input type="text" name="q" value="{{ q }}" placeholder="Hledat VS, popis..."
+                        aria-label="Hledat"
+                        hx-get="/platby/symboly"
+                        hx-trigger="keyup changed delay:300ms"
+                        hx-target="#symboly-tbody"
+                        hx-include="[name='sort'],[name='order'],[name='zdroj'],[name='entita'],[name='back']"
+                        hx-push-url="true"
+                        hx-indicator="#search-spinner"
+                        class="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                    <svg id="search-spinner" class="htmx-indicator absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-500 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -140,10 +151,11 @@
                 <tr>
                     {% for col_key, col_label in [("vs", "Variabilní symbol"), ("jednotka", "Entita"), ("zdroj", "Zdroj"), ("popis", "Popis")] %}
                     {% set new_order = "desc" if sort == col_key and order == "asc" else "asc" %}
-                    <th class="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300 cursor-pointer select-none hover:text-gray-900 dark:hover:text-white"
-                        onclick="window.location='{{ _sort_base }}sort={{ col_key }}&order={{ new_order }}{{ _back }}'">
-                        {{ col_label }}
-                        {% if sort == col_key %}<span class="ml-0.5">{{ "▲" if order == "asc" else "▼" }}</span>{% endif %}
+                    <th class="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">
+                        <a href="{{ _sort_base }}sort={{ col_key }}&order={{ new_order }}{{ _back }}" class="hover:text-blue-600 select-none">
+                            {{ col_label }}
+                            {% if sort == col_key %}<span class="ml-0.5">{{ "▲" if order == "asc" else "▼" }}</span>{% endif %}
+                        </a>
                     </th>
                     {% endfor %}
                     <th class="px-3 py-2 text-right font-semibold text-gray-600 dark:text-gray-300">Akce</th>

@@ -119,6 +119,13 @@ async def platby_prehled(
 
         total_units = len(matrix["rows"])
         space_types = []
+        # Counts pro stat-card bubliny Jednotky/Prostory
+        if not is_htmx_partial(request):
+            units_matrix_all = compute_payment_matrix(db, rok, space_type="")
+            units_count_total = len(units_matrix_all["units"])
+        else:
+            units_count_total = 0
+        spaces_count_total = len(matrix["rows"])
     else:
         matrix = compute_payment_matrix(db, rok, space_type=typ)
         rows = matrix["units"]
@@ -136,6 +143,18 @@ async def platby_prehled(
 
         total_units = len(matrix["units"])
         space_types = matrix["space_types"]
+        # Counts pro stat-card bubliny
+        if not is_htmx_partial(request):
+            if typ:
+                units_all = compute_payment_matrix(db, rok, space_type="")
+                units_count_total = len(units_all["units"])
+            else:
+                units_count_total = total_units
+            spaces_all = compute_space_payment_matrix(db, rok)
+            spaces_count_total = len(spaces_all["rows"])
+        else:
+            units_count_total = 0
+            spaces_count_total = 0
 
     sort_key = sort if sort in SORT_COLUMNS_MATRIX else "cislo"
     reverse = order == "desc"
@@ -164,6 +183,8 @@ async def platby_prehled(
         "total_prescribed": matrix["total_prescribed"],
         "total_paid": matrix["total_paid"],
         "total_units": total_units,
+        "units_count": units_count_total,
+        "spaces_count": spaces_count_total,
         "active_tab": "prehled",
         **(compute_nav_stats(db) if not is_htmx_partial(request) else {}),
     }
@@ -434,6 +455,15 @@ async def platby_dluznici(
 
     debtors, months_with_data, sort_key = _compute_debtors_filtered(db, rok, q, sort, order, entita)
 
+    # Counts pro stat-card bubliny (obě entity)
+    units_count = 0
+    spaces_count = 0
+    if not is_htmx_partial(request):
+        u_list, _ = compute_debtor_list(db, rok)
+        units_count = len(u_list)
+        s_list, _ = compute_space_debtor_list(db, rok)
+        spaces_count = len(s_list)
+
     list_url = build_list_url(request)
 
     ctx = {
@@ -450,6 +480,8 @@ async def platby_dluznici(
         "list_url": list_url,
         "months_with_data": months_with_data,
         "total_debt": sum(r["debt"] for r in debtors),
+        "units_count": units_count,
+        "spaces_count": spaces_count,
         "active_tab": "dluznici",
         **(compute_nav_stats(db) if not is_htmx_partial(request) else {}),
     }
