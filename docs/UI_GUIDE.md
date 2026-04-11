@@ -575,6 +575,28 @@ Pokud jsou bubliny ve sdíleném header partialu (např. `_voting_header.html`) 
 </div><!-- /bubble+search kontejner -->
 ```
 
+### `qs()` — querystring helper makro
+
+Pro skládání odkazů s proměnlivým počtem query parametrů (bubliny, sort, search, back) použij lokální Jinja2 makro `qs()`, které vynechá prázdné hodnoty a automaticky urlencoduje. Čistší než ruční `?a={{a}}&b={{b}}` s `{% if %}` kolem každého páru — a odolnější vůči bugům typu `??` nebo `&&` v URL.
+
+```jinja
+{% macro qs(pairs) -%}
+    {%- set parts = [] -%}
+    {%- for k, v in pairs -%}{%- if v -%}{%- set _ = parts.append(k ~ '=' ~ (v|urlencode)) -%}{%- endif -%}{%- endfor -%}
+    {%- if parts -%}?{{ parts|join('&') }}{%- endif -%}
+{%- endmacro %}
+
+<a href="/hlasovani{{ qs([('stav', stav), ('sort', current_sort), ('back', back_url)]) }}">
+```
+
+**Výhody:**
+- Prázdné hodnoty se vynechají (žádné `?stav=&sort=`)
+- `?` se vygeneruje jen když jsou parametry
+- Automatický `urlencode` na každou hodnotu
+- Čitelné — pořadí parametrů je deklarativní seznam dvojic
+
+**Kde se používá:** `voting/index.html`, `payments/vypisy.html`. Preferovat pro nové seznamové stránky s více bublinami + řazením + search + back URL.
+
 ---
 
 ## 8. Seznam/index stránek
