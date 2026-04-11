@@ -1,13 +1,14 @@
 {% if items %}
 {% for b in items %}
-<tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+{% set _back_with_hash = (list_url ~ '#bounce-' ~ b.id)|urlencode %}
+<tr id="bounce-{{ b.id }}" class="hover:bg-gray-50 dark:hover:bg-gray-700">
     <td class="px-3 py-2 text-gray-700 dark:text-gray-300 whitespace-nowrap">
         {% if b.bounced_at %}{{ b.bounced_at.strftime('%d.%m.%Y %H:%M') }}{% else %}—{% endif %}
     </td>
     <td class="px-3 py-2 font-mono text-gray-800 dark:text-gray-200">{{ b.recipient_email }}</td>
     <td class="px-3 py-2">
         {% if b.owner %}
-        <a href="/vlastnici/{{ b.owner.id }}?back={{ list_url|urlencode }}"
+        <a href="/vlastnici/{{ b.owner.id }}?back={{ _back_with_hash }}"
            class="text-blue-600 hover:text-blue-800 dark:text-blue-400">
             {{ b.owner.display_name }}
         </a>
@@ -27,19 +28,27 @@
         <span class="px-2 py-0.5 text-[10px] font-medium bg-gray-100 text-gray-700 rounded-full">⚪ ?</span>
         {% endif %}
     </td>
-    <td class="px-3 py-2 text-gray-600 dark:text-gray-400 max-w-md">
-        <div class="truncate" title="{{ b.reason or b.diagnostic_code or '' }}">
-            {{ b.reason or b.diagnostic_code or '—' }}
+    <td class="px-3 py-2 text-gray-700 dark:text-gray-300 max-w-md">
+        <div class="truncate cursor-help" title="{{ b.reason or b.diagnostic_code or '' }}">
+            {{ reason_labels.get(b.id, '—') if reason_labels is defined else (b.reason or '—') }}
         </div>
     </td>
-    <td class="px-3 py-2 text-gray-600 dark:text-gray-400 whitespace-nowrap">
+    <td class="px-3 py-2 text-gray-600 dark:text-gray-400 max-w-xs">
         {% if b.module %}
             {% set mod_label = module_labels.get(b.module, b.module) if module_labels is defined else b.module %}
-            {% if b.module == 'tax' and b.reference_id %}
-            <a href="/dane/{{ b.reference_id }}?back={{ list_url|urlencode }}" class="text-blue-600 hover:text-blue-800">{{ mod_label }} #{{ b.reference_id }}</a>
-            {% else %}
-            {{ mod_label }}{% if b.reference_id %} #{{ b.reference_id }}{% endif %}
-            {% endif %}
+            {% set ref = references.get((b.module, b.reference_id)) if references is defined and b.reference_id else None %}
+            <div class="flex flex-col">
+                <span class="text-[10px] text-gray-500 uppercase">{{ mod_label }}</span>
+                {% if ref %}
+                <a href="{{ ref.url }}?back={{ _back_with_hash }}"
+                   class="text-blue-600 hover:text-blue-800 dark:text-blue-400 truncate"
+                   title="{{ ref.name }}">
+                    {{ ref.name }}
+                </a>
+                {% elif b.reference_id %}
+                <span class="text-gray-400 italic">#{{ b.reference_id }} (smazáno)</span>
+                {% endif %}
+            </div>
         {% else %}
         <span class="text-gray-400">—</span>
         {% endif %}

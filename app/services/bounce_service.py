@@ -391,6 +391,48 @@ def fetch_bounces(db: Session, mark_invalid: bool = True) -> dict:
     }
 
 
+def humanize_reason(text: str | None, bounce_type: BounceType) -> str:
+    """Přeloží surový SMTP/DSN text do srozumitelné české věty."""
+    if not text:
+        if bounce_type == BounceType.HARD:
+            return "Adresa nedoručitelná"
+        if bounce_type == BounceType.SOFT:
+            return "Dočasné selhání doručení"
+        return "Neznámý důvod"
+    t = text.lower()
+    if any(k in t for k in ("5.1.1", "no such user", "user unknown", "no such mailbox",
+                             "mailbox does not exist", "recipient address rejected: user",
+                             "address rejected", "does not exist")):
+        return "Adresa příjemce neexistuje"
+    if "5.4.1" in t or "access denied" in t:
+        return "Příjemce odmítl zprávu (přístup zamítnut)"
+    if any(k in t for k in ("5.7.", "policy", "blocked", "spam", "blacklist", "reject due to policy")):
+        return "Zpráva odmítnuta firewallem nebo spam filtrem"
+    if any(k in t for k in ("quota", "mailbox full", "5.2.2")):
+        return "Plná schránka příjemce"
+    if "5.2.1" in t or "disabled" in t or "deactivated" in t:
+        return "Schránka deaktivována"
+    if any(k in t for k in ("greylisted", "try again later", "temporary", "4.7.", "4.2.", "4.4.")):
+        return "Dočasné selhání — zkuste znovu později"
+    if "relay" in t or "5.7.1" in t:
+        return "Server odmítl přeposlání zprávy"
+    if "dns" in t or "host not found" in t or "no mx" in t:
+        return "Doména neexistuje (DNS chyba)"
+    if "timeout" in t or "connection" in t:
+        return "Spojení se serverem příjemce selhalo"
+    if "550" in t:
+        return "Adresa nedoručitelná"
+    if "554" in t:
+        return "Zpráva odmítnuta serverem příjemce"
+    if "552" in t:
+        return "Zpráva přesahuje limit velikosti"
+    if bounce_type == BounceType.HARD:
+        return "Adresa nedoručitelná"
+    if bounce_type == BounceType.SOFT:
+        return "Dočasné selhání doručení"
+    return "Neznámý důvod"
+
+
 def count_bounces_for_reference(db: Session, module: str, reference_id: int) -> int:
     return (
         db.query(EmailBounce)

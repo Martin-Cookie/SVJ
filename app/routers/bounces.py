@@ -12,8 +12,8 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
-from app.models import BounceType, EmailBounce, Owner
-from app.services.bounce_service import fetch_bounces
+from app.models import BankStatement, BounceType, EmailBounce, Owner, TaxSession
+from app.services.bounce_service import fetch_bounces, humanize_reason
 from app.utils import (
     build_list_url,
     excel_auto_width,
@@ -31,7 +31,9 @@ router = APIRouter()
 SORT_COLUMNS = {
     "datum": EmailBounce.bounced_at,
     "email": EmailBounce.recipient_email,
+    "vlastnik": Owner.name_normalized,
     "typ": EmailBounce.bounce_type,
+    "duvod": EmailBounce.reason,
     "modul": EmailBounce.module,
     "vytvoreno": EmailBounce.created_at,
 }
@@ -46,6 +48,7 @@ _MODULE_LABELS = {
     "tax": "Daně",
     "voting": "Hlasování",
     "payments": "Platby",
+    "payment_notice": "Upozornění platby",
     "payment_discrepancy": "Nesrovnalosti",
 }
 
@@ -100,6 +103,41 @@ def _module_counts(db: Session):
     return out
 
 
+def _resolve_references(db: Session, items: list[EmailBounce]) -> dict:
+    """Batch lookup reference entit (TaxSession, BankStatement) pro link v sloupci Modul.
+
+    Vrací dict {(module, ref_id): {"name": str, "url": str}}.
+    """
+    tax_ids: set[int] = set()
+    stmt_ids: set[int] = set()
+    for b in items:
+        if not b.reference_id:
+            continue
+        if b.module == "tax":
+            tax_ids.add(b.reference_id)
+        elif b.module == "payment_notice":
+            stmt_ids.add(b.reference_id)
+
+    out: dict = {}
+    if tax_ids:
+        for s in db.query(TaxSession).filter(TaxSession.id.in_(tax_ids)).all():
+            label = s.title
+            if s.year:
+                label = f"{s.title} ({s.year})"
+            out[("tax", s.id)] = {"name": label, "url": f"/dane/{s.id}"}
+    if stmt_ids:
+        for st in db.query(BankStatement).filter(BankStatement.id.in_(stmt_ids)).all():
+            if st.period_from and st.period_to:
+                label = f"{st.filename} ({st.period_from.strftime('%d.%m.%Y')}–{st.period_to.strftime('%d.%m.%Y')})"
+            else:
+                label = st.filename
+            out[("payment_notice", st.id)] = {
+                "name": label,
+                "url": f"/platby/vypisy/{st.id}/nesrovnalosti",
+            }
+    return out
+
+
 def _last_check(db: Session) -> datetime | None:
     last = db.query(EmailBounce).order_by(EmailBounce.created_at.desc()).first()
     return last.created_at if last else None
@@ -121,6 +159,8 @@ async def bounces_page(
     query = _filter_query(db, typ=typ, modul=modul, q=q)
 
     sort_col = SORT_COLUMNS.get(sort, EmailBounce.bounced_at)
+    if sort == "vlastnik":
+        query = query.outerjoin(Owner, EmailBounce.owner_id == Owner.id)
     if order == "asc":
         query = query.order_by(sort_col.asc().nulls_last(), EmailBounce.id.desc())
     else:
@@ -141,6 +181,11 @@ async def bounces_page(
         "counts": _counts(db),
         "module_counts": _module_counts(db),
         "module_labels": _MODULE_LABELS,
+        "references": _resolve_references(db, items),
+        "reason_labels": {
+            b.id: humanize_reason(b.reason or b.diagnostic_code, b.bounce_type)
+            for b in items
+        },
         "typ": typ,
         "modul": modul,
         "q": q,
