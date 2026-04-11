@@ -24,11 +24,11 @@
     </td>
     <td class="px-3 py-2">
         {% if b.bounce_type.value == 'hard' %}
-        <span class="px-2 py-0.5 text-[10px] font-medium bg-red-100 text-red-700 rounded-full">🔴 HARD</span>
+        <span class="inline-flex items-center px-2 py-0.5 text-[10px] font-medium bg-red-100 text-red-700 rounded-full"><span class="w-1.5 h-1.5 rounded-full bg-red-500 mr-1"></span>HARD</span>
         {% elif b.bounce_type.value == 'soft' %}
-        <span class="px-2 py-0.5 text-[10px] font-medium bg-amber-100 text-amber-700 rounded-full">🟡 SOFT</span>
+        <span class="inline-flex items-center px-2 py-0.5 text-[10px] font-medium bg-amber-100 text-amber-700 rounded-full"><span class="w-1.5 h-1.5 rounded-full bg-amber-500 mr-1"></span>SOFT</span>
         {% else %}
-        <span class="px-2 py-0.5 text-[10px] font-medium bg-gray-100 text-gray-700 rounded-full">⚪ ?</span>
+        <span class="inline-flex items-center px-2 py-0.5 text-[10px] font-medium bg-gray-100 text-gray-700 rounded-full"><span class="w-1.5 h-1.5 rounded-full bg-gray-400 mr-1"></span>?</span>
         {% endif %}
     </td>
     <td class="px-3 py-2 text-gray-700 dark:text-gray-300 max-w-md">

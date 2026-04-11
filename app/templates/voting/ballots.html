@@ -32,8 +32,6 @@
 <!-- Ballots table -->
 {% set _back = "&back=" ~ (back_url|default('')|urlencode) if back_url else "" %}
 {% set _all = "stav=" ~ current_stav ~ "&q=" ~ (q|urlencode) ~ _back %}
-{% set _svg_up = '<svg aria-hidden="true" class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L10 6.414l-3.293 3.293a1 1 0 01-1.414 0z"/></svg>' %}
-{% set _svg_down = '<svg aria-hidden="true" class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path d="M14.707 10.293a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L10 13.586l3.293-3.293a1 1 0 011.414 0z"/></svg>' %}
 {% set sortable_cols = [("Vlastník", "owner", "left"), ("Jednotky", "units", "left"), ("Hlasy", "votes", "right")] %}
 {% if voting.status.value == 'active' %}
 <div class="flex items-center gap-2 mb-2" id="bulk-reset-bar" style="display:none">
@@ -65,7 +63,7 @@
                     <a href="/hlasovani/{{ voting.id }}/listky?sort={{ col }}&order={{ next_order }}&{{ _all }}"
                        class="inline-flex items-center gap-0.5 cursor-pointer hover:text-blue-600 select-none">
                         {{ label }}
-                        {% if sort == col %}{{ (_svg_up if order == "asc" else _svg_down)|safe }}{% endif %}
+                        {% if sort == col %}{% with direction=order %}{% include "partials/_sort_icon.html" %}{% endwith %}{% endif %}
                     </a>
                 </th>
                 {% endfor %}
@@ -76,7 +74,7 @@
                     <a href="/hlasovani/{{ voting.id }}/listky?sort={{ bcol }}&order={{ next_bod_order }}&{{ _all }}"
                        class="inline-flex items-center gap-0.5 cursor-pointer hover:text-blue-600 select-none">
                         Bod {{ item.order }}
-                        {% if sort == bcol %}{{ (_svg_up if order == "asc" else _svg_down)|safe }}{% endif %}
+                        {% if sort == bcol %}{% with direction=order %}{% include "partials/_sort_icon.html" %}{% endwith %}{% endif %}
                     </a>
                 </th>
                 {% endfor %}
@@ -85,7 +83,7 @@
                     <a href="/hlasovani/{{ voting.id }}/listky?sort=proxy&order={{ next_proxy_order }}&{{ _all }}"
                        class="inline-flex items-center gap-0.5 cursor-pointer hover:text-blue-600 select-none">
                         Plná moc
-                        {% if sort == 'proxy' %}{{ (_svg_up if order == "asc" else _svg_down)|safe }}{% endif %}
+                        {% if sort == 'proxy' %}{% with direction=order %}{% include "partials/_sort_icon.html" %}{% endwith %}{% endif %}
                     </a>
                 </th>
                 {% set next_status_order = "desc" if sort == "status" and order == "asc" else "asc" %}
@@ -93,7 +91,7 @@
                     <a href="/hlasovani/{{ voting.id }}/listky?sort=status&order={{ next_status_order }}&{{ _all }}"
                        class="inline-flex items-center gap-0.5 cursor-pointer hover:text-blue-600 select-none">
                         Stav
-                        {% if sort == 'status' %}{{ (_svg_up if order == "asc" else _svg_down)|safe }}{% endif %}
+                        {% if sort == 'status' %}{% with direction=order %}{% include "partials/_sort_icon.html" %}{% endwith %}{% endif %}
                     </a>
                 </th>
             </tr>
