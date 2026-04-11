@@ -260,7 +260,13 @@ document.addEventListener('submit', function(e) {
     var form = e.target;
     if (!form.hasAttribute('data-loading')) return;
     if (form.hasAttribute('hx-post') || form.hasAttribute('hx-get')) return;
+    // Look inside the form first, then fall back to buttons with form="<id>"
     var btn = form.querySelector('button[type="submit"], input[type="submit"]');
+    if (!btn && form.id) {
+        btn = document.querySelector(
+            'button[type="submit"][form="' + form.id + '"], input[type="submit"][form="' + form.id + '"]'
+        );
+    }
     if (!btn || btn.disabled) return;
     var label = form.getAttribute('data-loading') || 'Zpracovávám...';
     btn.disabled = true;
