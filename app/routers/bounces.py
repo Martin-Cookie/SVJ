@@ -168,6 +168,12 @@ async def bounces_page(
 
     items = query.all()
 
+    unique_keys: set = set()
+    for b in items:
+        key = (b.owner_id, (b.recipient_email or "").lower()) if b.owner_id else ("noown", (b.recipient_email or "").lower())
+        unique_keys.add(key)
+    unique_count = len(unique_keys)
+
     flash_message = None
     flash_type = None
     if flash == "ok":
@@ -178,6 +184,7 @@ async def bounces_page(
 
     ctx = {
         "items": items,
+        "unique_count": unique_count,
         "counts": _counts(db),
         "module_counts": _module_counts(db),
         "module_labels": _MODULE_LABELS,
@@ -228,11 +235,23 @@ async def export_bounces(
     typ: str = Query(""),
     modul: str = Query(""),
     q: str = Query(""),
+    dedup: int = Query(0),
     db: Session = Depends(get_db),
 ):
     items = _filter_query(db, typ=typ, modul=modul, q=q).order_by(
         EmailBounce.bounced_at.desc().nulls_last()
     ).all()
+
+    if dedup:
+        seen: set = set()
+        unique: list[EmailBounce] = []
+        for b in items:
+            key = (b.owner_id, (b.recipient_email or "").lower()) if b.owner_id else ("noown", (b.recipient_email or "").lower())
+            if key in seen:
+                continue
+            seen.add(key)
+            unique.append(b)
+        items = unique
 
     suffix = "vsechny"
     if typ:
@@ -241,6 +260,8 @@ async def export_bounces(
         suffix = strip_diacritics(modul).replace(" ", "_")
     elif q:
         suffix = "hledani"
+    if dedup:
+        suffix = f"{suffix}_unikatni" if suffix != "vsechny" else "unikatni"
 
     today = utcnow().strftime("%Y%m%d")
     filename = f"bounces_{suffix}_{today}.{fmt}"

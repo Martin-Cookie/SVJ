@@ -30,77 +30,107 @@
                     🔄 Zkontrolovat nyní
                 </button>
             </form>
-            <a href="/rozesilani/bounces/exportovat/xlsx{{ _export_qs }}" hx-boost="false"
-               class="inline-flex items-center px-3 py-1.5 bg-gray-100 text-gray-600 border border-gray-200 text-xs font-medium rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600">
-                ↓ Excel
-            </a>
-            <a href="/rozesilani/bounces/exportovat/csv{{ _export_qs }}" hx-boost="false"
-               class="inline-flex items-center px-3 py-1.5 bg-gray-100 text-gray-600 border border-gray-200 text-xs font-medium rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600">
-                ↓ CSV
-            </a>
+            {% set _qs_join = "&" if _export_qs != "?" else "" %}
+            <details class="relative inline-block">
+                <summary class="inline-flex items-center px-3 py-1.5 bg-gray-100 text-gray-600 border border-gray-200 text-xs font-medium rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600 cursor-pointer list-none">
+                    ↓ Excel ▾
+                </summary>
+                <div class="absolute right-0 mt-1 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg z-20 py-1">
+                    <a href="/rozesilani/bounces/exportovat/xlsx{{ _export_qs }}" hx-boost="false"
+                       class="block px-3 py-2 text-xs text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
+                        Všechny záznamy <span class="text-gray-400">({{ items|length }})</span>
+                    </a>
+                    <a href="/rozesilani/bounces/exportovat/xlsx{{ _export_qs }}{{ _qs_join }}dedup=1" hx-boost="false"
+                       class="block px-3 py-2 text-xs text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
+                        Pouze unikátní vlastníci <span class="text-gray-400">({{ unique_count }})</span>
+                    </a>
+                </div>
+            </details>
+            <details class="relative inline-block">
+                <summary class="inline-flex items-center px-3 py-1.5 bg-gray-100 text-gray-600 border border-gray-200 text-xs font-medium rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600 cursor-pointer list-none">
+                    ↓ CSV ▾
+                </summary>
+                <div class="absolute right-0 mt-1 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg z-20 py-1">
+                    <a href="/rozesilani/bounces/exportovat/csv{{ _export_qs }}" hx-boost="false"
+                       class="block px-3 py-2 text-xs text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
+                        Všechny záznamy <span class="text-gray-400">({{ items|length }})</span>
+                    </a>
+                    <a href="/rozesilani/bounces/exportovat/csv{{ _export_qs }}{{ _qs_join }}dedup=1" hx-boost="false"
+                       class="block px-3 py-2 text-xs text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
+                        Pouze unikátní vlastníci <span class="text-gray-400">({{ unique_count }})</span>
+                    </a>
+                </div>
+            </details>
         </div>
     </div>
 
-    <!-- Filtrační bubliny — typ -->
-    <div class="flex flex-wrap items-center gap-2 mb-2">
-        <a href="{{ _base }}{{ _qs_modul }}{{ _qs_q }}"
-           class="px-3 py-1 text-xs font-medium rounded-full transition-colors
-                  {% if not typ %}bg-blue-600 text-white ring-2 ring-blue-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
-            Vše <span class="ml-1 text-xs opacity-75">{{ counts.total }}</span>
-        </a>
-        <a href="{{ _base }}typ=hard&{{ _qs_modul }}{{ _qs_q }}"
-           class="px-3 py-1 text-xs font-medium rounded-full transition-colors
-                  {% if typ == 'hard' %}bg-red-600 text-white ring-2 ring-red-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
-            🔴 Hard <span class="ml-1 text-xs opacity-75">{{ counts.hard }}</span>
-        </a>
-        <a href="{{ _base }}typ=soft&{{ _qs_modul }}{{ _qs_q }}"
-           class="px-3 py-1 text-xs font-medium rounded-full transition-colors
-                  {% if typ == 'soft' %}bg-amber-500 text-white ring-2 ring-amber-300{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
-            🟡 Soft <span class="ml-1 text-xs opacity-75">{{ counts.soft }}</span>
-        </a>
-        <a href="{{ _base }}typ=unknown&{{ _qs_modul }}{{ _qs_q }}"
-           class="px-3 py-1 text-xs font-medium rounded-full transition-colors
-                  {% if typ == 'unknown' %}bg-gray-600 text-white ring-2 ring-gray-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
-            ⚪ Neznámé <span class="ml-1 text-xs opacity-75">{{ counts.unknown }}</span>
-        </a>
-    </div>
-
-    <!-- Filtrační bubliny — modul -->
-    {% if module_counts %}
-    <div class="flex flex-wrap items-center gap-2 mb-2">
-        <a href="{{ _base }}{{ _qs_typ }}{{ _qs_q }}"
-           class="px-3 py-1 text-xs font-medium rounded-full transition-colors
-                  {% if not modul %}bg-purple-600 text-white ring-2 ring-purple-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
-            Všechny moduly
-        </a>
-        {% for mod_key, mod_count in module_counts.items() %}
-        <a href="{{ _base }}{{ _qs_typ }}modul={{ mod_key }}&{{ _qs_q }}"
-           class="px-3 py-1 text-xs font-medium rounded-full transition-colors
-                  {% if modul == mod_key %}bg-purple-600 text-white ring-2 ring-purple-400{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
-            {{ module_labels.get(mod_key, mod_key) }} <span class="ml-1 text-xs opacity-75">{{ mod_count }}</span>
-        </a>
-        {% endfor %}
-    </div>
-    {% endif %}
-
-    <!-- Hledání -->
-    <div class="mb-3">
-        <div class="relative inline-block w-full sm:w-80">
-            <input type="text" name="q" value="{{ q }}" placeholder="Hledat email / vlastníka / důvod..."
-                   aria-label="Hledat bounce"
-                   hx-get="/rozesilani/bounces"
-                   hx-trigger="keyup changed delay:300ms"
-                   hx-target="#bounces-tbody"
-                   hx-include="[name='typ'],[name='modul'],[name='sort'],[name='order'],[name='back']"
-                   hx-indicator="#search-spinner"
-                   class="w-full px-3 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500">
-            <svg id="search-spinner" class="htmx-indicator absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-500 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+    <!-- Bubliny + search ve společném kontejneru (kanonický vzor /vlastnici) -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow mb-2">
+        <!-- Bubliny — typ -->
+        <div class="flex gap-2 p-3 pb-2">
+            <a href="{{ _base }}{{ _qs_modul }}{{ _qs_q }}"
+               class="flex-1 block rounded p-2 text-center hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors {% if not typ %}ring-2 ring-gray-400{% endif %}">
+                <p class="text-lg font-bold text-gray-800 dark:text-gray-200">{{ counts.total }}</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400">Vše</p>
+            </a>
+            <a href="{{ _base }}typ=hard&{{ _qs_modul }}{{ _qs_q }}"
+               class="flex-1 block bg-red-50 dark:bg-red-900/20 rounded p-2 text-center border border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors {% if typ == 'hard' %}ring-2 ring-red-400{% endif %}">
+                <p class="text-lg font-bold text-red-600 dark:text-red-400">{{ counts.hard }}</p>
+                <p class="text-xs text-red-600 dark:text-red-400">🔴 Hard</p>
+            </a>
+            <a href="{{ _base }}typ=soft&{{ _qs_modul }}{{ _qs_q }}"
+               class="flex-1 block bg-amber-50 dark:bg-amber-900/20 rounded p-2 text-center border border-amber-200 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors {% if typ == 'soft' %}ring-2 ring-amber-400{% endif %}">
+                <p class="text-lg font-bold text-amber-600 dark:text-amber-400">{{ counts.soft }}</p>
+                <p class="text-xs text-amber-600 dark:text-amber-400">🟡 Soft</p>
+            </a>
+            <a href="{{ _base }}typ=unknown&{{ _qs_modul }}{{ _qs_q }}"
+               class="flex-1 block bg-gray-50 dark:bg-gray-700/40 rounded p-2 text-center border border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors {% if typ == 'unknown' %}ring-2 ring-gray-400{% endif %}">
+                <p class="text-lg font-bold text-gray-600 dark:text-gray-300">{{ counts.unknown }}</p>
+                <p class="text-xs text-gray-600 dark:text-gray-400">⚪ Neznámé</p>
+            </a>
         </div>
-        <input type="hidden" name="typ" value="{{ typ }}">
-        <input type="hidden" name="modul" value="{{ modul }}">
-        <input type="hidden" name="sort" value="{{ sort }}">
-        <input type="hidden" name="order" value="{{ order }}">
-        <input type="hidden" name="back" value="{{ back_url|default('') }}">
+
+        <!-- Bubliny — modul -->
+        {% if module_counts %}
+        <div class="flex gap-2 px-3 pb-2">
+            <a href="{{ _base }}{{ _qs_typ }}{{ _qs_q }}"
+               class="flex-1 block rounded p-2 text-center hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors {% if not modul %}ring-2 ring-gray-400{% endif %}">
+                <p class="text-lg font-bold text-gray-800 dark:text-gray-200">{{ counts.total }}</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400">Všechny moduly</p>
+            </a>
+            {% for mod_key, mod_count in module_counts.items() %}
+            <a href="{{ _base }}{{ _qs_typ }}modul={{ mod_key }}&{{ _qs_q }}"
+               class="flex-1 block bg-purple-50 dark:bg-purple-900/20 rounded p-2 text-center border border-purple-200 dark:border-purple-800 hover:bg-purple-100 dark:hover:bg-purple-900/40 transition-colors {% if modul == mod_key %}ring-2 ring-purple-400{% endif %}">
+                <p class="text-lg font-bold text-purple-600 dark:text-purple-400">{{ mod_count }}</p>
+                <p class="text-xs text-purple-600 dark:text-purple-400">{{ module_labels.get(mod_key, mod_key) }}</p>
+            </a>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Separator -->
+        <div class="border-t border-gray-100 dark:border-gray-700"></div>
+
+        <!-- Search bar -->
+        <div class="flex items-center gap-2 px-3 py-2">
+            <input type="hidden" name="typ" value="{{ typ }}">
+            <input type="hidden" name="modul" value="{{ modul }}">
+            <input type="hidden" name="sort" value="{{ sort }}">
+            <input type="hidden" name="order" value="{{ order }}">
+            <input type="hidden" name="back" value="{{ back_url|default('') }}">
+            <div class="flex-1 relative">
+                <input type="text" name="q" value="{{ q }}" placeholder="Hledat email / vlastníka / důvod..."
+                       aria-label="Hledat bounce"
+                       hx-get="/rozesilani/bounces"
+                       hx-trigger="keyup changed delay:300ms"
+                       hx-target="#bounces-tbody"
+                       hx-include="[name='typ'],[name='modul'],[name='sort'],[name='order'],[name='back']"
+                       hx-push-url="true"
+                       hx-indicator="#search-spinner"
+                       class="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                <svg id="search-spinner" class="htmx-indicator absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-500 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+            </div>
+        </div>
     </div>
 
     <!-- Tabulka -->
@@ -130,4 +160,22 @@
         </table>
     </div>
 </div>
+<script>
+(function() {
+    document.querySelectorAll('details').forEach(function(d) {
+        d.addEventListener('toggle', function() {
+            if (d.open) {
+                document.querySelectorAll('details').forEach(function(o) {
+                    if (o !== d) o.open = false;
+                });
+            }
+        });
+    });
+    document.addEventListener('click', function(e) {
+        document.querySelectorAll('details[open]').forEach(function(d) {
+            if (!d.contains(e.target)) d.open = false;
+        });
+    });
+})();
+</script>
 {% endblock %}
