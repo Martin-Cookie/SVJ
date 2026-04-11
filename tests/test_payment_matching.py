@@ -185,24 +185,24 @@ class TestExtractUnitFromVs:
         from app.services.payment_matching import _extract_unit_from_vs
         # VS 1109800501 → prefix 11098 → remainder 00501 → bez posledních 2 = 005 → 5
         unit_ids = {1, 5, 10}
-        result = _extract_unit_from_vs("1109800501", {}, unit_ids)
+        result = _extract_unit_from_vs("1109800501", {}, unit_ids, "1098")
         assert result == 5
 
     def test_no_prefix(self):
         from app.services.payment_matching import _extract_unit_from_vs
-        result = _extract_unit_from_vs("9999999999", {}, {1, 5})
+        result = _extract_unit_from_vs("9999999999", {}, {1, 5}, "1098")
         assert result is None
 
     def test_empty_vs(self):
         from app.services.payment_matching import _extract_unit_from_vs
-        result = _extract_unit_from_vs("", {}, {1, 5})
+        result = _extract_unit_from_vs("", {}, {1, 5}, "1098")
         assert result is None
 
     def test_known_vs_map_priority(self):
         from app.services.payment_matching import _extract_unit_from_vs
         # Pokud VS je v known_vs_map, neměla by se volat _extract (tu funkci volá match_payments)
         # _extract_unit_from_vs samotná ignoruje known_vs_map pokud VS nemá prefix
-        result = _extract_unit_from_vs("12345", {"12345": 99}, {99})
+        result = _extract_unit_from_vs("12345", {"12345": 99}, {99}, "1098")
         assert result is None  # "12345" nemá prefix 1098
 
 

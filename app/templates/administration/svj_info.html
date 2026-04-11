@@ -169,6 +169,10 @@
                         <span class="text-gray-500">Celkový počet podílů</span>
                         <span class="text-gray-800 font-mono whitespace-nowrap">{{ "{:,}".format(info.total_shares or 0).replace(",", " ") }}</span>
                     </div>
+                    <div class="flex justify-between py-1">
+                        <span class="text-gray-500">Prefix variabilních symbolů</span>
+                        <span class="text-gray-800 font-mono">{{ info.vs_prefix or '—' }}</span>
+                    </div>
                 </div>
             </div>
 
@@ -190,6 +194,12 @@
                             <label class="block text-xs text-gray-500 mb-1">Celkový počet podílů</label>
                             <input type="number" name="total_shares" value="{{ info.total_shares or '' }}" min="1" max="99999999"
                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">Prefix variabilních symbolů</label>
+                            <input type="text" name="vs_prefix" value="{{ info.vs_prefix or '' }}" placeholder="1098" pattern="[0-9]*" maxlength="10"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <p class="mt-1 text-xs text-gray-400">Prefix, kterým začínají VS v předpisových dokumentech (např. 1098 → 1109800501).</p>
                         </div>
                     </div>
                     <div class="mt-4 flex items-center gap-2">

@@ -103,6 +103,7 @@ async def update_svj_info(
     name: str = Form(""),
     building_type: str = Form(""),
     total_shares: str = Form(""),
+    vs_prefix: str = Form(""),
     db: Session = Depends(get_db),
 ):
     """Uložení základních informací o SVJ."""
@@ -116,6 +117,11 @@ async def update_svj_info(
     if total_shares_int is not None and (total_shares_int < 1 or total_shares_int > 99999999):
         total_shares_int = None
     info.total_shares = total_shares_int
+    vs_prefix_clean = vs_prefix.strip()
+    if vs_prefix_clean and vs_prefix_clean.isdigit() and len(vs_prefix_clean) <= 10:
+        info.vs_prefix = vs_prefix_clean
+    elif not vs_prefix_clean:
+        info.vs_prefix = None
     info.updated_at = utcnow()
     log_activity(
         db, ActivityAction.UPDATED, "svj_info", "sprava",

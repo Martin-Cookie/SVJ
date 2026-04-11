@@ -20,7 +20,7 @@
             Aktuálně v evidenci: <strong>{{ space_count }}</strong> prostorů.
             {% endif %}
         </p>
-        <form action="/prostory/import" method="post" enctype="multipart/form-data" hx-boost="false">
+        <form action="/prostory/import" method="post" enctype="multipart/form-data" hx-boost="false" data-loading="Importuji prostory...">
             <input type="file" name="file" accept=".xlsx" required hx-disable
                    class="file-input block w-full text-xs text-gray-700 dark:text-gray-300
                    file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0

@@ -1277,6 +1277,11 @@ Tři stránky v modulu Platby měly starý `rounded-full bg-blue-600 text-white`
 
 Odloženo (vyžaduje rozhodnutí nebo UX diskuzi): #5 `|safe` SVG refactor, #8 archivace `docs/reports/`, #9 `owner_update` rename, #10 emoji → SVG badges.
 
+**Jedenáctý audit — follow-up z Business Logic + UX (2026-04-11) — 3 opravy:**
+- **BL-1 CRITICAL** — `excel_import.py` vytvářel pro spoluvlastníky (SJM) `share=1.0` a `votes=unit.podil_scd` každému — při re-importu z Excelu by se součet hlasů za jednotku s N spoluvlastníky nafoukl N× (→ rozbité kvórum + kontrola podílů). Přidán druhý průchod po vytvoření všech OwnerUnit: `share=1/N`, `votes` rozdělené rovnoměrně s rounding compensation (idx < remainder → +1). Stejný vzor jako v `sync/_helpers.py`
+- **UX-3** — Globální JS handler pro `data-loading="Zpracovávám..."` atribut na formulářích (plain POST, ne HTMX). Při submitu disabluje tlačítko a zobrazí SVG spinner — prevence double-submit u pomalých Excel importů. Přidáno na 4 import formuláře: vlastníci, prostory, zůstatky, hlasy (předpisy už mají custom onsubmit spinner)
+- **BL-4** — `VS_PREFIX = "1098"` natvrdo v `payment_matching.py` přesunut do `SvjInfo.vs_prefix` (nullable, default "1098") s UI polem v `/sprava/svj-info`. Projekt už není vázaný na konkrétní SVJ, lze ho snadno nasadit pro jiné SVJ bez úpravy kódu. Migrace `_migrate_svj_send_settings` rozšířena o `vs_prefix` sloupec
+
 ## UX vylepšení
 
 Projekt prošel UX analýzou klíčových modulů (6 expertních perspektiv: UX Designer, Information Architect, Accessibility Specialist, Error Prevention, Interaction Designer, Data Integrity Guardian).

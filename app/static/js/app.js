@@ -254,6 +254,36 @@ document.addEventListener('click', function(e) {
     });
 }, true);
 
+// Global handler: show spinner + disable submit button on slow POST forms.
+// Opt-in via data-loading="Zpracovávám..." on <form>. Plain POST only (not HTMX).
+document.addEventListener('submit', function(e) {
+    var form = e.target;
+    if (!form.hasAttribute('data-loading')) return;
+    if (form.hasAttribute('hx-post') || form.hasAttribute('hx-get')) return;
+    var btn = form.querySelector('button[type="submit"], input[type="submit"]');
+    if (!btn || btn.disabled) return;
+    var label = form.getAttribute('data-loading') || 'Zpracovávám...';
+    btn.disabled = true;
+    // Build spinner via DOM API (no innerHTML) — label comes from template attr, but keep safe.
+    while (btn.firstChild) btn.removeChild(btn.firstChild);
+    var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('class', 'inline w-4 h-4 mr-2 animate-spin');
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    var circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    circle.setAttribute('class', 'opacity-25');
+    circle.setAttribute('cx', '12'); circle.setAttribute('cy', '12'); circle.setAttribute('r', '10');
+    circle.setAttribute('stroke', 'currentColor'); circle.setAttribute('stroke-width', '4');
+    svg.appendChild(circle);
+    var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('class', 'opacity-75');
+    path.setAttribute('fill', 'currentColor');
+    path.setAttribute('d', 'M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z');
+    svg.appendChild(path);
+    btn.appendChild(svg);
+    btn.appendChild(document.createTextNode(label));
+});
+
 // Confirm before destructive HTMX actions (hx-confirm attribute)
 document.body.addEventListener('htmx:confirm', function(event) {
     if (event.detail.elt.hasAttribute('hx-confirm')) {

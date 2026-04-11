@@ -1,344 +1,207 @@
-# SVJ Audit Report – 2026-04-10
+# SVJ Audit Report – 2026-04-11
 
-**Scope:** Fokus na posledních 17 commitů (od `86f6bdc` po HEAD), zejména Platby (exporty xlsx/csv, GET endpointy) a dashboard (karta Nájemci). Namátkový průřez zbytkem projektu (bezpečnost, N+1, error handling, git hygiene).
+Code Guardian — 10. audit. Zaměřeno zejména na 7 dnešních commitů (fuzzy matcher, tax rematch, bounces layout, email_invalid auto-reset, voting index refactor, 3 stránky /platby — sjednocení bublin). Také kompletní průchod všech 8 oblastí dle `docs/agents/CODE-GUARDIAN.md`.
 
 ## Souhrn
 
-- CRITICAL: **0**
-- HIGH: **3**
-- MEDIUM: **8**
-- LOW: **6**
-- Total: **17**
+- **CRITICAL**: 0
+- **HIGH**: 2
+- **MEDIUM**: 6
+- **LOW**: 5
 
 ## Souhrnná tabulka
 
 | # | Oblast | Soubor | Severity | Problém | Čas | Rozhodnutí |
 |---|--------|--------|----------|---------|-----|------------|
-| 1 | Bezpečnost / XSS | app/templates/partials/settings_email_tbody.html:42, payments/nesrovnalosti_preview.html:275 | HIGH | `body_preview\|safe` renderuje neočištěný HTML z emailů — XSS vektor přes jméno vlastníka | ~15 min | 🔧 |
-| 2 | Výkon | app/routers/dashboard.py:199-200 | HIGH | `EmailLog` + `ActivityLog` načítají VŠECHNY řádky bez LIMIT — rychle eskaluje s provozem | ~30 min | ❓ |
-| 3 | Výkon | app/routers/dashboard.py:109-147 | HIGH | N+1 uvnitř cyklu per voting status: 3 dotazy × každý status (až 12 dotazů jen pro 4 stavy) | ~30 min | 🔧 |
-| 4 | Error handling | app/routers/dashboard.py:353-359 | MEDIUM | `except Exception: pass` tiché selhání — debtor count může tiše vrátit 0 | ~5 min | 🔧 |
-| 5 | Výkon | app/routers/payments/overview.py:171-295 | MEDIUM | `matice_export` nepodporuje `entita=prostory` (export prostor chybí, přestože stránka ho má) | ~20 min | ❓ |
-| 6 | Kód | app/routers/payments/overview.py:207-215 | MEDIUM | Export `matice_export` má jiné sort_fns než GET (chybí `prevod` a měsíční `m1-m12`) — nekonzistence s view | ~10 min | 🔧 |
-| 7 | Kód | app/routers/payments/statements.py:194-230 | MEDIUM | Suffix v exportu není bez diakritiky — u `q` může query obsahovat diakritiku → latin-1 encode error v HTTP hlavičce | ~5 min | 🔧 |
-| 8 | Konzistence | app/routers/payments/statements.py (1379 řádků) + 6 dalších | MEDIUM | Soubory přes 500 řádků; statements.py blíží se 1500 řádek threshold pro split | ~2 hod | ❓ |
-| 9 | UI konzistence | app/templates/payments/vypisy.html + partials/vypisy_list.html | MEDIUM | Pattern "klikatelný filename" v detail exportu (vypis_detail.html:9) chybí v seznamu výpisů | ~10 min | 🔧 |
-| 10 | Výkon | app/routers/payments/statements.py:767-786 | MEDIUM | Na GET `/vypisy/{id}` se nahrávají VŠICHNI owners + all OwnerUnit pro dropdown, pokaždé | ~20 min | 🔧 |
-| 11 | Výkon | app/routers/dashboard.py:334-349 | MEDIUM | 4× samostatné dotazy na `Payment` — jde do 1 dotazu s agregací | ~15 min | 🔧 |
-| 12 | Error handling | app/routers/payments/discrepancies.py:233 | LOW | `except Exception: pass` skrývá commit failure při nastavení `notified_at` — DB session může zůstat poškozená | ~10 min | 🔧 |
-| 13 | Kód — duplikace | dashboard.py:199-316 vs dashboard.py:469-516 | LOW | Unified activity + search/sort logika duplicitní mezi `home()` a `dashboard_export()` | ~20 min | 🔧 |
-| 14 | Bezpečnost — deps | requirements.txt | LOW | Chybí pravidelný `pip-audit` | ~10 min | ❓ |
-| 15 | Kód | app/routers/payments/overview.py:234,265,484 | LOW | `", ".join(owners)` v exportu — pořadí záleží na session, nestabilní výstup | ~5 min | 🔧 |
-| 16 | Dokumentace | CLAUDE.md § Export dat | LOW | Nový vzor "export z detailu entity" (vypis_detail_export) nedokumentován | ~5 min | 🔧 |
-| 17 | Testy | tests/ | LOW | Žádné testy na nové exporty Platby ani Tenants dashboard kartu | ~1 hod | ❓ |
+| 1 | Výkon / Kód | `app/routers/tax/processing.py:67` | HIGH | N^2 lookup v `_prepare_owner_lookup`: pro každý `OwnerUnit` iteruje seznam `owner_dicts` (`next(...)`). U větších SVJ zbytečně pomalé — mapa `{id: dict}` je triviální fix. | ~5 min | 🔧 |
+| 2 | UI / Kód | `app/templates/payments/vypisy.html:37,52` | HIGH | Nečitelný `_back\|replace('&back=', 'back=') if _back and not _base.endswith('?') and not _base.endswith('&')` — za určitých kombinací `_base`/`back` generuje dvojitý `?` nebo chybějící oddělovač. Kanonický vzor (`/vlastnici`) používá přímočaře `{{ _base }}...&back=`. | ~15 min | 🔧 |
+| 3 | UI / Kód | `app/templates/voting/index.html:25,30,35,40,45` | MEDIUM | `_sort_suffix[1:]` slicing trik místo čistého ternary — křehké, pokud se `_sort_suffix` přepíše. Refaktor na `sort_qs = ('sort=' ~ current_sort ~ '&') if ...`. | ~10 min | 🔧 |
+| 4 | Výkon | `app/routers/tax/processing.py:395` (`tax_recompute_scores`) | MEDIUM | Pro každou `dist` se volá `match_name([single_dict])` 2×+ (celá fráze + části). U 300 dokumentů × 2 distribucí × 3 kandidátů = ~1 800 volání `match_name`. Lokální optimalizace: precomputovat normalizaci. | ~20 min | 🔧 |
+| 5 | Bezpečnost (XSS) | `app/templates/voting/{detail,ballots,process}.html` | MEDIUM | `(_svg_up if ... else _svg_down)\|safe` — vzor `\|safe` u opakovaných sort šipek je snadné přehlédnout při copy-paste. Aktuálně bezpečné (konstantní string), ale refaktor do partialu je bezpečnější. | ~10 min | ❓ |
+| 6 | Error handling | `app/services/backup_service.py:385` | MEDIUM | `conn.execute(f"SELECT COUNT(*) FROM {table}")` — i když z whitelistu (komentář potvrzuje), f-string v SQL je anti-pattern a špatný vzor pro budoucnost. | ~10 min | 🔧 |
+| 7 | Kód | `app/routers/tax/processing.py:84` + voting/session.py | MEDIUM | `except Exception as e:` — proměnná `e` nepoužitá (jen `logger.exception`). Opakuje se v modulu. Standardizovat. | ~5 min | 🔧 |
+| 8 | Dokumentace | `docs/reports/` | MEDIUM | 17 report souborů — staré ORCHESTRATOR/UX/TEST reporty z března. Chybí retention policy. | ~5 min | ❓ |
+| 9 | Kód / UX | `app/routers/owners/crud.py:707-744` | LOW | Endpoint `owner_update` přijímá pouze kontakty, ale název je generický. Zvažit přejmenování na `owner_update_contact`. | ~15 min | ❓ |
+| 10 | UI | `app/templates/bounces/_table.html:27-32` | LOW | Hardcoded emoji v badge (`🔴 HARD`, `🟡 SOFT`) — nekonzistentní s UI_GUIDE.md. | ~10 min | ❓ |
+| 11 | Dokumentace | `app/services/owner_matcher.py:39` | LOW | `_stem_czech_surname` chybí vysvětlení proč `len(word)-len(s) >= 3` (ochrana před prázdným kmenem). | ~5 min | 🔧 |
+| 12 | Kód | `app/routers/dashboard.py:279` | LOW | Proměnná `_group_key_counts` s underscore prefixem pro lokální dict je nezvyklá konvence. | ~2 min | 🔧 |
+| 13 | Testy | `tests/test_owner_matcher.py` neexistuje | LOW | Dnes rozšířené TITLE_PATTERNS (arch., M.B.A., LL.M.) nemají žádný test. Fuzzy matcher je kritický pro tax distribuci. | ~30 min | 🔧 |
 
 Legenda: 🔧 = jen opravit, ❓ = potřeba rozhodnutí uživatele
 
----
-
 ## Detailní nálezy
 
-### 1. HIGH — XSS přes `body_preview|safe`
+### 1. Kódová kvalita
 
-**1. Co a kde:** `app/templates/partials/settings_email_tbody.html:42` a `app/templates/payments/nesrovnalosti_preview.html:275` renderují `{{ email.body_preview|safe }}` / `{{ log.body_preview|safe }}`. `body_preview` je prvních 500 znaků HTML emailu (`app/services/email_service.py:92,159`), složeného z Jinja2 šablony + kontext (jméno, částka, VS). Jméno/SVJ info se do šablony vkládají standardním `{{ }}` — Jinja2 autoescape **ALE u ponechaného fragmentu uloženého v DB a rendrovaného s `|safe` už ne**.
+#### #1 N^2 lookup v `_prepare_owner_lookup` (HIGH)
 
-Scénář: admin vytvoří Owner jménem `<img src=x onerror=alert(1)>`. Při rozeslání platebního upozornění se jméno dosadí do těla, uloží se `body_preview`, následně `/nastaveni/emails` nebo `/platby/nesrovnalosti` spustí XSS.
+- **Co a kde**: `app/routers/tax/processing.py:67` — v cyklu `for ou in owner_units` se volá `next((o for o in owner_dicts if o["id"] == ou.owner_id), None)`. Při 100 vlastnících a 300 OU = 30 000 iterací při každém novém tax session uploadu.
+- **Řešení**: před cyklem vytvořit `owner_by_id = {o["id"]: o for o in owner_dicts}`, uvnitř `owner_by_id.get(ou.owner_id)`.
+- **Náročnost**: nízká, ~5 min.
+- **Regrese**: nízké — čistý refaktor, identický výstup.
+- **Test**: `/dane/nova` → nahrát PDF balíček → ověřit že všichni vlastníci na jednotce dostanou distribuci (žádný missing match). Spustit `pytest tests/test_voting*.py` pro jistotu.
 
-**Řešení:**
-- **Varianta A (doporučeno):** Odstranit `|safe`, nechat autoescape. Vizuál ztratí `<br>` mezi řádky — nahradit CSS `white-space: pre-wrap` + v Python při ukládání místo `replace("\n","<br>")` uložit plain text.
-- **Varianta B:** Použít `bleach.clean(body_html, tags=['br','b','i','p'], strip=True)` před uložením.
-- **Varianta C:** Vlastní filter „escape + unescape only `<br>`".
+#### #3 `_sort_suffix[1:]` string slicing trik (MEDIUM)
 
-**Náročnost:** nízká, ~15 min (A).
-**Závislosti:** žádné.
-**Regrese:** nízké — kosmetické.
-**Jak otestovat:**
-1. Vytvořit Owner jménem `<script>alert(1)</script>Test`
-2. Odeslat mu payment notice
-3. `/nastaveni/emails` — dialog `alert()` se NESMÍ spustit
-4. Totéž `/platby/nesrovnalosti` detail
+- **Co a kde**: `app/templates/voting/index.html:25,30,35,40,45` — pět odkazů používá `{{ _sort_suffix[1:] }}{% if _sort_suffix %}&{% endif %}stav=...`. Trik funguje, ale při čtení nepochopitelný.
+- **Řešení**: nahradit vzorem `_sort_qs = ('sort=' ~ current_sort ~ '&') if current_sort and current_sort != 'created_desc' else ''` a pak `{{ _base }}{{ _sort_qs }}stav=...`.
+- **Náročnost**: nízká, ~10 min.
+- **Regrese**: nízké — URL se nemění.
+- **Test**: `/hlasovani?sort=name` → kliknout na bubliny → URL musí obsahovat `sort=name&stav=active`.
 
----
+#### #7 Nepoužitá proměnná v except (MEDIUM)
 
-### 2. HIGH — Dashboard načítá celý EmailLog + ActivityLog bez LIMIT
+- **Co a kde**: `app/routers/tax/processing.py:84`, `voting/session.py:227,290,305` — `except Exception as e:` ale `e` se nikde nepoužívá.
+- **Řešení**: `except Exception:` bez `as e` tam, kde následuje pouze `logger.exception(...)`.
+- **Čas**: ~5 min.
+- **Regrese**: nulové.
 
-**Co a kde:** `app/routers/dashboard.py:199-200`:
-```python
-recent_emails = db.query(EmailLog).order_by(EmailLog.created_at.desc()).all()
-recent_activity = db.query(ActivityLog).order_by(ActivityLog.created_at.desc()).all()
-```
-Bez LIMIT. Po 6 měsících provozu (2000+ logů) se při každém otevření dashboardu táhne celá tabulka do paměti, v Pythonu se sorti a filtruje.
+#### #12 `_group_key_counts` konvence (LOW)
 
-**Řešení:** Přidat `.limit(200)` (nebo `.limit(500)`). Pro plnou historii poskytnout samostatnou stránku/log viewer.
+- `app/routers/dashboard.py:279` — lokální dict s `_` prefixem. Underscore prefix je rezervován pro module-private funkce, ne lokální proměnné. Přejmenovat.
 
-**Varianty:**
-- **A:** Hard limit 200 — 2 řádky, funguje.
-- **B:** Paginace HTMX „load more".
-- **C:** SQL-side filtering (když uživatel zadá `q`/`modul`, do WHERE).
+### 2. Bezpečnost
 
-**Náročnost:** střední, ~30 min (A je 2 řádky, B/C větší refactor).
-**Závislosti:** export endpoint (`dashboard_export`) také stahuje celou historii — zvolit vyšší/žádný limit tam.
-**Regrese:** střední — uživatel ztratí search přes starou historii na dashboardu.
-**Jak otestovat:**
-1. Insert 2000 email logů
-2. Načíst `/` → < 300 ms
-3. Search `q=test` stále funguje pro top 200
+#### #5 `|safe` SVG šipky v sort hlavičkách (MEDIUM)
 
----
+- **Co a kde**: `app/templates/voting/{detail,ballots,process}.html` — 5 míst `{{ (_svg_up if ... else _svg_down)|safe }}`. Data jsou statické řetězce v `{% set %}` v téže šabloně → **aktuálně XSS-safe**. Ale vzor je křehký.
+- **Řešení**: přesunout SVG do `app/templates/partials/_sort_icon.html` bez `|safe`, volat přes `{% include %}` s proměnnou `direction`.
+- **Varianty**: (a) ponechat + komentář; (b) refaktor na partial; (c) Jinja macro `{{ sort_arrow(order) }}`.
+- **Náročnost**: nízká, ~10 min.
+- **Test**: `/hlasovani/{id}` → kliknout na sloupec v tabulce lístků → šipka musí být vidět a obracet se.
 
-### 3. HIGH — N+1 loop v dashboardu pro voting statusy
+#### #6 F-string v SQL (MEDIUM, low risk)
 
-**Co a kde:** `app/routers/dashboard.py:109-147`. Pro každý voting status se dělá:
-1. `SELECT ... votings WHERE status = ? ORDER BY updated_at DESC LIMIT 1`
-2. `SELECT COUNT(*) FROM ballots WHERE voting_id = ?`
-3. Subquery + `SELECT SUM(total_votes) ...`
+- **Co a kde**: `app/services/backup_service.py:385`. Tabulka z hardcoded whitelistu — injection nemožná, ale vzor špatný.
+- **Řešení**: přidat `assert table in tables` a obalit identifikátor: `f'SELECT COUNT(*) FROM "{table}"'`.
+- **Čas**: ~10 min.
 
-Totéž pro `tax_sessions` (linie 159-196). Na dashboardu s 4 statusy × 2 moduly = až 16 dotazů navíc.
+**Bezpečnostní check — další oblasti OK:**
+- SMTP heslo v `.env` (správně), `.env` v `.gitignore` ✓
+- `HTMLResponse(f"...")` — žádný výskyt ✓
+- File upload validace přes `UPLOAD_LIMITS` ✓
+- Global security headers middleware v `main.py` ✓
+- Authentizace — plánováno na konec (per CLAUDE.md), audit ji nevyžaduje
 
-**Řešení:**
-- **A:** Jeden SQL s GROUP BY status + subquery pro agregaci.
-- **B:** Cache v paměti TTL 30 s (`functools.lru_cache` + timestamp).
+### 3. Dokumentace
 
-**Náročnost:** střední, ~30 min (A).
-**Závislosti:** žádné.
-**Regrese:** nízké.
-**Jak otestovat:** Zapnout `echo=True` na engine, load `/`, cíl < 20 total dotazů (aktuálně ~30-50).
+#### #8 Balast v `docs/reports/` (MEDIUM)
 
----
+- **Co a kde**: 17 souborů — `ORCHESTRATOR-REPORT-2026-03-19.md` … `UX-REPORT-v4.md`, `PREHLED-KOMPLET.md`, `TEST-REPORT.md`.
+- **Řešení**: založit `docs/reports/archive/` a přesunout vše starší než 2 týdny; ponechat aktuální `AUDIT-REPORT.md`.
+- **Varianty**: (a) archive složka; (b) smazat úplně; (c) gitignore + lokální only.
+- **Čas**: ~5 min.
 
-### 4. MEDIUM — `except Exception: pass` v dashboardu
+#### #11 Docstring `_stem_czech_surname` (LOW)
 
-**Co a kde:** `app/routers/dashboard.py:353-359`:
-```python
-try:
-    from app.routers.payments._helpers import _count_debtors_fast
-    ...
-except Exception:
-    pass
-```
-Tiché selhání — dashboard ukáže 0 dlužníků i při chybě.
+- `app/services/owner_matcher.py:39` — minimální docstring, nevyjasňuje ochranu proti krátkému kmeni.
 
-**Řešení:** `except Exception as e: logger.warning("Debtor count failed: %s", e)`. Nebo rozlišit `ImportError` (OK) od runtime chyby.
+#### CLAUDE.md / README.md / UI_GUIDE.md kontrola
 
-**Náročnost:** nízká, ~5 min.
-**Regrese:** žádné.
-**Jak otestovat:** dočasně rozbít `_count_debtors_fast`, load `/`, ověřit warning v log.
+- **CLAUDE.md**: aktuální, obsahuje všechny recentní vzory (bubliny, sort, wizard stepper, back URL, export filename).
+- **README.md**: nedávné changelogy z dnešních commitů jsou zapracované.
+- **UI_GUIDE.md**: kanonický vzor bubliny+sort container je popsán (§ 14?), platí pro /vlastnici, /hlasovani a nově /platby/vypisy.
 
----
+### 4. UI / Šablony
 
-### 5. MEDIUM — `matice_export` nepodporuje `entita=prostory`
+#### #2 Křehký `_back` replace pattern v `vypisy.html` (HIGH)
 
-**Co a kde:** `app/routers/payments/overview.py:171-295`. GET `/prehled` má režim `entita=prostory` (linie 69), export endpoint parametr `entita` **nečte** — uživatel na prostorech klikne Excel → stáhne se matice jednotek.
+- **Co a kde**: `app/templates/payments/vypisy.html:37,52` — dvakrát `{{ _back|replace('&back=', 'back=') if _back and not _base.endswith('?') and not _base.endswith('&') else _back }}`.
 
-**Řešení:** Přidat `entita: str = Query("")` + větev pro `compute_space_payment_matrix`.
+  Rozbor 4 kombinací:
+  - `_base` končí `?` (žádný `q`) a `_back = '&back=/x'` → vrací `_back` → výsledek `...?&back=/x` → **nadbytečný `&` za `?`**.
+  - `_base` končí `&` (má `q`) a `_back = '&back=/x'` → vrací `_back` → výsledek `...q=xxx&&back=/x` → **`&&`**.
+  - Naopak bez back → pattern nedělá nic.
 
-**Náročnost:** střední, ~20 min.
-**Regrese:** žádné.
-**Jak otestovat:** `/platby/prehled?entita=prostory` → Excel musí obsahovat prostory + suffix `_prostory`.
+  Prohlížeč URL toleruje, ale vzor je nečitelný a odchyluje se od kanonického vzoru `/vlastnici`.
+- **Řešení**: unifikovat — stavět filter querystring v routeru a předat do šablony jako `filter_qs` (string), v šabloně pak čistě `{{ _base }}&{{ filter_qs }}&back={{ back_url|urlencode }}`. Alternativa: macro `{{ build_url('/platby/vypisy', q=q, rok=rok, stav=stav, back=back_url) }}`.
+- **Náročnost**: střední, ~15 min.
+- **Regrese**: **středně vysoké** — potřeba otestovat všechny kombinace (bez rok, s rok, bez back, s back, bez q, s q).
+- **Test**: `/platby/vypisy` → kliknout na „Všechny roky", 2024, 🔓 Otevřené, 🔒 Zamčené. Pak `/platby/vypisy?back=/` a zopakovat. URL v každém kliknutí musí být čistá (žádné `??`, `&&`).
 
----
+#### #10 Emoji v bounce badges (LOW)
 
-### 6. MEDIUM — Nekonzistentní sort_fns GET vs export v overview
+- `bounces/_table.html:27-32` — nahradit `🔴 HARD` → `<span class="w-2 h-2 rounded-full bg-red-500 inline-block mr-1"></span>HARD`.
 
-**Co a kde:** `app/routers/payments/overview.py`. GET (linie 120-131) má `prevod, m1..m12` sorty. Export (linie 207-215) ne — export při `sort=m5` tiše spadne na `cislo`.
+### 5. Výkon
 
-**Řešení:** Extrahovat `_matrix_sort_fns(months_with_data)` helper, volat z obou míst.
+#### #4 `tax_recompute_scores` opakované `match_name` (MEDIUM)
 
-**Náročnost:** nízká, ~10 min.
-**Regrese:** nízké.
-**Jak otestovat:** `/platby/prehled/exportovat/xlsx?sort=m5&order=desc` — seřazen podle května.
+- **Co a kde**: `app/routers/tax/processing.py:395-447`. Pro každou distribuci se volá `match_name([owner_dict])` 2×+ na různé varianty kandidátského jména. `match_name` → `normalize_for_matching` → regex + `strip_diacritics` + stemming = ~10 ms per call. U 300 dokumentů × 2 dist × 3 candidates ≈ 1 800 volání ≈ 18 s.
+- **Řešení**: precompute normalizovaných kandidátů per dokument; `match_name` cachovat na úrovni smyčky. Alternativně volat `match_name(doc.extracted_owner_name, [owner_dict], threshold=0.0)` jen jednou, místo 3×.
+- **Čas**: ~20 min.
+- **Test**: `/dane/{id}/prepocitat-skore` u sessions s 300+ dokumenty → response < 3s.
 
----
+#### N+1 check — rest OK
 
-### 7. MEDIUM — Suffix exportu s diakritikou → HTTP header encode error
+- `_prepare_owner_lookup` používá `joinedload(OwnerUnit.unit)` ✓
+- `_propagate_assignments` batch dotazy přes `in_()` ✓
+- voting index ve smyčce `voting_stats[voting.id]` — stats precomputed v routeru ✓
 
-**Co a kde:** `statements.py:223-230`, `balances.py`, atd. Suffix dict pro whitelisted hodnoty OK, ale pokud `q` (search) obsahuje diakritiku a byl by použit do filename, latin-1 header encoding selže. Overview.py má `strip_diacritics(typ)` — jinde chybí.
+### 6. Error Handling
 
-**Řešení:** Všude pro user-supplied části: `strip_diacritics(value)`. CLAUDE.md § Export dat explicitně: **"Nikdy nepoužívat diakritiku v názvu"**.
+- Globální handlery (`IntegrityError`, `OperationalError`, 404, 500) v `main.py` ✓
+- Custom `error.html` šablona ✓
+- Flash messages přes query param (per CLAUDE.md) ✓
+- `except Exception: pass` u file cleanups (bounce, word_parser) je ospravedlněné „best-effort"
 
-**Náročnost:** nízká, ~5 min / endpoint (×~8 endpointů = 40 min).
-**Regrese:** žádné.
-**Jak otestovat:** `curl '/platby/vypisy/exportovat/xlsx?q=rohlíček'` bez chyby.
+### 7. Git Hygiene
 
----
+- `.gitignore` kompletní ✓
+- `.playwright-mcp/` prázdný ✓, žádné PNG/JPEG v kořenu ✓
+- `git status` čistý ✓
+- Commit messages kvalitní (české, konvenční prefixy `fix(ui)`, `feat(dane)`, `docs:`)
+- `data/svj.db` 6,1 MB — **není v gitu** (správně) ✓
+- `docs/reports/` — viz #8
 
-### 8. MEDIUM — Dlouhé soubory
+### 8. Testy
 
-**Co a kde:**
-- `app/routers/payments/statements.py` — **1379 řádků**
-- `app/routers/payments/overview.py` — 638
-- `app/routers/payments/balances.py` — 615
-- `app/routers/payments/discrepancies.py` — 611
-- `app/routers/payments/settlement.py` — 586
-- `app/routers/payments/prescriptions.py` — 553
-- `app/routers/dashboard.py` — 562
-- `app/routers/units.py` — 715
-- `app/routers/voting/session.py` — 949
-
-`statements.py` je největší a blíží se 1500-řádkovému threshold dle CLAUDE.md § Router packages. Kandidát na sub-split:
-- `statements/list.py` (seznam + export)
-- `statements/import_csv.py`
-- `statements/detail.py` (GET + ruční přiřazení)
-- `statements/lock.py` (zamknout/odemknout)
-
-**Varianty:** A) preventivně teď, B) počkat na překročení limitu.
-**Náročnost:** vysoká, ~2 hod/soubor.
-**Regrese:** střední (velký refactor).
-**Jak otestovat:** smoke test všech URL pod `/platby/vypisy/*`.
-
----
-
-### 9. MEDIUM — Klikatelný filename chybí v seznamu výpisů
-
-**Co a kde:** Commit `5b77cb8` přidal download link na filename v `vypis_detail.html:9`, ale `vypisy.html`/`partials/vypisy_list.html` (seznam) to s velkou pravděpodobností nemá. CLAUDE.md § Tabulky bod 7: "názvy souborů MUSÍ být klikací s `target="_blank"` a `hx-boost="false"`".
-
-**Řešení:** V `partials/vypisy_list.html` obalit `{{ s.filename }}` do `<a>` na download endpoint.
-
-**Náročnost:** nízká, ~10 min.
-**Regrese:** žádné.
-**Jak otestovat:** `/platby/vypisy` → klik na filename → stáhne CSV.
-
----
-
-### 10. MEDIUM — Neefektivní load detail výpisu
-
-**Co a kde:** `app/routers/payments/statements.py:767-786`. Na každý `/vypisy/{id}` GET:
-```python
-all_units_list = db.query(Unit).order_by(Unit.unit_number).all()
-active_ous = db.query(OwnerUnit).filter(...).all()
-all_owners = {o.id: o for o in db.query(Owner).all()}
-```
-Celý Owner + Unit + OwnerUnit pokaždé, jen kvůli dropdown pro ruční přiřazení. U 500 jednotek tisíce záznamů na refresh.
-
-**Řešení:**
-- **A:** Lazy-loaded HTMX dropdown (volá se při kliknutí)
-- **B:** 1 JOIN místo 3 dotazů
-- **C:** Cache v paměti TTL 60s
-
-**Náročnost:** střední, ~20 min (B).
-**Regrese:** nízké.
-**Jak otestovat:** SQL profil na `/vypisy/1` → cíl < 15 dotazů.
-
----
-
-### 11. MEDIUM — 4 count dotazy na Payment v dashboardu
-
-**Co a kde:** `app/routers/dashboard.py:334-349`. `statement_count`, `matched_payments`, `unmatched_payments`, `total_income` — každé samostatný dotaz.
-
-**Řešení:** Jedna agregace s `func.count().filter()` pro každou metriku v jednom SELECT.
-
-**Náročnost:** nízká, ~15 min.
-**Regrese:** nízké.
-**Jak otestovat:** Čísla na dashboardu shodná.
-
----
-
-### 12. LOW — Silent except v discrepancies send loop
-
-**Co a kde:** `app/routers/payments/discrepancies.py:233`:
-```python
-try:
-    payment.notified_at = utcnow()
-    db.commit()
-except Exception:
-    logger.warning("Failed to set notified_at for payment %s", rcpt["payment_id"])
-```
-Warning OK, ale bez `db.rollback()` — session může zůstat poškozená pro další iterace loopu.
-
-Ostatní `except Exception: pass` na linkách 168/183/193/221/243 jsou legitimní (smtp disconnect cleanup) — tam OK.
-
-**Řešení:** Po except volat `db.rollback()`.
-
-**Náročnost:** nízká, ~10 min.
-**Regrese:** nízké.
-**Jak otestovat:** Dočasně rozbít Payment (NOT NULL), odeslat upozornění, session konzistentní.
-
----
-
-### 13. LOW — Duplicitní unified activity logika
-
-**Co a kde:** `dashboard.py:199-316` (home) a `dashboard.py:469-516` (export) obsahují duplicitní normalizaci modulu, search filter, sort keys.
-
-**Řešení:** Extrahovat do `_build_unified_activity(db, q, sort, order, modul="")` helper.
-
-**Náročnost:** nízká, ~20 min.
-**Regrese:** nízké.
-
----
-
-### 14. LOW — Chybí `pip-audit`
-
-**Co a kde:** Projekt bez CI; doporučeno manuálně měsíčně spouštět `pip-audit -r requirements.txt`.
-
-**Náročnost:** nízká, ~10 min.
-
----
-
-### 15. LOW — Owner name join nestable v exportu
-
-**Co a kde:** `overview.py:234, 265, 484`. `", ".join(o.display_name for o in r["owners"])` — pořadí záleží na session. Dva stejné exporty mohou mít různé pořadí spoluvlastníků.
-
-**Řešení:** `sorted(r["owners"], key=lambda o: o.name_normalized)`.
-
-**Náročnost:** nízká, ~5 min.
-
----
-
-### 16. LOW — CLAUDE.md — nový export vzor nedokumentován
-
-**Co a kde:** `CLAUDE.md § Export dat` neuvádí "export z detailu entity" (URL pattern `/modul/{id}/exportovat/{fmt}`) přidaný v commitu `5b77cb8`. Pro konzistenci opětovného použití vzoru přidat příklad.
-
-**Náročnost:** nízká, ~5 min.
-
----
-
-### 17. LOW — Chybí testy na nové exporty + Tenants kartu
-
-**Co a kde:** `tests/` nemá:
-- `test_vypisy_export*` (statements list export)
-- `test_vypis_detail_export*` (detail export)
-- `test_matice_export*`, `test_dluznici_export*`
-- `test_zustatky_export*`, `test_symboly_export*`, `test_predpisy_export*`
-- Smoke test dashboard `tenants_count`, `tenants_linked`, `expiring_contracts`
-
-**Řešení:** V `tests/test_payment_advanced.py` a `tests/test_smoke.py` přidat smoke testy (status 200 + content-type).
-
-**Náročnost:** střední, ~1 hod (10 testů).
-**Regrese:** žádné.
-
----
-
-## Git Hygiene
-
-- `.gitignore` kompletní: `data/svj.db`, `.env`, `.playwright-mcp/`, `data/purge_restore_reports/` (přidáno v `553635d`)
-- `.env` existuje lokálně s `-rw-------`, v git není
-- Žádné `.playwright-mcp/` artefakty v repu
-- Žádné testovací PNG/JPEG v kořenovém adresáři
-- Commit messages — jasné, v češtině, s `feat:`/`fix:`/`docs:`/`chore:` prefixy ✅
-
-## Pozitiva
-
-- Žádný SQL injection (všechny dotazy přes ORM; `_ensure_indexes` má whitelist regex `_SAFE_IDENT`)
-- Žádné bare `except:` clauses
-- Žádné `TODO`/`FIXME`/`HACK` komentáře
-- `is_safe_path()` používán konzistentně ve všech upload handlerech
-- Starlette 0.29+ TemplateResponse API dodržováno
-- `body_preview` omezen na 500 znaků (limit velikosti XSS payloadu)
-- `UPLOAD_LIMITS` centralizovány
-- 13× `CREATE INDEX IF NOT EXISTS` v `_ensure_indexes()` — dobré pokrytí FK a filter sloupců
-- SMTP heslo jen v `.env`, nikde v kódu ani DB
-- Helpery `_filter_statements`, `_filter_payments`, `_compute_debtors_filtered` sdílí logiku mezi GET view, HTMX partial a export — správně DRY
+- **Existující**: 14 test souborů — voting, voting_aggregation, payment_advanced, payment_matching, contact_import, tenants, backup, email_service, csv_comparator, import_mapping, smoke.
+- **Chybí (#13)**:
+  - `tests/test_owner_matcher.py` — **kritický**. Dnes rozšířené `TITLE_PATTERNS` (arch., M.B.A., LL.M., akad., MgA.) nemají žádný test. Regrese by nikdo nezachytil.
+  - Test pro `tax/processing.py::tax_recompute_scores` (nový endpoint)
+  - Test pro `_propagate_assignments` / `_propagate_emails` helpery
+- **Doporučení**: přidat `test_owner_matcher.py` s 8-10 kejsy (PhD, M.B.A., arch., SJM prefix, spoluvlastnictví, stem overlap rejection). ~30 min.
 
 ## Doporučený postup oprav
 
-1. **HIGH (nejdřív):**
-   - #1 XSS `body_preview|safe` — 15 min
-   - #2 Dashboard LIMIT na logy — 30 min
-   - #3 N+1 voting status loop — 30 min
-2. **MEDIUM (další iterace):**
-   - #4, #6, #7, #11, #15 — drobné opravy, celkem ~1 hod
-   - #5 export prostor matice — 20 min
-   - #9 klikatelný filename — 10 min
-   - #10 optimalizace detail výpisu — 20 min
-   - #8 split statements.py — zvážit po překročení 1500 řádek
-3. **LOW:** #12-14, #16-17 do backlogu
+### Fáze 1 — rychlé winy (~45 min)
+
+1. **#1** N^2 lookup → dict (5 min)
+2. **#7** Odstranit nepoužité `as e` (5 min)
+3. **#11** Docstring `_stem_czech_surname` (5 min)
+4. **#12** `_group_key_counts` rename (2 min)
+5. **#8** Archivace `docs/reports/` (5 min, vyžaduje rozhodnutí)
+6. **#2** `vypisy.html` refaktor `_back` patternu (15 min, nejvyšší HIGH)
+
+### Fáze 2 — cleanup (~55 min)
+
+7. **#3** `_sort_suffix[1:]` refaktor (10 min)
+8. **#4** `tax_recompute_scores` optimalizace (20 min)
+9. **#5** SVG sort šipky do partialu (10 min)
+10. **#6** Backup f-string SQL whitelist assert (10 min)
+11. **#13** `test_owner_matcher.py` (30 min)
+
+### Fáze 3 — nice-to-have
+
+12. **#10** Emoji → SVG dots (10 min)
+13. **#9** `owner_update` rename — skip pro teď (breaking change bez přínosu)
+
+## Celkový verdikt
+
+**Kód je zdravý**, 0 CRITICAL nálezů. Obsahuje 2 HIGH problémy, které stojí za opravu ještě dnes:
+
+- **#2 `vypisy.html` — křehký `_back` replace pattern** generuje lehce nevalidní URL a odchyluje se od kanonického vzoru `/vlastnici`. Refaktor ~15 min, ale potřeba důkladný test 4 kombinací.
+- **#1 N^2 lookup v tax processing** — triviální ~5 min fix.
+
+Dnešních 7 commitů je čistých:
+- `owner_matcher.py` TITLE_PATTERNS dobře strukturované, ale bez testu (#13)
+- `tax/processing.py::tax_recompute_scores` správně zamyká READY+ status a správně porovnává `old + 0.001`
+- `owners/crud.py` email_invalid reset logika správná (`email_changed and new_email and owner.email_invalid`)
+- `bounces/_table.html` stacked layout konzistentní
+- `voting/index.html` refactor funkční, ale trik s `[1:]` je čitelnostní regrese (#3)
+- `payments/vypisy.html` refactor funkční, ale `_back` pattern je křehký (#2)
+
+Bezpečnost OK (žádná SQL injection, `|safe` XSS je statické, hesla v `.env`, security headers). Dokumentace aktuální. Hlavní slabina = chybějící testy pro fuzzy matcher po dnešních změnách.
+
+**Doporučení**: opravit #1 a #2 dnes (20 min), #13 přidat do dalšího týdne, zbytek plánovat na příští audit.

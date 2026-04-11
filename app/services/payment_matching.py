@@ -17,10 +17,21 @@ from sqlalchemy.orm import Session
 from app.models import (
     VariableSymbolMapping, Prescription, Payment, PaymentAllocation,
     PaymentDirection, PaymentMatchStatus, Unit, OwnerUnit,
-    PrescriptionYear, Owner,
+    PrescriptionYear, Owner, SvjInfo,
     Space, SpaceTenant, Tenant,
 )
 from app.utils import strip_diacritics
+
+
+DEFAULT_VS_PREFIX = "1098"
+
+
+def _get_vs_prefix(db: Session) -> str:
+    """Načíst VS prefix ze SvjInfo, fallback na default."""
+    info = db.query(SvjInfo).first()
+    if info and info.vs_prefix:
+        return info.vs_prefix
+    return DEFAULT_VS_PREFIX
 
 logger = logging.getLogger(__name__)
 
@@ -34,8 +45,6 @@ MIN_COMMON_WORDS = 2
 MAX_PRESCRIPTION_RATIO = 10
 # Minimální skóre pro VS-prefix SUGGESTED match (jméno=2 + částka=3 = 5)
 MIN_MATCH_SCORE = 5
-# Prefix VS pro toto SVJ — z formátu VS v předpisových DOCX (např. 1109800501)
-VS_PREFIX = "1098"
 
 
 def _clean_name_words(text: str) -> set[str]:
@@ -347,21 +356,21 @@ def _create_allocation(db: Session, payment: Payment, unit_id: Optional[int],
 
 
 def _extract_unit_from_vs(vs: str, known_vs_map: dict[str, int],
-                          unit_ids: set[int]) -> Optional[int]:
+                          unit_ids: set[int], vs_prefix: str) -> Optional[int]:
     """Zkusit dekódovat číslo jednotky z VS přes podobnost s předpisovými VS.
 
     Formát předpisových VS: prefix(5) + unit_number(3 zero-padded) + suffix(2)
     Příklad: 1109800501 → 11098 + 005 + 01 → jednotka 5
 
-    Zkouší několik variant extrakce za prefixem VS_PREFIX.
+    Zkouší několik variant extrakce za prefixem vs_prefix (ze SvjInfo).
     """
     vs_stripped = vs.lstrip("0")
-    idx = vs_stripped.find(VS_PREFIX)
+    idx = vs_stripped.find(vs_prefix)
     if idx < 0:
         return None
 
-    # Za VS_PREFIX extrahovat zbytek
-    remainder = vs_stripped[idx + len(VS_PREFIX):]
+    # Za vs_prefix extrahovat zbytek
+    remainder = vs_stripped[idx + len(vs_prefix):]
     if len(remainder) < 2:
         return None
 
@@ -644,9 +653,10 @@ def _phase3_vs_prefix_match(db: Session, payments: list, ctx: dict) -> int:
 
     known_vs_map = {p.variable_symbol: p.unit_id for p in all_prescriptions if p.variable_symbol}
 
+    vs_prefix = ctx.get("vs_prefix") or DEFAULT_VS_PREFIX
     suggested = 0
     for payment in still_unmatched:
-        decoded_un = _extract_unit_from_vs(payment.vs, known_vs_map, set(unit_by_number.keys()))
+        decoded_un = _extract_unit_from_vs(payment.vs, known_vs_map, set(unit_by_number.keys()), vs_prefix)
         if not decoded_un:
             continue
 
@@ -755,6 +765,7 @@ def match_payments(db: Session, statement_id: int, year: int) -> dict:
         "active_space_tenants": active_space_tenants,
         "auto_matched_unit_ids": set(),  # naplní se po fázi 1
         "auto_matched_space_ids": set(),  # naplní se po fázi 1
+        "vs_prefix": _get_vs_prefix(db),
     }
 
     # Fáze 1: VS exaktní shoda

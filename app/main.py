@@ -608,6 +608,7 @@ def _migrate_svj_send_settings():
             ("send_batch_interval", "INTEGER DEFAULT 5"),
             ("send_confirm_each_batch", "BOOLEAN DEFAULT 0"),
             ("send_test_email_address", "VARCHAR(200)"),
+            ("vs_prefix", "VARCHAR(10) DEFAULT '1098'"),
         ]:
             if col_name not in cols:
                 conn.execute(text(f"ALTER TABLE svj_info ADD COLUMN {col_name} {col_def}"))

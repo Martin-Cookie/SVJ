@@ -352,6 +352,7 @@ def import_owners_from_excel(db: Session, file_path: str, mapping: dict | None =
     owners_created = 0
     units_created = 0
     unit_cache: dict[str, Unit] = {}
+    unit_owner_units: dict[int, list[OwnerUnit]] = {}
 
     for key, rows in owner_groups.items():
         first_row = rows[0]
@@ -458,17 +459,33 @@ def import_owners_from_excel(db: Session, file_path: str, mapping: dict | None =
                     units_created += 1
 
             unit_obj = unit_cache[unit_kn]
-            votes = unit_obj.podil_scd or 0
 
             owner_unit = OwnerUnit(
                 owner_id=owner.id,
                 unit_id=unit_obj.id,
                 ownership_type=_normalize_ownership_type(row_data["ownership_type"]),
                 share=1.0,
-                votes=votes,
+                votes=unit_obj.podil_scd or 0,
                 excel_row_number=row_data["row_idx"],
             )
             db.add(owner_unit)
+            unit_owner_units.setdefault(unit_obj.id, []).append(owner_unit)
+
+    # Normalize share and votes for co-owned units (SJM, spoluvlastnictví).
+    # Without this, each co-owner would get share=1.0 and full podíl as votes,
+    # breaking kvórum calculations and share statistics.
+    db.flush()
+    for unit_id, ous in unit_owner_units.items():
+        count = len(ous)
+        if count <= 1:
+            continue
+        total_votes = int(ous[0].votes or 0)
+        base = total_votes // count
+        remainder = total_votes % count
+        share_each = 1.0 / count
+        for idx, ou in enumerate(ous):
+            ou.share = share_each
+            ou.votes = base + (1 if idx < remainder else 0)
 
     db.commit()
 
