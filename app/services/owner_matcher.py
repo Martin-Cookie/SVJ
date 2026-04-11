@@ -10,10 +10,24 @@ from difflib import SequenceMatcher
 from app.utils import strip_diacritics
 
 TITLE_PATTERNS = [
-    r"\bIng\.\s*", r"\bMgr\.\s*", r"\bBc\.\s*", r"\bMUDr\.\s*",
-    r"\bJUDr\.\s*", r"\bRNDr\.\s*", r"\bPhDr\.\s*", r"\bDoc\.\s*",
-    r"\bProf\.\s*", r",?\s*Ph\.?D\.?\s*", r",?\s*CSc\.?\s*",
-    r",?\s*M\.?B\.?A\.?\s*", r"\bDiS\.\s*", r"\barch\.\s*",
+    # Prefixové tituly (před jménem)
+    r"\bIng\.\s*", r"\bMgr\.\s*", r"\bBc\.\s*",
+    r"\bMUDr\.\s*", r"\bMVDr\.\s*", r"\bPharmDr\.\s*",
+    r"\bJUDr\.\s*", r"\bRNDr\.\s*", r"\bPhDr\.\s*",
+    r"\bPaed?Dr\.\s*",  # PaeDr. i PaedDr.
+    r"\bThDr\.\s*", r"\bThLic\.\s*",
+    r"\bMgA\.\s*", r"\bBcA\.\s*",
+    r"\bDoc\.\s*", r"\bProf\.\s*",
+    r"\bakad\.\s*", r"\barch\.\s*",
+    # Postfixové tituly (za jménem, často s čárkou)
+    r",?\s*Ph\.?D\.?\s*",
+    r",?\s*Th\.?D\.?\s*",
+    r",?\s*CSc\.?\s*", r",?\s*DrSc\.?\s*",
+    r",?\s*M\.?B\.?A\.?\s*",
+    r",?\s*LL\.?M\.?\s*", r",?\s*LL\.?D\.?\s*",
+    r",?\s*MSc\.?\s*",
+    r",?\s*h\.?\s*c\.?\s*",  # honoris causa
+    r"\bDiS\.\s*",
 ]
 
 _CZECH_SURNAME_SUFFIXES = [
