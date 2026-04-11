@@ -54,7 +54,7 @@ python3 -m pytest tests/ -v          # spustit všechny testy
 python3 -m pytest tests/ -q --tb=short  # stručný výstup
 ```
 
-**310 testů** (~2.5s, in-memory SQLite) pokrývá:
+**320 testů** (~3s, in-memory SQLite) pokrývá:
 
 | Soubor | Testů | Oblast |
 |--------|-------|--------|
@@ -64,6 +64,7 @@ python3 -m pytest tests/ -q --tb=short  # stručný výstup
 | `test_backup.py` | 43 | lock, ZIP create/restore, cleanup, integrity |
 | `test_csv_comparator.py` | 77 | CSV parsing, fuzzy matching, Czech stemming |
 | `test_tenants.py` | 12 | dedup helper, resolved properties, multi-space, /prostory/novy flow |
+| `test_owner_matcher.py` | 10 | TITLE_PATTERNS, Czech surname stemming, stem overlap |
 | `test_smoke.py` | 3 | app start, dashboard |
 | ostatní | 20 | email, import mapping, voting aggregation |
 
@@ -1262,6 +1263,19 @@ Zbývající z 9. auditu (vyžaduje rozhodnutí nebo odloženo): Business Logic 
 
 **Doplněk — /platby/vypisy, vypis_detail, nesrovnalosti (3 opravy):**
 Tři stránky v modulu Platby měly starý `rounded-full bg-blue-600 text-white` styl bublin s shadow a bubliny mimo shared container. Sjednoceno na kanonický plochý vzor (`rounded border bg-{color}-100 border-{color}-300 ring-2`) v shared containeru. Tím je 9. audit kompletně uzavřen.
+
+**Desátý audit — Code Guardian (2026-04-11) — 13 nálezů, opraveno 8:**
+- **HIGH #1** — `_prepare_owner_lookup` měl N² lookup při párování vlastník→jednotka (`owner_dicts` prohledáván pro každou `OwnerUnit`). Nahrazeno dict mapou `owner_by_id` → O(n+m). Pro 100 vlastníků × 50 jednotek: 5000 → 150 operací
+- **HIGH #2** — `vypisy.html` používal křehký `_back|replace('&back=', 'back=')` pattern generující `??` nebo `&&` v URL. Přepsáno na Jinja2 `qs()` makro (poskládá querystring z neprázdných dvojic) — stejný vzor použit i ve voting/index.html
+- **MEDIUM #3** — `voting/index.html` používal `_sort_suffix[1:]` string slicing pro odstranění `&` prefixu. Nahrazeno `qs()` makrem (čistější, testovatelné)
+- **MEDIUM #4** — `tax_recompute_scores` volal `match_name()` ~1800× pro typické sezení (30 dokumentů × 3 kandidáti × 20 distribucí). Přidán memo cache `(candidate, owner_id) → confidence` → ~10× zrychlení
+- **MEDIUM #6** — `backup_service._count_db_rows` f-string SQL `SELECT COUNT(*) FROM {table}` s hardcoded seznamem. Přidán `assert table.replace("_","").isalnum()` jako druhý whitelist layer
+- **MEDIUM #7** — Odstraněno nepoužívané `except Exception as e:` v `tax/processing.py` a `voting/session.py` (jen `logger.exception` bez reference na `e`)
+- **LOW #11** — Rozšířený docstring `_stem_czech_surname` vysvětluje `len(word) - len(s) >= 3` guard proti over-stemmingu krátkých jmen (Eva → E)
+- **LOW #12** — Přejmenováno `_group_key_counts` → `grouped_emails` v `dashboard.py` (underscore prefix nepatří k lokální proměnné)
+- **LOW #13** — Nový `tests/test_owner_matcher.py` s 10 testy pro TITLE_PATTERNS (Ph.D., M.B.A., LL.M., arch., SJM), Czech stemming, stem overlap rejection a ochranu krátkých jmen. Celkem 320 testů (+10)
+
+Odloženo (vyžaduje rozhodnutí nebo UX diskuzi): #5 `|safe` SVG refactor, #8 archivace `docs/reports/`, #9 `owner_update` rename, #10 emoji → SVG badges.
 
 ## UX vylepšení
 
