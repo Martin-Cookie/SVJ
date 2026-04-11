@@ -830,6 +830,7 @@ wheels/                        # Offline Python balíčky (gitignored)
 | POST | `/dane/{id}/pridat-externi/{doc_id}` | Přidání externího příjemce (jméno + email) |
 | POST | `/dane/{id}/dokoncit` | Uzamknutí relace (read-only mód) |
 | POST | `/dane/{id}/znovu-otevrit` | Odemknutí relace pro další úpravy |
+| POST | `/dane/{id}/prepocitat-skore` | Přepočet `match_confidence` u AUTO_MATCHED dokumentů aktuálním matcherem (jen navýšení, nikdy nesníží) |
 | GET | `/dane/{id}/upload` | Formulář pro nahrání dalších PDF (append/overwrite) |
 | POST | `/dane/{id}/upload` | Nahrání dalších PDF + zpracování na pozadí |
 | POST | `/dane/{id}/smazat` | Smazání relace (session + dokumenty + soubory) |
@@ -1329,6 +1330,8 @@ Projekt prošel UX analýzou klíčových modulů (6 expertních perspektiv: UX 
 *UX sjednocení s kanonickým vzorem `/vlastnici` (8 stránek):* stat-card bubliny + HTMX search ve sdíleném `bg-white rounded-lg shadow` kontejneru s `border-t` separátorem, `<a href>` sort odkazy místo `onclick`, hidden inputy pro HTMX state propagation. Stránky: `/platby/dluznici`, `/platby/prehled`, `/platby/vyuctovani`, `/platby/symboly`, `/platby/zustatky`, `/dane`, `/rozesilani/bounces`, nedoručené hlasovací lístky (už přes partial). Bounces stránka dostala stejný layout hned při vzniku.
 
 *Revert vypisy_list designu:* experimentální přepis řádků v `/platby/vypisy` odmítnut, návrat k původní verzi (commit `47f1983`).
+
+*Fuzzy matcher — rozšířené tituly + rematch endpoint:* `owner_matcher.py` nově rozpoznává `arch.` (z `Ing.arch.`) a dotted `M.B.A.` formu — tyto konstrukce dříve zůstávaly jako tokeny a snižovaly confidence na 0.8. Přidán endpoint `POST /dane/{id}/prepocitat-skore` s tlačítkem „Přepočítat skóre" v hlavičce kroku 2 — bezpečně přepočítá `match_confidence` u AUTO_MATCHED dokumentů aktuálním matcherem, aktualizuje jen tam, kde by nové skóre bylo vyšší (nikdy nesnižuje). Řeší zamrzlá stará skóre u sezení vytvořených před opravou matcheru.
 
 ## Dokumentace business logiky
 
