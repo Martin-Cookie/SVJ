@@ -59,12 +59,13 @@ def _prepare_owner_lookup(db: Session, tax_year) -> tuple[list[dict], dict[str, 
             .options(joinedload(OwnerUnit.unit))
             .all()
         )
+    owner_by_id = {o["id"]: o for o in owner_dicts}
     unit_to_owners: dict[str, list[dict]] = {}
     for ou in owner_units:
         unit_num = str(ou.unit.unit_number)
         if unit_num not in unit_to_owners:
             unit_to_owners[unit_num] = []
-        owner_data = next((o for o in owner_dicts if o["id"] == ou.owner_id), None)
+        owner_data = owner_by_id.get(ou.owner_id)
         if owner_data:
             unit_to_owners[unit_num].append(owner_data)
 
@@ -81,7 +82,7 @@ def _process_single_pdf(file_path: str, session_id: int, db: Session) -> tuple:
     unit_number, unit_letter = parse_unit_from_filename(basename)
     try:
         extracted = extract_owner_from_tax_pdf(file_path)
-    except Exception as e:
+    except Exception:
         logger.exception("PDF extraction failed: %s", basename)
         extracted = {"full_text": "", "owner_name": None, "owner_names": []}
 
@@ -414,6 +415,10 @@ def tax_recompute_scores(session_id: int, db: Session = Depends(get_db)):
         .all()
     )
 
+    # Memo cache pro (candidate_text, owner_id) → confidence — stejný vlastník
+    # se opakuje napříč distribucemi, nemá smysl volat match_name pořád dokola.
+    score_cache: dict[tuple[str, int], float] = {}
+
     updated = 0
     for doc in docs:
         if not doc.extracted_owner_name:
@@ -421,21 +426,28 @@ def tax_recompute_scores(session_id: int, db: Session = Depends(get_db)):
         candidates = [p.strip() for p in doc.extracted_owner_name.split(",") if p.strip()]
         if not candidates:
             candidates = [doc.extracted_owner_name]
+        # Unikátní sada kandidátních textů (celá fráze + části)
+        cand_texts = list(dict.fromkeys([doc.extracted_owner_name, *candidates]))
 
         for dist in doc.distributions:
             if dist.match_status != MatchStatus.AUTO_MATCHED or not dist.owner:
                 continue
-            owner_dict = [{
-                "id": dist.owner.id,
-                "name": dist.owner.display_name,
-                "name_normalized": dist.owner.name_normalized,
-            }]
+            owner_id = dist.owner.id
             best = 0.0
-            # Zkus celou frázi i jednotlivé části — vezmi nejvyšší
-            for cand in [doc.extracted_owner_name, *candidates]:
-                r = match_name(cand, owner_dict, threshold=0.0)
-                if r and r[0]["confidence"] > best:
-                    best = r[0]["confidence"]
+            for cand in cand_texts:
+                key = (cand, owner_id)
+                if key in score_cache:
+                    score = score_cache[key]
+                else:
+                    r = match_name(cand, [{
+                        "id": owner_id,
+                        "name": dist.owner.display_name,
+                        "name_normalized": dist.owner.name_normalized,
+                    }], threshold=0.0)
+                    score = r[0]["confidence"] if r else 0.0
+                    score_cache[key] = score
+                if score > best:
+                    best = score
             old = dist.match_confidence or 0
             if best > old + 0.001:
                 dist.match_confidence = round(best, 3)

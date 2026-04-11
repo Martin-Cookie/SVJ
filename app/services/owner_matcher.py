@@ -37,7 +37,13 @@ _CZECH_SURNAME_SUFFIXES = [
 
 
 def _stem_czech_surname(word: str) -> str:
-    """Reduce Czech surname to rough stem for matching."""
+    """Reduce Czech surname to rough stem for matching.
+
+    The ``len(word) - len(s) >= 3`` guard prevents stripping a suffix that
+    would leave fewer than 3 characters — avoids false stems on short words
+    (e.g. "Eva" → "E") and keeps single-letter matches out of the Jaccard
+    overlap.
+    """
     for s in _CZECH_SURNAME_SUFFIXES:
         if word.endswith(s) and len(word) - len(s) >= 3:
             return word[: -len(s)]

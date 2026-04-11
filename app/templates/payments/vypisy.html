@@ -4,9 +4,13 @@
 <div class="flex flex-col">
     {% include "payments/partials/_platby_nav.html" %}
 
-    {% set _base = "/platby/vypisy?" ~ ("q=" ~ q ~ "&" if q else "") %}
-    {% set _back = "&back=" ~ (back_url|default('')|urlencode) if back_url else "" %}
-    {% set _export_qs = "?" ~ ("q=" ~ q ~ "&" if q else "") ~ ("rok=" ~ rok ~ "&" if rok else "") ~ ("stav=" ~ stav ~ "&" if stav else "") %}
+    {# Helper makro: poskládá querystring z neprázdných kv dvojic #}
+    {% macro qs(pairs) -%}
+        {%- set parts = [] -%}
+        {%- for k, v in pairs -%}{%- if v -%}{%- set _ = parts.append(k ~ '=' ~ (v|urlencode)) -%}{%- endif -%}{%- endfor -%}
+        {%- if parts -%}?{{ parts|join('&') }}{%- endif -%}
+    {%- endmacro %}
+    {% set _export_qs = qs([('q', q), ('rok', rok), ('stav', stav)]) %}
 
     <div class="flex items-center justify-between mb-3">
         <div>
@@ -34,12 +38,12 @@
         <!-- Bubliny — rok -->
         {% if years %}
         <div class="flex flex-wrap items-center gap-2 px-3 pt-3 pb-2">
-            <a href="{{ _base }}{{ ('stav=' ~ stav ~ '&') if stav else '' }}{{ _back|replace('&back=', 'back=') if _back and not _base.endswith('?') and not _base.endswith('&') else _back }}"
+            <a href="/platby/vypisy{{ qs([('q', q), ('stav', stav), ('back', back_url)]) }}"
                class="px-2 py-1 text-xs rounded border {% if not rok %}bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border-blue-300 ring-2 ring-blue-400{% else %}bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-100{% endif %}">
                 Všechny roky <span class="ml-1 opacity-75">{{ total_count }}</span>
             </a>
             {% for y in years %}
-            <a href="{{ _base }}rok={{ y }}{{ ('&stav=' ~ stav) if stav else '' }}{{ _back }}"
+            <a href="/platby/vypisy{{ qs([('q', q), ('rok', y), ('stav', stav), ('back', back_url)]) }}"
                class="px-2 py-1 text-xs rounded border {% if rok == y %}bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border-blue-300 ring-2 ring-blue-400{% else %}bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-100{% endif %}">
                 {{ y }}
             </a>
@@ -49,15 +53,15 @@
 
         <!-- Bubliny — stav (zamčené/otevřené) -->
         <div class="flex flex-wrap items-center gap-2 px-3 {% if not years %}pt-3 {% endif %}pb-2">
-            <a href="{{ _base }}{{ ('rok=' ~ rok ~ '&') if rok else '' }}{{ _back|replace('&back=', 'back=') if _back and not _base.endswith('?') and not _base.endswith('&') else _back }}"
+            <a href="/platby/vypisy{{ qs([('q', q), ('rok', rok), ('back', back_url)]) }}"
                class="px-2 py-1 text-xs rounded border {% if not stav %}bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 border-green-300 ring-2 ring-green-400{% else %}bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-100{% endif %}">
                 Vše <span class="ml-1 opacity-75">{{ total_count }}</span>
             </a>
-            <a href="{{ _base }}{{ ('rok=' ~ rok ~ '&') if rok else '' }}stav=otevrene{{ _back }}"
+            <a href="/platby/vypisy{{ qs([('q', q), ('rok', rok), ('stav', 'otevrene'), ('back', back_url)]) }}"
                class="px-2 py-1 text-xs rounded border {% if stav == 'otevrene' %}bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 border-green-300 ring-2 ring-green-400{% else %}bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-100{% endif %}">
                 🔓 Otevřené <span class="ml-1 opacity-75">{{ open_count }}</span>
             </a>
-            <a href="{{ _base }}{{ ('rok=' ~ rok ~ '&') if rok else '' }}stav=zamcene{{ _back }}"
+            <a href="/platby/vypisy{{ qs([('q', q), ('rok', rok), ('stav', 'zamcene'), ('back', back_url)]) }}"
                class="px-2 py-1 text-xs rounded border {% if stav == 'zamcene' %}bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 border-gray-400 ring-2 ring-gray-400{% else %}bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-100{% endif %}">
                 🔒 Zamčené <span class="ml-1 opacity-75">{{ locked_count }}</span>
             </a>

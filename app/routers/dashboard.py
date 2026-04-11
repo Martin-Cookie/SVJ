@@ -256,12 +256,12 @@ async def home(
 
     # Seskupení payment_notice emailů (a jiných hromadných emailů) dle den+modul+subject
     from collections import defaultdict
-    _group_key_counts = defaultdict(list)
+    grouped_emails = defaultdict(list)
     for e in recent_emails:
         if e.module == "payment_notice":
             day = e.created_at.strftime("%Y-%m-%d") if e.created_at else "?"
             key = (day, e.module, e.subject or "")
-            _group_key_counts[key].append(e)
+            grouped_emails[key].append(e)
         else:
             url = f"/dane/{e.reference_id}" if e.reference_id else ""
             unified.append({
@@ -276,7 +276,7 @@ async def home(
             })
 
     # Seskupené payment_notice → jeden řádek za den+subject
-    for (day, mod, subject), emails in _group_key_counts.items():
+    for (day, mod, subject), emails in grouped_emails.items():
         latest = max(emails, key=lambda e: e.created_at or datetime.min)
         sent_count = sum(1 for e in emails if e.status and e.status.value == "sent")
         failed_count = sum(1 for e in emails if e.status and e.status.value == "failed")

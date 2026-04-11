@@ -14,35 +14,38 @@
     </a>
 </div>
 
-{% set _base = "/hlasovani?" ~ ("back=" ~ (back_url|urlencode) ~ "&" if back_url else "") %}
-{% set _sort_suffix = ('&sort=' ~ current_sort) if current_sort and current_sort != 'created_desc' else '' %}
-{% set _stav_suffix = ('&stav=' ~ current_stav) if current_stav else '' %}
-{% set _back_qs = ('&back=' ~ (back_url|urlencode)) if back_url else '' %}
+{# Helper: poskládá querystring z neprázdných kv dvojic #}
+{% macro qs(pairs) -%}
+    {%- set parts = [] -%}
+    {%- for k, v in pairs -%}{%- if v -%}{%- set _ = parts.append(k ~ '=' ~ (v|urlencode)) -%}{%- endif -%}{%- endfor -%}
+    {%- if parts -%}?{{ parts|join('&') }}{%- endif -%}
+{%- endmacro %}
+{% set _sort_val = current_sort if current_sort and current_sort != 'created_desc' else '' %}
 
 <!-- Bubliny + řazení ve společném kontejneru (kanonický vzor /vlastnici) -->
 <div class="bg-white dark:bg-gray-800 rounded-lg shadow mb-4">
     <div class="flex gap-2 p-3 pb-2">
-        <a href="{{ _base }}{{ _sort_suffix[1:] }}{% if _sort_suffix %}&{% endif %}stav="
+        <a href="/hlasovani{{ qs([('sort', _sort_val), ('back', back_url)]) }}"
            class="flex-1 block rounded p-2 text-center hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors {% if not current_stav %}ring-2 ring-gray-400{% endif %}">
             <p class="text-lg font-bold text-gray-800 dark:text-gray-200">{{ status_counts.get('all', 0) }}</p>
             <p class="text-xs text-gray-500 dark:text-gray-400">Vše</p>
         </a>
-        <a href="{{ _base }}{{ _sort_suffix[1:] }}{% if _sort_suffix %}&{% endif %}stav=draft"
+        <a href="/hlasovani{{ qs([('sort', _sort_val), ('stav', 'draft'), ('back', back_url)]) }}"
            class="flex-1 block bg-gray-50 dark:bg-gray-700/40 rounded p-2 text-center border border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors {% if current_stav == 'draft' %}ring-2 ring-gray-400{% endif %}">
             <p class="text-lg font-bold text-gray-600 dark:text-gray-300">{{ status_counts.get('draft', 0) }}</p>
             <p class="text-xs text-gray-600 dark:text-gray-400">Koncept</p>
         </a>
-        <a href="{{ _base }}{{ _sort_suffix[1:] }}{% if _sort_suffix %}&{% endif %}stav=active"
+        <a href="/hlasovani{{ qs([('sort', _sort_val), ('stav', 'active'), ('back', back_url)]) }}"
            class="flex-1 block bg-green-50 dark:bg-green-900/20 rounded p-2 text-center border border-green-200 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors {% if current_stav == 'active' %}ring-2 ring-green-400{% endif %}">
             <p class="text-lg font-bold text-green-600 dark:text-green-400">{{ status_counts.get('active', 0) }}</p>
             <p class="text-xs text-green-600 dark:text-green-400">Aktivní</p>
         </a>
-        <a href="{{ _base }}{{ _sort_suffix[1:] }}{% if _sort_suffix %}&{% endif %}stav=closed"
+        <a href="/hlasovani{{ qs([('sort', _sort_val), ('stav', 'closed'), ('back', back_url)]) }}"
            class="flex-1 block bg-blue-50 dark:bg-blue-900/20 rounded p-2 text-center border border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors {% if current_stav == 'closed' %}ring-2 ring-blue-400{% endif %}">
             <p class="text-lg font-bold text-blue-600 dark:text-blue-400">{{ status_counts.get('closed', 0) }}</p>
             <p class="text-xs text-blue-600 dark:text-blue-400">Uzavřeno</p>
         </a>
-        <a href="{{ _base }}{{ _sort_suffix[1:] }}{% if _sort_suffix %}&{% endif %}stav=cancelled"
+        <a href="/hlasovani{{ qs([('sort', _sort_val), ('stav', 'cancelled'), ('back', back_url)]) }}"
            class="flex-1 block bg-red-50 dark:bg-red-900/20 rounded p-2 text-center border border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors {% if current_stav == 'cancelled' %}ring-2 ring-red-400{% endif %}">
             <p class="text-lg font-bold text-red-600 dark:text-red-400">{{ status_counts.get('cancelled', 0) }}</p>
             <p class="text-xs text-red-600 dark:text-red-400">Zrušeno</p>
@@ -56,7 +59,7 @@
     <div class="flex flex-wrap items-center gap-2 px-3 py-2">
         <span class="text-xs text-gray-500 dark:text-gray-400 mr-1">Řadit:</span>
         {% for key, label in [('created_desc', 'Nejnovější'), ('created_asc', 'Nejstarší'), ('updated_desc', 'Poslední úprava'), ('name', 'Název'), ('items', 'Počet bodů')] %}
-        <a href="/hlasovani?sort={{ key }}{{ _stav_suffix }}{{ _back_qs }}"
+        <a href="/hlasovani{{ qs([('sort', key), ('stav', current_stav), ('back', back_url)]) }}"
            class="px-2 py-1 text-xs rounded border {% if current_sort == key %}bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 border-purple-300 ring-2 ring-purple-400{% else %}bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-100{% endif %}">
             {{ label }}
         </a>

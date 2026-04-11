@@ -381,8 +381,9 @@ def _get_table_counts(db_path: str) -> dict:
     try:
         conn = sqlite3.connect(db_path)
         for table in tables:
+            assert table.replace("_", "").isalnum(), f"invalid table name: {table}"
             try:
-                row = conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()  # safe: table from hardcoded list
+                row = conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()  # safe: hardcoded list + assert
                 counts[table] = row[0]
             except sqlite3.OperationalError:
                 pass  # table doesn't exist yet

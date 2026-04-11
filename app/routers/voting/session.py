@@ -217,7 +217,7 @@ async def voting_preview_metadata(
             "meta": meta,
             "items_count": len(items),
         })
-    except Exception as e:
+    except Exception:
         logger.exception("Chyba při extrakci metadat z DOCX šablony")
         return JSONResponse({"error": "Nelze zpracovat nahranou šablonu."}, status_code=500)
     finally:
