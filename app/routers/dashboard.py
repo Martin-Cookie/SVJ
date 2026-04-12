@@ -29,8 +29,19 @@ _MODULE_CANONICAL = {
 }
 
 
+_KNOWN_MODULES = {
+    "vlastnici", "jednotky", "najemci", "prostory",
+    "hlasovani", "dane", "sync", "platby", "payment_notice",
+    "sprava", "nastaveni",
+}
+
+
 def _norm_module(m: str) -> str:
-    return _MODULE_CANONICAL.get(m or "", m or "")
+    canonical = _MODULE_CANONICAL.get(m or "", m or "")
+    # Neznámé moduly (test, None, číselné) → spadnou do "sprava"
+    if canonical not in _KNOWN_MODULES:
+        return "sprava"
+    return canonical
 
 
 @router.get("/prehled/rozdil-podilu")
@@ -329,7 +340,7 @@ async def home(
     module_counts_ordered = [
         (key, module_counts[key]) for key in _MODULE_ORDER if module_counts.get(key, 0) > 0
     ]
-    # Neznámé klíče (test, None, číselné) se nezobrazují v bublinách — jen v tabulce
+    # Neznámé moduly přemapovány na "sprava" v _norm_module()
 
     # Filtr dle modulu (akceptuje i legacy raw klíče jako `tax`, `voting`)
     if modul:

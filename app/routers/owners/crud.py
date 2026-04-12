@@ -414,14 +414,20 @@ async def owner_detail(
     svj_info = db.query(SvjInfo).first()
     declared_shares = svj_info.total_shares if svj_info and svj_info.total_shares else 0
 
-    # Platební dluh vlastníka (přes jeho jednotky)
+    # Platební dluh vlastníka (přes jeho jednotky) + předpisy
     owner_debt = 0
     unit_debt_map = {}
+    unit_prescription_map = {}
+    payment_year = None
     bal_py = db.query(PrescriptionYear).order_by(PrescriptionYear.year.desc()).first()
     if bal_py:
+        payment_year = bal_py.year
         unit_debt_map = compute_debt_map(db, bal_py.year)
         for ou in owner.current_units:
             owner_debt += unit_debt_map.get(ou.unit_id, 0)
+        # Měsíční předpis per jednotka
+        prescriptions = db.query(Prescription).filter_by(prescription_year_id=bal_py.id).all()
+        unit_prescription_map = {p.unit_id: p.monthly_total or 0 for p in prescriptions if p.unit_id}
 
     ctx = {
         "request": request,
@@ -431,6 +437,8 @@ async def owner_detail(
         "declared_shares": declared_shares,
         "owner_debt": owner_debt,
         "unit_debt_map": unit_debt_map,
+        "unit_prescription_map": unit_prescription_map,
+        "payment_year": payment_year,
         "back_url": back or "/vlastnici",
         "back_label": (
             "Zpět na hromadné úpravy" if "/sprava/hromadne" in back

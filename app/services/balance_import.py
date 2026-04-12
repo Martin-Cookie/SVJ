@@ -187,9 +187,15 @@ def execute_balance_import(
             settlement = row.get("settlement")
             status = row.get("status")
             if deposits:
-                note_parts.append(f"Zálohy: {deposits}")
+                try:
+                    note_parts.append(f"Zálohy: {int(float(deposits)):,}".replace(",", " "))
+                except (ValueError, TypeError):
+                    note_parts.append(f"Zálohy: {deposits}")
             if settlement:
-                note_parts.append(f"Vyúčtování: {settlement}")
+                try:
+                    note_parts.append(f"Vyúčtování: {int(float(settlement)):,}".replace(",", " "))
+                except (ValueError, TypeError):
+                    note_parts.append(f"Vyúčtování: {settlement}")
             if status:
                 note_parts.append(str(status))
 

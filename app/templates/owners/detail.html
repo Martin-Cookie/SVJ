@@ -59,11 +59,57 @@
         {% endif %}
     </div>
 
-    <!-- Scrollable units table -->
-    <div class="flex-1 overflow-y-auto min-h-0 bg-white rounded-lg shadow p-4">
-        <div id="owner-units-section">
-            {% include "partials/owner_units_section.html" %}
+    <!-- Scrollable units table + payment summary -->
+    <div class="flex-1 overflow-y-auto min-h-0 space-y-3">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <div id="owner-units-section">
+                {% include "partials/owner_units_section.html" %}
+            </div>
         </div>
+
+        {% if payment_year and owner.current_units %}
+        <!-- Platební přehled -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300">Platby {{ payment_year }}</h3>
+                <a href="/platby/prehled?rok={{ payment_year }}&back={{ back_url|urlencode }}" class="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400">→ Matice plateb</a>
+            </div>
+            <div class="divide-y divide-gray-100 dark:divide-gray-700">
+                {% set total_monthly = [] %}
+                {% for ou in owner.current_units %}
+                {% set monthly = unit_prescription_map.get(ou.unit_id, 0) %}
+                {% set debt = unit_debt_map.get(ou.unit_id, 0) %}
+                {% if total_monthly.append(monthly) %}{% endif %}
+                <div class="flex items-center justify-between py-2 text-sm">
+                    <div class="flex items-center gap-2">
+                        <a href="/platby/jednotka/{{ ou.unit_id }}?rok={{ payment_year }}&back={{ back_url|urlencode }}" class="text-blue-600 hover:text-blue-800 dark:text-blue-400 font-medium">Jedn. {{ ou.unit.unit_number }}</a>
+                        <span class="text-gray-400 dark:text-gray-500">{{ monthly|fmt_num }} Kč/měs</span>
+                    </div>
+                    <div>
+                        {% if debt > 0 %}
+                        <span class="text-red-600 dark:text-red-400 font-medium">-{{ debt|fmt_num }} Kč</span>
+                        {% else %}
+                        <span class="text-green-600 dark:text-green-400">OK</span>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% set sum_monthly = total_monthly|sum %}
+            {% if sum_monthly > 0 or owner_debt %}
+            <div class="flex items-center justify-between pt-2 mt-1 border-t border-gray-200 dark:border-gray-600 text-sm font-medium">
+                <span class="text-gray-700 dark:text-gray-300">Celkem {{ sum_monthly|fmt_num }} Kč/měs</span>
+                {% if owner_debt > 0 %}
+                <span class="text-red-600 dark:text-red-400">Nedoplatek: {{ owner_debt|fmt_num }} Kč</span>
+                {% elif owner_debt < 0 %}
+                <span class="text-green-600 dark:text-green-400">Přeplatek: {{ (owner_debt|abs)|fmt_num }} Kč</span>
+                {% else %}
+                <span class="text-green-600 dark:text-green-400">Vše zaplaceno</span>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
     </div>
 </div>
 {% endblock %}
