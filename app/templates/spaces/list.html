@@ -67,16 +67,16 @@
 {% if stats.with_tenant > 0 and stats.without_tenant > 0 %}
 {% set _tbase = "q=" ~ q ~ "&stav=" ~ stav ~ "&sekce=" ~ sekce ~ "&sort=" ~ sort ~ "&order=" ~ order ~ _back %}
 <div class="flex gap-2 px-3 pb-2">
-    <a href="/prostory?{{ _tbase }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
-        {% if not najemce %}bg-blue-600 text-white{% else %}bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
+    <a href="/prostory?{{ _tbase }}" class="px-3 py-1 text-xs font-medium rounded transition-colors
+        {% if not najemce %}bg-blue-600 text-white{% else %}bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600{% endif %}">
         Vše
     </a>
-    <a href="/prostory?najemce=with&{{ _tbase }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
-        {% if najemce == 'with' %}bg-blue-600 text-white{% else %}bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
+    <a href="/prostory?najemce=with&{{ _tbase }}" class="px-3 py-1 text-xs font-medium rounded transition-colors
+        {% if najemce == 'with' %}bg-blue-600 text-white{% else %}bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600{% endif %}">
         S nájemcem <span class="ml-0.5 opacity-75">{{ stats.with_tenant }}</span>
     </a>
-    <a href="/prostory?najemce=without&{{ _tbase }}" class="px-3 py-1 text-xs font-medium rounded-full transition-colors
-        {% if najemce == 'without' %}bg-blue-600 text-white{% else %}bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 shadow hover:shadow-md{% endif %}">
+    <a href="/prostory?najemce=without&{{ _tbase }}" class="px-3 py-1 text-xs font-medium rounded transition-colors
+        {% if najemce == 'without' %}bg-blue-600 text-white{% else %}bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600{% endif %}">
         Bez nájemce <span class="ml-0.5 opacity-75">{{ stats.without_tenant }}</span>
     </a>
 </div>
