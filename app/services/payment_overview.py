@@ -53,6 +53,7 @@ def compute_payment_matrix(db: Session, year: int, section: str = "", space_type
             PaymentAllocation.unit_id,
             func.extract("month", Payment.date).label("month"),
             func.sum(PaymentAllocation.amount).label("total"),
+            func.max(Payment.date).label("last_date"),
         )
         .join(Payment)
         .filter(
@@ -65,10 +66,12 @@ def compute_payment_matrix(db: Session, year: int, section: str = "", space_type
     )
 
     paid_map = defaultdict(lambda: defaultdict(float))  # unit_id -> month -> amount
+    date_map = defaultdict(dict)  # unit_id -> month -> last_date
     months_with_data = set()
-    for unit_id, month, total in payments:
+    for unit_id, month, total, last_date in payments:
         m = int(month)
         paid_map[unit_id][m] += total or 0
+        date_map[unit_id][m] = last_date
         months_with_data.add(m)
 
     # Zůstatky
@@ -129,7 +132,8 @@ def compute_payment_matrix(db: Session, year: int, section: str = "", space_type
                     status = "unpaid"
             else:
                 status = "no_data"
-            months[m] = {"paid": paid, "status": status}
+            last_date = date_map.get(unit.id, {}).get(m)
+            months[m] = {"paid": paid, "status": status, "date": last_date}
 
         total_paid_all += row_paid
         # opening: kladný = přeplatek (snižuje dluh), záporný = nedoplatek (zvyšuje dluh)
@@ -277,6 +281,7 @@ def compute_space_payment_matrix(db: Session, year: int) -> dict:
             PaymentAllocation.space_id,
             func.extract("month", Payment.date).label("month"),
             func.sum(PaymentAllocation.amount).label("total"),
+            func.max(Payment.date).label("last_date"),
         )
         .join(Payment)
         .filter(
@@ -290,10 +295,12 @@ def compute_space_payment_matrix(db: Session, year: int) -> dict:
     )
 
     paid_map = defaultdict(lambda: defaultdict(float))
+    date_map = defaultdict(dict)
     months_with_data = set()
-    for space_id, month, total in payments:
+    for space_id, month, total, last_date in payments:
         m = int(month)
         paid_map[space_id][m] += total or 0
+        date_map[space_id][m] = last_date
         months_with_data.add(m)
 
     # Use unit months_with_data if space has none (share global month coverage)
@@ -355,7 +362,8 @@ def compute_space_payment_matrix(db: Session, year: int) -> dict:
                     status = "unpaid"
             else:
                 status = "no_data"
-            months[m] = {"paid": paid, "status": status}
+            last_date = date_map.get(space.id, {}).get(m)
+            months[m] = {"paid": paid, "status": status, "date": last_date}
 
         total_paid_all += row_paid
         # opening: kladný = přeplatek (snižuje dluh), záporný = nedoplatek (zvyšuje dluh)

@@ -39,7 +39,7 @@
         {% elif cell.status == 'partial' %}bg-yellow-50 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400
         {% elif cell.status == 'unpaid' %}bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400
         {% else %}text-gray-300 dark:text-gray-600{% endif %}"
-        {% if cell.paid %}title="Zaplaceno: {{ cell.paid|fmt_num }} Kč"{% endif %}>
+        {% if cell.paid %}title="Zaplaceno: {{ cell.paid|fmt_num }} Kč{% if cell.date %} ({{ cell.date.strftime('%d.%m.%Y') }}){% endif %}"{% endif %}>
         {% if cell.status == 'paid' %}✓
         {% elif cell.status == 'partial' %}{{ cell.paid|fmt_num }}
         {% elif cell.status == 'unpaid' %}✗
@@ -86,7 +86,7 @@
         {% elif cell.status == 'partial' %}bg-yellow-50 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400
         {% elif cell.status == 'unpaid' %}bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400
         {% else %}text-gray-300 dark:text-gray-600{% endif %}"
-        {% if cell.paid %}title="Zaplaceno: {{ cell.paid|fmt_num }} Kč"{% endif %}>
+        {% if cell.paid %}title="Zaplaceno: {{ cell.paid|fmt_num }} Kč{% if cell.date %} ({{ cell.date.strftime('%d.%m.%Y') }}){% endif %}"{% endif %}>
         {% if cell.status == 'paid' %}✓
         {% elif cell.status == 'partial' %}{{ cell.paid|fmt_num }}
         {% elif cell.status == 'unpaid' %}✗
