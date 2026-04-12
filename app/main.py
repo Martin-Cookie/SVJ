@@ -355,6 +355,10 @@ def _ensure_indexes():
         ("ix_payments_space_id", "payments", "space_id"),
         ("ix_payment_allocations_space_id", "payment_allocations", "space_id"),
         ("ix_unit_balances_space_id", "unit_balances", "space_id"),
+        # smtp_profiles
+        ("ix_smtp_profiles_is_default", "smtp_profiles", "is_default"),
+        ("ix_tax_sessions_smtp_profile_id", "tax_sessions", "smtp_profile_id"),
+        ("ix_bank_statements_smtp_profile_id", "bank_statements", "smtp_profile_id"),
     ]
     # Složené indexy: (název, tabulka, "sloupec1, sloupec2")
     _COMPOUND_INDEXES = [

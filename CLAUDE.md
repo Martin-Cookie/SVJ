@@ -38,7 +38,7 @@
   ```
 - Bez eager loading `current_units` vrátí prázdný list (lazy loading selže mimo session) nebo způsobí N+1 dotazy
 - Při přidání nového klikacího sloupce do tabulky VŽDY zkontrolovat, zda router má potřebný `joinedload()`
-- **Tento checklist platí i při čistě vizuálních úpravách** (kompaktnější layout, přesunutí prvků) — nikdy neodeslat stránku s tabulkou bez všech 7 bodů
+- **Tento checklist platí i při čistě vizuálních úpravách** (kompaktnější layout, přesunutí prvků) — nikdy neodeslat stránku s tabulkou bez všech 8 bodů
 - **UI detaily** (sticky header CSS, sort hlavičky, ikony akcí, badge, formátování) — viz [UI_GUIDE.md](docs/UI_GUIDE.md)
 
 ## Procentuální vstupy (kvórum, podíly)
@@ -231,7 +231,7 @@
 
 ## Startup (lifespan)
 
-- `main.py` lifespan: (1) import modelů, (2) `create_all`, (3) `_ALL_MIGRATIONS` list (16 migračních funkcí + `_ensure_indexes()` + `_seed_code_lists()` + `_seed_email_templates()`), (4) `recover_stuck_sending_sessions()`, (5) vytvoření upload/generated/temp adresářů
+- `main.py` lifespan: (1) import modelů, (2) `create_all`, (3) `_ALL_MIGRATIONS` list (18 migračních funkcí + `_ensure_indexes()` + `_seed_code_lists()` + `_seed_email_templates()`), (4) `recover_stuck_sending_sessions()`, (5) vytvoření upload/generated/temp adresářů
 - Migrace zahrnují mj. `_migrate_svj_send_settings` (SvjInfo send_batch_size/interval/confirm/test_email), `_migrate_payment_notified_at` (Payment.notified_at sloupec) a `_migrate_dedupe_tenants` (sloučí duplicitní Tenant záznamy podle priority owner_id → RČ → IČ → jméno+typ; vítěz = nejvíce vyplněných polí, SpaceTenant vztahy se přesunou na vítěze)
 - `_ALL_MIGRATIONS` se sdílí s `run_post_restore_migrations()` — po obnově zálohy se spustí stejné migrace
 - Nové funkce vyžadující adresáře: přidat do lifespan. Nové indexy: přidat do `_ensure_indexes()`. Nové migrace: přidat do `_ALL_MIGRATIONS`

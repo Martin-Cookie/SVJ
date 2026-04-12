@@ -69,8 +69,7 @@
 ### Formulářová validace — návrat formuláře s chybou
 - Při validační chybě (neplatný email, duplicita, rozsah) vracet **formulářovou šablonu s `error`** místo tichého redirectu:
   ```python
-  return templates.TemplateResponse("partials/owner_create_form.html", {
-      "request": request,
+  return templates.TemplateResponse(request, "partials/owner_create_form.html", {
       "error": "Neplatný formát emailu",
       "form_data": {"first_name": first_name, "last_name": last_name, ...},
   })
@@ -83,8 +82,8 @@
 - Uživatel může vynuceně pokračovat přes hidden field `force_create`:
   ```python
   if duplicates and not force_create:
-      return templates.TemplateResponse("partials/owner_create_form.html", {
-          "request": request, "duplicates": duplicates, "form_data": {...},
+      return templates.TemplateResponse(request, "partials/owner_create_form.html", {
+          "duplicates": duplicates, "form_data": {...},
       })
   ```
 

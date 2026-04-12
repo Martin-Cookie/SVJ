@@ -54,7 +54,7 @@ Zpětný odkaz na KAŽDÉ stránce s `back_url` — jednotný styl napříč cel
 - Vždy `text-sm` + `text-blue-600` + `&larr;` entita — nikdy SVG ikona, nikdy `text-xs`, nikdy `text-gray-*`
 - Obaleno v `<div class="mb-3">` — nikdy `inline-flex`, nikdy bez wrapperu
 - Dark mode: `dark:text-blue-400 dark:hover:text-blue-300`
-- Label dynamický z routeru (viz CLAUDE.md § Navigace a back URL)
+- Label dynamický z routeru (viz [docs/NAVIGATION.md](NAVIGATION.md))
 
 ### Šířky stránek
 | Typ stránky | Max-width | Příklad |
@@ -629,7 +629,7 @@ Pro skládání odkazů s proměnlivým počtem query parametrů (bubliny, sort,
   - Metadata pod názvem: `flex items-center mt-1 space-x-4 text-sm text-gray-500`
   - Wizard stepper compact + progress bar pod metadaty
 - **Prázdný stav s filtrem:** rozlišit "žádné záznamy v tomto stavu" vs "žádné záznamy vůbec"
-- **Sdílený progress bar** pro davkové odesílání (`_send_progress.html` + `_send_progress_inner.html`) — podrobný popis v [CLAUDE.md](../CLAUDE.md) § Nové moduly / entity
+- **Sdílený progress bar** pro davkové odesílání (`_send_progress.html` + `_send_progress_inner.html`) — podrobný popis v [docs/NEW_MODULE_CHECKLIST.md](NEW_MODULE_CHECKLIST.md)
 
 ---
 
@@ -704,7 +704,7 @@ Vždy `rounded-full`, nikdy `rounded`.
 
 ## 11. Wizard stepper
 
-> Logika stavů (done, active, current+done, pending, sending), pravidlo "all green when complete" a override pro dokumenty jsou v [CLAUDE.md § Wizard stepper](../CLAUDE.md).
+> Logika stavů (done, active, current+done, pending, sending), pravidlo "all green when complete" a override pro dokumenty jsou v [docs/NEW_MODULE_CHECKLIST.md](NEW_MODULE_CHECKLIST.md).
 
 ### Dvě varianty stepperu
 - **Plný stepper** (`partials/wizard_stepper.html`) — samostatný blok nad obsahem stránky, používá se na detail/workflow stránkách
@@ -785,7 +785,7 @@ Router buduje `suggest_map: dict[payment_id, entity_id]` přes sdílený helper 
 
 ## 13. Back URL navigace
 
-> Kompletní logika back parametru (propagace, chaining, `list_url` vs `back_url`, `back_label`) je v [CLAUDE.md § Navigace a back URL](../CLAUDE.md). Zde jsou jen UI/HTML specifika.
+> Kompletní logika back parametru (propagace, chaining, `list_url` vs `back_url`, `back_label`) je v [docs/NAVIGATION.md](NAVIGATION.md). Zde jsou jen UI/HTML specifika.
 
 ### Obnova scroll pozice — back URL (hash)
 
