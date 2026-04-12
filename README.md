@@ -449,7 +449,7 @@ Sloučená stránka se dvěma sekcemi — Kontrola vlastníků (nahoře) a Kontr
 
 ### I. Nastavení (`/nastaveni`)
 
-- SMTP konfigurace — read-only přehled (4-sloupcový grid) + inline editace (HTMX)
+- **Multi-SMTP profily** (max 3) — karty s inline editací (HTMX), test připojení per-profil, base64 obfuskace hesel v DB. Automatický import z `.env` jako první profil při startu. Výběr profilu per-rozesílka (dropdown v nastavení odesílání)
 - Výchozí nastavení odesílání (kolapsovatelná sekce) — globální defaults pro dávku, interval, potvrzení, testovací email. Nové rozesílky a nesrovnalosti dědí tato nastavení, lze je pak přepsat per-session/per-výpis
 - Historie odeslaných emailů (posledních 100):
   - Řaditelné sloupce (datum, modul, příjemce, předmět, stav) s šipkami
@@ -476,6 +476,7 @@ app/
 │   ├── share_check.py         #   ShareCheckSession, ShareCheckRecord, ShareCheckColumnMapping
 │   ├── payment.py             #   PrescriptionYear, Prescription, PrescriptionItem, VariableSymbolMapping, BankStatement, Payment, PaymentAllocation, BankStatementColumnMapping, UnitBalance, Settlement, SettlementItem
 │   ├── space.py               #   Space, SpaceStatus, Tenant, SpaceTenant
+│   ├── smtp_profile.py        #   SmtpProfile (multi-SMTP profily s base64 heslem)
 │   ├── common.py              #   EmailLog (+ name_normalized), ImportLog, ActivityLog, ActivityAction, log_activity()
 │   └── administration.py      #   SvjInfo (+ owner/contact_import_mapping), SvjAddress, BoardMember, CodeListItem, EmailTemplate
 ├── routers/                   # HTTP endpointy
@@ -690,8 +691,10 @@ app/
 │       ├── tax_table_body.html
 │       ├── _send_progress.html        # Sdílený progress bar pro dávkové odesílání (vnější wrapper + tlačítka)
 │       ├── _send_progress_inner.html  # Sdílený progress bar vnitřek (HTMX-polled)
-│       ├── smtp_form.html
-│       ├── smtp_info.html
+│       ├── smtp_info.html              # SMTP profily přehled (karty)
+│       ├── smtp_profile_card.html     # SMTP profil karta (read-only)
+│       ├── smtp_profile_form.html     # SMTP profil editační formulář
+│       ├── smtp_info_with_new.html    # SMTP profily + nový formulář
 │       ├── wizard_stepper.html
 │       ├── wizard_stepper_compact.html
 │       ├── import_stepper.html
@@ -1056,10 +1059,15 @@ Připojuje se na IMAP schránku (Gmail SSL imap.gmail.com:993, fallback na SMTP 
 |--------|-------|-------|
 | GET | `/nastaveni` | Seznam šablon, SMTP a globální nastavení odesílání |
 | POST | `/nastaveni/odesilani` | Uložení výchozích nastavení odesílání (dávka, interval, potvrzení, test email) |
-| GET | `/nastaveni/smtp/formular` | HTMX: editační formulář SMTP |
-| GET | `/nastaveni/smtp/info` | HTMX: zobrazení SMTP nastavení |
-| POST | `/nastaveni/smtp` | Uložení SMTP nastavení |
-| POST | `/nastaveni/smtp/test` | Test SMTP připojení (smtplib) |
+| GET | `/nastaveni/smtp/profily` | HTMX: seznam SMTP profilů |
+| GET | `/nastaveni/smtp/novy-formular` | HTMX: formulář pro nový profil |
+| GET | `/nastaveni/smtp/{id}/formular` | HTMX: editační formulář profilu |
+| GET | `/nastaveni/smtp/{id}/karta` | HTMX: read-only karta profilu |
+| POST | `/nastaveni/smtp/novy` | Vytvoření nového SMTP profilu (max 3) |
+| POST | `/nastaveni/smtp/{id}` | Aktualizace SMTP profilu |
+| POST | `/nastaveni/smtp/{id}/test` | Test SMTP připojení pro profil |
+| POST | `/nastaveni/smtp/{id}/vychozi` | Nastavení profilu jako výchozí |
+| POST | `/nastaveni/smtp/{id}/smazat` | Smazání SMTP profilu |
 | GET | `/nastaveni/priloha/{log_id}/{filename}` | Stažení přílohy emailové šablony |
 
 ## Konfigurace (.env)
