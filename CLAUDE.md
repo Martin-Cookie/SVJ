@@ -5,7 +5,7 @@
 
 ## Obsah
 
-- [URL konvence](#url-konvence) · [Navigace a back URL](#navigace-a-back-url) · [Tabulky — povinný checklist](#tabulky--povinný-checklist) · [Procentuální vstupy](#procentuální-vstupy-kvórum-podíly) · [Statistiky podílů](#statistiky-podílů) · [Dashboard](#dashboard) · [Vyhledávání](#vyhledávání) · [Jména vlastníků](#jména-vlastníků) · [Import hlasování — SJM](#import-hlasování--spoluvlastnictví-sjm) · [SQLAlchemy vzory](#sqlalchemy-vzory) · [Router vzory](#router-vzory) · [Nové moduly / entity](#nové-moduly--entity) · [Export dat](#export-dat-excel--csv) · [Mazání dat](#mazání-dat-purge) · [Upload souborů](#upload-souborů) · [Service layer](#service-layer) · [Utility funkce](#utility-funkce-apputilspy) · [JavaScript](#javascript) · [Technologie](#technologie) · [Global exception handlers](#global-exception-handlers) · [Security headers](#security-headers) · [Router packages](#router-packages) · [Startup](#startup-lifespan) · [Nasazení na USB](#nasazení-na-usb-jiný-počítač) · [Workflow](#workflow) · [Komunikace](#komunikace-s-uživatelem) · [Uživatelské role](#uživatelské-role--plán-implementace-na-konec) · [Pravidla pro práci](#pravidla-pro-práci-na-úkolech)
+- [URL konvence](#url-konvence) · [Navigace a back URL](#navigace-a-back-url) · [Tabulky — povinný checklist](#tabulky--povinný-checklist) · [Procentuální vstupy](#procentuální-vstupy-kvórum-podíly) · [Statistiky podílů](#statistiky-podílů) · [Dashboard](#dashboard) · [Vyhledávání](#vyhledávání) · [Jména vlastníků](#jména-vlastníků) · [Import hlasování — SJM](#import-hlasování--spoluvlastnictví-sjm) · [SQLAlchemy vzory](#sqlalchemy-vzory) · [Router vzory](#router-vzory) · [Nové moduly / entity + Export dat](#nové-moduly--entity--export-dat) · [Mazání dat](#mazání-dat-purge) · [Upload souborů](#upload-souborů) · [Service layer](#service-layer) · [Utility funkce](#utility-funkce-apputilspy) · [JavaScript](#javascript) · [Technologie](#technologie) · [Global exception handlers](#global-exception-handlers) · [Security headers](#security-headers) · [Router packages](#router-packages) · [Startup](#startup-lifespan) · [Nasazení na USB](#nasazení-na-usb-jiný-počítač) · [Workflow](#workflow) · [Komunikace](#komunikace-s-uživatelem) · [Uživatelské role](#uživatelské-role--plán-implementace-na-konec) · [Pravidla pro práci](#pravidla-pro-práci-na-úkolech)
 
 ## URL konvence
 
@@ -15,46 +15,7 @@
 
 ## Navigace a back URL
 
-- Každý odkaz z dashboardu na seznam/modul musí obsahovat `?back=/`
-- Každý odkaz ze seznamu na detail musí obsahovat `?back={{ list_url|urlencode }}`
-- `list_url` se vždy buduje v routeru z `request.url` (path + query), aby zachytil všechny filtry:
-  ```python
-  list_url = str(request.url.path)
-  if request.url.query:
-      list_url += "?" + str(request.url.query)
-  ```
-- Parametr `back` se musí propagovat přes:
-  - filtrační bubliny (v query string proměnných `_base`, `_base2`, `_ubase` atd.)
-  - HTMX hledání a filtry (hidden input `<input type="hidden" name="back">` + přidání `[name='back']` do `hx-include`)
-  - řadící odkazy v hlavičkách sloupců
-  - `_back` helper proměnná v šabloně: `{% set _back = "&back=" ~ (back_url|default('')|urlencode) if back_url else "" %}`
-- Detailová stránka vždy přijímá `back` query parametr a zobrazuje šipku zpět
-- **Detailová stránka s vlastními filtry/bublinami** (např. sync compare, voting ballots): bubliny a sort odkazy musí propagovat `back` stejně jako na seznamových stránkách — jinak se po kliknutí na filtr/řazení ztratí šipka zpět
-- **HTMX inline edit partials (`upravit-formular`, `info`) NEPOTŘEBUJÍ `back` parametr** — swapují obsah uvnitř stránky, uživatel neodchází. Back URL řeší nadřazená detail stránka, ne vnořené partials
-- Při vícenásobném zanoření (seznam → detail → detail) se back URL řetězí: `?back={{ ('/aktualni/url?back=' ~ (back_url|urlencode))|urlencode }}`
-- Back label se nastavuje dynamicky podle cílové URL pomocí řetězených `if/elif` s `in` nebo `.startswith()`:
-  ```python
-  back_label = (
-      "Zpět na hromadné úpravy" if "/sprava/hromadne" in back
-      else "Zpět na detail jednotky" if "/jednotky/" in back
-      else "Zpět na seznam jednotek" if back.startswith("/jednotky")
-      else "Zpět na porovnání" if "/synchronizace/" in back
-      else "Zpět na hlasovací lístek" if "/hlasovani/" in back
-      else "Zpět na nastavení" if back.startswith("/nastaveni")
-      else "Zpět na seznam vlastníků"
-  )
-  ```
-- `list_url` = URL aktuální stránky s query parametry (pro odkazy na detail, teče dopředu). `back_url` = příchozí `back` parametr (pro šipku zpět, teče dozadu). Nikdy nezaměňovat
-- Pokud stránka má expandovatelné řádky (např. hromadné úpravy), back URL musí obsahovat i identifikátor rozbalené položky (např. `&hodnota=SJM`)
-- Cílová stránka pak automaticky rozbalí odpovídající řádek pomocí skriptu:
-  ```javascript
-  var hodnota = new URLSearchParams(window.location.search).get('hodnota');
-  if (hodnota) { /* najít a kliknout na řádek s data-hodnota == hodnota */ }
-  ```
-- **Obnova scroll pozice** — viz [UI_GUIDE.md § 13](docs/UI_GUIDE.md). Dva vzory:
-  - **Back URL (hash)**: řádky mají `id`, back URL obsahuje `#hash`, stránka volá `scrollToHash()` z `app.js`. Pro HTMX boost navigaci (AJAX body swap) řeší scroll `MutationObserver` v `app.js` — inline scripty se spustí před swapem (starý DOM), observer detekuje nový DOM a scrolluje po 80ms. HTMX config `scrollIntoViewOnBoost: false` v `base.html` zabraňuje výchozímu scrollu na začátek. **Scroll kontejner MUSÍ mít `overflow-y-auto overflow-x-hidden min-h-0`** (ne `overflow-auto`) — jinak HTMX boost neobnoví scroll pozici. CSS `scroll-margin-top: 40px` v `custom.css` zabraňuje zakrytí řádku sticky hlavičkou
-  - **POST+redirect (sessionStorage)**: pro inline formuláře na stejné stránce — `sessionStorage` uloží `scrollTop` před submitem, obnoví přesnou pixel pozici po redirectu. Hash se stripne přes `history.replaceState` aby prohlížeč nepřeskočil
-- **Kontrola při přidání `<a href>` na entitu** — VŽDY ověřit 3 věci: (1) odkaz má `?back=`, (2) router předává `list_url` do kontextu, (3) cílová stránka má odpovídající `back_label` větev
+> Viz **[docs/NAVIGATION.md](docs/NAVIGATION.md)** — `list_url`, `back_url`, propagace přes bubliny/HTMX, scroll pozice, back label logika.
 
 ## Tabulky — povinný checklist
 
@@ -167,155 +128,11 @@
 
 ## Router vzory
 
-### Boilerplate
-- Každý router: `router = APIRouter()` + `from app.utils import templates` (sdílená singleton instance)
-- Žádné prefixy na `APIRouter()` — všechny prefixy v `main.py` přes `include_router(prefix=...)`
-- Každý `TemplateResponse` musí obsahovat `"active_nav": "module_key"` pro zvýraznění sidebaru
+> Viz **[docs/ROUTER_PATTERNS.md](docs/ROUTER_PATTERNS.md)** — boilerplate, PRG, flash zprávy, HTMX partials, TemplateResponse API, řazení, validace, duplicity, tenants dedup.
 
-### POST-Redirect-GET (PRG)
-- Všechny POST endpointy po mutaci: `RedirectResponse(url, status_code=302)` pro non-HTMX requesty
-- Pro HTMX requesty: vrací partial šablonu místo redirectu
-- Vždy `status_code=302`, nikdy 303 nebo 301
+## Nové moduly / entity + Export dat
 
-### Entity not found → redirect
-- Když `db.query(Model).get(id)` vrátí `None`: `RedirectResponse("/seznam", status_code=302)`
-- Nikdy `HTTPException(404)` — uživatel je tiše přesměrován na seznam
-
-### Flash zprávy (toast)
-- Zobrazují se jako **toast** — fixní pozice vpravo nahoře, nepřesouvají obsah. Viz [UI_GUIDE.md § 18b](docs/UI_GUIDE.md)
-- Předávají se jako `flash_message` + `flash_type` (`"error"`, `"warning"`, nebo default) v kontextu šablony
-- Pro zprávy přes redirect: POST handler redirectuje s `?flash=ok`, GET handler přeloží na `flash_message` v kontextu
-- **Nikdy nepsat inline flash bloky v šablonách** — vše řeší globální toast v `base.html`
-- Projekt NEPOUŽÍVÁ session-based flash messaging
-
-### HTMX partial odpovědi
-- Router rozlišuje HX-Request vs HX-Boosted — boosted navigace dostává plnou stránku:
-  ```python
-  from app.utils import is_htmx_partial
-
-  if is_htmx_partial(request):
-      return templates.TemplateResponse(request, "partial.html", ctx)
-  return templates.TemplateResponse(request, "full_page.html", ctx)
-  ```
-- Partial = jen `<tr>` řádky (tbody-only), hlavní šablona dělá `{% include "partial.html" %}` uvnitř `<tbody id="...">`
-
-### Starlette 0.29+ TemplateResponse API
-- Všechna volání `templates.TemplateResponse` MUSÍ předávat `request` jako **první pozicionální argument**, ne jako klíč v context dictu:
-  ```python
-  # SPRÁVNĚ (Starlette 0.29+)
-  return templates.TemplateResponse(request, "tpl.html", {"foo": bar, ...})
-
-  # ŠPATNĚ (deprecated, Starlette warning)
-  return templates.TemplateResponse("tpl.html", {"request": request, "foo": bar, ...})
-  ```
-- Context dict už **nemá obsahovat `"request": request`** — Starlette ho doplní automaticky
-- Platí pro všechny routery (211 volání ve 32 souborech). Při přidání nového TemplateResponse vždy nový API styl
-
-### HTMX redirect po POST (XSS-safe vzor)
-- Pro POST handlery které po úspěšné mutaci mají přesměrovat HTMX klienta NIKDY nepoužívat `HTMLResponse(f"<script>...</script>")` nebo interpolované f-stringy — XSS riziko
-- Správný vzor:
-  ```python
-  from fastapi.responses import Response
-  return Response(status_code=204, headers={"HX-Redirect": f"/najemci/{tenant.id}"})
-  ```
-- Používá se v `tenants/crud.py`, `spaces/crud.py` — pro HTMX klient v reakci na hlavičku `HX-Redirect` provede navigaci
-
-### Řazení — `SORT_COLUMNS` dictionary
-- Modul-level `SORT_COLUMNS` dict mapující sort parametry na SQLAlchemy sloupce (nebo `None` pro Python-side sort)
-- SQL sorty vždy s `.nulls_last()`
-- Python-side sort: `items.sort(key=lambda x: ..., reverse=(order == "desc"))`
-
-### Helper funkce v routerech
-- Interní helper funkce mají prefix `_` (např. `_ballot_stats`, `_purge_counts`)
-- Vrací dict, který se rozbalí do template kontextu: `**_ballot_stats(voting)`
-- Typické helpery: `voting.has_processed_ballots` (model property), `_voting_wizard(voting, step)` / `_tax_wizard(...)` (wizard stepper kontext)
-- Validační funkce v service vrstvě: `validate_owner_mapping(mapping)` / `validate_contact_mapping(mapping)` → `str | None` (chybová zpráva nebo None)
-
-### Formulářová validace — návrat formuláře s chybou
-- Při validační chybě (neplatný email, duplicita, rozsah) vracet **formulářovou šablonu s `error`** místo tichého redirectu:
-  ```python
-  return templates.TemplateResponse("partials/owner_create_form.html", {
-      "request": request,
-      "error": "Neplatný formát emailu",
-      "form_data": {"first_name": first_name, "last_name": last_name, ...},
-  })
-  ```
-- Šablona zobrazí červenou hlášku a zachová vyplněná pole přes `form_data`
-- Používáno v: `owners/crud.py` (email validace), `units.py` (unit_number, building_number rozsah)
-
-### Detekce duplicit při vytváření entity
-- Před vytvořením vlastníka ověřit duplicitu (jméno, RČ, email) — zobrazit varování s existujícími záznamy
-- Uživatel může vynuceně pokračovat přes hidden field `force_create`:
-  ```python
-  if duplicates and not force_create:
-      return templates.TemplateResponse("partials/owner_create_form.html", {
-          "request": request, "duplicates": duplicates, "form_data": {...},
-      })
-  ```
-
-### Tenants — dedup helper a resolved properties
-- **`find_existing_tenant()`** v `app/routers/tenants/_helpers.py` — jediný zdroj pravdy pro vyhledávání existujícího nájemce při create (`/najemci/novy`) i při inline vytvoření nájemce v novém prostoru (`/prostory/novy`). Prevence duplicit = merge místo insert
-- Priorita hledání: `owner_id` → `birth_number` → `company_id` → `name_normalized + tenant_type` (pouze pro nepropojené). Vrací první shodu nebo `None`
-- **Výjimka `spaces/crud.py`**: rychlé vytvoření nájemce při zakládání prostoru (`/prostory/novy`) má jen pole příjmení + jméno (ne RČ/IČ). `find_existing_tenant` se tam volá s `birth_number=None, company_id=None` — dedup probíhá **jen podle jména**. Reuse je indikován flash `tenant_reused` (amber toast na detailu prostoru), uživatel má možnost opravit přiřazení v sekci nájemců. Jiný kontrakt než při `/najemci/novy`, kde se vyplňují všechna ID pole
-- **Resolved properties** na `Tenant` modelu (analogicky k `resolved_phone`, `resolved_email`): `resolved_birth_number`, `resolved_company_id`, `resolved_type`, `resolved_name_normalized` — pokud je tenant propojený na Owner (`owner_id`), čtou se z Owner; jinak z vlastních polí. **Vždy používat resolved varianty** v šablonách, exportu i hledání — přímý přístup k `tenant.birth_number` selže u propojených nájemců
-- **Rozdělené pole jméno v `/prostory/novy`**: formulář má místo jednoho `tenant_name` **dvě pole** `tenant_last_name` + `tenant_first_name` (kvůli strukturované dedup logice a správnému sestavení `name_normalized`). Validace: pokud je vyplněné jakékoliv pole nájemce (jméno/telefon/email/smlouva), je **příjmení povinné** — jinak router vrací formulář s chybou
-- **Multi-space podpora**: `Tenant.active_space_rels` vrací list aktivních SpaceTenants seřazený podle `space_number`, `Tenant.active_space_rel` vrací první (zpětná kompatibilita). Jeden nájemce může mít více současných smluv — seznam i detail zobrazují všechny prostory stacked pod sebou, export má 1 řádek per smlouva
-- Historická duplicita v DB je řešena startup migrací `_migrate_dedupe_tenants` (viz § Startup)
-
-### Dynamické formuláře
-- `Form(...)` pro fixní pole. `await request.form()` + `.get()`/`.getlist()` pro dynamické názvy polí (např. `vote_5`, `update__12__field`)
-
-## Nové moduly / entity
-
-- Musí dodržovat VŠECHNY vzory od začátku:
-  - Back URL navigace (router `back` param + `list_url` + šipka zpět v šabloně)
-  - UI vzory z [UI_GUIDE.md](docs/UI_GUIDE.md) (bubliny, sticky hlavičky, formátování, badge, ikony, inline editace)
-  - HTMX partial odpovědi
-- **Modul s více stránkami** (např. hlasování: detail, lístky, zpracování, neodevzdané):
-  - Sdílený header jako partial (`_modul_header.html`) — stejný nadpis, bubliny, tlačítka na VŠECH stránkách
-  - Aktivní bublina zvýrazněna `ring-2 ring-{color}-400`
-  - Router: sdílená helper funkce pro výpočet dat bublin (volat ve všech endpointech)
-  - Šablona předává `active_bubble` do partialu pro zvýraznění
-- **Wizard stepper** — vícekrokový workflow (hlasování, rozesílání):
-  - Router helper `_voting_wizard(voting, current_step)` vrací dict s `wizard_steps`, `wizard_current`, `wizard_label`
-  - Router helper `_tax_wizard(...)` vrací dict s `wizard_steps`, `wizard_current`, `wizard_total` (bez `wizard_label`)
-  - Plná varianta: `partials/wizard_stepper.html` — samostatný stepper nad obsahem
-  - Kompaktní varianta: `partials/wizard_stepper_compact.html` — inline v kartě na seznamu
-  - Stavy kroků: `done` (zelená), `active` (zelená), `current+done` (tmavší zelená s ring efektem), `pending` (šedá), `sending` (oranžová pulzace)
-- **Sdílený progress bar pro dávkové odesílání** — `partials/_send_progress.html` + `partials/_send_progress_inner.html`:
-  - Používá se v: nesrovnalosti (platby) i hromadné rozesílání (daně)
-  - Vnější partial (`_send_progress.html`): polling div + tlačítka (Pozastavit/Pokračovat/Zrušit) **mimo polled oblast** + JS synchronizace stavu
-  - Vnitřní partial (`_send_progress_inner.html`): progress bar, statistiky, stav — swapuje se HTMX pollingem (500ms)
-  - **Tlačítka MUSÍ být mimo HTMX-polled oblast** — jinak `data-confirm` modal přestane fungovat (HTMX swap odstraní formulář z DOM během potvrzování)
-  - Stav se synchronizuje přes hidden inputy (`#progress-done`, `#progress-paused`, `#progress-waiting`) + `htmx:afterSwap` event
-  - Po dokončení (`done=True`) polling čeká 3 sekundy před redirectem (uživatel vidí výsledek)
-  - Router helper `_*_eta(progress)` MUSÍ předávat `done` flag do šablony
-  - Router `finished_at = time.monotonic()` se ukládá v `finally` bloku i v cancel endpointu
-  - Volání: `{% with poll_url=..., pause_url=..., resume_url=..., cancel_url=..., cancel_label=..., cancel_confirm=... %}{% include "partials/_send_progress.html" %}{% endwith %}`
-- Registrace v `app/main.py` (`include_router`)
-- Export modelů v `app/models/__init__.py`
-- Odkaz v sidebar (`base.html`) s `active_nav` kontrolou
-- Přidání do README.md (popis modulu + API endpointy)
-- Odkaz v sidebaru (`base.html`): top položky (Přehled, Import z Excelu), sekce Evidence (Vlastníci, Jednotky, Nájemci, Prostory), sekce Moduly (Hlasování, Rozesílání, Kontroly, Platby), sekce Systém (Administrace, Nastavení). Ikona `w-4 h-4 mr-2` SVG + text label
-
-## Export dat (Excel + CSV)
-
-- Export musí vždy odrážet **aktuální filtrovaný pohled** — ne všechna data
-- Filtr se přenáší přes hidden input ve formuláři: `<input type="hidden" name="filtr" value="{{ filtr }}">`
-- Export endpoint aplikuje **stejnou logiku filtrování** jako zobrazovací endpoint
-- **URL vzor**: seznamové exporty na `/{modul}/exportovat/{fmt}`, detailové exporty (dokumenty patřící jedné entitě, např. matice plateb pro rok, hlasovací lístky) na `/{modul}/{id}/exportovat/{fmt}`. Vždy `{fmt}` jako poslední segment — přijímá `xlsx`/`csv`
-- **Excel**: generování přes `openpyxl` (ne pandas): bold hlavička (`Font(bold=True)`), auto-width sloupců (max 45 znaků), žlutá `PatternFill` pro zvýraznění rozdílů. Response: `media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"`
-- **CSV**: UTF-8 s BOM (`\ufeff` na začátku), středník jako oddělovač. Response: `media_type="text/csv; charset=utf-8"`, filename `{modul}_YYYYMMDD.csv`
-- **Název souboru musí odrážet aktivní filtr/bublinu**:
-  - Formát: `{modul}_{suffix}_{YYYYMMDD}.{fmt}` (s ID entity: `{modul}_{id}_{suffix}_{YYYYMMDD}`)
-  - Suffix = český popis aktivního filtru bez diakritiky. Bez filtru = `_vsichni` / `_vsechny` / `_vse`
-  - Suffixový dict se definuje přímo v export endpointu: `typ_labels = {"physical": "fyzicke", "legal": "pravnicke"}`
-  - Logika: vzít **první neprázdný filtr** (priorita: typ → kontakt → stav → vlastnictví → sekce → hledání), přidat odpovídající suffix
-  - Příklady: `vlastnici_fyzicke_20260309.xlsx`, `jednotky_sekce_A_20260309.csv`, `hlasovani_1_nezpracovane_20260309.xlsx`, `porovnani_rozdily_20260309.xlsx`, `vypis_3_nenaparovane_20260309.csv`
-  - **Nikdy nepoužívat diakritiku v názvu** — HTTP `Content-Disposition` header kóduje latin-1
-  - **Při přidání nového exportu s bublinami/filtry VŽDY přidat suffix logiku** — uživatel musí z názvu souboru poznat, co exportoval
-- **Upload limity**: centralizované v `UPLOAD_LIMITS` dict v `app/utils.py`. Volání: `validate_upload(file, **UPLOAD_LIMITS["excel"])`. Při přidání nového uploadu přidat klíč do `UPLOAD_LIMITS`
-- Formulář exportu musí mít `hx-boost="false"` (viz [UI_GUIDE.md § 14](docs/UI_GUIDE.md))
+> Viz **[docs/NEW_MODULE_CHECKLIST.md](docs/NEW_MODULE_CHECKLIST.md)** — checklist nového modulu, wizard stepper, progress bar, export (Excel/CSV), filename suffix logika.
 
 ## Mazání dat (purge)
 
@@ -474,69 +291,8 @@
 
 ## Uživatelské role — plán implementace (na konec)
 
-> Implementovat až budou hotové všechny moduly. Role je ortogonální vrstva — přidá se mechanicky bez předělávání existujícího kódu.
-
-### Role
-
-| Role | Popis | Typický uživatel |
-|------|-------|------------------|
-| **admin** | Plný přístup ke všemu | Předseda SVJ, správce |
-| **board** | Správa dat, ne destruktivní systémové operace | Člen výboru |
-| **auditor** | Read-only přístup ke všem datům | Kontrolní orgán |
-| **owner** | Přístup pouze ke svým údajům a hlasování | Jednotlivý vlastník |
-
-### Matice oprávnění
-
-| Modul / Akce | admin | board | auditor | owner |
-|--------------|-------|-------|---------|-------|
-| Dashboard — přehled | celý | celý | celý | jen své jednotky |
-| Vlastníci — seznam, detail | CRUD | CRUD | read | jen svůj profil |
-| Jednotky — seznam, detail | CRUD | CRUD | read | jen své jednotky |
-| Hlasování — správa (CRUD) | ano | ano | ne | ne |
-| Hlasování — zobrazení výsledků | ano | ano | ano | jen svá hlasování |
-| Hlasování — online hlas (budoucí) | — | — | — | ano |
-| Hromadné rozesílání — správa | ano | ano | read | jen své dokumenty |
-| Synchronizace — import/výměna | ano | ano | ne | ne |
-| Evidence plateb — správa | ano | ano | read | ne |
-| Kontrola podílu | ano | ano | read | ne |
-| Administrace — info SVJ, výbor | ano | read | read | ne |
-| Administrace — zálohy, smazání dat | ano | ne | ne | ne |
-| Administrace — hromadné úpravy | ano | ano | ne | ne |
-| Administrace — číselníky | ano | ano | ne | ne |
-| Export dat | ano | ano | ano | ne |
-| Správa uživatelů | ano | ne | ne | ne |
-
-### Technické řešení
-
-- **Autentizace:** session-based (cookie), `bcrypt`/`passlib` pro hesla
-- **Model:** `User (id, username, password_hash, role: UserRole, owner_id: FK → Owner nullable, is_active, created_at)`
-- **Autorizace:** FastAPI `Depends(get_current_user)` + helper `require_role("admin", "board")`
-- **Šablony:** `current_user` v kontextu, sidebar podmíněný dle role, destruktivní tlačítka skrytá
-
-### Nové soubory
-
-- `app/models/user.py` — User model + UserRole enum
-- `app/routers/auth.py` — login/logout/správa uživatelů
-- `app/services/auth_service.py` — hash, verify, session
-- `app/templates/auth/login.html`, `users.html`
-
-### Postup implementace
-
-1. Model `User` + migrace + seed admin účtu
-2. Auth service (hash, verify, session middleware)
-3. Login/logout stránky
-4. `get_current_user` dependency + `require_role` helper
-5. Přidat do všech routerů (mechanicky)
-6. Sidebar podmíněný dle role
-7. Skrýt destruktivní tlačítka v šablonách
-8. Správa uživatelů (admin panel)
-9. Owner self-service (volitelné, až bude potřeba)
-
-### Pravidlo pro průběžný vývoj
-
-- **NEPOUŽÍVAT hardcoded admin logiku** rozsekanou po šablonách (např. `{% if is_admin %}`)
-- Destruktivní akce řešit přes `data-confirm` / `hx-confirm` — obojí automaticky používá custom `svjConfirm()` modal (viz [UI_GUIDE.md § 17](docs/UI_GUIDE.md))
-- Nové moduly navrhovat tak, aby šly snadno obalit `require_role()` dependency
+> Viz **[docs/USER_ROLES.md](docs/USER_ROLES.md)** — role (admin/board/auditor/owner), matice oprávnění, technické řešení, postup implementace.
+> Pravidlo: **NEPOUŽÍVAT hardcoded admin logiku** — destruktivní akce přes `data-confirm`/`hx-confirm`, nové moduly navrhovat pro `require_role()`.
 
 ---
 
