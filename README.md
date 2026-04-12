@@ -449,7 +449,7 @@ Sloučená stránka se dvěma sekcemi — Kontrola vlastníků (nahoře) a Kontr
 
 ### I. Nastavení (`/nastaveni`)
 
-- **Multi-SMTP profily** (max 3) — karty s inline editací (HTMX), test připojení per-profil, base64 obfuskace hesel v DB. Automatický import z `.env` jako první profil při startu. Výběr profilu per-rozesílka (dropdown v nastavení odesílání)
+- **Multi-SMTP profily** (max 3) — karty s inline editací (HTMX), test připojení per-profil, base64 obfuskace hesel v DB. Automatický import z `.env` jako první profil při startu. Výběr profilu per-rozesílka (dropdown v nastavení odesílání). Volitelné **ukládání do IMAP Odeslaných** — po odeslání emailu se kopie automaticky uloží do složky Odeslaných přes IMAP (fire-and-forget, neblokuje odesílání). IMAP host se odvodí ze SMTP host (`smtp.x.cz` → `imap.x.cz`), složka se auto-detekuje přes `\Sent` flag
 - Výchozí nastavení odesílání (kolapsovatelná sekce) — globální defaults pro dávku, interval, potvrzení, testovací email. Nové rozesílky a nesrovnalosti dědí tato nastavení, lze je pak přepsat per-session/per-výpis
 - Historie odeslaných emailů (posledních 100):
   - Řaditelné sloupce (datum, modul, příjemce, předmět, stav) s šipkami
