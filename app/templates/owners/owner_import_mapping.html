@@ -62,15 +62,15 @@
 
     <!-- Stats bar -->
     <div class="flex items-center gap-3 mb-3" id="stats-bar">
-        <span id="stats-matched" class="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800">
+        <span id="stats-matched" class="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
             {{ stats.matched }}/{{ stats.total }} nalezeno
         </span>
         {% if stats.required_missing > 0 %}
-        <span id="stats-required" class="px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-800">
+        <span id="stats-required" class="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800">
             {{ stats.required_missing }} povinných chybí
         </span>
         {% else %}
-        <span id="stats-required" class="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800">
+        <span id="stats-required" class="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
             Povinná pole OK
         </span>
         {% endif %}
