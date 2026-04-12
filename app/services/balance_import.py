@@ -202,6 +202,7 @@ def execute_balance_import(
                 owner_name=owner_name.strip() if owner_name else None,
                 note=", ".join(note_parts) if note_parts else None,
             ))
+            db.flush()
         imported += 1
 
     db.commit()
