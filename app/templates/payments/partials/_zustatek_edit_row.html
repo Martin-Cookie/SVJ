@@ -1,36 +1,39 @@
 <tr class="border-b border-gray-100 dark:border-gray-700 bg-blue-50 dark:bg-blue-900/20" id="bal-{{ b.id }}">
-    <td colspan="6" class="px-3 py-2 align-middle">
-        <form method="post" action="/platby/zustatky/{{ b.id }}/upravit" class="flex items-center gap-2 flex-wrap" hx-boost="false">
-            <input type="hidden" name="rok" value="{{ rok }}">
-            <input type="hidden" name="q" value="{{ q }}">
-            <input type="hidden" name="sort" value="{{ sort }}">
-            <input type="hidden" name="order" value="{{ order }}">
-            <input type="hidden" name="back" value="{{ back_url }}">
-            <!-- Jednotka (read-only) -->
-            <span class="text-xs font-medium text-gray-700 dark:text-gray-300">
-                č. {{ b.unit.unit_number if b.unit else '?' }}
-            </span>
-            <!-- Vlastník -->
-            <select name="owner_id" id="edit-owner-{{ b.id }}"
-                class="h-8 w-48 px-2 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
-                <option value="">— bez vlastníka —</option>
-                {% for o in unit_owners %}
-                <option value="{{ o.id }}" {% if b.owner_id == o.id %}selected{% endif %}>{{ o.display_name }}</option>
-                {% endfor %}
-            </select>
-            <!-- Částka -->
-            <div class="flex items-center gap-1">
-                <input type="number" name="opening_amount" value="{{ b.opening_amount }}" step="0.01" required
-                    class="h-8 w-32 px-2 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
-                <span class="text-xs text-gray-400">Kč</span>
-            </div>
-            <!-- Poznámka -->
-            <input type="text" name="note" value="{{ b.note or '' }}" placeholder="Poznámka"
-                class="h-8 px-2 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white flex-1 min-w-[120px]">
-            <!-- Tlačítka -->
-            <button type="submit" class="h-8 px-2 text-xs bg-blue-600 text-white rounded hover:bg-blue-700">Uložit</button>
-            <button type="button" class="h-8 px-2 text-xs bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300"
-                hx-get="/platby/zustatky/{{ b.id }}/info?rok={{ rok }}&q={{ q }}&sort={{ sort }}&order={{ order }}&back={{ back_url|default('')|urlencode }}&list_url={{ list_url|default('')|urlencode }}" hx-target="closest tr" hx-swap="outerHTML">Zrušit</button>
-        </form>
+    <form method="post" action="/platby/zustatky/{{ b.id }}/upravit" hx-boost="false">
+    <input type="hidden" name="rok" value="{{ rok }}">
+    <input type="hidden" name="q" value="{{ q }}">
+    <input type="hidden" name="sort" value="{{ sort }}">
+    <input type="hidden" name="order" value="{{ order }}">
+    <input type="hidden" name="back" value="{{ back_url }}">
+    <td class="px-3 py-2 font-medium text-gray-900 dark:text-white whitespace-nowrap">
+        č. {{ b.unit.unit_number if b.unit else '?' }}
     </td>
+    <td class="px-3 py-2">
+        <select name="owner_id" class="h-7 w-full px-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+            <option value="">— bez vlastníka —</option>
+            {% for o in unit_owners %}
+            <option value="{{ o.id }}" {% if b.owner_id == o.id %}selected{% endif %}>{{ o.display_name }}</option>
+            {% endfor %}
+        </select>
+    </td>
+    <td class="px-3 py-2">
+        <div class="flex items-center gap-1">
+            <input type="number" name="opening_amount" value="{{ b.opening_amount }}" step="0.01" required
+                class="h-7 w-full px-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+            <span class="text-xs text-gray-400">Kč</span>
+        </div>
+    </td>
+    <td class="px-3 py-2 text-gray-500 dark:text-gray-400 text-xs">
+        Ručně
+    </td>
+    <td class="px-3 py-2">
+        <input type="text" name="note" value="{{ b.note or '' }}" placeholder="Poznámka"
+            class="h-7 w-full px-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+    </td>
+    <td class="px-3 py-2 text-right whitespace-nowrap">
+        <button type="submit" class="text-xs text-blue-600 hover:text-blue-800 font-medium mr-1">Uložit</button>
+        <button type="button" class="text-xs text-gray-500 hover:text-gray-700"
+            hx-get="/platby/zustatky/{{ b.id }}/info?rok={{ rok }}&q={{ q }}&sort={{ sort }}&order={{ order }}&back={{ back_url|default('')|urlencode }}&list_url={{ list_url|default('')|urlencode }}" hx-target="closest tr" hx-swap="outerHTML">Zrušit</button>
+    </td>
+    </form>
 </tr>
