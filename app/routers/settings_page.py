@@ -328,6 +328,10 @@ async def smtp_create(
             "error": "Název, SMTP server a email odesílatele jsou povinné.",
         })
 
+    # Placeholder •••• není skutečné heslo
+    if smtp_password and all(c == "•" for c in smtp_password):
+        smtp_password = ""
+
     if not smtp_password:
         return templates.TemplateResponse(request, "partials/smtp_info_with_new.html", {
             **_smtp_profiles_ctx(db),
@@ -386,7 +390,7 @@ async def smtp_update(
     profile.smtp_host = smtp_host.strip()
     profile.smtp_port = smtp_port
     profile.smtp_user = smtp_user.strip()
-    if smtp_password:
+    if smtp_password and not all(c == "•" for c in smtp_password):
         profile.smtp_password_b64 = encode_smtp_password(smtp_password)
     profile.smtp_from_name = smtp_from_name.strip()
     profile.smtp_from_email = smtp_from_email.strip()
