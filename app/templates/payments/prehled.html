@@ -161,7 +161,7 @@
                     </th>
                     {% endif %}
                     {% endfor %}
-                    {% for col_key, col_label in [("celkem", "Celkem"), ("dluh", "Dluh")] %}
+                    {% for col_key, col_label in [("celkem", "Celkem"), ("saldo", "Saldo")] %}
                     {% set new_order = "desc" if sort == col_key and order == "asc" else "asc" %}
                     <th class="px-2 py-2 text-right font-semibold text-gray-600 dark:text-gray-300 whitespace-nowrap">
                         <a href="{{ _sort_base }}sort={{ col_key }}&order={{ new_order }}{{ _back }}" class="hover:text-blue-600 select-none">

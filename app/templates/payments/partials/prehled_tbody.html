@@ -49,8 +49,8 @@
     {% endfor %}
     <td class="px-2 py-1.5 text-right font-medium text-gray-900 dark:text-white whitespace-nowrap">{{ r.total_paid|fmt_num }}</td>
     <td class="px-2 py-1.5 text-right font-medium whitespace-nowrap
-        {% if r.debt > 0 %}text-red-600 dark:text-red-400{% else %}text-green-600 dark:text-green-400{% endif %}">
-        {% if r.debt > 0 %}{{ r.debt|fmt_num }}{% else %}0{% endif %}
+        {% if r.saldo > 0 %}text-green-600 dark:text-green-400{% elif r.saldo < 0 %}text-red-600 dark:text-red-400{% else %}text-gray-400 dark:text-gray-500{% endif %}">
+        {% if r.saldo != 0 %}{{ r.saldo|fmt_num }}{% else %}0{% endif %}
     </td>
 </tr>
 {% else %}
@@ -96,8 +96,8 @@
     {% endfor %}
     <td class="px-2 py-1.5 text-right font-medium text-gray-900 dark:text-white whitespace-nowrap">{{ r.total_paid|fmt_num }}</td>
     <td class="px-2 py-1.5 text-right font-medium whitespace-nowrap
-        {% if r.debt > 0 %}text-red-600 dark:text-red-400{% else %}text-green-600 dark:text-green-400{% endif %}">
-        {% if r.debt > 0 %}{{ r.debt|fmt_num }}{% else %}0{% endif %}
+        {% if r.saldo > 0 %}text-green-600 dark:text-green-400{% elif r.saldo < 0 %}text-red-600 dark:text-red-400{% else %}text-gray-400 dark:text-gray-500{% endif %}">
+        {% if r.saldo != 0 %}{{ r.saldo|fmt_num }}{% else %}0{% endif %}
     </td>
 </tr>
 {% endif %}

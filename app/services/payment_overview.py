@@ -134,7 +134,7 @@ def compute_payment_matrix(db: Session, year: int, section: str = "", space_type
         total_paid_all += row_paid
         # opening: kladný = přeplatek (snižuje dluh), záporný = nedoplatek (zvyšuje dluh)
         expected = round(monthly * len(months_with_data) - opening, 2)
-        debt = round(max(0, expected - row_paid), 2)
+        saldo = round(row_paid - expected, 2)
 
         rows.append({
             "unit": unit,
@@ -146,7 +146,7 @@ def compute_payment_matrix(db: Session, year: int, section: str = "", space_type
             "months": months,
             "total_paid": row_paid,
             "expected": expected,
-            "debt": debt,
+            "saldo": saldo,
         })
 
     return {
@@ -161,8 +161,8 @@ def compute_payment_matrix(db: Session, year: int, section: str = "", space_type
 def compute_debtor_list(db: Session, year: int) -> list:
     """Jednotky kde total_paid < expected (dlužníci)."""
     matrix = compute_payment_matrix(db, year)
-    debtors = [r for r in matrix["units"] if r["debt"] > 0]
-    debtors.sort(key=lambda x: x["debt"], reverse=True)
+    debtors = [r for r in matrix["units"] if r["saldo"] < 0]
+    debtors.sort(key=lambda x: x["saldo"])
     return debtors, matrix["months_with_data"]
 
 
@@ -242,8 +242,8 @@ def compute_unit_payment_detail(db: Session, unit_id: int, year: int) -> dict:
 def compute_space_debtor_list(db: Session, year: int) -> tuple:
     """Prostory kde total_paid < expected (dlužníci)."""
     matrix = compute_space_payment_matrix(db, year)
-    debtors = [r for r in matrix["rows"] if r["debt"] > 0]
-    debtors.sort(key=lambda x: x["debt"], reverse=True)
+    debtors = [r for r in matrix["rows"] if r["saldo"] < 0]
+    debtors.sort(key=lambda x: x["saldo"])
     return debtors, matrix["months_with_data"]
 
 
@@ -360,7 +360,7 @@ def compute_space_payment_matrix(db: Session, year: int) -> dict:
         total_paid_all += row_paid
         # opening: kladný = přeplatek (snižuje dluh), záporný = nedoplatek (zvyšuje dluh)
         expected = round(monthly * len(months_with_data) - opening, 2)
-        debt = round(max(0, expected - row_paid), 2)
+        saldo = round(row_paid - expected, 2)
 
         rows.append({
             "space": space,
@@ -371,7 +371,7 @@ def compute_space_payment_matrix(db: Session, year: int) -> dict:
             "months": months,
             "total_paid": row_paid,
             "expected": expected,
-            "debt": debt,
+            "saldo": saldo,
             "entity_type": "space",
         })
 

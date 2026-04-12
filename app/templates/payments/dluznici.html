@@ -90,13 +90,13 @@
                 {% set _back = "&back=" ~ (back_url|default('')|urlencode) if back_url else "" %}
                 <tr>
                     {% if entita == 'prostory' %}
-                    {% set _dcols = [("cislo", "Č. prostoru"), ("vlastnik", "Nájemce"), ("predpis", "Předpis/měs"), ("zaplaceno", "Zaplaceno"), ("dluh", "Dluh"), ("mesice", "Měsíce")] %}
+                    {% set _dcols = [("cislo", "Č. prostoru"), ("vlastnik", "Nájemce"), ("predpis", "Předpis/měs"), ("zaplaceno", "Zaplaceno"), ("saldo", "Saldo"), ("mesice", "Měsíce")] %}
                     {% else %}
-                    {% set _dcols = [("cislo", "Č. jednotky"), ("vlastnik", "Vlastník"), ("predpis", "Předpis/měs"), ("zaplaceno", "Zaplaceno"), ("dluh", "Dluh"), ("mesice", "Měsíce")] %}
+                    {% set _dcols = [("cislo", "Č. jednotky"), ("vlastnik", "Vlastník"), ("predpis", "Předpis/měs"), ("zaplaceno", "Zaplaceno"), ("saldo", "Saldo"), ("mesice", "Měsíce")] %}
                     {% endif %}
                     {% for col_key, col_label in _dcols %}
                     {% set new_order = "desc" if sort == col_key and order == "asc" else "asc" %}
-                    <th class="px-3 py-2 {% if col_key in ['predpis', 'zaplaceno', 'dluh'] %}text-right{% elif col_key == 'mesice' %}text-center{% else %}text-left{% endif %} font-semibold text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                    <th class="px-3 py-2 {% if col_key in ['predpis', 'zaplaceno', 'saldo'] %}text-right{% elif col_key == 'mesice' %}text-center{% else %}text-left{% endif %} font-semibold text-gray-600 dark:text-gray-300 whitespace-nowrap">
                         <a href="{{ _sort_base }}sort={{ col_key }}&order={{ new_order }}{{ _back }}"
                            class="hover:text-blue-600 select-none">
                             {{ col_label }}

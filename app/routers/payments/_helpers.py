@@ -87,7 +87,7 @@ def _compute_debts(db: Session, year: int) -> dict[int, float]:
     """Společná logika výpočtu dluhů per jednotka.
 
     Vrací mapu {unit_id: dluh_kč} pro všechny jednotky s dluhem > 0.
-    Dluh = (předpis × měsíce_s_platbami + opening_balance) - zaplaceno.
+    Saldo = (předpis × měsíce_s_platbami - opening_balance) - zaplaceno.
     """
     py = db.query(PrescriptionYear).filter_by(year=year).first()
     if not py:
@@ -142,11 +142,11 @@ def _compute_debts(db: Session, year: int) -> dict[int, float]:
     result = {}
     for unit_id, monthly in presc_by_unit.items():
         opening = balance_map.get(unit_id, 0)
-        expected = round(monthly * months_count + opening, 2)
+        expected = round(monthly * months_count - opening, 2)
         paid = paid_map.get(unit_id, 0)
-        debt = round(expected - paid, 2)
-        if debt > 0:
-            result[unit_id] = debt
+        saldo = round(paid - expected, 2)
+        if saldo < 0:
+            result[unit_id] = abs(saldo)
 
     return result
 

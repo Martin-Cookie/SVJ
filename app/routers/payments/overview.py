@@ -37,7 +37,7 @@ SORT_COLUMNS_MATRIX = {
     "predpis": None,
     "prevod": None,
     "celkem": None,
-    "dluh": None,
+    "saldo": None,
     # Měsíční sloupce m1–m12
     **{f"m{i}": None for i in range(1, 13)},
 }
@@ -55,7 +55,7 @@ def _matrix_sort_fns(entita: str) -> dict:
             "predpis": lambda r: r["monthly"],
             "prevod": lambda r: r.get("opening", 0),
             "celkem": lambda r: r["total_paid"],
-            "dluh": lambda r: r["debt"],
+            "saldo": lambda r: r["saldo"],
         }
     else:
         fns = {
@@ -65,7 +65,7 @@ def _matrix_sort_fns(entita: str) -> dict:
             "predpis": lambda r: r["monthly"],
             "prevod": lambda r: r.get("opening", 0),
             "celkem": lambda r: r["total_paid"],
-            "dluh": lambda r: r["debt"],
+            "saldo": lambda r: r["saldo"],
         }
     for mi in range(1, 13):
         fns[f"m{mi}"] = (lambda m: lambda r: r["months"].get(m, {}).get("paid", 0))(mi)
@@ -261,7 +261,7 @@ async def matice_export(
         headers = ["Č. jedn.", "Sekce", "Vlastník", "Předpis/měs", "Převod"]
     for m in months_with_data:
         headers.append(month_labels[m - 1])
-    headers += ["Celkem", "Dluh"]
+    headers += ["Celkem", "Saldo"]
 
     typ_suffix = f"_{strip_diacritics(typ)}" if typ else ""
     q_suffix = f"_hledani" if q else ""
@@ -290,7 +290,7 @@ async def matice_export(
             row_out = [cislo, popis, jmeno, r["monthly"], r.get("opening", 0)]
             for m in months_with_data:
                 row_out.append(r["months"].get(m, {}).get("paid", 0))
-            row_out += [r["total_paid"], r["debt"]]
+            row_out += [r["total_paid"], r["saldo"]]
             writer.writerow(row_out)
         filename = f"{base_name}_{rok}{suffix}_{date_str}.csv"
         return Response(
@@ -325,9 +325,9 @@ async def matice_export(
                 cell.fill = red_fill
             col += 1
         ws.cell(row=i, column=col, value=r["total_paid"])
-        debt_cell = ws.cell(row=i, column=col + 1, value=r["debt"])
-        if r["debt"] > 0:
-            debt_cell.fill = red_fill
+        saldo_cell = ws.cell(row=i, column=col + 1, value=r["saldo"])
+        if r["saldo"] < 0:
+            saldo_cell.fill = red_fill
 
     excel_auto_width(ws)
 
@@ -352,7 +352,7 @@ SORT_COLUMNS_DEBTORS = {
     "vlastnik": None,
     "predpis": None,
     "zaplaceno": None,
-    "dluh": None,
+    "saldo": None,
     "mesice": None,
 }
 
@@ -361,7 +361,7 @@ def _compute_debtors_filtered(
     db: Session,
     rok: int,
     q: str = "",
-    sort: str = "dluh",
+    sort: str = "saldo",
     order: str = "desc",
     entita: str = "",
 ):
@@ -387,7 +387,7 @@ def _compute_debtors_filtered(
                 )
             ]
 
-        sort_key = sort if sort in SORT_COLUMNS_DEBTORS else "dluh"
+        sort_key = sort if sort in SORT_COLUMNS_DEBTORS else "saldo"
         reverse = order == "desc"
         sort_fns = {
             "cislo": lambda r: r["space"].space_number or "",
@@ -396,10 +396,10 @@ def _compute_debtors_filtered(
             ),
             "predpis": lambda r: r["monthly"],
             "zaplaceno": lambda r: r["total_paid"],
-            "dluh": lambda r: r["debt"],
+            "saldo": lambda r: r["saldo"],
             "mesice": lambda r: r["months_unpaid"],
         }
-        debtors.sort(key=sort_fns.get(sort_key, sort_fns["dluh"]), reverse=reverse)
+        debtors.sort(key=sort_fns.get(sort_key, sort_fns["saldo"]), reverse=reverse)
     else:
         debtors, months_with_data = compute_debtor_list(db, rok)
 
@@ -419,17 +419,17 @@ def _compute_debtors_filtered(
                 or q_ascii in strip_diacritics(r["prescription"].owner_name or "")
             ]
 
-        sort_key = sort if sort in SORT_COLUMNS_DEBTORS else "dluh"
+        sort_key = sort if sort in SORT_COLUMNS_DEBTORS else "saldo"
         reverse = order == "desc"
         sort_fns = {
             "cislo": lambda r: r["unit"].unit_number or 0,
             "vlastnik": lambda r: strip_diacritics(r["owner"].display_name if r["owner"] else r["prescription"].owner_name or ""),
             "predpis": lambda r: r["monthly"],
             "zaplaceno": lambda r: r["total_paid"],
-            "dluh": lambda r: r["debt"],
+            "saldo": lambda r: r["saldo"],
             "mesice": lambda r: r["months_unpaid"],
         }
-        debtors.sort(key=sort_fns.get(sort_key, sort_fns["dluh"]), reverse=reverse)
+        debtors.sort(key=sort_fns.get(sort_key, sort_fns["saldo"]), reverse=reverse)
 
     return debtors, months_with_data, sort_key
 
@@ -439,7 +439,7 @@ async def platby_dluznici(
     request: Request,
     rok: int = Query(0),
     q: str = Query(""),
-    sort: str = Query("dluh"),
+    sort: str = Query("saldo"),
     order: str = Query("desc"),
     back: str = Query("", alias="back"),
     db: Session = Depends(get_db),
@@ -479,7 +479,7 @@ async def platby_dluznici(
         "back_url": back,
         "list_url": list_url,
         "months_with_data": months_with_data,
-        "total_debt": sum(r["debt"] for r in debtors),
+        "total_debt": sum(-r["saldo"] for r in debtors),
         "units_count": units_count,
         "spaces_count": spaces_count,
         "active_tab": "dluznici",
@@ -500,7 +500,7 @@ async def dluznici_export(
     fmt: str,
     rok: int = Query(0),
     q: str = Query(""),
-    sort: str = Query("dluh"),
+    sort: str = Query("saldo"),
     order: str = Query("desc"),
     entita: str = Query(""),
     db: Session = Depends(get_db),
@@ -522,7 +522,7 @@ async def dluznici_export(
 
     is_spaces = entita == "prostory"
     if is_spaces:
-        headers = ["Č. prostoru", "Označení", "Nájemce", "Předpis/měs", "Zaplaceno", "Dluh", "Měsíce"]
+        headers = ["Č. prostoru", "Označení", "Nájemce", "Předpis/měs", "Zaplaceno", "Saldo", "Měsíce"]
 
         def _row(r):
             tenant_name = ""
@@ -534,11 +534,11 @@ async def dluznici_export(
                 tenant_name,
                 r["monthly"],
                 r["total_paid"],
-                r["debt"],
+                r["saldo"],
                 r["months_unpaid"],
             ]
     else:
-        headers = ["Č. jednotky", "Vlastník", "Předpis/měs", "Zaplaceno", "Dluh", "Měsíce"]
+        headers = ["Č. jednotky", "Vlastník", "Předpis/měs", "Zaplaceno", "Saldo", "Měsíce"]
 
         def _row(r):
             owner_name = ", ".join(o.display_name for o in r["owners"]) if r["owners"] else (r["prescription"].owner_name or "")
@@ -547,7 +547,7 @@ async def dluznici_export(
                 owner_name,
                 r["monthly"],
                 r["total_paid"],
-                r["debt"],
+                r["saldo"],
                 r["months_unpaid"],
             ]
 
