@@ -100,6 +100,7 @@
                 </form>
                 <form id="test-email-form" method="post" action="/platby/vypisy/{{ statement.id }}/nesrovnalosti/test" hx-boost="false" class="hidden">
                     <input type="hidden" name="test_email" id="test-email-hidden">
+                    <input type="hidden" name="smtp_profile_id" id="test-smtp-profile-hidden">
                     <input type="hidden" name="back" value="{{ back_url }}">
                 </form>
             </div>
@@ -345,6 +346,9 @@ function sendDiscrepancyTest() {
     var email = document.getElementById('test-email-input').value.trim();
     if (!email) return;
     document.getElementById('test-email-hidden').value = email;
+    var sel = document.querySelector('select[name="smtp_profile_id"]');
+    var hid = document.querySelector('input[name="smtp_profile_id"][type="hidden"]');
+    document.getElementById('test-smtp-profile-hidden').value = sel ? sel.value : (hid ? hid.value : '');
     document.getElementById('test-email-form').submit();
 }
 

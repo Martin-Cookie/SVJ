@@ -616,12 +616,16 @@ async def send_test_email(
     test_doc_id: int = Form(0),
     email_subject: str = Form(""),
     email_body: str = Form(""),
+    smtp_profile_id: Optional[int] = Form(None),
     db: Session = Depends(get_db),
 ):
     """Odeslání testovacího emailu s vybraným dokumentem."""
     session = db.query(TaxSession).get(session_id)
     if not session:
         return RedirectResponse("/dane", status_code=302)
+
+    # Profil z formuláře má přednost (uživatel mohl změnit dropdown bez Uložit)
+    effective_smtp_profile_id = smtp_profile_id if smtp_profile_id else session.smtp_profile_id
 
     # Save subject and body from the form (user may not have clicked Uložit)
     if email_subject:
@@ -658,7 +662,7 @@ async def send_test_email(
         module="tax",
         reference_id=session.id,
         db=db,
-        smtp_profile_id=session.smtp_profile_id,
+        smtp_profile_id=effective_smtp_profile_id,
     )
 
     if result["success"]:

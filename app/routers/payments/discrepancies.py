@@ -433,6 +433,10 @@ async def discrepancy_test_email(
     body = render_email_template(template.body_template, ctx_email) if template else ""
     body_html = body.replace("\n", "<br>")
 
+    form_data = await request.form()
+    smtp_pid = form_data.get("smtp_profile_id")
+    smtp_profile_id = int(smtp_pid) if smtp_pid else statement.smtp_profile_id
+
     result = await asyncio.to_thread(
         send_email,
         to_email=test_email.strip(),
@@ -442,10 +446,8 @@ async def discrepancy_test_email(
         module="payment_notice",
         reference_id=statement_id,
         db=db,
-        smtp_profile_id=statement.smtp_profile_id,
+        smtp_profile_id=smtp_profile_id,
     )
-
-    form_data = await request.form()
     back = form_data.get("back", "")
     back_param = f"&back={back}" if back else ""
 
