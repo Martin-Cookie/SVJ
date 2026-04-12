@@ -1,0 +1,13 @@
+{# SMTP profily + nový formulář na konci #}
+<div class="flex items-center justify-between mb-3">
+    <h2 class="text-sm font-semibold text-gray-700 dark:text-gray-300">SMTP profily ({{ smtp_profiles|length }}/3)</h2>
+</div>
+<div class="space-y-3">
+    {% for p in smtp_profiles %}
+    {% set profile = p %}
+    {% include "partials/smtp_profile_card.html" with context %}
+    {% endfor %}
+
+    {# Nový profil formulář #}
+    {% include "partials/smtp_profile_form.html" %}
+</div>

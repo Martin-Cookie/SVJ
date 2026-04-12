@@ -747,6 +747,71 @@ def _migrate_bank_statement_send_settings():
         conn.commit()
 
 
+def _migrate_smtp_profiles():
+    """Vytvořit tabulku smtp_profiles + přidat smtp_profile_id FK do tax_sessions a bank_statements + seed z .env."""
+    with engine.connect() as conn:
+        # Tabulka — create_all ji vytvoří pro nové DB, ale pro existující potřebujeme explicitně
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS smtp_profiles (
+                id INTEGER NOT NULL PRIMARY KEY,
+                name VARCHAR(100) NOT NULL,
+                smtp_host VARCHAR(255) NOT NULL,
+                smtp_port INTEGER DEFAULT 465,
+                smtp_user VARCHAR(255) NOT NULL,
+                smtp_password_b64 TEXT NOT NULL,
+                smtp_from_name VARCHAR(255) DEFAULT '',
+                smtp_from_email VARCHAR(255) NOT NULL,
+                smtp_use_tls BOOLEAN DEFAULT 1,
+                is_default BOOLEAN DEFAULT 0,
+                created_at DATETIME,
+                updated_at DATETIME
+            )
+        """))
+
+        # FK sloupce na tax_sessions
+        ts_cols = [r[1] for r in conn.execute(text("PRAGMA table_info('tax_sessions')")).fetchall()]
+        if "smtp_profile_id" not in ts_cols:
+            conn.execute(text("ALTER TABLE tax_sessions ADD COLUMN smtp_profile_id INTEGER"))
+            logger.info("Added smtp_profile_id to tax_sessions")
+
+        # FK sloupce na bank_statements
+        bs_cols = [r[1] for r in conn.execute(text("PRAGMA table_info('bank_statements')")).fetchall()]
+        if "smtp_profile_id" not in bs_cols:
+            conn.execute(text("ALTER TABLE bank_statements ADD COLUMN smtp_profile_id INTEGER"))
+            logger.info("Added smtp_profile_id to bank_statements")
+
+        conn.commit()
+
+    # Seed z .env — pouze pokud tabulka je prázdná a .env má SMTP host
+    from app.utils import encode_smtp_password, utcnow as _utcnow
+    db = SessionLocal()
+    try:
+        count = db.execute(text("SELECT COUNT(*) FROM smtp_profiles")).scalar()
+        if count == 0 and settings.smtp_host not in ("smtp.example.com", ""):
+            from app.models.smtp_profile import SmtpProfile
+            profile = SmtpProfile(
+                name="Hlavní SMTP",
+                smtp_host=settings.smtp_host,
+                smtp_port=settings.smtp_port,
+                smtp_user=settings.smtp_user or "",
+                smtp_password_b64=encode_smtp_password(settings.smtp_password) if settings.smtp_password else "",
+                smtp_from_name=settings.smtp_from_name or "",
+                smtp_from_email=settings.smtp_from_email or "",
+                smtp_use_tls=settings.smtp_use_tls,
+                is_default=True,
+                created_at=_utcnow(),
+                updated_at=_utcnow(),
+            )
+            db.add(profile)
+            db.commit()
+            logger.info("Seeded SMTP profile from .env: %s", settings.smtp_host)
+    except Exception:
+        db.rollback()
+        logger.warning("SMTP profile seeding failed", exc_info=True)
+    finally:
+        db.close()
+
+
 _ALL_MIGRATIONS = [
     ("units table", _migrate_units_table),
     ("owner_units history", _migrate_owner_units_history),
@@ -765,6 +830,7 @@ _ALL_MIGRATIONS = [
     ("payment notified_at", _migrate_payment_notified_at),
     ("dedupe tenants", _migrate_dedupe_tenants),
     ("bank_statement send settings", _migrate_bank_statement_send_settings),
+    ("smtp profiles", _migrate_smtp_profiles),
     ("index creation", _ensure_indexes),
     ("code list seeding", _seed_code_lists),
     ("email template seeding", _seed_email_templates),

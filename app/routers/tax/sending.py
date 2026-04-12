@@ -4,6 +4,7 @@ import asyncio
 import re
 import threading
 import time
+from typing import Optional
 
 
 from io import BytesIO
@@ -19,6 +20,7 @@ from app.models import (
     TaxDistribution, TaxDocument, TaxSession,
     ActivityAction, log_activity,
 )
+from app.models.smtp_profile import SmtpProfile
 from app.services.email_service import create_smtp_connection, send_email
 from app.utils import build_list_url, compute_eta, excel_auto_width, strip_diacritics, utcnow
 
@@ -388,10 +390,13 @@ async def tax_send_preview(
 
     list_url = build_list_url(request)
 
+    smtp_profiles = db.query(SmtpProfile).order_by(SmtpProfile.is_default.desc(), SmtpProfile.id).all()
+
     ctx = {
         "request": request,
         "active_nav": "tax",
         "session": session,
+        "smtp_profiles": smtp_profiles,
         "recipients": recipients,
         "total_recipients": total_recipients,
         "with_email": with_email,
@@ -692,9 +697,11 @@ async def send_test_email(
     count_failed = sum(1 for r in all_recipients if r["email_status"] == "failed")
 
     back_url = f"/dane/{session_id}/rozeslat"
+    smtp_profiles = db.query(SmtpProfile).order_by(SmtpProfile.is_default.desc(), SmtpProfile.id).all()
     return templates.TemplateResponse(request, "tax/send.html", {
         "active_nav": "tax",
         "session": session,
+        "smtp_profiles": smtp_profiles,
         "recipients": recipients,
         "total_recipients": total_recipients,
         "with_email": with_email,
@@ -723,6 +730,7 @@ async def save_send_settings(
     send_batch_interval: int = Form(5),
     send_confirm_each_batch: bool = Form(False),
     test_email_inline: str = Form(""),
+    smtp_profile_id: Optional[int] = Form(None),
     db: Session = Depends(get_db),
 ):
     """Uložení nastavení rozesílání (předmět, tělo, dávkování)."""
@@ -743,6 +751,8 @@ async def save_send_settings(
     session.send_batch_size = send_batch_size
     session.send_batch_interval = send_batch_interval
     session.send_confirm_each_batch = send_confirm_each_batch
+    if smtp_profile_id:
+        session.smtp_profile_id = smtp_profile_id
     if test_email_inline.strip():
         session.test_email_address = test_email_inline.strip()
     # Only set READY if session is in appropriate state (not COMPLETED/SENDING/PAUSED)
@@ -787,7 +797,7 @@ def _sending_eta(progress: dict) -> dict:
 
 def _send_emails_batch(session_id: int, recipient_data: list, email_subject: str,
                         email_body: str, batch_size: int, batch_interval: int,
-                        confirm_each_batch: bool):
+                        confirm_each_batch: bool, smtp_profile_id: Optional[int] = None):
     """Background thread: send emails in batches."""
     db = SessionLocal()
     try:
@@ -806,7 +816,7 @@ def _send_emails_batch(session_id: int, recipient_data: list, email_subject: str
             # Create shared SMTP connection per batch (#25)
             smtp_conn = None
             try:
-                smtp_conn = create_smtp_connection()
+                smtp_conn = create_smtp_connection(profile_id=smtp_profile_id)
             except Exception:
                 logger.warning("Failed to create shared SMTP connection, falling back to per-email")
 
@@ -848,6 +858,7 @@ def _send_emails_batch(session_id: int, recipient_data: list, email_subject: str
                         reference_id=session_id,
                         db=db,
                         smtp_server=smtp_conn,
+                        smtp_profile_id=smtp_profile_id,
                     )
                 except Exception as exc:
                     logger.exception("Neočekávaná chyba při odesílání pro %s (%s)",
@@ -856,7 +867,7 @@ def _send_emails_batch(session_id: int, recipient_data: list, email_subject: str
                     # Shared SMTP connection is likely dead — recreate
                     smtp_conn = None
                     try:
-                        smtp_conn = create_smtp_connection()
+                        smtp_conn = create_smtp_connection(profile_id=smtp_profile_id)
                     except Exception:
                         logger.warning("Nepodařilo se obnovit SMTP spojení")
 
@@ -1031,6 +1042,7 @@ async def start_batch_send(
             session.send_batch_size or 10,
             session.send_batch_interval or 5,
             session.send_confirm_each_batch or False,
+            session.smtp_profile_id,
         ),
         daemon=True,
     )
@@ -1235,6 +1247,7 @@ async def retry_failed(
             session.send_batch_size or 10,
             session.send_batch_interval or 5,
             session.send_confirm_each_batch or False,
+            session.smtp_profile_id,
         ),
         daemon=True,
     )

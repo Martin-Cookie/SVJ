@@ -24,6 +24,7 @@ from app.models.payment import (
     ImportStatus, PaymentDirection, PaymentMatchStatus, SettlementStatus,
 )
 from app.models.space import Space, Tenant, SpaceTenant, SpaceStatus
+from app.models.smtp_profile import SmtpProfile
 
 __all__ = [
     "Owner", "Unit", "OwnerUnit", "OwnerType", "Proxy",
@@ -46,4 +47,5 @@ __all__ = [
     "SymbolSource", "BalanceSource", "PrescriptionCategory",
     "ImportStatus", "PaymentDirection", "PaymentMatchStatus", "SettlementStatus",
     "Space", "Tenant", "SpaceTenant", "SpaceStatus",
+    "SmtpProfile",
 ]

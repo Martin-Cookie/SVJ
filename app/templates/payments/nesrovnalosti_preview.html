@@ -48,6 +48,21 @@
                 <form method="post" action="/platby/vypisy/{{ statement.id }}/nesrovnalosti/nastaveni" hx-boost="false">
                     <input type="hidden" name="back" value="{{ back_url }}">
                     <div class="flex flex-wrap gap-3 items-end mt-2">
+                        {% if smtp_profiles|length > 1 %}
+                        <div class="w-44">
+                            <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">SMTP profil</label>
+                            <select name="smtp_profile_id"
+                                    class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1.5 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                {% for p in smtp_profiles %}
+                                <option value="{{ p.id }}" {% if p.id == statement.smtp_profile_id or (not statement.smtp_profile_id and p.is_default) %}selected{% endif %}>
+                                    {{ p.name }} ({{ p.smtp_from_email }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        {% elif smtp_profiles|length == 1 %}
+                        <input type="hidden" name="smtp_profile_id" value="{{ smtp_profiles[0].id }}">
+                        {% endif %}
                         <div class="w-24">
                             <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5" title="Kolik příjemců se odešle najednou před pauzou">Dávka (příj.)</label>
                             <input type="number" name="send_batch_size" value="{{ statement.send_batch_size if statement.send_batch_size else 10 }}" min="1" max="100"

@@ -1,0 +1,75 @@
+{# SMTP profil — inline editační formulář (HTMX swap) #}
+<div id="smtp-profile-{{ profile.id if profile else 'new' }}" class="border border-blue-300 dark:border-blue-600 rounded-lg p-4 ring-2 ring-blue-200 dark:ring-blue-700">
+    <form hx-post="/nastaveni/smtp/{{ profile.id if profile else 'novy' }}" hx-target="#smtp-section" hx-swap="innerHTML" data-warn-unsaved>
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-200">
+                {% if profile %}Upravit profil{% else %}Nový SMTP profil{% endif %}
+            </h3>
+            <div class="flex items-center gap-2">
+                <button type="submit" class="px-3 py-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 border border-blue-300 dark:border-blue-600 rounded hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors">Uložit</button>
+                {% if profile %}
+                <button type="button" hx-get="/nastaveni/smtp/{{ profile.id }}/karta" hx-target="#smtp-profile-{{ profile.id }}" hx-swap="outerHTML"
+                        class="px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">Zrušit</button>
+                {% else %}
+                <button type="button" hx-get="/nastaveni/smtp/profily" hx-target="#smtp-section" hx-swap="innerHTML"
+                        class="px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">Zrušit</button>
+                {% endif %}
+            </div>
+        </div>
+        {% if error %}
+        <div class="mb-3 p-2 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded text-sm text-red-700 dark:text-red-300">{{ error }}</div>
+        {% endif %}
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+                <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Název profilu</label>
+                <input type="text" name="name" value="{{ profile.name if profile else '' }}" required autofocus
+                       placeholder="Hlavní SMTP"
+                       class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded text-sm font-mono bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">SMTP Server</label>
+                <input type="text" name="smtp_host" value="{{ profile.smtp_host if profile else '' }}" required
+                       placeholder="smtp.gmail.com"
+                       class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded text-sm font-mono bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Port</label>
+                <input type="number" name="smtp_port" value="{{ profile.smtp_port if profile else 465 }}"
+                       class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded text-sm font-mono bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Uživatel</label>
+                <input type="text" name="smtp_user" value="{{ profile.smtp_user if profile else '' }}"
+                       placeholder="user@gmail.com"
+                       class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded text-sm font-mono bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Heslo</label>
+                <input type="password" name="smtp_password"
+                       placeholder="{{ '••••••••' if profile and profile.smtp_password_b64 else '' }}"
+                       class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded text-sm font-mono bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{% if profile %}Ponechte prázdné pro zachování stávajícího{% endif %}</p>
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Jméno odesílatele</label>
+                <input type="text" name="smtp_from_name" value="{{ profile.smtp_from_name if profile else '' }}"
+                       placeholder="SVJ Správa"
+                       class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Email odesílatele</label>
+                <input type="email" name="smtp_from_email" value="{{ profile.smtp_from_email if profile else '' }}" required
+                       placeholder="info@svj.cz"
+                       class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded text-sm font-mono bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+            </div>
+            <div class="flex items-end pb-1">
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" name="smtp_use_tls" value="true"
+                           {% if (profile and profile.smtp_use_tls) or not profile %}checked{% endif %}
+                           class="w-4 h-4 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500">
+                    <span class="text-xs text-gray-700 dark:text-gray-300">Použít TLS</span>
+                </label>
+            </div>
+        </div>
+    </form>
+</div>

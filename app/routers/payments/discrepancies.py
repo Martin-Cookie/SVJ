@@ -4,6 +4,7 @@ import asyncio
 import logging
 import threading
 import time
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -91,6 +92,10 @@ def _discrepancy_base_ctx(request, db, statement, discrepancies, back_url, sort,
             "body": body,
         }
 
+    # SMTP profily pro dropdown výběr
+    from app.models.smtp_profile import SmtpProfile
+    smtp_profiles = db.query(SmtpProfile).order_by(SmtpProfile.is_default.desc(), SmtpProfile.id).all()
+
     return {
         "request": request,
         "active_nav": "platby",
@@ -103,6 +108,7 @@ def _discrepancy_base_ctx(request, db, statement, discrepancies, back_url, sort,
         "template": template,
         "svj": svj,
         "sent_logs": sent_logs,
+        "smtp_profiles": smtp_profiles,
         "sort": sort,
         "order": order,
         "list_url": build_list_url(request),
@@ -137,6 +143,7 @@ def _send_discrepancy_emails_batch(
     batch_size: int = 10,
     batch_interval: int = 5,
     confirm_each_batch: bool = False,
+    smtp_profile_id: Optional[int] = None,
 ):
     """Background thread: odeslat upozornění na nesrovnalosti v dávkách."""
     from app.services.email_service import create_smtp_connection, send_email
@@ -177,7 +184,7 @@ def _send_discrepancy_emails_batch(
             # Shared SMTP connection per batch
             smtp_conn = None
             try:
-                smtp_conn = create_smtp_connection()
+                smtp_conn = create_smtp_connection(profile_id=smtp_profile_id)
             except Exception:
                 logger.warning("Failed to create shared SMTP connection, falling back to per-email")
 
@@ -224,13 +231,14 @@ def _send_discrepancy_emails_batch(
                         reference_id=statement_id,
                         db=db,
                         smtp_server=smtp_conn,
+                        smtp_profile_id=smtp_profile_id,
                     )
                 except Exception as exc:
                     logger.exception("Chyba při odesílání pro %s (%s)", rcpt["name"], rcpt["email"])
                     result = {"success": False, "error": str(exc)}
                     smtp_conn = None
                     try:
-                        smtp_conn = create_smtp_connection()
+                        smtp_conn = create_smtp_connection(profile_id=smtp_profile_id)
                     except Exception:
                         logger.warning("Nepodařilo se obnovit SMTP spojení")
 
@@ -378,6 +386,9 @@ async def discrepancy_save_settings(
         statement.send_batch_size = max(1, min(100, int(form.get("send_batch_size", 10))))
         statement.send_batch_interval = max(1, min(60, int(form.get("send_batch_interval", 5))))
         statement.send_confirm_each_batch = form.get("send_confirm_each_batch") == "true"
+        smtp_pid = form.get("smtp_profile_id")
+        if smtp_pid:
+            statement.smtp_profile_id = int(smtp_pid)
         db.commit()
     back = form.get("back", "")
     back_param = f"&back={back}" if back else ""
@@ -533,7 +544,7 @@ async def discrepancy_send(
     # Start background thread
     thread = threading.Thread(
         target=_send_discrepancy_emails_batch,
-        args=(statement_id, recipients, batch_size, batch_interval, confirm_batch),
+        args=(statement_id, recipients, batch_size, batch_interval, confirm_batch, statement.smtp_profile_id),
         daemon=True,
     )
     thread.start()
