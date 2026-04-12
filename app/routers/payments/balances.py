@@ -347,6 +347,67 @@ async def zustatek_pridat(
     return RedirectResponse(f"/platby/zustatky?rok={year}&flash=ok", status_code=302)
 
 
+@router.get("/zustatky/{balance_id}/upravit-formular")
+async def zustatek_edit_form(
+    request: Request,
+    balance_id: int,
+    db: Session = Depends(get_db),
+):
+    """Vrátí HTMX partial s editačním řádkem."""
+    balance = db.query(UnitBalance).options(
+        joinedload(UnitBalance.unit), joinedload(UnitBalance.owner),
+    ).get(balance_id)
+    if not balance:
+        return RedirectResponse("/platby/zustatky", status_code=302)
+
+    # Vlastníci pro dropdown
+    unit_owners = []
+    if balance.unit_id:
+        ous = (
+            db.query(OwnerUnit)
+            .filter(OwnerUnit.unit_id == balance.unit_id, OwnerUnit.valid_to.is_(None))
+            .options(joinedload(OwnerUnit.owner))
+            .all()
+        )
+        unit_owners = [ou.owner for ou in ous]
+
+    rok = request.query_params.get("rok", str(balance.year))
+    return templates.TemplateResponse(request, "payments/partials/_zustatek_edit_row.html", {
+        "b": balance,
+        "unit_owners": unit_owners,
+        "rok": rok,
+        "q": request.query_params.get("q", ""),
+        "sort": request.query_params.get("sort", "jednotka"),
+        "order": request.query_params.get("order", "asc"),
+        "back_url": request.query_params.get("back", ""),
+        "list_url": request.query_params.get("list_url", "/platby/zustatky"),
+    })
+
+
+@router.get("/zustatky/{balance_id}/info")
+async def zustatek_info_row(
+    request: Request,
+    balance_id: int,
+    db: Session = Depends(get_db),
+):
+    """Vrátí HTMX partial se zobrazovacím řádkem (pro cancel)."""
+    balance = db.query(UnitBalance).options(
+        joinedload(UnitBalance.unit), joinedload(UnitBalance.owner),
+    ).get(balance_id)
+    if not balance:
+        return RedirectResponse("/platby/zustatky", status_code=302)
+
+    return templates.TemplateResponse(request, "payments/partials/_zustatek_view_row.html", {
+        "b": balance,
+        "rok": request.query_params.get("rok", str(balance.year)),
+        "q": request.query_params.get("q", ""),
+        "sort": request.query_params.get("sort", "jednotka"),
+        "order": request.query_params.get("order", "asc"),
+        "back_url": request.query_params.get("back", ""),
+        "list_url": request.query_params.get("list_url", "/platby/zustatky"),
+    })
+
+
 @router.post("/zustatky/{balance_id}/upravit")
 async def zustatek_upravit(
     request: Request,
@@ -355,6 +416,11 @@ async def zustatek_upravit(
     owner_id: int = Form(0),
     owner_name: str = Form(""),
     note: str = Form(""),
+    rok: int = Form(0),
+    q: str = Form(""),
+    sort: str = Form("jednotka"),
+    order: str = Form("asc"),
+    back: str = Form(""),
     db: Session = Depends(get_db),
 ):
     """Upravit existující zůstatek."""
@@ -380,7 +446,17 @@ async def zustatek_upravit(
         entity_name=f"Zůstatek jednotky {balance.unit_id} / {balance.year}",
     )
     db.commit()
-    return RedirectResponse(f"/platby/zustatky?rok={balance.year}&flash=ok", status_code=302)
+    _rok = rok or balance.year
+    qs = f"rok={_rok}&flash=ok"
+    if q:
+        qs += f"&q={q}"
+    if sort != "jednotka":
+        qs += f"&sort={sort}"
+    if order != "asc":
+        qs += f"&order={order}"
+    if back:
+        qs += f"&back={back}"
+    return RedirectResponse(f"/platby/zustatky?{qs}#bal-{balance.id}", status_code=302)
 
 
 @router.post("/zustatky/{balance_id}/smazat")
