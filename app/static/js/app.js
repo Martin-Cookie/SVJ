@@ -641,6 +641,11 @@ function sendTest(btn) {
     var body = document.querySelector('textarea[name="email_body"]');
     if (subj) document.getElementById('test-subject-hidden').value = subj.value;
     if (body) document.getElementById('test-body-hidden').value = body.value;
+    // Copy selected SMTP profile
+    var smtpSel = document.querySelector('select[name="smtp_profile_id"]');
+    var smtpHid = document.querySelector('input[name="smtp_profile_id"][type="hidden"]:not(#test-smtp-profile-hidden)');
+    var testSmtp = document.getElementById('test-smtp-profile-hidden');
+    if (testSmtp) testSmtp.value = smtpSel ? smtpSel.value : (smtpHid ? smtpHid.value : '');
     document.getElementById('test-email-form').submit();
 }
 

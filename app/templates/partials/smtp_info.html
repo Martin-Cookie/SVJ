@@ -1,55 +1,24 @@
 <div class="flex items-center justify-between mb-3">
-    <h2 class="text-sm font-semibold text-gray-700">SMTP nastavení emailu</h2>
-    <div class="flex items-center gap-2">
-        {% if saved %}
-        <span class="text-sm text-green-600">Uloženo</span>
-        {% endif %}
-        <button hx-post="/nastaveni/smtp/test" hx-target="#smtp-section" hx-swap="innerHTML"
-                class="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-            Test připojení
-        </button>
-        <button hx-get="/nastaveni/smtp/formular" hx-target="#smtp-section" hx-swap="innerHTML"
-                class="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors">
-            <svg aria-hidden="true" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
-            </svg>
-            Upravit
-        </button>
-    </div>
+    <h2 class="text-sm font-semibold text-gray-700 dark:text-gray-300">SMTP profily ({{ smtp_profiles|length }}/3)</h2>
+    {% if smtp_profiles|length < 3 %}
+    <button hx-get="/nastaveni/smtp/novy-formular" hx-target="#smtp-section" hx-swap="innerHTML"
+            class="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 border border-blue-300 dark:border-blue-600 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors">
+        <svg aria-hidden="true" class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+        Přidat profil
+    </button>
+    {% endif %}
 </div>
-<div class="grid grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-1 text-xs">
-    <div class="flex justify-between py-1 border-b border-gray-50">
-        <span class="text-gray-500">Server</span>
-        <span class="font-mono text-gray-800">{{ settings.smtp_host }}</span>
-    </div>
-    <div class="flex justify-between py-1 border-b border-gray-50">
-        <span class="text-gray-500">Port</span>
-        <span class="font-mono text-gray-800">{{ settings.smtp_port }}</span>
-    </div>
-    <div class="flex justify-between py-1 border-b border-gray-50">
-        <span class="text-gray-500">Uživatel</span>
-        <span class="font-mono text-gray-800">{{ settings.smtp_user or '—' }}</span>
-    </div>
-    <div class="flex justify-between py-1 border-b border-gray-50">
-        <span class="text-gray-500">Heslo</span>
-        <span class="font-mono text-gray-800">{{ '••••••••' if settings.smtp_password else '—' }}</span>
-    </div>
-    <div class="flex justify-between py-1 border-b border-gray-50">
-        <span class="text-gray-500">Odesílatel</span>
-        <span class="font-mono text-gray-800">{{ settings.smtp_from_name }}</span>
-    </div>
-    <div class="flex justify-between py-1 border-b border-gray-50">
-        <span class="text-gray-500">Email</span>
-        <span class="font-mono text-gray-800">{{ settings.smtp_from_email }}</span>
-    </div>
-    <div class="flex justify-between py-1 border-b border-gray-50">
-        <span class="text-gray-500">TLS</span>
-        <span class="font-mono text-gray-800">{{ 'Ano' if settings.smtp_use_tls else 'Ne' }}</span>
-    </div>
-</div>
-{% if smtp_test_ok is defined and smtp_test_ok %}
-<div class="mt-2 p-2 bg-green-50 border border-green-200 rounded text-sm text-green-700">Připojení k SMTP serveru OK.</div>
+{% if not smtp_profiles %}
+<p class="text-xs text-gray-500 dark:text-gray-400">Žádné SMTP profily. Přidejte profil pro odesílání emailů.</p>
 {% endif %}
-{% if smtp_test_error is defined and smtp_test_error %}
-<div class="mt-2 p-2 bg-red-50 border border-red-200 rounded text-sm text-red-700">{{ smtp_test_error }}</div>
+<div class="space-y-3">
+    {% for profile in smtp_profiles %}
+    {% include "partials/smtp_profile_card.html" with context %}
+    {% endfor %}
+</div>
+{% if saved %}
+<div id="smtp-saved-msg" class="mt-2 p-2 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 rounded text-sm text-green-700 dark:text-green-300" style="transition: opacity 0.5s">Uloženo.</div>
+<script>
+(function(){var el=document.getElementById('smtp-saved-msg');if(el){setTimeout(function(){el.style.opacity='0';setTimeout(function(){el.remove()},500)},4000)}})();
+</script>
 {% endif %}

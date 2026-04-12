@@ -186,8 +186,10 @@ class BankStatement(Base):
     send_batch_size = Column(Integer, nullable=True)
     send_batch_interval = Column(Integer, nullable=True)
     send_confirm_each_batch = Column(Boolean, nullable=True)
+    smtp_profile_id = Column(Integer, ForeignKey("smtp_profiles.id"), nullable=True, index=True)
     created_at = Column(DateTime, default=utcnow)
 
+    smtp_profile = relationship("SmtpProfile")
     payments = relationship("Payment", back_populates="statement", cascade="all, delete-orphan")
 
 

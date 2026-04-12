@@ -52,7 +52,9 @@ class TaxSession(Base):
     test_email_passed = Column(Boolean, default=False)
     test_email_address = Column(String, nullable=True)
     send_confirm_each_batch = Column(Boolean, default=False)
+    smtp_profile_id = Column(Integer, ForeignKey("smtp_profiles.id"), nullable=True, index=True)
 
+    smtp_profile = relationship("SmtpProfile")
     documents = relationship(
         "TaxDocument", back_populates="session", cascade="all, delete-orphan"
     )

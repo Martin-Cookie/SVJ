@@ -51,12 +51,25 @@ _SMTP_CODE_RE = re.compile(r"\b(5\d{2}|4\d{2})\s")
 
 
 def _imap_credentials() -> tuple[str, str] | None:
-    """Vrátí (user, password) — IMAP creds nebo fallback na SMTP."""
-    user = settings.imap_user or settings.smtp_user
-    password = settings.imap_password or settings.smtp_password
-    if not user or not password:
-        return None
-    return user, password
+    """Vrátí (user, password) — IMAP creds nebo fallback na SMTP profil / .env."""
+    user = settings.imap_user
+    password = settings.imap_password
+    if user and password:
+        return user, password
+    # Fallback: SMTP z .env
+    if settings.smtp_user and settings.smtp_password:
+        return settings.smtp_user, settings.smtp_password
+    # Fallback: default SMTP profil z DB
+    try:
+        from app.services.email_service import _get_default_profile, _smtp_params_from_profile
+        profile = _get_default_profile()
+        if profile:
+            params = _smtp_params_from_profile(profile)
+            if params["user"] and params["password"]:
+                return params["user"], params["password"]
+    except Exception:
+        pass
+    return None
 
 
 def connect_imap() -> imaplib.IMAP4_SSL | None:

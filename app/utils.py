@@ -1,4 +1,5 @@
 """Shared utility functions used across routers and services."""
+import base64
 import re
 import time as _time
 from datetime import datetime, timezone
@@ -18,6 +19,16 @@ def strip_diacritics(text: str) -> str:
     """Remove diacritics and lowercase for search/matching."""
     nfkd = normalize("NFD", text)
     return "".join(c for c in nfkd if category(c) != "Mn").lower()
+
+
+def encode_smtp_password(plain: str) -> str:
+    """Base64 obfuskace SMTP hesla pro uložení v DB."""
+    return base64.b64encode(plain.encode()).decode()
+
+
+def decode_smtp_password(b64: str) -> str:
+    """Dekódování base64 SMTP hesla z DB."""
+    return base64.b64decode(b64.encode()).decode()
 
 
 def build_list_url(request: Request) -> str:

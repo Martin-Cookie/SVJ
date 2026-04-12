@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.models.common import EmailLog, EmailStatus
-from app.utils import strip_diacritics, utcnow
+from app.utils import decode_smtp_password, strip_diacritics, utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -49,14 +49,78 @@ def _create_smtp(host: str, port: int, use_tls: bool, timeout: int = 30) -> smtp
     return server
 
 
-def create_smtp_connection():
-    """Create and return an authenticated SMTP connection for batch reuse."""
-    if settings.smtp_host in ("smtp.example.com", ""):
+def _get_default_profile():
+    """Načte výchozí SmtpProfile z DB (is_default=True) nebo None."""
+    from app.database import SessionLocal
+    from app.models.smtp_profile import SmtpProfile
+    db = SessionLocal()
+    try:
+        return db.query(SmtpProfile).filter_by(is_default=True).first()
+    finally:
+        db.close()
+
+
+def _get_profile_by_id(profile_id: int):
+    """Načte SmtpProfile dle ID nebo None."""
+    from app.database import SessionLocal
+    from app.models.smtp_profile import SmtpProfile
+    db = SessionLocal()
+    try:
+        return db.query(SmtpProfile).get(profile_id)
+    finally:
+        db.close()
+
+
+def _smtp_params_from_profile(profile):
+    """Extrahuje SMTP parametry z profilu. Vrací dict."""
+    return {
+        "host": profile.smtp_host,
+        "port": profile.smtp_port,
+        "user": profile.smtp_user,
+        "password": decode_smtp_password(profile.smtp_password_b64) if profile.smtp_password_b64 else "",
+        "from_name": profile.smtp_from_name or "",
+        "from_email": profile.smtp_from_email,
+        "use_tls": profile.smtp_use_tls,
+    }
+
+
+def _smtp_params_from_settings():
+    """Extrahuje SMTP parametry z globálních settings (.env) jako fallback."""
+    return {
+        "host": settings.smtp_host,
+        "port": settings.smtp_port,
+        "user": settings.smtp_user,
+        "password": settings.smtp_password,
+        "from_name": settings.smtp_from_name,
+        "from_email": settings.smtp_from_email,
+        "use_tls": settings.smtp_use_tls,
+    }
+
+
+def get_smtp_params(profile_id: int | None = None) -> dict:
+    """Vrátí SMTP parametry: dle profile_id > default profil > .env fallback."""
+    profile = None
+    if profile_id:
+        profile = _get_profile_by_id(profile_id)
+    if not profile:
+        profile = _get_default_profile()
+    if profile:
+        return _smtp_params_from_profile(profile)
+    return _smtp_params_from_settings()
+
+
+def create_smtp_connection(profile_id: int | None = None):
+    """Create and return an authenticated SMTP connection for batch reuse.
+
+    Používá profil dle profile_id > default profil > .env fallback.
+    """
+    params = get_smtp_params(profile_id)
+    if params["host"] in ("smtp.example.com", ""):
         return None
 
-    server = _create_smtp(settings.smtp_host, settings.smtp_port, settings.smtp_use_tls, timeout=30)
-    if settings.smtp_user:
-        server.login(settings.smtp_user, settings.smtp_password)
+    server = _create_smtp(params["host"], params["port"], params["use_tls"], timeout=30)
+    if params["user"]:
+        server.login(params["user"], params["password"])
     return server
 
 
@@ -66,10 +130,14 @@ def _build_message(
     subject: str,
     body_html: str,
     attachments: list[str] | None = None,
+    from_name: str | None = None,
+    from_email: str | None = None,
 ) -> tuple[MIMEMultipart, list[str]]:
     """Build a MIME message for a single recipient. Returns (msg, attachment_paths)."""
     msg = MIMEMultipart()
-    msg["From"] = formataddr((str(Header(settings.smtp_from_name, "utf-8")), settings.smtp_from_email))
+    _from_name = from_name if from_name is not None else settings.smtp_from_name
+    _from_email = from_email or settings.smtp_from_email
+    msg["From"] = formataddr((str(Header(_from_name, "utf-8")), _from_email))
     msg["To"] = formataddr((str(Header(to_name, "utf-8")), to_addr))
     msg["Subject"] = Header(subject, "utf-8")
 
@@ -123,15 +191,19 @@ def send_email(
     reference_id: int | None = None,
     db: Session | None = None,
     smtp_server: smtplib.SMTP | None = None,
+    smtp_profile_id: int | None = None,
 ) -> dict:
     # Support comma-separated multiple recipients — send separate email to each
     email_list = [e.strip() for e in to_email.split(",") if e.strip()]
     if not email_list:
         return {"success": False, "error": "Žádná emailová adresa"}
 
+    # Resolve SMTP params (profile > default > .env)
+    params = get_smtp_params(smtp_profile_id)
+
     # Validate SMTP configuration
-    if settings.smtp_host in ("smtp.example.com", ""):
-        error_msg = "SMTP server není nakonfigurován. Nastavte SMTP_HOST v souboru .env"
+    if params["host"] in ("smtp.example.com", ""):
+        error_msg = "SMTP server není nakonfigurován. Nastavte SMTP profil v Nastavení."
         if db:
             _create_error_log(db, to_email, to_name, subject, body_html, module, reference_id, error_msg)
         return {"success": False, "error": error_msg}
@@ -141,16 +213,16 @@ def send_email(
     server = smtp_server
     if own_server:
         try:
-            server = _create_smtp(settings.smtp_host, settings.smtp_port, settings.smtp_use_tls, timeout=10)
-            if settings.smtp_user:
-                server.login(settings.smtp_user, settings.smtp_password)
+            server = _create_smtp(params["host"], params["port"], params["use_tls"], timeout=10)
+            if params["user"]:
+                server.login(params["user"], params["password"])
         except smtplib.SMTPAuthenticationError:
             error_msg = "Přihlášení k SMTP serveru selhalo. Zkontrolujte uživatelské jméno a heslo v Nastavení. Pro Gmail použijte App Password."
             if db:
                 _create_error_log(db, to_email, to_name, subject, body_html, module, reference_id, error_msg)
             return {"success": False, "error": error_msg}
         except socket.gaierror:
-            error_msg = f"SMTP server '{settings.smtp_host}' není dostupný. Zkontrolujte nastavení v souboru .env"
+            error_msg = f"SMTP server '{params['host']}' není dostupný. Zkontrolujte nastavení SMTP profilu."
             if db:
                 _create_error_log(db, to_email, to_name, subject, body_html, module, reference_id, error_msg)
             return {"success": False, "error": error_msg}
@@ -162,7 +234,10 @@ def send_email(
     # Send separate email to each address
     errors = []
     for addr in email_list:
-        msg, attachment_paths = _build_message(to_name, addr, subject, body_html, attachments)
+        msg, attachment_paths = _build_message(
+            to_name, addr, subject, body_html, attachments,
+            from_name=params["from_name"], from_email=params["from_email"],
+        )
 
         log = None
         if db:

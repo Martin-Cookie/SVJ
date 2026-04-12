@@ -7,7 +7,6 @@ from io import BytesIO
 from pathlib import Path
 from typing import Optional
 
-from dotenv import set_key
 from fastapi import APIRouter, Depends, Form, Query, Request
 from fastapi.responses import FileResponse, RedirectResponse, Response
 from openpyxl import Workbook
@@ -18,8 +17,11 @@ from sqlalchemy import or_
 
 from app.config import settings
 from app.database import get_db
-from app.models import ActivityAction, EmailLog, Owner, SvjInfo, log_activity
-from app.utils import build_list_url, excel_auto_width, is_htmx_partial, is_safe_path, strip_diacritics, templates
+from app.models import ActivityAction, EmailLog, Owner, SmtpProfile, SvjInfo, log_activity
+from app.utils import (
+    build_list_url, decode_smtp_password, encode_smtp_password,
+    excel_auto_width, is_htmx_partial, is_safe_path, strip_diacritics, templates,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -114,11 +116,17 @@ async def settings_view(
     # Globální nastavení odesílání
     svj = db.query(SvjInfo).first()
 
+    # SMTP profily
+    smtp_profiles = db.query(SmtpProfile).order_by(SmtpProfile.is_default.desc(), SmtpProfile.id).all()
+    profile_count = len(smtp_profiles)
+
     ctx = {
         "request": request,
         "active_nav": "settings",
         "settings": settings,
         "svj": svj,
+        "smtp_profiles": smtp_profiles,
+        "profile_count": profile_count,
         "email_logs": email_logs,
         "owner_by_email": owner_by_email,
         "attachments_by_id": attachments_by_id,
@@ -242,27 +250,64 @@ async def save_send_settings(
     return RedirectResponse("/nastaveni?flash=send_ok", status_code=302)
 
 
-@router.get("/smtp/formular")
-async def smtp_form(request: Request):
-    """Formulář pro editaci SMTP nastavení."""
-    return templates.TemplateResponse(request, "partials/smtp_form.html", {
-        "settings": settings,
+def _smtp_profiles_ctx(db: Session, **extra) -> dict:
+    """Sdílený kontext pro smtp_info partial."""
+    profiles = db.query(SmtpProfile).order_by(SmtpProfile.is_default.desc(), SmtpProfile.id).all()
+    return {"smtp_profiles": profiles, "profile_count": len(profiles), **extra}
+
+
+@router.get("/smtp/profily")
+async def smtp_profiles_list(request: Request, db: Session = Depends(get_db)):
+    """HTMX partial: seznam SMTP profilů."""
+    return templates.TemplateResponse(request, "partials/smtp_info.html", _smtp_profiles_ctx(db))
+
+
+@router.get("/smtp/novy-formular")
+async def smtp_new_form(request: Request, db: Session = Depends(get_db)):
+    """HTMX partial: formulář pro nový profil."""
+    profiles = db.query(SmtpProfile).all()
+    if len(profiles) >= 3:
+        return templates.TemplateResponse(request, "partials/smtp_info.html",
+            _smtp_profiles_ctx(db, error="Maximum 3 SMTP profily."))
+    # Zobrazit existující profily + nový formulář na konci
+    return templates.TemplateResponse(request, "partials/smtp_info_with_new.html", {
+        **_smtp_profiles_ctx(db),
+        "profile": None,
     })
 
 
-@router.get("/smtp/info")
-async def smtp_info(request: Request):
-    """Zobrazení aktuálního SMTP nastavení (read-only)."""
-    return templates.TemplateResponse(request, "partials/smtp_info.html", {
-        "settings": settings,
+@router.get("/smtp/{profile_id}/formular")
+async def smtp_edit_form(request: Request, profile_id: int, db: Session = Depends(get_db)):
+    """HTMX partial: editační formulář jednoho profilu (swap za kartu)."""
+    profile = db.query(SmtpProfile).get(profile_id)
+    if not profile:
+        return templates.TemplateResponse(request, "partials/smtp_info.html", _smtp_profiles_ctx(db))
+    profiles = db.query(SmtpProfile).all()
+    return templates.TemplateResponse(request, "partials/smtp_profile_form.html", {
+        "profile": profile,
+        "profile_count": len(profiles),
     })
 
 
-@router.post("/smtp")
-async def save_smtp(
+@router.get("/smtp/{profile_id}/karta")
+async def smtp_profile_card(request: Request, profile_id: int, db: Session = Depends(get_db)):
+    """HTMX partial: read-only karta jednoho profilu."""
+    profile = db.query(SmtpProfile).get(profile_id)
+    if not profile:
+        return templates.TemplateResponse(request, "partials/smtp_info.html", _smtp_profiles_ctx(db))
+    profile_count = db.query(SmtpProfile).count()
+    return templates.TemplateResponse(request, "partials/smtp_profile_card.html", {
+        "profile": profile,
+        "profile_count": profile_count,
+    })
+
+
+@router.post("/smtp/novy")
+async def smtp_create(
     request: Request,
+    name: str = Form(""),
     smtp_host: str = Form(""),
-    smtp_port: int = Form(587),
+    smtp_port: int = Form(465),
     smtp_user: str = Form(""),
     smtp_password: str = Form(""),
     smtp_from_name: str = Form(""),
@@ -270,71 +315,169 @@ async def save_smtp(
     smtp_use_tls: Optional[str] = Form(None),
     db: Session = Depends(get_db),
 ):
-    """Uložení SMTP konfigurace do .env souboru."""
-    env_path = str(settings.base_dir / ".env")
-    use_tls = smtp_use_tls == "true"
+    """Vytvoření nového SMTP profilu."""
+    count = db.query(SmtpProfile).count()
+    if count >= 3:
+        return templates.TemplateResponse(request, "partials/smtp_info.html",
+            _smtp_profiles_ctx(db, error="Maximum 3 SMTP profily."))
 
-    set_key(env_path, "SMTP_HOST", smtp_host)
-    set_key(env_path, "SMTP_PORT", str(smtp_port))
-    set_key(env_path, "SMTP_USER", smtp_user)
-    if smtp_password:  # empty = keep existing
-        set_key(env_path, "SMTP_PASSWORD", smtp_password)
-    set_key(env_path, "SMTP_FROM_NAME", smtp_from_name)
-    set_key(env_path, "SMTP_FROM_EMAIL", smtp_from_email)
-    set_key(env_path, "SMTP_USE_TLS", str(use_tls).lower())
+    if not name.strip() or not smtp_host.strip() or not smtp_from_email.strip():
+        return templates.TemplateResponse(request, "partials/smtp_info_with_new.html", {
+            **_smtp_profiles_ctx(db),
+            "profile": None,
+            "error": "Název, SMTP server a email odesílatele jsou povinné.",
+        })
 
-    # Reload settings singleton in-place
-    settings.smtp_host = smtp_host
-    settings.smtp_port = smtp_port
-    settings.smtp_user = smtp_user
-    if smtp_password:
-        settings.smtp_password = smtp_password
-    settings.smtp_from_name = smtp_from_name
-    settings.smtp_from_email = smtp_from_email
-    settings.smtp_use_tls = use_tls
+    # Placeholder •••• není skutečné heslo
+    if smtp_password and all(c == "•" for c in smtp_password):
+        smtp_password = ""
 
-    log_activity(
-        db, ActivityAction.UPDATED, "smtp_settings", "nastaveni",
-        entity_name="SMTP konfigurace",
-        description=smtp_host or "",
+    if not smtp_password:
+        return templates.TemplateResponse(request, "partials/smtp_info_with_new.html", {
+            **_smtp_profiles_ctx(db),
+            "profile": None,
+            "error": "Heslo je povinné pro nový profil.",
+        })
+
+    is_default = count == 0  # první profil je automaticky výchozí
+    profile = SmtpProfile(
+        name=name.strip(),
+        smtp_host=smtp_host.strip(),
+        smtp_port=smtp_port,
+        smtp_user=smtp_user.strip(),
+        smtp_password_b64=encode_smtp_password(smtp_password),
+        smtp_from_name=smtp_from_name.strip(),
+        smtp_from_email=smtp_from_email.strip(),
+        smtp_use_tls=smtp_use_tls == "true",
+        is_default=is_default,
     )
+    db.add(profile)
+    log_activity(db, ActivityAction.CREATED, "smtp_profile", str(profile.id),
+                 entity_name=name.strip(), description=smtp_host)
     db.commit()
 
-    return templates.TemplateResponse(request, "partials/smtp_info.html", {
-        "settings": settings,
-        "saved": True,
-    })
+    return templates.TemplateResponse(request, "partials/smtp_info.html",
+        _smtp_profiles_ctx(db, saved=True))
 
 
-@router.post("/smtp/test")
-async def test_smtp_connection(request: Request):
-    """Test SMTP connection and return result as partial HTML."""
+@router.post("/smtp/{profile_id}")
+async def smtp_update(
+    request: Request,
+    profile_id: int,
+    name: str = Form(""),
+    smtp_host: str = Form(""),
+    smtp_port: int = Form(465),
+    smtp_user: str = Form(""),
+    smtp_password: str = Form(""),
+    smtp_from_name: str = Form(""),
+    smtp_from_email: str = Form(""),
+    smtp_use_tls: Optional[str] = Form(None),
+    db: Session = Depends(get_db),
+):
+    """Aktualizace existujícího SMTP profilu."""
+    profile = db.query(SmtpProfile).get(profile_id)
+    if not profile:
+        return templates.TemplateResponse(request, "partials/smtp_info.html", _smtp_profiles_ctx(db))
+
+    if not name.strip() or not smtp_host.strip() or not smtp_from_email.strip():
+        return templates.TemplateResponse(request, "partials/smtp_profile_form.html", {
+            "profile": profile,
+            "profile_count": db.query(SmtpProfile).count(),
+            "error": "Název, SMTP server a email odesílatele jsou povinné.",
+        })
+
+    profile.name = name.strip()
+    profile.smtp_host = smtp_host.strip()
+    profile.smtp_port = smtp_port
+    profile.smtp_user = smtp_user.strip()
+    if smtp_password and not all(c == "•" for c in smtp_password):
+        profile.smtp_password_b64 = encode_smtp_password(smtp_password)
+    profile.smtp_from_name = smtp_from_name.strip()
+    profile.smtp_from_email = smtp_from_email.strip()
+    profile.smtp_use_tls = smtp_use_tls == "true"
+
+    log_activity(db, ActivityAction.UPDATED, "smtp_profile", str(profile_id),
+                 entity_name=name.strip(), description=smtp_host)
+    db.commit()
+
+    return templates.TemplateResponse(request, "partials/smtp_info.html",
+        _smtp_profiles_ctx(db, saved=True))
+
+
+@router.post("/smtp/{profile_id}/test")
+async def test_smtp_profile(request: Request, profile_id: int, db: Session = Depends(get_db)):
+    """Test SMTP připojení pro konkrétní profil."""
+    profile = db.query(SmtpProfile).get(profile_id)
+    if not profile:
+        return templates.TemplateResponse(request, "partials/smtp_info.html", _smtp_profiles_ctx(db))
+
+    profile_count = db.query(SmtpProfile).count()
     try:
-        if settings.smtp_host in ("smtp.example.com", ""):
-            return templates.TemplateResponse(request, "partials/smtp_info.html", {
-                "settings": settings,
-                "smtp_test_error": "SMTP server není nakonfigurován.",
-            })
         from app.services.email_service import _create_smtp
-        server = _create_smtp(settings.smtp_host, settings.smtp_port, settings.smtp_use_tls, timeout=10)
-        if settings.smtp_user:
-            server.login(settings.smtp_user, settings.smtp_password)
+        password = decode_smtp_password(profile.smtp_password_b64) if profile.smtp_password_b64 else ""
+        server = _create_smtp(profile.smtp_host, profile.smtp_port, profile.smtp_use_tls, timeout=10)
+        if profile.smtp_user:
+            server.login(profile.smtp_user, password)
         server.quit()
-        return templates.TemplateResponse(request, "partials/smtp_info.html", {
-            "settings": settings,
-            "smtp_test_ok": True,
+        return templates.TemplateResponse(request, "partials/smtp_profile_card.html", {
+            "profile": profile, "profile_count": profile_count, "smtp_test_ok": True,
         })
     except smtplib.SMTPAuthenticationError:
-        return templates.TemplateResponse(request, "partials/smtp_info.html", {
-            "settings": settings,
+        return templates.TemplateResponse(request, "partials/smtp_profile_card.html", {
+            "profile": profile, "profile_count": profile_count,
             "smtp_test_error": "Přihlášení selhalo — zkontrolujte uživatele a heslo.",
         })
     except Exception as e:
-        logger.warning("SMTP test failed: %s", e)
-        return templates.TemplateResponse(request, "partials/smtp_info.html", {
-            "settings": settings,
-            "smtp_test_error": "Připojení k SMTP serveru selhalo.",
+        logger.warning("SMTP test failed for profile %s: %s", profile_id, e)
+        return templates.TemplateResponse(request, "partials/smtp_profile_card.html", {
+            "profile": profile, "profile_count": profile_count,
+            "smtp_test_error": f"Připojení selhalo: {e}",
         })
+
+
+@router.post("/smtp/{profile_id}/vychozi")
+async def smtp_set_default(request: Request, profile_id: int, db: Session = Depends(get_db)):
+    """Nastavit profil jako výchozí."""
+    profile = db.query(SmtpProfile).get(profile_id)
+    if not profile:
+        return templates.TemplateResponse(request, "partials/smtp_info.html", _smtp_profiles_ctx(db))
+
+    # Reset is_default na všech
+    db.query(SmtpProfile).update({"is_default": False})
+    profile.is_default = True
+    db.commit()
+
+    return templates.TemplateResponse(request, "partials/smtp_info.html",
+        _smtp_profiles_ctx(db, saved=True))
+
+
+@router.post("/smtp/{profile_id}/smazat")
+async def smtp_delete(request: Request, profile_id: int, db: Session = Depends(get_db)):
+    """Smazat SMTP profil (nelze smazat jediný)."""
+    count = db.query(SmtpProfile).count()
+    if count <= 1:
+        return templates.TemplateResponse(request, "partials/smtp_info.html",
+            _smtp_profiles_ctx(db, error="Nelze smazat jediný SMTP profil."))
+
+    profile = db.query(SmtpProfile).get(profile_id)
+    if not profile:
+        return templates.TemplateResponse(request, "partials/smtp_info.html", _smtp_profiles_ctx(db))
+
+    was_default = profile.is_default
+    log_activity(db, ActivityAction.DELETED, "smtp_profile", str(profile_id),
+                 entity_name=profile.name)
+    db.delete(profile)
+    db.commit()
+
+    # Pokud smazaný byl výchozí, nastavit první zbývající
+    if was_default:
+        first = db.query(SmtpProfile).first()
+        if first:
+            first.is_default = True
+            db.commit()
+
+    return templates.TemplateResponse(request, "partials/smtp_info.html",
+        _smtp_profiles_ctx(db, saved=True))
 
 
 @router.get("/priloha/{log_id}/{filename}")
