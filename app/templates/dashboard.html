@@ -210,15 +210,13 @@
     {% set _mod_labels = {"payment_notice": "Platební upozornění", "dane": "Rozesílání", "hlasovani": "Hlasování", "prostory": "Prostory", "najemci": "Nájemci", "vlastnici": "Vlastníci", "jednotky": "Jednotky", "sprava": "Administrace", "nastaveni": "Nastavení", "sync": "Kontroly", "platby": "Platby", "import": "Import", "backup": "Zálohy", "share_check": "Kontrola podílů"} %}
     <div class="flex flex-wrap gap-1.5 mb-2">
         <a href="/?sort={{ sort }}&order={{ order }}{% if q %}&q={{ q|urlencode }}{% endif %}"
-           class="px-2 py-0.5 text-xs font-medium rounded-full transition-colors
-            {% if not modul %}bg-blue-600 text-white ring-2 ring-blue-400{% else %}bg-gray-100 text-gray-700 hover:bg-gray-200{% endif %}">
-            Vše <span class="ml-0.5 opacity-70">{{ module_counts.values()|sum }}</span>
+           class="px-2 py-1 text-xs rounded border {% if not modul %}bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border-blue-300 ring-2 ring-blue-400{% else %}bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-100{% endif %}">
+            Vše <span class="ml-0.5 opacity-75">{{ module_counts.values()|sum }}</span>
         </a>
         {% for mod_key, mod_count in module_counts_ordered %}
         <a href="/?modul={{ mod_key }}&sort={{ sort }}&order={{ order }}{% if q %}&q={{ q|urlencode }}{% endif %}"
-           class="px-2 py-0.5 text-xs font-medium rounded-full transition-colors
-            {% if modul == mod_key %}bg-blue-600 text-white ring-2 ring-blue-400{% else %}bg-gray-100 text-gray-700 hover:bg-gray-200{% endif %}">
-            {{ _mod_labels.get(mod_key, mod_key) }} <span class="ml-0.5 opacity-70">{{ mod_count }}</span>
+           class="px-2 py-1 text-xs rounded border {% if modul == mod_key %}bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border-blue-300 ring-2 ring-blue-400{% else %}bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-100{% endif %}">
+            {{ _mod_labels.get(mod_key, mod_key) }} <span class="ml-0.5 opacity-75">{{ mod_count }}</span>
         </a>
         {% endfor %}
     </div>
