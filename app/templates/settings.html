@@ -7,16 +7,21 @@
     <div class="shrink-0">
         <h1 class="text-2xl font-bold text-gray-800 mb-4">Nastavení</h1>
 
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-3">
-            <div id="smtp-section">
-                {% include "partials/smtp_info.html" %}
+        <details class="bg-white dark:bg-gray-800 rounded-lg shadow mb-3" open>
+            <summary class="px-4 py-2 cursor-pointer text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white select-none">
+                SMTP profily
+            </summary>
+            <div class="px-4 pb-3 border-t border-gray-100 dark:border-gray-700">
+                <div id="smtp-section" class="mt-2">
+                    {% include "partials/smtp_info.html" %}
+                </div>
             </div>
-        </div>
+        </details>
 
         {# Výchozí nastavení odesílání #}
         <details class="bg-white dark:bg-gray-800 rounded-lg shadow mb-3"{% if request.query_params.get('flash') == 'send_ok' %} open{% endif %}>
             <summary class="px-4 py-2 cursor-pointer text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white select-none">
-                ► Výchozí nastavení odesílání
+                Výchozí nastavení odesílání
             </summary>
             <div class="px-4 pb-3 border-t border-gray-100 dark:border-gray-700">
                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-2 mb-2">Nové rozesílky a nesrovnalosti zdědí tato nastavení. Lze je pak změnit na konkrétní rozesílce.</p>
