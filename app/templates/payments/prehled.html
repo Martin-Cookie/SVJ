@@ -124,13 +124,13 @@
                 {% set _sort_base = "/platby/prehled?rok=" ~ rok ~ "&" ~ ("q=" ~ q ~ "&" if q else "") ~ ("typ=" ~ typ ~ "&" if typ else "") ~ ("entita=" ~ entita ~ "&" if entita else "") %}
                 <tr>
                     {% if entita == 'prostory' %}
-                    {% set _cols = [("cislo", "Č."), ("vlastnik", "Nájemce"), ("predpis", "Předpis")] %}
+                    {% set _cols = [("cislo", "Č.", "left"), ("vlastnik", "Nájemce", "left"), ("predpis", "Předpis", "right")] %}
                     {% else %}
-                    {% set _cols = [("cislo", "Č."), ("sekce", "Sekce"), ("vlastnik", "Vlastník"), ("predpis", "Předpis")] %}
+                    {% set _cols = [("cislo", "Č.", "left"), ("sekce", "Sekce", "left"), ("vlastnik", "Vlastník", "left"), ("predpis", "Předpis", "right")] %}
                     {% endif %}
-                    {% for col_key, col_label in _cols %}
+                    {% for col_key, col_label, col_align in _cols %}
                     {% set new_order = "desc" if sort == col_key and order == "asc" else "asc" %}
-                    <th class="px-2 py-2 text-left font-semibold text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                    <th class="px-2 py-2 text-{{ col_align }} font-semibold text-gray-600 dark:text-gray-300 whitespace-nowrap">
                         <a href="{{ _sort_base }}sort={{ col_key }}&order={{ new_order }}{{ _back }}" class="hover:text-blue-600 select-none">
                             {{ col_label }}
                             {% if sort == col_key %}
