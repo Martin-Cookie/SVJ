@@ -49,6 +49,50 @@ def _create_smtp(host: str, port: int, use_tls: bool, timeout: int = 30) -> smtp
     return server
 
 
+def _imap_save_to_sent(msg, smtp_host: str, user: str, password: str, use_tls: bool) -> None:
+    """Uloží odeslaný email do složky Odeslaných přes IMAP (fire-and-forget)."""
+    import imaplib
+    import email.utils
+
+    # Odvodit IMAP host z SMTP host: smtp.x.cz → imap.x.cz
+    imap_host = smtp_host.replace("smtp.", "imap.", 1)
+    try:
+        imap = imaplib.IMAP4_SSL(imap_host, 993, timeout=10)
+        imap.login(user, password)
+
+        # Auto-detect Sent folder
+        sent_folder = None
+        _, folders = imap.list()
+        for f in (folders or []):
+            decoded = f.decode("utf-8", errors="replace") if isinstance(f, bytes) else f
+            if "\\Sent" in decoded:
+                # Extrahovat název složky: '(\\HasNoChildren \\Sent) "/" "Sent"' → "Sent"
+                parts = decoded.rsplit('"', 2)
+                if len(parts) >= 2:
+                    sent_folder = parts[-2]
+                break
+
+        if not sent_folder:
+            # Fallback — běžné názvy
+            for name in ("Sent", "INBOX.Sent", "[Gmail]/Sent Mail", "Sent Items"):
+                status, _ = imap.select(name, readonly=True)
+                if status == "OK":
+                    sent_folder = name
+                    break
+
+        if sent_folder:
+            msg_bytes = msg.as_bytes()
+            date = imaplib.Time2Internaldate(email.utils.parsedate_to_datetime(msg["Date"]) if msg["Date"] else __import__("datetime").datetime.now())
+            imap.append(sent_folder, "\\Seen", date, msg_bytes)
+            logger.debug("IMAP: email uložen do %s na %s", sent_folder, imap_host)
+        else:
+            logger.warning("IMAP: nenalezena složka Odeslaných na %s", imap_host)
+
+        imap.logout()
+    except Exception as e:
+        logger.warning("IMAP uložení do Odeslaných selhalo (%s): %s", imap_host, e)
+
+
 def _get_default_profile():
     """Načte výchozí SmtpProfile z DB (is_default=True) nebo None."""
     from app.database import SessionLocal
@@ -81,6 +125,7 @@ def _smtp_params_from_profile(profile):
         "from_name": profile.smtp_from_name or "",
         "from_email": profile.smtp_from_email,
         "use_tls": profile.smtp_use_tls,
+        "imap_save_sent": profile.imap_save_sent or False,
     }
 
 
@@ -94,6 +139,7 @@ def _smtp_params_from_settings():
         "from_name": settings.smtp_from_name,
         "from_email": settings.smtp_from_email,
         "use_tls": settings.smtp_use_tls,
+        "imap_save_sent": False,
     }
 
 
@@ -259,6 +305,12 @@ def send_email(
             if log:
                 log.status = EmailStatus.SENT
                 log.sent_at = utcnow()
+            # Uložit kopii do IMAP Odeslaných (fire-and-forget)
+            if params.get("imap_save_sent") and params.get("user"):
+                try:
+                    _imap_save_to_sent(msg, params["host"], params["user"], params["password"], params["use_tls"])
+                except Exception:
+                    pass  # Nikdy neblokovat odesílání
         except Exception as e:
             errors.append(f"{addr}: {e}")
             if log:

@@ -313,6 +313,7 @@ async def smtp_create(
     smtp_from_name: str = Form(""),
     smtp_from_email: str = Form(""),
     smtp_use_tls: Optional[str] = Form(None),
+    imap_save_sent: Optional[str] = Form(None),
     db: Session = Depends(get_db),
 ):
     """Vytvoření nového SMTP profilu."""
@@ -349,6 +350,7 @@ async def smtp_create(
         smtp_from_name=smtp_from_name.strip(),
         smtp_from_email=smtp_from_email.strip(),
         smtp_use_tls=smtp_use_tls == "true",
+        imap_save_sent=imap_save_sent == "true",
         is_default=is_default,
     )
     db.add(profile)
@@ -372,6 +374,7 @@ async def smtp_update(
     smtp_from_name: str = Form(""),
     smtp_from_email: str = Form(""),
     smtp_use_tls: Optional[str] = Form(None),
+    imap_save_sent: Optional[str] = Form(None),
     db: Session = Depends(get_db),
 ):
     """Aktualizace existujícího SMTP profilu."""
@@ -395,6 +398,7 @@ async def smtp_update(
     profile.smtp_from_name = smtp_from_name.strip()
     profile.smtp_from_email = smtp_from_email.strip()
     profile.smtp_use_tls = smtp_use_tls == "true"
+    profile.imap_save_sent = imap_save_sent == "true"
 
     log_activity(db, ActivityAction.UPDATED, "smtp_profile", str(profile_id),
                  entity_name=name.strip(), description=smtp_host)

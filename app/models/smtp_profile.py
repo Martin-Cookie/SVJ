@@ -19,6 +19,7 @@ class SmtpProfile(Base):
     smtp_from_name = Column(String(255), default="")
     smtp_from_email = Column(String(255), nullable=False)
     smtp_use_tls = Column(Boolean, default=True)
+    imap_save_sent = Column(Boolean, default=False)
     is_default = Column(Boolean, default=False, index=True)
     created_at = Column(DateTime, default=utcnow)
     updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)

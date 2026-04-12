@@ -62,12 +62,18 @@
                        placeholder="info@svj.cz"
                        class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded text-sm font-mono bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
             </div>
-            <div class="flex items-end pb-1">
+            <div class="flex items-end pb-1 gap-4">
                 <label class="flex items-center gap-2 cursor-pointer">
                     <input type="checkbox" name="smtp_use_tls" value="true"
                            {% if (profile and profile.smtp_use_tls) or not profile %}checked{% endif %}
                            class="w-4 h-4 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500">
                     <span class="text-xs text-gray-700 dark:text-gray-300">Použít TLS</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer" title="Ukládat kopii odeslaných emailů do IMAP složky Odeslaných">
+                    <input type="checkbox" name="imap_save_sent" value="true"
+                           {% if profile and profile.imap_save_sent %}checked{% endif %}
+                           class="w-4 h-4 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500">
+                    <span class="text-xs text-gray-700 dark:text-gray-300">Ukládat do Odeslaných</span>
                 </label>
             </div>
         </div>
