@@ -150,8 +150,8 @@ async def zustatky_seznam(
     units = db.query(Unit).order_by(Unit.unit_number).all()
     existing_unit_ids = {b.unit_id for b in balances}
 
-    total_dluh = sum(b.opening_amount for b in balances if b.opening_amount > 0)
-    total_preplatek = sum(b.opening_amount for b in balances if b.opening_amount < 0)
+    total_preplatek = sum(b.opening_amount for b in balances if b.opening_amount > 0)
+    total_nedoplatek = sum(b.opening_amount for b in balances if b.opening_amount < 0)
 
     # Vlastníci per unit pro formulář
     owners_by_unit = _owners_for_units(db)
@@ -187,8 +187,8 @@ async def zustatky_seznam(
         "sort": sort,
         "order": order,
         "existing_unit_ids": existing_unit_ids,
-        "total_dluh": total_dluh,
         "total_preplatek": total_preplatek,
+        "total_nedoplatek": total_nedoplatek,
         "owners_by_unit": owners_by_unit,
         "list_url": list_url,
         "back_url": back_url,
@@ -244,7 +244,7 @@ async def zustatky_export(
         elif b.owner_name:
             owner_name = b.owner_name
         amount = b.opening_amount or 0
-        typ = "Dluh" if amount > 0 else ("Přeplatek" if amount < 0 else "Vyrovnáno")
+        typ = "Přeplatek" if amount > 0 else ("Nedoplatek" if amount < 0 else "Vyrovnáno")
         source_val = b.source.value if b.source else ""
         return [
             b.year,

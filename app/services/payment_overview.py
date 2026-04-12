@@ -132,7 +132,8 @@ def compute_payment_matrix(db: Session, year: int, section: str = "", space_type
             months[m] = {"paid": paid, "status": status}
 
         total_paid_all += row_paid
-        expected = round(monthly * len(months_with_data) + opening, 2)
+        # opening: kladný = přeplatek (snižuje dluh), záporný = nedoplatek (zvyšuje dluh)
+        expected = round(monthly * len(months_with_data) - opening, 2)
         debt = round(max(0, expected - row_paid), 2)
 
         rows.append({
@@ -357,7 +358,8 @@ def compute_space_payment_matrix(db: Session, year: int) -> dict:
             months[m] = {"paid": paid, "status": status}
 
         total_paid_all += row_paid
-        expected = round(monthly * len(months_with_data) + opening, 2)
+        # opening: kladný = přeplatek (snižuje dluh), záporný = nedoplatek (zvyšuje dluh)
+        expected = round(monthly * len(months_with_data) - opening, 2)
         debt = round(max(0, expected - row_paid), 2)
 
         rows.append({

@@ -11,8 +11,8 @@
                 <p class="text-xs text-gray-500 dark:text-gray-400">
                     {{ balances|length }} záznamů{% if balances|length != total_count %} (z {{ total_count }} celkem){% endif %}
                     {% if balances %}·
-                    Dluhy: <span class="text-red-600">{{ total_dluh|fmt_num }} Kč</span> ·
-                    Přeplatky: <span class="text-green-600">{{ total_preplatek|fmt_num }} Kč</span>
+                    Přeplatky: <span class="text-green-600 dark:text-green-400">{{ total_preplatek|fmt_num }} Kč</span> ·
+                    Nedoplatky: <span class="text-red-600 dark:text-red-400">{{ total_nedoplatek|fmt_num }} Kč</span>
                     {% endif %}
                 </p>
             </div>
@@ -66,7 +66,7 @@
                 </div>
                 <div>
                     <label for="add-amount" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Částka
-                        <span class="font-normal text-gray-400 dark:text-gray-500 ml-1">kladná = dluh</span>
+                        <span class="font-normal text-gray-400 dark:text-gray-500 ml-1">kladná = přeplatek, záporná = nedoplatek</span>
                     </label>
                     <input type="number" name="opening_amount" id="add-amount" step="0.01" required placeholder="0.00"
                         class="h-[30px] w-36 px-3 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
