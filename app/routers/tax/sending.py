@@ -745,15 +745,6 @@ async def save_send_settings(
     session.send_confirm_each_batch = send_confirm_each_batch
     if test_email_inline.strip():
         session.test_email_address = test_email_inline.strip()
-    # Sync sdílených nastavení do SvjInfo
-    from app.models import SvjInfo
-    svj = db.query(SvjInfo).first()
-    if svj:
-        svj.send_batch_size = send_batch_size
-        svj.send_batch_interval = send_batch_interval
-        svj.send_confirm_each_batch = send_confirm_each_batch
-        if test_email_inline.strip():
-            svj.send_test_email_address = test_email_inline.strip()
     # Only set READY if session is in appropriate state (not COMPLETED/SENDING/PAUSED)
     if session.send_status not in (SendStatus.DRAFT, SendStatus.COMPLETED, SendStatus.SENDING, SendStatus.PAUSED):
         session.send_status = SendStatus.READY

@@ -182,6 +182,10 @@ class BankStatement(Base):
     import_status = Column(Enum(ImportStatus), default=ImportStatus.IMPORTED, index=True)
     locked_at = Column(DateTime, nullable=True)
     discrepancy_test_passed = Column(Boolean, default=False)  # test email pro nesrovnalosti odeslán
+    # Per-statement nastavení odesílání (dědí se z SvjInfo při prvním přístupu)
+    send_batch_size = Column(Integer, nullable=True)
+    send_batch_interval = Column(Integer, nullable=True)
+    send_confirm_each_batch = Column(Boolean, nullable=True)
     created_at = Column(DateTime, default=utcnow)
 
     payments = relationship("Payment", back_populates="statement", cascade="all, delete-orphan")

@@ -50,17 +50,17 @@
                     <div class="flex flex-wrap gap-3 items-end mt-2">
                         <div class="w-24">
                             <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5" title="Kolik příjemců se odešle najednou před pauzou">Dávka (příj.)</label>
-                            <input type="number" name="send_batch_size" value="{{ svj.send_batch_size if svj and svj.send_batch_size else 10 }}" min="1" max="100"
+                            <input type="number" name="send_batch_size" value="{{ statement.send_batch_size if statement.send_batch_size else 10 }}" min="1" max="100"
                                    class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1.5 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                         </div>
                         <div class="w-24">
                             <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5" title="Počet sekund čekání mezi dávkami">Int. (s)</label>
-                            <input type="number" name="send_batch_interval" value="{{ svj.send_batch_interval if svj and svj.send_batch_interval else 5 }}" min="1" max="60"
+                            <input type="number" name="send_batch_interval" value="{{ statement.send_batch_interval if statement.send_batch_interval else 5 }}" min="1" max="60"
                                    class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1.5 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                         </div>
                         <label class="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap pb-0.5" title="Po odeslání každé dávky se proces pozastaví a počká na vaše potvrzení">
                             <input type="checkbox" name="send_confirm_each_batch" value="true"
-                                   {% if svj and svj.send_confirm_each_batch %}checked{% endif %}
+                                   {% if statement.send_confirm_each_batch %}checked{% endif %}
                                    class="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500">
                             Potvrdit dávku
                         </label>

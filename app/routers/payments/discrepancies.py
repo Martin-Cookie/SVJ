@@ -12,7 +12,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db, SessionLocal
-from app.models import BankStatement, Owner, Payment
+from app.models import BankStatement, Owner, Payment, SvjInfo
 from app.utils import build_list_url, compute_eta, utcnow
 from ._helpers import templates, compute_nav_stats, MONTH_NAMES_LONG, _discrepancy_progress, _discrepancy_lock
 
@@ -38,11 +38,24 @@ SORT_COLUMNS_DISCREPANCY = {
 # ── Helpers ───────────────────────────────────────────────────────────
 
 
+def _ensure_statement_send_settings(db, statement):
+    """Inicializuje send settings na statement z SvjInfo defaults pokud jsou None."""
+    if statement.send_batch_size is None:
+        svj = db.query(SvjInfo).first()
+        statement.send_batch_size = svj.send_batch_size if svj and svj.send_batch_size else 10
+        statement.send_batch_interval = svj.send_batch_interval if svj and svj.send_batch_interval else 5
+        statement.send_confirm_each_batch = svj.send_confirm_each_batch if svj else False
+        db.commit()
+
+
 def _discrepancy_base_ctx(request, db, statement, discrepancies, back_url, sort, order):
     """Společný kontext pro nesrovnalosti preview stránku."""
     from app.services.payment_discrepancy import DISCREPANCY_LABELS, build_email_context
-    from app.models import EmailTemplate, EmailLog, SvjInfo
+    from app.models import EmailTemplate, EmailLog
     from app.utils import render_email_template
+
+    # Inicializace send settings z SvjInfo defaults pokud ještě nebyly nastaveny
+    _ensure_statement_send_settings(db, statement)
 
     # Řazení
     sort_key = SORT_COLUMNS_DISCREPANCY.get(sort, SORT_COLUMNS_DISCREPANCY["datum"])
@@ -358,14 +371,13 @@ async def discrepancy_save_settings(
     statement_id: int,
     db: Session = Depends(get_db),
 ):
-    """Uložit sdílená nastavení odesílání."""
-    from app.models import SvjInfo
+    """Uložit nastavení odesílání pro tento výpis."""
     form = await request.form()
-    svj = db.query(SvjInfo).first()
-    if svj:
-        svj.send_batch_size = max(1, min(100, int(form.get("send_batch_size", 10))))
-        svj.send_batch_interval = max(1, min(60, int(form.get("send_batch_interval", 5))))
-        svj.send_confirm_each_batch = form.get("send_confirm_each_batch") == "true"
+    statement = db.query(BankStatement).get(statement_id)
+    if statement:
+        statement.send_batch_size = max(1, min(100, int(form.get("send_batch_size", 10))))
+        statement.send_batch_interval = max(1, min(60, int(form.get("send_batch_interval", 5))))
+        statement.send_confirm_each_batch = form.get("send_confirm_each_batch") == "true"
         db.commit()
     back = form.get("back", "")
     back_param = f"&back={back}" if back else ""
@@ -495,12 +507,11 @@ async def discrepancy_send(
     if not recipients:
         return RedirectResponse(f"/platby/vypisy/{statement_id}/nesrovnalosti", status_code=302)
 
-    # Sdílená nastavení odesílání
-    from app.models import SvjInfo
-    svj = db.query(SvjInfo).first()
-    batch_size = svj.send_batch_size if svj and svj.send_batch_size else 10
-    batch_interval = svj.send_batch_interval if svj and svj.send_batch_interval else 5
-    confirm_batch = svj.send_confirm_each_batch if svj else False
+    # Nastavení odesílání z tohoto výpisu (inicializováno z SvjInfo defaults)
+    _ensure_statement_send_settings(db, statement)
+    batch_size = statement.send_batch_size or 10
+    batch_interval = statement.send_batch_interval or 5
+    confirm_batch = statement.send_confirm_each_batch or False
 
     # Initialize progress
     with _discrepancy_lock:

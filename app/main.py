@@ -732,6 +732,21 @@ def _migrate_dedupe_tenants():
         db.close()
 
 
+def _migrate_bank_statement_send_settings():
+    """Přidat per-statement nastavení odesílání do bank_statements."""
+    with engine.connect() as conn:
+        cols = [r[1] for r in conn.execute(text("PRAGMA table_info('bank_statements')")).fetchall()]
+        for col_name, col_def in [
+            ("send_batch_size", "INTEGER"),
+            ("send_batch_interval", "INTEGER"),
+            ("send_confirm_each_batch", "BOOLEAN"),
+        ]:
+            if col_name not in cols:
+                conn.execute(text(f"ALTER TABLE bank_statements ADD COLUMN {col_name} {col_def}"))
+                logger.info("Added %s column to bank_statements", col_name)
+        conn.commit()
+
+
 _ALL_MIGRATIONS = [
     ("units table", _migrate_units_table),
     ("owner_units history", _migrate_owner_units_history),
@@ -749,6 +764,7 @@ _ALL_MIGRATIONS = [
     ("svj send settings", _migrate_svj_send_settings),
     ("payment notified_at", _migrate_payment_notified_at),
     ("dedupe tenants", _migrate_dedupe_tenants),
+    ("bank_statement send settings", _migrate_bank_statement_send_settings),
     ("index creation", _ensure_indexes),
     ("code list seeding", _seed_code_lists),
     ("email template seeding", _seed_email_templates),

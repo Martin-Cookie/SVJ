@@ -18,7 +18,7 @@ from sqlalchemy import or_
 
 from app.config import settings
 from app.database import get_db
-from app.models import ActivityAction, EmailLog, Owner, log_activity
+from app.models import ActivityAction, EmailLog, Owner, SvjInfo, log_activity
 from app.utils import build_list_url, excel_auto_width, is_htmx_partial, is_safe_path, strip_diacritics, templates
 
 logger = logging.getLogger(__name__)
@@ -111,10 +111,14 @@ async def settings_view(
     # Build list_url for back navigation
     list_url = build_list_url(request)
 
+    # Globální nastavení odesílání
+    svj = db.query(SvjInfo).first()
+
     ctx = {
         "request": request,
         "active_nav": "settings",
         "settings": settings,
+        "svj": svj,
         "email_logs": email_logs,
         "owner_by_email": owner_by_email,
         "attachments_by_id": attachments_by_id,
@@ -123,6 +127,11 @@ async def settings_view(
         "sort": sort,
         "order": order,
     }
+
+    # Flash zprávy
+    flash = request.query_params.get("flash", "")
+    if flash == "send_ok":
+        ctx["flash_message"] = "Výchozí nastavení odesílání uloženo"
 
     if is_htmx_partial(request):
         return templates.TemplateResponse(request, "partials/settings_email_tbody.html", ctx)
@@ -211,6 +220,26 @@ async def email_log_export(
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+@router.post("/odesilani")
+async def save_send_settings(
+    request: Request,
+    send_batch_size: int = Form(10),
+    send_batch_interval: int = Form(5),
+    send_confirm_each_batch: Optional[str] = Form(None),
+    send_test_email_address: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    """Uložit výchozí globální nastavení odesílání."""
+    svj = db.query(SvjInfo).first()
+    if svj:
+        svj.send_batch_size = max(1, min(100, send_batch_size))
+        svj.send_batch_interval = max(1, min(60, send_batch_interval))
+        svj.send_confirm_each_batch = send_confirm_each_batch == "true"
+        svj.send_test_email_address = send_test_email_address.strip() or svj.send_test_email_address
+        db.commit()
+    return RedirectResponse("/nastaveni?flash=send_ok", status_code=302)
 
 
 @router.get("/smtp/formular")

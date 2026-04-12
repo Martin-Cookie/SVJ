@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.config import settings
 from app.database import get_db
 from app.models import (
-    EmailTemplate, MatchStatus, Owner, OwnerUnit, SendStatus,
+    EmailTemplate, MatchStatus, Owner, OwnerUnit, SendStatus, SvjInfo,
     TaxDistribution, TaxDocument, TaxSession,
     ActivityAction, log_activity,
 )
@@ -214,11 +214,17 @@ async def tax_create(
         return RedirectResponse(f"/dane/nova?chyba={quote(err)}", status_code=302)
 
     year = datetime.now().year
+    # Inicializace send settings z globálních defaults (SvjInfo)
+    svj = db.query(SvjInfo).first()
     session = TaxSession(
         title=title,
         year=year,
         email_subject=title,
         email_body=email_body,
+        send_batch_size=svj.send_batch_size if svj and svj.send_batch_size else 10,
+        send_batch_interval=svj.send_batch_interval if svj and svj.send_batch_interval else 5,
+        send_confirm_each_batch=svj.send_confirm_each_batch if svj else False,
+        test_email_address=svj.send_test_email_address if svj else None,
     )
     db.add(session)
     db.flush()
