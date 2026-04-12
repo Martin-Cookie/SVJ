@@ -13,7 +13,7 @@ from email.header import Header
 from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from email.utils import formataddr
+from email.utils import formataddr, formatdate
 from pathlib import Path
 
 from sqlalchemy.orm import Session
@@ -51,18 +51,22 @@ def _create_smtp(host: str, port: int, use_tls: bool, timeout: int = 30) -> smtp
 
 def _imap_save_to_sent(msg, smtp_host: str, user: str, password: str, use_tls: bool) -> None:
     """Uloží odeslaný email do složky Odeslaných přes IMAP (fire-and-forget)."""
+    import datetime
     import imaplib
     import email.utils
 
     # Odvodit IMAP host z SMTP host: smtp.x.cz → imap.x.cz
     imap_host = smtp_host.replace("smtp.", "imap.", 1)
+    logger.info("IMAP: pokus o uložení do Odeslaných na %s (user=%s)", imap_host, user)
     try:
         imap = imaplib.IMAP4_SSL(imap_host, 993, timeout=10)
         imap.login(user, password)
+        logger.info("IMAP: přihlášení OK na %s", imap_host)
 
         # Auto-detect Sent folder
         sent_folder = None
         _, folders = imap.list()
+        logger.info("IMAP: nalezené složky: %s", folders)
         for f in (folders or []):
             decoded = f.decode("utf-8", errors="replace") if isinstance(f, bytes) else f
             if "\\Sent" in decoded:
@@ -70,27 +74,35 @@ def _imap_save_to_sent(msg, smtp_host: str, user: str, password: str, use_tls: b
                 parts = decoded.rsplit('"', 2)
                 if len(parts) >= 2:
                     sent_folder = parts[-2]
+                logger.info("IMAP: detekována Sent složka z flagu: %s (raw: %s)", sent_folder, decoded)
                 break
 
         if not sent_folder:
             # Fallback — běžné názvy
-            for name in ("Sent", "INBOX.Sent", "[Gmail]/Sent Mail", "Sent Items"):
+            for name in ("Sent", "INBOX.Sent", "[Gmail]/Sent Mail", "Sent Items",
+                          "Odeslaná pošta", "INBOX.Odeslaná pošta"):
                 status, _ = imap.select(name, readonly=True)
                 if status == "OK":
                     sent_folder = name
+                    logger.info("IMAP: Sent složka nalezena fallbackem: %s", sent_folder)
                     break
 
         if sent_folder:
             msg_bytes = msg.as_bytes()
-            date = imaplib.Time2Internaldate(email.utils.parsedate_to_datetime(msg["Date"]) if msg["Date"] else __import__("datetime").datetime.now())
-            imap.append(sent_folder, "\\Seen", date, msg_bytes)
-            logger.debug("IMAP: email uložen do %s na %s", sent_folder, imap_host)
+            # Bezpečný Date parsing
+            try:
+                date_dt = email.utils.parsedate_to_datetime(msg["Date"]) if msg["Date"] else datetime.datetime.now()
+            except Exception:
+                date_dt = datetime.datetime.now()
+            date = imaplib.Time2Internaldate(date_dt)
+            result = imap.append(sent_folder, "\\Seen", date, msg_bytes)
+            logger.info("IMAP: email uložen do %s na %s — výsledek: %s", sent_folder, imap_host, result)
         else:
             logger.warning("IMAP: nenalezena složka Odeslaných na %s", imap_host)
 
         imap.logout()
     except Exception as e:
-        logger.warning("IMAP uložení do Odeslaných selhalo (%s): %s", imap_host, e)
+        logger.error("IMAP uložení do Odeslaných selhalo (%s): %s", imap_host, e, exc_info=True)
 
 
 def _get_default_profile():
@@ -186,6 +198,7 @@ def _build_message(
     msg["From"] = formataddr((str(Header(_from_name, "utf-8")), _from_email))
     msg["To"] = formataddr((str(Header(to_name, "utf-8")), to_addr))
     msg["Subject"] = Header(subject, "utf-8")
+    msg["Date"] = formatdate(localtime=True)
 
     # Plain text z formuláře (bez HTML tagů) → konverze \n na <br>
     html = body_html
