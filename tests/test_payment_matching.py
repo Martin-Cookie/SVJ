@@ -472,7 +472,7 @@ class TestComputeCandidates:
 
 class TestFinancialRounding:
     def test_debt_is_rounded(self, db_session, seed_statement):
-        """debt v matici plateb je zaokrouhleno na 2 des. místa."""
+        """saldo v matici plateb je zaokrouhleno na 2 des. místa."""
         from app.services.payment_matching import match_payments
         from app.services.payment_overview import compute_payment_matrix
         data = seed_statement
@@ -480,5 +480,5 @@ class TestFinancialRounding:
 
         result = compute_payment_matrix(db_session, 2026)
         for row in result["units"]:
-            assert row["debt"] == round(row["debt"], 2)
+            assert row["saldo"] == round(row["saldo"], 2)
             assert row["expected"] == round(row["expected"], 2)
