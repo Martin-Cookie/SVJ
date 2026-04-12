@@ -143,7 +143,7 @@
                         Platby
                         {% set _dcount = request.state.nav_debtor_count|default(0) %}
                         {% if _dcount > 0 %}
-                        <span class="ml-auto px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-red-600 text-white" title="Nespárované platby">{{ _dcount }}</span>
+                        <span class="ml-auto px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-red-600 text-white" title="{{ _dcount }} jednotek s nedoplatkem">{{ _dcount }}</span>
                         {% endif %}
                     </a>
                 </li>

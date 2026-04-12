@@ -539,8 +539,19 @@ document.body.addEventListener('htmx:beforeRequest', function(event) {
     }
 });
 
+// Re-apply dark mode class after boost swap (HTMX may rebuild <body>, class on <html> survives
+// but response body may contain inline scripts or CSS that assume light mode)
+document.body.addEventListener('htmx:beforeSwap', function(event) {
+    // Remember dark state before swap — <html> class should survive but be safe
+    event.detail._wasDark = document.documentElement.classList.contains('dark');
+});
+
 // Restore after ANY htmx settle (partial swap into tbody OR full boost page swap)
 document.addEventListener('htmx:afterSettle', function(event) {
+    // Ensure dark mode class on <html> is consistent with localStorage
+    var savedTheme = localStorage.getItem('svj-theme');
+    var shouldBeDark = savedTheme === 'dark' || (!savedTheme && matchMedia('(prefers-color-scheme:dark)').matches);
+    document.documentElement.classList.toggle('dark', shouldBeDark);
     initThemeUI();
     _restoreCheckedKeys();
     _restoreTaxChecked();

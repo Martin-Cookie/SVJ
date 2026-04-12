@@ -37,7 +37,7 @@
     </td>
     <td class="px-3 py-2 text-right">
         <a href="/platby/prostor/{{ r.space.id }}?rok={{ rok }}&back={{ (list_url ~ '#ds-' ~ r.space.id)|urlencode }}"
-           class="text-blue-600 dark:text-blue-400 hover:underline">Detail →</a>
+           class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300" title="Zobrazit detail"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></a>
     </td>
 </tr>
 {% else %}
@@ -70,7 +70,7 @@
     </td>
     <td class="px-3 py-2 text-right">
         <a href="/platby/jednotka/{{ r.unit.id }}?rok={{ rok }}&back={{ (list_url ~ '#d-' ~ r.unit.id)|urlencode }}"
-           class="text-blue-600 dark:text-blue-400 hover:underline">Detail →</a>
+           class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300" title="Zobrazit detail"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></a>
     </td>
 </tr>
 {% endif %}

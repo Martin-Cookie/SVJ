@@ -41,6 +41,10 @@ async def predpisy_seznam(request: Request, db: Session = Depends(get_db)):
     list_url = build_list_url(request)
     back_url = request.query_params.get("back", "")
 
+    # Pokud existuje jen 1 rok, přesměruj přímo na detail
+    if len(years) == 1:
+        return RedirectResponse(f"/platby/predpisy/{years[0].id}?back={back_url}", status_code=302)
+
     ctx = {
         "request": request,
         "active_nav": "platby",

@@ -1,7 +1,7 @@
 # SVJ Aplikace — Business Logic Reference
 
 > Technicky dokument s odkazy na zdrojovy kod (soubor:radek).
-> Posledni aktualizace: 2026-04-05
+> Posledni aktualizace: 2026-04-12
 
 ---
 
@@ -38,6 +38,11 @@
 - `share` — podil vlastnika na jednotce (default 1.0, pri vice vlastnicich se deli)
 - `votes` — pocet hlasu (= `podil_scd` jednotky * `share`; prepocitava se pri zmene)
 
+**Email validita:**
+- `Owner.email_invalid` (Boolean, default False) — flag pro neplatnou adresu
+- `Owner.email_invalid_reason` (String) — duvod neplatnosti (z bounce diagnostiky)
+- Nastavuje se automaticky pri detekci hard bounce
+
 ### 1.2 Hlasovani
 
 | Entity | Tabulka | Soubor |
@@ -57,24 +62,47 @@
 
 | Entity | Tabulka | Soubor |
 |--------|---------|--------|
-| `TaxSession` | `tax_sessions` | `app/models/tax.py:35` |
-| `TaxDocument` | `tax_documents` | `app/models/tax.py:59` |
-| `TaxDistribution` | `tax_distributions` | `app/models/tax.py:77` |
+| `TaxSession` | `tax_sessions` | `app/models/tax.py:37` |
+| `TaxDocument` | `tax_documents` | `app/models/tax.py:63` |
+| `TaxDistribution` | `tax_distributions` | `app/models/tax.py:82` |
 
 **Klicove atributy TaxSession:**
-- `send_batch_size` — pocet emailu v davce (default 10)
-- `send_batch_interval` — pauza mezi davkami v sekundach (default 5)
+- `send_batch_size` — pocet emailu v davce (default 10, per-session override)
+- `send_batch_interval` — pauza mezi davkami v sekundach (default 5, per-session override)
 - `send_confirm_each_batch` — zda cekat na potvrzeni po kazde davce
 - `test_email_passed` — zda prosel testovaci email
+- `smtp_profile_id` — FK na SmtpProfile (vybrany SMTP profil pro tuto rozesílku)
 
-### 1.4 Synchronizace
+### 1.4 SMTP profily (NOVE od 2026-04)
+
+| Entity | Tabulka | Soubor |
+|--------|---------|--------|
+| `SmtpProfile` | `smtp_profiles` | `app/models/smtp_profile.py:10` |
+
+**SmtpProfile:**
+- Podpora az 3 SMTP profilu v DB (multi-mailbox setup)
+- `name` — nazev profilu (napr. "Gmail SVJ", "Seznam.cz")
+- `smtp_host`, `smtp_port`, `smtp_user` — konfigurace serveru
+- `smtp_password_b64` — heslo v base64 (`encode_smtp_password`/`decode_smtp_password` v `utils.py`)
+- `smtp_from_name`, `smtp_from_email` — jmeno a adresa odesilatele
+- `smtp_use_tls` — TLS/SSL podpora
+- `imap_save_sent` — ulozit odeslanou zpravu do IMAP slozky Odeslaných
+- `is_default` — vychozi profil (pouzije se kdyz session nema explicitni vyber)
+
+**Hierarchie vyberu SMTP:**
+1. Explicitni `smtp_profile_id` na session/statement (per-rozesílka)
+2. Default profil (`is_default=True`)
+3. Fallback na `.env` settings (legacy)
+- Implementace: `get_smtp_params(profile_id)` v `email_service.py:158-167`
+
+### 1.5 Synchronizace
 
 | Entity | Tabulka | Soubor |
 |--------|---------|--------|
 | `SyncSession` | `sync_sessions` | `app/models/sync.py:28` |
 | `SyncRecord` | `sync_records` | `app/models/sync.py:47` |
 
-### 1.5 Kontrola podilu
+### 1.6 Kontrola podilu
 
 | Entity | Tabulka | Soubor |
 |--------|---------|--------|
@@ -82,34 +110,47 @@
 | `ShareCheckRecord` | `share_check_records` | `app/models/share_check.py:46` |
 | `ShareCheckColumnMapping` | `share_check_column_mappings` | `app/models/share_check.py:61` |
 
-### 1.6 Administrace
+### 1.7 Administrace
 
 | Entity | Tabulka | Soubor |
 |--------|---------|--------|
-| `SvjInfo` | `svj_info` | `app/models/administration.py:9` |
-| `SvjAddress` | `svj_addresses` | `app/models/administration.py:36` |
-| `BoardMember` | `board_members` | `app/models/administration.py:47` |
-| `CodeListItem` | `code_list_items` | `app/models/administration.py:60` |
-| `EmailTemplate` | `email_templates` | `app/models/administration.py:74` |
+| `SvjInfo` | `svj_info` | `app/models/administration.py:11` |
+| `SvjAddress` | `svj_addresses` | `app/models/administration.py:37` |
+| `BoardMember` | `board_members` | `app/models/administration.py:48` |
+| `CodeListItem` | `code_list_items` | `app/models/administration.py:61` |
+| `EmailTemplate` | `email_templates` | `app/models/administration.py:75` |
 
 **SvjInfo.total_shares** — deklarovany celkovy pocet hlasu (dle prohlaseni vlastniku). Pouziva se pro vypocet kvora a procentualniho podilu.
 
-**SvjInfo — sdilena konfigurace odesilani** (nove od 2026-03-28):
+**SvjInfo — sdilena konfigurace odesilani:**
 - `send_batch_size` (default 10) — pocet prijemcu v jedne davce
 - `send_batch_interval` (default 5) — pocet sekund pauzy mezi davkami
 - `send_confirm_each_batch` (default False) — zda cekat na potvrzeni po kazde davce
 - `send_test_email_address` — posledni pouzita adresa pro testovaci email
-- Tato konfigurace je sdilena pro VSECHNY odesilacie moduly (rozesílani i nesrovnalosti)
+- Tato konfigurace slouzi jako **globalni default** — jednotlive session/statement mohou mit vlastni override
 
-### 1.7 Spolecne / logy
+**SvjInfo.vs_prefix** — konfigurovatelny prefix variabilniho symbolu (default "1098"). Pouziva se pri dekodovani cisla jednotky z VS v platebnim matchingu. Editovatelny v Administrace > Info o SVJ.
+
+### 1.8 Spolecne / logy
 
 | Entity | Tabulka | Soubor |
 |--------|---------|--------|
-| `EmailLog` | `email_logs` | `app/models/common.py:16` |
-| `ImportLog` | `import_logs` | `app/models/common.py:33` |
-| `ActivityLog` | `activity_logs` | `app/models/common.py:57` |
+| `EmailLog` | `email_logs` | `app/models/common.py:46` |
+| `EmailBounce` | `email_bounces` | `app/models/common.py:24` |
+| `ImportLog` | `import_logs` | `app/models/common.py:64` |
+| `ActivityLog` | `activity_logs` | `app/models/common.py:88` |
 
-### 1.8 Evidence plateb
+**EmailBounce (NOVE od 2026-04):**
+- Zaznam o nedorucenem emailu detekovany pres IMAP
+- `bounce_type` — `HARD` (trvale nedorucitelny, 5.x.x), `SOFT` (docasne, 4.x.x), `UNKNOWN`
+- `recipient_email` — adresa na kterou se email nepodařilo dorucit
+- `owner_id` — FK na Owner (automaticky sparovany)
+- `email_log_id` — FK na puvodni EmailLog (pokud nalezen)
+- `diagnostic_code` — surovy SMTP diagnostic code
+- `reason` — parsovany duvod z DSN zpravy
+- `imap_uid` — UID zpravy v IMAP (pro deduplikaci)
+
+### 1.9 Evidence plateb
 
 | Entity | Tabulka | Soubor |
 |--------|---------|--------|
@@ -118,11 +159,11 @@
 | `Prescription` | `prescriptions` | `app/models/payment.py:129` |
 | `PrescriptionItem` | `prescription_items` | `app/models/payment.py:151` |
 | `BankStatement` | `bank_statements` | `app/models/payment.py:167` |
-| `Payment` | `payments` | `app/models/payment.py:190` |
-| `BankStatementColumnMapping` | `bank_statement_column_mappings` | `app/models/payment.py:230` |
-| `PaymentAllocation` | `payment_allocations` | `app/models/payment.py:242` |
-| `Settlement` | `settlements` | `app/models/payment.py:263` |
-| `SettlementItem` | `settlement_items` | `app/models/payment.py:284` |
+| `Payment` | `payments` | `app/models/payment.py:196` |
+| `BankStatementColumnMapping` | `bank_statement_column_mappings` | `app/models/payment.py:236` |
+| `PaymentAllocation` | `payment_allocations` | `app/models/payment.py:248` |
+| `Settlement` | `settlements` | `app/models/payment.py:269` |
+| `SettlementItem` | `settlement_items` | `app/models/payment.py:290` |
 | `UnitBalance` | `unit_balances` | `app/models/payment.py:85` |
 
 **Hierarchie predpisu:**
@@ -135,8 +176,10 @@
 - `Payment.direction` — `INCOME` (prijem) nebo `EXPENSE` (vydej)
 - `Payment.match_status` — `AUTO_MATCHED`, `SUGGESTED`, `MANUAL`, `UNMATCHED`
 - `Payment.variable_symbol` (sloupec `vs`) — variabilni symbol pro parovani s predpisy
-- `Payment.notified_at` — timestamp odeslani upozorneni na nesrovnalost (nove od 2026-03-28)
+- `Payment.notified_at` — timestamp odeslani upozorneni na nesrovnalost
 - `BankStatement.discrepancy_test_passed` — zda prosel testovaci email pro nesrovnalosti
+- `BankStatement.send_batch_size/interval/confirm_each_batch` — per-statement override odesilaci konfigurace
+- `BankStatement.smtp_profile_id` — FK na SmtpProfile (vybrany SMTP profil pro tuto davku nesrovnalosti)
 
 **Alokace plateb:**
 - `PaymentAllocation` — M:N vazba `Payment` <-> `Prescription` (jedna platba muze pokryt vice predpisu, jeden predpis muze byt pokryt vice platbami)
@@ -144,10 +187,10 @@
 - `amount` na alokaci urcuje castku prirazenou konkretnimu predpisu
 
 **Zustatky a vyuctovani:**
-- `UnitBalance` — zustatek na jednotce/prostoru pro dany rok (kladny = dluh, zaporny = preplatek)
+- `UnitBalance` — zustatek na jednotce/prostoru pro dany rok
+- **Znamenkova konvence (ZMENENO 2026-04):** kladny = preplatek, zaporny = nedoplatek
 - `UnitBalance` podporuje `space_id` — zustatek muze byt i pro prostor (nejenom jednotku)
 - `Settlement` -> `SettlementItem` — rocni vyuctovani s detailnimi polozkami
-- Vzorec vyuctovani: `vysledek = (mesicni_predpis * 12) + pocatecni_zustatek - celkem_zaplaceno`
 
 **Mapovani variabilnich symbolu:**
 - `VariableSymbolMapping` — vazba VS -> jednotka NEBO prostor. Podporuje `unit_id` i `space_id`
@@ -155,7 +198,7 @@
 - Slouzi pro automaticke parovani plateb s predpisy
 - `SymbolSource` — zdroj VS: `AUTO` (z importu), `MANUAL` (rucne zadany), `LEGACY` (historicky)
 
-### 1.9 Prostory a najemci (nove od 2026-03)
+### 1.10 Prostory a najemci
 
 | Entity | Tabulka | Soubor |
 |--------|---------|--------|
@@ -222,7 +265,7 @@ GENERATED --[oznacit jako neplatny]--> INVALID
 - `INVALID`: listek oznacen jako neplatny
 - Reset: `PROCESSED` -> `GENERATED` (vymaze hlasy, `voting.py:1239+`)
 
-### 2.3 SendStatus (`tax.py:19`) — rozesílani
+### 2.3 SendStatus (`tax.py:21`) — rozesílani
 
 ```
 DRAFT --[potvrdit prirazeni]--> READY --[zahajit rozeslani]--> SENDING
@@ -242,14 +285,14 @@ DRAFT --[potvrdit prirazeni]--> READY --[zahajit rozeslani]--> SENDING
 - `COMPLETED`: vsechny emaily odeslany
 - Recovery pri restartu: `SENDING` -> `PAUSED` automaticky (`tax.py:45-56`)
 
-### 2.4 MatchStatus (`tax.py:12`) — prirazeni PDF
+### 2.4 MatchStatus (`tax.py:14`) — prirazeni PDF
 
 ```
 UNMATCHED --[auto-match]--> AUTO_MATCHED --[potvrdit]--> CONFIRMED
                                               \--[rucne zmenit]--> MANUAL
 ```
 
-### 2.5 EmailDeliveryStatus (`tax.py:27`)
+### 2.5 EmailDeliveryStatus (`tax.py:29`)
 
 ```
 PENDING --[zaradit do fronty]--> QUEUED --[odeslat]--> SENT
@@ -308,6 +351,17 @@ BLOCKED --[rucne odblokovani]--> VACANT
 GENERATED --[odeslat]--> SENT --[zaplatit]--> PAID
                                              \--[po splatnosti]--> OVERDUE
 ```
+
+### 2.11 BounceType (`common.py:18`) (NOVE)
+
+```
+UNKNOWN --[DSN 5.x.x detekce]--> HARD
+        --[DSN 4.x.x detekce]--> SOFT
+```
+
+- `HARD` — trvale nedorucitelny (adresa neexistuje, schránka deaktivovana)
+- `SOFT` — docasne selhani (plna schranka, greylisting, timeout)
+- `UNKNOWN` — neni mozne urcit typ z DSN zpravy
 
 ---
 
@@ -401,7 +455,7 @@ GENERATED --[odeslat]--> SENT --[zaplatit]--> PAID
 - **Append** (`clear_existing=False`): preskoci listky s existujicimi hlasy
 - **Clear** (`clear_existing=True`): prepise vse; listky mimo import se resetuji na `GENERATED`
 
-**Globalni mapovani:** ulozeno v `SvjInfo.voting_import_mapping` (`administration.py:17`); predvyplni se pri dalsim importu.
+**Globalni mapovani:** ulozeno v `SvjInfo.voting_import_mapping` (`administration.py:19`); predvyplni se pri dalsim importu.
 
 ### 3.2 Rozesílani (Tax/Send)
 
@@ -446,11 +500,13 @@ GENERATED --[odeslat]--> SENT --[zaplatit]--> PAID
 #### Krok 4: Rozesílani emailu
 - **Background thread:** `tax.py:2085-2214`
 - Davkovy system: `batch_size` emailu, `batch_interval` sekund pauza
-- Sdilene SMTP pripojeni per davka (`email_service.py:21-31`)
+- **Per-session nastaveni (NOVE):** TaxSession ma vlastni `send_batch_size/interval/confirm_each_batch` a `smtp_profile_id`, ktere overriduji globalni defaults z SvjInfo
+- Sdilene SMTP pripojeni per davka (`email_service.py:170-182`)
 - Podpora pozastaveni/pokracovani/zruseni behem rozesílani
 - Retry neuspiesnnych: opetovne odeslani jen `FAILED` prijemcu (`tax.py:2430+`)
 - Deduplikace prijemcu pres `_build_recipients()` (`tax.py:221-300`): jeden prijemce muze mit vice dokumentu
 - Podpora dualnich emailu (primarni + sekundarni)
+- **IMAP save-to-sent (NOVE):** po odeslani se email ulozi do IMAP slozky Odeslaných (pokud profil ma `imap_save_sent=True`)
 
 ### 3.3 Import vlastniku z Excelu
 
@@ -630,7 +686,7 @@ GENERATED --[odeslat]--> SENT --[zaplatit]--> PAID
 - **Fallback**: pokud je jediny kandidat (jmeno sedi) ale castka nesedi -> `SUGGESTED` (jeden match = dost pro navrh)
 
 **Faze 3 — VS prefix decode + score** (nejnizsi jistota):
-- VS prefix `VS_PREFIX="1098"` se odstrani, zbytek se interpretuje jako cislo jednotky
+- VS prefix z `SvjInfo.vs_prefix` (konfigurovatelny, default `"1098"`) se odstrani, zbytek se interpretuje jako cislo jednotky
 - Bodovy system (`MIN_MATCH_SCORE=5`):
   - Shoda cisla jednotky z VS: +3 body
   - Shoda castky s predpisem: +3 body
@@ -638,7 +694,7 @@ GENERATED --[odeslat]--> SENT --[zaplatit]--> PAID
 - Score >= `MIN_MATCH_SCORE` -> `SUGGESTED`
 
 **Klicove konstanty** (`payment_matching.py`):
-- `VS_PREFIX = "1098"` — prefix pro dekodovani cisla jednotky z VS
+- `DEFAULT_VS_PREFIX = "1098"` — vychozi prefix (pouzije se kdyz SvjInfo nema nastaveny)
 - `MIN_WORD_LENGTH = 3` — minimalni delka slova pro matching jmen
 - `MIN_COMMON_WORDS = 2` — minimalni pocet spolecnych slov pro shodu
 - `MAX_PRESCRIPTION_RATIO = 10` — maximalni nasobek predpisu pro validni castku
@@ -664,14 +720,27 @@ GENERATED --[odeslat]--> SENT --[zaplatit]--> PAID
 
 #### 3.8.6 Prehled plateb (`payment_overview.py`)
 
+**Saldo vzorec (ZMENENO 2026-04):**
+```
+expected = monthly * months_with_data - opening
+saldo = total_paid - expected
+```
+- `expected` = ocekavana platba = (mesicni predpis * pocet mesicu s daty) - pocatecni zustatek
+- `saldo` = zaplaceno - ocekavane
+- **Kladne saldo = preplatek (zelena barva)**
+- **Zaporne saldo = nedoplatek/dluh (cervena barva)**
+- `opening`: kladny = preplatek z minuleho roku (snizuje ocekavanou platbu), zaporny = nedoplatek (zvysuje)
+
 **Platebni matice:**
 - Sloupce = mesice (1-12), radky = jednotky
 - Bunka = zaplacena castka vs predepsana castka (zelena = OK, cervena = dluh, zluta = castecne)
+- Tooltip na bunce zobrazuje datum zaplaceni (NOVE)
 - `PaymentWithAlloc` dataclass — wrapper pro platbu s alokacemi
 
 **Dluznici:**
-- `_count_debtors_fast()` v `payments/_helpers.py` — rychly SQL dotaz na pocet jednotek se zustatkem > 0
-- Dluznik = jednotka, ktera v danem obdobi zaplatila mene nez bylo predepsano
+- Dluznik = jednotka kde `saldo < 0` (zaplaceno mene nez ocekavano)
+- Dluznici serazeni dle salda (nejvetsi dluh prvni)
+- V sablone se dluh zobrazuje jako `saldo * -1` (absolutni hodnota) cervene
 
 #### 3.8.7 Vyuctovani (`settlement_service.py`)
 
@@ -686,10 +755,10 @@ vysledek = (mesicni_predpis * 12) + pocatecni_zustatek - celkem_zaplaceno
 - Proporcionalni alokace: kazda kategorie (provozni, fond_oprav, sluzby) ma svuj pomer na celku
 
 **Pocatecni zustatek:**
-- `UnitBalance.opening_balance` pro dany rok
+- `UnitBalance.opening_amount` pro dany rok
 - Pokud neexistuje -> 0
 
-### 3.9 Detekce nesrovnalosti v platbach (NOVE od 2026-03-28)
+### 3.9 Detekce nesrovnalosti v platbach
 
 - **Soubory:** `app/services/payment_discrepancy.py`, `app/routers/payments/statements.py:1085+`
 - Workflow: Import vypisu -> Matching -> Detekce nesrovnalosti -> Preview -> Test email -> Davkove odeslani
@@ -747,7 +816,7 @@ vysledek = (mesicni_predpis * 12) + pocatecni_zustatek - celkem_zaplaceno
 
 **Davkove odeslani** (`/platby/vypisy/{id}/nesrovnalosti/odeslat`):
 - Spusti background thread `_send_discrepancy_emails_batch`
-- Pouziva sdilenou konfiguraci z `SvjInfo` (batch_size, batch_interval, confirm_each_batch)
+- Pouziva per-statement konfiguraci (batch_size, batch_interval, confirm_each_batch, smtp_profile_id)
 - Sdilene SMTP pripojeni per davka
 - Pocatecni prodleva 5s (uzivatel muze pozastavit/zrusit)
 - `Payment.notified_at = utcnow()` se nastavi po uspesnem odeslani
@@ -761,7 +830,7 @@ vysledek = (mesicni_predpis * 12) + pocatecni_zustatek - celkem_zaplaceno
 - HTMX polling kazdych 500ms
 - ETA vypocet pres `compute_eta()` z `app/utils.py`
 
-### 3.10 Import prostoru z Excelu (NOVE od 2026-03)
+### 3.10 Import prostoru z Excelu
 
 - **Soubor:** `app/services/space_import.py`
 - Workflow: Upload -> Mapovani sloupcu -> Preview -> Confirm
@@ -779,7 +848,7 @@ vysledek = (mesicni_predpis * 12) + pocatecni_zustatek - celkem_zaplaceno
 - Auto-vytvoreni `VariableSymbolMapping` a `Prescription` pro prostory s najemnym
 - Fallback VS: pokud neni VS sloupec, pouzije cislo smlouvy
 
-### 3.11 Import pocatecnich zustatku (NOVE od 2026-03)
+### 3.11 Import pocatecnich zustatku
 
 - **Soubor:** `app/services/balance_import.py`
 - Workflow: Upload Excel -> Mapovani sloupcu -> Preview -> Confirm
@@ -795,6 +864,49 @@ vysledek = (mesicni_predpis * 12) + pocatecni_zustatek - celkem_zaplaceno
 - Vytvori `UnitBalance` zaznamy se zdrojem `IMPORT`
 - Duplicitni radky pro stejnou jednotku se scitaji (SJM)
 - Nepovinne sloupce (zalohy, vyuctovani, stav) se ulozi do poznamky
+- **Inline editace (NOVE):** zustatky lze editovat primo v tabulce (tuzka -> formular -> ulozit/zrusit)
+
+### 3.12 Detekce email bounces (NOVE od 2026-04)
+
+- **Soubor:** `app/services/bounce_service.py`
+- Workflow: IMAP pripojeni -> Hledani DSN zprav -> Parsovani -> Ulozeni do DB -> Flagovani vlastniku
+
+#### IMAP pripojeni (`connect_imap`)
+- IMAP4_SSL na port 993
+- Hierarchie credentials: (1) IMAP_USER/PASSWORD z .env, (2) SMTP z .env, (3) default SMTP profil z DB
+- Host z .env (`IMAP_HOST`)
+
+#### Hledani bounces (`fetch_bounces`)
+- Prohledava INBOX od posledni kontroly (nebo 30 dni zpetne)
+- Limit 500 zprav na jednu kontrolu
+- Filtruje dle predmetu (DSN vzory: "delivery status notification", "undelivered mail", "failure notice"...)
+- Deduplikace pres `imap_uid`
+
+#### Parsovani DSN (`_parse_bounce`)
+- Extrahuje: `recipient`, `bounce_type`, `reason`, `diagnostic_code`, `original_subject`, `bounced_at`
+- Vylouceni vlastni adresy (return-path) z prijemcu
+- Vyzaduje alespon jeden indikator selhani (diagnostic code nebo reason) — jinak preskoci (auto-reply ochrana)
+
+#### Sparovani a flagovani
+- `_match_owner()` — hleda Owner dle emailove adresy (primarni + sekundarni, support `;` a `,` oddelovani)
+- `_match_email_log()` — hleda posledni odeslany EmailLog pro danou adresu
+- Hard bounce -> `Owner.email_invalid = True` + `email_invalid_reason`
+
+#### Humanizace duvodu (`humanize_reason`)
+- Prevod surovych SMTP/DSN kodu do ceskych vet
+- Vzory: "5.1.1" -> "Adresa prijemce neexistuje", "quota" -> "Plna schranka prijemce", atd.
+
+### 3.13 IMAP ulozeni do Odeslaných (NOVE od 2026-04)
+
+- **Soubor:** `app/services/email_service.py:52-106`
+- Po uspesnem odeslani emailu se kopie ulozi do IMAP slozky Odeslaných
+- Aktivuje se per SmtpProfile (`imap_save_sent=True`)
+
+#### Logika (`_imap_save_to_sent`)
+- IMAP host se odvodí z SMTP host: `smtp.x.cz` -> `imap.x.cz`
+- Auto-detekce slozky Odeslaných: (1) `\Sent` flag v IMAP LIST, (2) fallback na zname nazvy ("Sent", "INBOX.Sent", "[Gmail]/Sent Mail", "Odeslana posta"...)
+- Fire-and-forget — selhani nikdy neblokuje odeslani emailu
+- Bezpecny Date header parsing s fallbackem na `datetime.now()`
 
 ---
 
@@ -835,10 +947,26 @@ vysledek = (mesicni_predpis * 12) + pocatecni_zustatek - celkem_zaplaceno
 - Vyhledavani: `Owner.name_normalized.like(search_ascii)` — NE `ilike` (je uz lowercase)
 - SQLite `LIKE` nefunguje spravne s ceskou diakritikou -> proto normalizovany sloupec
 
-### 4.7 Zustatek jednotky (znamenkova konvence)
-- `UnitBalance`: kladna hodnota = dluh vlastnika, zaporna = preplatek
-- Tato konvence se pouziva konzistentne v celm platebnim modulu
-- Pri zobrazeni: kladne hodnoty cervene (vlastnik dluzi), zaporne zelene (preplatek)
+### 4.7 Saldo vzorec (ZMENENO 2026-04)
+
+**Vzorec:**
+```
+expected = monthly * months_with_data - opening
+saldo = total_paid - expected
+```
+
+- `monthly` = mesicni predpis jednotky/prostoru
+- `months_with_data` = pocet mesicu ve kterych existuji platby v danem roce
+- `opening` = pocatecni zustatek (kladny = preplatek z minuleho roku, zaporny = nedoplatek)
+- `total_paid` = celkova zaplacena castka za obdobi (jen AUTO_MATCHED a MANUAL platby)
+- **Kladne saldo = preplatek** (vlastnik zaplatil vic nez musi, zelena)
+- **Zaporne saldo = nedoplatek/dluh** (vlastnik zaplatil mene, cervena)
+- **Soubor:** `payment_overview.py:140-141`
+
+**Zmena konvence (2026-04):**
+- Pred zmena: kladny zustatek = dluh, zaporny = preplatek (obracena logika)
+- Po zmene: kladny = preplatek, zaporny = dluh (intuitivnejsi pro uzivatele)
+- Zmena ovlivnuje: UnitBalance, platebni matici, dluzniky, detail jednotky, export
 
 ### 4.8 Vyuctovani — vzorec
 - `vysledek = (mesicni_predpis * 12) + pocatecni_zustatek - celkem_zaplaceno`
@@ -854,17 +982,23 @@ vysledek = (mesicni_predpis * 12) + pocatecni_zustatek - celkem_zaplaceno
 - Faze 1 (VS exact) nepouziva scoring — primo `AUTO_MATCHED`
 - Faze 2 (jmeno+castka) vyzaduje shodu obou kriterii -> `SUGGESTED`
 
-### 4.10 Detekce nesrovnalosti — prahy a tolerance (NOVE)
+### 4.10 Detekce nesrovnalosti — prahy a tolerance
 - Castka: rozdil > 0.50 Kc se povazuje za nesrovnalost
 - Nasobky: platba odpovídajici 1-12x mesicnimu predpisu (s toleranci 0.01) se NEPOVAZUJE za nesrovnalost
 - VS: porovnani je case-sensitive, oba musi byt neprazdne
 - Kombinovana platba: automaticky `combined` pri 2+ alokacich (informativni, ne chyba)
 
-### 4.11 Matching najemcu na vlastniky (NOVE)
+### 4.11 Matching najemcu na vlastniky
 - Exaktni shoda na `name_normalized` (priorita)
 - Fallback: match na prijmeni (prvni slovo v normalizovanem jmene, min 3 znaky)
 - Pri vice kandidatech: pokud vsichni maji stejne `name_normalized` -> vrati prvniho (duplikaty)
 - Jinak -> None (nejednoznacne)
+
+### 4.12 Bounce detekce — klasifikace (NOVE)
+- DSN status 5.x.x -> `HARD` bounce (trvalé selhání)
+- DSN status 4.x.x -> `SOFT` bounce (dočasné selhání)
+- Fallback: SMTP kód v diagnostic (5xx -> HARD, 4xx -> SOFT)
+- Bez DSN statusu i SMTP kódu -> `UNKNOWN`
 
 ---
 
@@ -911,13 +1045,16 @@ vysledek = (mesicni_predpis * 12) + pocatecni_zustatek - celkem_zaplaceno
 
 ### 5.8 Email
 - SMTP pres `smtplib` s TLS nebo SSL
-- **Podpora portu 465 (SSL)**: `smtplib.SMTP_SSL` misto `SMTP` + `starttls()` (`email_service.py:27-35`)
-- Konfigurace v `.env` (`config.py:14-20`)
+- **Podpora portu 465 (SSL)**: `smtplib.SMTP_SSL` misto `SMTP` + `starttls()` (`email_service.py:42-49`)
+- **Multi-SMTP profily (NOVE):** az 3 profilu v DB s vyberem per rozesílka
+- **IMAP save-to-sent (NOVE):** kopie odeslaneho emailu se ulozi do IMAP Odeslaných
+- Hierarchie SMTP: profil z session -> default profil -> .env fallback
 - HTML telo (plain text se konvertuje na HTML: `\n` -> `<br>`)
 - Prilohy: libovolne soubory jako `MIMEApplication`
 - Podpora vice prijemcu (`,` oddeleni) a SJM emailu (`;` oddeleni)
-- **RFC 2047 encoding**: `email.header.Header` pro spravne kodovani ceskych znaku v hlavickach (`email_service.py:58-60`)
+- **RFC 2047 encoding**: `email.header.Header` pro spravne kodovani ceskych znaku v hlavickach
 - **Sdilene SMTP pripojeni**: `create_smtp_connection()` pro davkove odesilani (jedno pripojeni per davka)
+- **Hesla v DB**: base64 encoding pres `encode_smtp_password()`/`decode_smtp_password()` v `utils.py`
 
 ### 5.9 Excel + CSV export (vlastnici)
 - **Soubor:** `owners.py:393-488`
@@ -957,26 +1094,34 @@ vysledek = (mesicni_predpis * 12) + pocatecni_zustatek - celkem_zaplaceno
 - Parsuje: cislo uctu, VS, castka, datum, nazev protistrany, poznamka
 - Deduplikace pres `bank_transaction_id` (ID pohybu)
 
-### 5.14 Excel import (prostory) (NOVE)
+### 5.14 Excel import (prostory)
 - Format: XLSX, libovolna struktura
 - Dynamicke mapovani sloupcu (space_number, designation, tenant_name, monthly_rent, variable_symbol...)
 - Knihovna: `openpyxl`
 - Auto-detekce: blokovane prostory dle klicovych slov, matching najemcu na vlastniky
 - Vedlejsi efekty: auto-vytvoreni VariableSymbolMapping + Prescription pro prostory s najemnym
 
-### 5.15 Excel import (pocatecni zustatky) (NOVE)
+### 5.15 Excel import (pocatecni zustatky)
 - Format: XLSX nebo XLS (starsi format pres `xlrd`)
 - Dynamicke mapovani sloupcu (unit_number, owner_name, amount, deposits, settlement...)
 - Replace strategie: smaze existujici zustatky pro rok pred importem
 - SJM: duplicitni radky pro stejnou jednotku se scitaji
 
-### 5.16 Jinja2 email template rendering (NOVE)
+### 5.16 Jinja2 email template rendering
 - **Soubor:** `app/utils.py:253-266`
 - `render_email_template()` — renderuje sablonovy string s Jinja2 syntaxi
 - Podporuje: `{{ variable }}`, `{% for x in list %}`, `{% if condition %}`
 - Nezneme promenne se renderuji jako prazdny string (ne chyba)
 - Registrovany filtr `fmt_num` pro formatovani cisel
 - Pouziva se v: rozesílani (tax sending), nesrovnalosti (discrepancy emails)
+
+### 5.17 IMAP bounce-check integrace (NOVE)
+- **Soubor:** `app/services/bounce_service.py`
+- Protokol: IMAP4_SSL (port 993)
+- Smer: import (cteni bounces z emailove schranky)
+- Parsovani dle RFC 3464 (Delivery Status Notification)
+- Podporovane vzory: DSN `Final-Recipient`, `Diagnostic-Code`, `X-Failed-Recipients`, Postfix `for <email>`
+- Cas. rozsah: od posledni kontroly nebo 30 dni zpetne, max 500 zprav
 
 ---
 
@@ -1038,23 +1183,39 @@ vysledek = (mesicni_predpis * 12) + pocatecni_zustatek - celkem_zaplaceno
 - Jedna platba muze byt alokovana na vice predpisu (napr. platba za ctvrtleti)
 - `PaymentAllocation` umoznuje rozdelit castku na vice predpisu s ruznou castkou na kazdem
 
-### 6.13 Nesrovnalosti — SJM prijemce (NOVE)
+### 6.13 Nesrovnalosti — SJM prijemce
 - **Soubor:** `payment_discrepancy.py:52-88`
 - Pri SJM (vice vlastniku na jednotce) se upozorneni posle vlastnikovi jehoz jmeno odpovida odesilateli platby
 - Dvoufazovy matching: (1) 2+ shodna slova, (2) 1+ shodne slovo, (3) fallback prvni vlastnik
 - Predchazi situaci kdy upozorneni prijde "spatnemu" manzelovi
 
-### 6.14 SMTP SSL vs STARTTLS (NOVE)
-- **Soubor:** `email_service.py:27-35`
+### 6.14 SMTP SSL vs STARTTLS
+- **Soubor:** `email_service.py:42-49`
 - Port 465 → `SMTP_SSL` (primo sifrovane pripojeni)
 - Ostatni porty → `SMTP` + `starttls()` (upgradeovane pripojeni)
 - Automaticke rozliseni dle portu, neni treba konfigurace uzivatelem
 
-### 6.15 Prostor auto-detekce bloku (NOVE)
+### 6.15 Prostor auto-detekce bloku
 - **Soubor:** `space_import.py:26-30, 93-98`
 - Klicova slova v nazvu prostoru automaticky nastavi status `BLOCKED`
 - Detekce bezi na `designation` i `tenant_name` (napr. "Kotelna" v nazvu najemce)
 - Zabranuje prirazeni najemce k utilitnim prostorum
+
+### 6.16 IMAP Sent folder auto-detekce (NOVE)
+- **Soubor:** `email_service.py:67-88`
+- Hledani `\Sent` flagu v IMAP LIST odpovedi
+- Fallback: zkousi zname nazvy ("Sent", "INBOX.Sent", "[Gmail]/Sent Mail", "Sent Items", "Odeslana posta")
+- Pokud nenalezena -> warning log, email je stale odeslan
+
+### 6.17 IMAP host odvozeni (NOVE)
+- **Soubor:** `email_service.py:59`
+- IMAP host se odvodí ze SMTP host: `smtp.x.cz` -> `imap.x.cz` (nahrazeni prvniho "smtp." za "imap.")
+- Funguje pro vetsinu poskytovatelu (Seznam, Office365), muze selhat u nestandardnich
+
+### 6.18 Bounce — auto-reply ochrana (NOVE)
+- **Soubor:** `bounce_service.py:349-354`
+- Zpravy bez evidence selhani (bez diagnostic_code a reason) se preskoci
+- Predchazi false-positive z auto-reply zprav ktere maji bounce-like predmety
 
 ---
 
@@ -1066,7 +1227,8 @@ database_path = "data/svj.db"          # SQLite databaze
 upload_dir = "data/uploads"             # Nahrane soubory
 generated_dir = "data/generated"        # Generovane exporty
 temp_dir = "data/temp"                  # Docasne soubory
-smtp_host/port/user/password            # SMTP pro emaily
+smtp_host/port/user/password            # SMTP pro emaily (legacy .env fallback)
+imap_host/port/user/password            # IMAP pro bounce check
 libreoffice_path                        # Pro PDF generovani z Word
 ```
 
@@ -1088,18 +1250,31 @@ libreoffice_path                        # Pro PDF generovani z Word
 - Seedovane pri startu aplikace (`main.py:_seed_email_templates`)
 - Editovatelne v Nastaveni
 
-### 7.5 Sdilena konfigurace odesilani (`SvjInfo`, NOVE)
-- `send_batch_size` (default 10) — pocet prijemcu v davce
-- `send_batch_interval` (default 5) — pauza mezi davkami v sekundach
-- `send_confirm_each_batch` (default False) — potvrzeni po kazde davce
-- `send_test_email_address` — posledni testovaci email
-- Pouzivano: rozesílani (tax), nesrovnalosti (discrepancy)
+### 7.5 Konfigurace odesilani
+
+**Hierarchie nastaveni (ZMENENO 2026-04):**
+
+| Uroven | Entita | Pouziti |
+|--------|--------|---------|
+| Globalni defaults | `SvjInfo` | `send_batch_size`, `send_batch_interval`, `send_confirm_each_batch` |
+| Per-session | `TaxSession` | Override pro konkretni rozesílku + vyber SMTP profilu |
+| Per-statement | `BankStatement` | Override pro nesrovnalosti konkretniho vypisu + vyber SMTP profilu |
+
+- Nove session/statement dedi defaults z SvjInfo pri prvnim pristupu
+- Uzivatel muze upravit per-session bez ovlivneni globalnich defaults
+- SMTP profil se vybira per rozesílka (dropdown v UI)
+
+### 7.6 SMTP profily (NOVE)
+- Az 3 SMTP profilu v DB (`SmtpProfile`)
+- Kazdy ma: host, port, user, password (base64), from_name, from_email, TLS, IMAP save-to-sent
+- Jeden profil je `is_default` (pouzije se jako fallback)
+- Heslo ulozeno jako base64 (ne plaintext, ale ani silne sifrovani — lokalni aplikace)
 
 ---
 
 ## 8. Activity logging
 
-- **Soubor:** `app/models/common.py:57-77`
+- **Soubor:** `app/models/common.py:88-108`
 - Akce: `CREATED`, `UPDATED`, `DELETED`, `STATUS_CHANGED`, `IMPORTED`, `EXPORTED`, `RESTORED`
 - Volano pres `log_activity(db, action, entity_type, module, ...)`
 - Loguji se: vytvoreni/zmena hlasovani, importy, zmeny stavu, rozesílani
@@ -1142,7 +1317,7 @@ libreoffice_path                        # Pro PDF generovani z Word
 - `validate_upload()` (`utils.py:75-106`): kontrola pripony + velikosti
 - `validate_uploads()` (`utils.py:109-121`): pro seznam souboru, vraci prvni chybu
 
-### 9.6 Validace najemce (NOVE)
+### 9.6 Validace najemce
 - **Soubor:** `tenants/crud.py:36-60`
 - Jmeno nebo prijmeni je povinne
 - Email validace pres `is_valid_email()` (shodne jako u vlastniku)
@@ -1166,6 +1341,11 @@ libreoffice_path                        # Pro PDF generovani z Word
 ### 10.3 Zip Slip ochrana
 - **Soubor:** `backup_service.py:157`
 - Pred extrakci ZIP: overeni ze cesta zustava uvnitr ciloveho adresare
+
+### 10.4 SMTP hesla v DB
+- Hesla ulozena jako base64 (`smtp_password_b64`) — ne plaintext
+- Encode/decode pres `encode_smtp_password()`/`decode_smtp_password()` v `utils.py`
+- POZOR: base64 neni sifrovani, je to pouze encoding. Pro lokalni desktop aplikaci je to akceptovatelne.
 
 ---
 
@@ -1218,13 +1398,17 @@ libreoffice_path                        # Pro PDF generovani z Word
 - Po dokonceni polling ceka 3 sekundy pred redirectem
 - ETA vypocet pres `compute_eta()` z `app/utils.py`
 
+### 11.7 Platebni matice — tooltips (NOVE)
+- Bunky matice zobrazuji tooltip s datem zaplaceni pri hoveru
+- Cisla jednotek zobrazuji tooltip s VS a predpisem
+
 ---
 
 ## Priloha: Klicove konstanty
 
 | Konstanta | Hodnota | Soubor | Pouziti |
 |-----------|---------|--------|---------|
-| `VS_PREFIX` | `"1098"` | `payment_matching.py` | Prefix VS pro dekodovani cisla jednotky |
+| `DEFAULT_VS_PREFIX` | `"1098"` | `payment_matching.py` | Vychozi prefix VS (konfigurovatelny pres SvjInfo) |
 | `MIN_WORD_LENGTH` | `3` | `payment_matching.py` | Min. delka slova pro matching jmen |
 | `MIN_COMMON_WORDS` | `2` | `payment_matching.py` | Min. pocet spolecnych slov |
 | `MAX_PRESCRIPTION_RATIO` | `10` | `payment_matching.py` | Max. nasobek predpisu pro validni castku |
@@ -1232,8 +1416,10 @@ libreoffice_path                        # Pro PDF generovani z Word
 | `_CZECH_SURNAME_SUFFIXES` | `["-ova", "-kova", ...]` | `owner_matcher.py` | Cesky stemming prijmeni |
 | `UPLOAD_LIMITS` | dict | `utils.py` | Limity uploadu (excel:50MB, pdf:100MB...) |
 | `quorum_threshold` | 0-1 | `voting.py` | Kvorum (50% = 0.5) |
-| `send_batch_size` | default 10 | `administration.py` | Emailu v davce (sdilene) |
-| `send_batch_interval` | default 5 | `administration.py` | Pauza mezi davkami v sekundach (sdilene) |
+| `send_batch_size` | default 10 | `administration.py` | Emailu v davce (globalni default) |
+| `send_batch_interval` | default 5 | `administration.py` | Pauza mezi davkami v sekundach (globalni default) |
 | `BLOCKED_KEYWORDS` | list 15 slov | `space_import.py` | Auto-detekce blokovanych prostoru |
 | Tolerance castky | 0.50 Kc | `payment_discrepancy.py` | Min. rozdil pro nesrovnalost |
 | Tolerance nasobku | 0.01 | `payment_discrepancy.py` | Presnost detekce nasobku predpisu |
+| `_BOUNCE_SUBJECT_PATTERNS` | 8 vzoru | `bounce_service.py` | Detekce bounce emailu dle predmetu |
+| Max SMTP profilu | 3 | `settings_page.py` | Limit poctu SMTP profilu v DB |

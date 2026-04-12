@@ -94,7 +94,7 @@
             </div>
             <div>
                 <p class="text-sm font-semibold text-gray-700 group-hover:text-orange-600 transition-colors">Duplicity</p>
-                <p class="text-xs text-gray-500">{{ duplicate_count }} skupin duplicit</p>
+                <p class="text-xs text-gray-500">{{ duplicate_count }} skupin{% if duplicate_count == 1 %}a{% elif duplicate_count >= 2 and duplicate_count <= 4 %}y{% endif %} duplicit</p>
             </div>
         </div>
     </a>

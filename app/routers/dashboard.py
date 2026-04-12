@@ -329,10 +329,7 @@ async def home(
     module_counts_ordered = [
         (key, module_counts[key]) for key in _MODULE_ORDER if module_counts.get(key, 0) > 0
     ]
-    # Zbytek (neznámé klíče) na konec
-    for key, cnt in module_counts.items():
-        if key not in _MODULE_ORDER and cnt > 0:
-            module_counts_ordered.append((key, cnt))
+    # Neznámé klíče (test, None, číselné) se nezobrazují v bublinách — jen v tabulce
 
     # Filtr dle modulu (akceptuje i legacy raw klíče jako `tax`, `voting`)
     if modul:

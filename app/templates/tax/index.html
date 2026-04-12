@@ -89,7 +89,7 @@
                              style="width: {{ stats.pct }}%"></div>
                     </div>
                     <span class="text-xs text-gray-500 shrink-0">
-                        Potvrzeno {{ stats.confirmed }} / {{ stats.total }}
+                        {% if stats.confirmed == 0 %}Čeká na potvrzení ({{ stats.total }}){% else %}Potvrzeno {{ stats.confirmed }} / {{ stats.total }}{% endif %}
                     </span>
                 </div>
                 {% endif %}

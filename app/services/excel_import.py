@@ -351,6 +351,7 @@ def import_owners_from_excel(db: Session, file_path: str, mapping: dict | None =
     # Second pass: create DB records
     owners_created = 0
     units_created = 0
+    skipped = 0
     unit_cache: dict[str, Unit] = {}
     unit_owner_units: dict[int, list[OwnerUnit]] = {}
 
@@ -377,6 +378,10 @@ def import_owners_from_excel(db: Session, file_path: str, mapping: dict | None =
         # clear last_name to avoid duplicate display (e.g. "Movie s.r.o. Movie s.r.o.").
         first_name = first_row["first_name"]
         last_name = first_row["last_name"]
+        # Skip owners without any identification (no name AND no company ID)
+        if not first_name and not last_name and not company_id_val:
+            skipped += 1
+            continue
         if owner_type == OwnerType.LEGAL_ENTITY and last_name and first_name:
             if _normalize_name(first_name) == _normalize_name(last_name):
                 last_name = None
@@ -493,5 +498,6 @@ def import_owners_from_excel(db: Session, file_path: str, mapping: dict | None =
         "owners_created": owners_created,
         "units_created": units_created,
         "rows_processed": rows_processed,
+        "skipped": skipped,
         "errors": errors,
     }

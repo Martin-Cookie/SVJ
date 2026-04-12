@@ -2,7 +2,7 @@
 
 > Netechnický popis fungování aplikace SVJ Správa.
 > Dokument je určen členům výboru, kontrolní komisi a správcům.
-> Poslední aktualizace: 2026-04-05
+> Poslední aktualizace: 2026-04-12
 
 ---
 
@@ -130,6 +130,8 @@ Rozesílání probíhá ve 4 krocích:
 
 #### Krok 3 — Rozesílka
 - Nastavení šablony emailu (předmět, tělo)
+- **Výběr emailového profilu** — můžete zvolit, ze kterého emailu se bude odesílat (NOVINKA)
+- **Nastavení dávky** — velikost dávky a interval lze nastavit per rozesílka, nejen globálně (NOVINKA)
 - Testovací email — ověření před odesláním
 - **Dávkové odesílání:** emaily se posílají po dávkách (nastavitelná velikost a interval)
 - Možnost pozastavení, pokračování a zrušení rozesílky
@@ -142,6 +144,7 @@ Rozesílání probíhá ve 4 krocích:
 ### Bezpečnost rozesílání
 - Při restartu serveru se rozpracovaná rozesílka automaticky pozastaví (neztratí se stav)
 - Každý email se loguje (datum, příjemce, stav, případná chyba)
+- **Kopie do Odeslaných** — pokud je to zapnuto v emailovém profilu, odeslaný email se automaticky uloží do složky „Odeslaných" ve vaší emailové schránce (NOVINKA)
 
 ---
 
@@ -180,12 +183,18 @@ Aplikace automaticky přiřadí platby k předpisům ve 3 fázích:
 
 Nepřiřazené platby lze přiřadit ručně — aplikace nabídne dropdown s navrhovanými jednotkami a prostory.
 
+**Prefix VS** (např. „1098") je nyní konfigurovatelný v Administrace > Info o SVJ (NOVINKA).
+
 #### Krok 5 — Přehled
 - **Platební matice** — tabulka zobrazující všechny jednotky a měsíce:
   - Zelená = zaplaceno v plné výši
   - Červená = nezaplaceno nebo nedoplatek
   - Žlutá = zaplaceno částečně
-- **Seznam dlužníků** — jednotky, které mají dluh
+  - **Tooltip s datem platby** — při najetí myší na buňku se zobrazí datum zaplacení (NOVINKA)
+- **Saldo** — rozdíl mezi zaplacenou a očekávanou částkou (NOVINKA):
+  - **Kladné saldo (zelené)** = přeplatek — vlastník zaplatil více než musel
+  - **Záporné saldo (červené)** = nedoplatek — vlastník zaplatil méně než musel
+- **Seznam dlužníků** — jednotky, které mají záporné saldo (dluh)
 - **Detail jednotky** — všechny platby a předpisy za období
 
 #### Krok 6 — Vyúčtování
@@ -195,7 +204,7 @@ Nepřiřazené platby lze přiřadit ručně — aplikace nabídne dropdown s na
   - Záporný výsledek = přeplatek
 - Detailní rozpis po kategoriích (provozní, fond oprav, služby)
 
-### Nesrovnalosti v platbách (NOVINKA)
+### Nesrovnalosti v platbách
 
 Po importu bankovního výpisu a napárování plateb aplikace automaticky detekuje nesrovnalosti:
 
@@ -207,10 +216,15 @@ Po importu bankovního výpisu a napárování plateb aplikace automaticky detek
 1. Na stránce bankovního výpisu se zobrazí tlačítko „Nesrovnalosti" s počtem nalezených problémů
 2. Na stránce nesrovnalostí je přehled všech problémů s náhledem emailu, který bude odeslán
 3. Před odesláním je povinný **testovací email** — ověří se správnost obsahu
-4. Poté se upozornění rozešlou **dávkově** (stejný systém jako u rozesílání dokumentů)
+4. Poté se upozornění rozešlou **dávkově** (nastavitelná velikost a interval, výběr emailového profilu)
 5. U každé platby se zaznamená datum odeslání upozornění (aby se neposílalo dvakrát)
 
 Při SJM (manželé na jedné jednotce) se upozornění automaticky pošle tomu z manželů, kdo platbu odeslal (rozpozná se podle jména odesílatele na výpisu).
+
+### Počáteční zůstatky
+- Počáteční zůstatky lze importovat z Excelu nebo zadat ručně
+- **Inline editace** — zůstatky lze upravit přímo v tabulce kliknutím na ikonu tužky (NOVINKA)
+- Kladný zůstatek = přeplatek z předchozího roku, záporný = nedoplatek
 
 ### Důležité koncepty
 
@@ -220,11 +234,11 @@ Při SJM (manželé na jedné jednotce) se upozornění automaticky pošle tomu 
 
 **Alokace.** Jedna platba může pokrýt více měsíců (např. čtvrtletní platba) a naopak jeden měsíc může být pokryt více platbami (např. částečné platby).
 
-**Zůstatek.** Průběžný stav účtu jednotky — kladný = dluh, záporný = přeplatek.
+**Saldo.** Rozdíl mezi zaplacenou a očekávanou částkou. Kladné saldo = přeplatek, záporné = nedoplatek.
 
 ---
 
-## 5. Prostory a nájemci (NOVINKA)
+## 5. Prostory a nájemci
 
 ### Co se eviduje
 
@@ -290,13 +304,22 @@ Porovná podíly na SČD v evidenci se souborem (CSV/Excel):
 - Název SVJ, typ budovy, celkový počet podílů (SČD)
 - Adresy domů
 - **Celkový počet podílů** je klíčový pro výpočet kvóra a procentuálních podílů
+- **Prefix variabilního symbolu** — číslo (např. „1098"), které se objevuje na začátku VS v předpisech. Aplikace ho používá pro automatické rozpoznání čísla jednotky z VS (NOVINKA)
 
-### Nastavení odesílání emailů (NOVINKA)
-- **Sdílená konfigurace** pro všechny moduly odesílání (rozesílání dokumentů i upozornění na nesrovnalosti):
-  - Velikost dávky (kolik emailů najednou)
-  - Interval mezi dávkami (kolik sekund pauza)
-  - Potvrzení po každé dávce (ano/ne)
-  - Testovací emailová adresa
+### Emailové profily (NOVINKA)
+- **Až 3 emailové profily** — můžete nastavit více emailových účtů, ze kterých se odesílá
+- Příklady: „Gmail SVJ", „Seznam.cz výbor", „Office 365"
+- Každý profil má: server, port, přihlašovací údaje, jméno a email odesílatele
+- **Výchozí profil** — jeden profil se nastaví jako výchozí (použije se automaticky)
+- **Výběr per rozesílka** — u každé rozesílky nebo dávky nesrovnalostí si můžete vybrat jiný profil
+- **Ukládání do Odeslaných** — pokud zapnete, kopie emailu se automaticky uloží do vaší emailové schránky (NOVINKA)
+  - Funguje přes IMAP (automaticky odvodí z SMTP serveru)
+  - Doporučeno pro Seznam.cz, nemusí fungovat pro Gmail
+
+### Nastavení odesílání emailů
+- **Globální nastavení** — výchozí velikost dávky, interval, potvrzení po dávce
+- **Per-rozesílka nastavení** — každá rozesílka a dávka nesrovnalostí může mít vlastní nastavení, které přebíjí globální (NOVINKA)
+- Testovací emailová adresa
 
 ### Členové výboru
 - Jméno, funkce, email, telefon
@@ -310,8 +333,14 @@ Porovná podíly na SČD v evidenci se souborem (CSV/Excel):
 - Přednastavené šablony pro rozesílání a upozornění na nesrovnalosti
 - Předmět + tělo emailu, s proměnnými (jméno vlastníka, měsíc, částka...)
 
+### Kontrola odeslaných emailů (NOVINKA)
+- **Detekce nedoručených emailů** — aplikace automaticky zkontroluje emailovou schránku a najde „bouncy" (vrácené emaily)
+- Rozpozná typ problému: trvalé selhání (adresa neexistuje) vs. dočasné (plná schránka)
+- Při trvalém selhání automaticky označí email vlastníka jako neplatný
+- Důvod nedoručení se zobrazí v češtině (např. „Adresa příjemce neexistuje", „Plná schránka")
+
 ### Nastavení SMTP (email server)
-- Konfigurace serveru pro odesílání emailů (adresa serveru, port, přihlášení)
+- Konfigurace emailových profilů přímo v aplikaci (NOVINKA — dříve přes .env soubor)
 - **Podpora SSL (port 465)** — pro emailové servery vyžadující přímé šifrování
 - **Test připojení** — tlačítko „Otestovat SMTP" ověří, že se aplikace dokáže připojit k emailovému serveru
 
@@ -333,6 +362,7 @@ Porovná podíly na SČD v evidenci se souborem (CSV/Excel):
 - Export z kontroly podílů do Excelu (s barevným zvýrazněním rozdílů)
 - Export historie odeslaných emailů
 - Export přiřazení a rozesílky dokumentů
+- Export platební matice do Excelu (se zvýrazněním dlužníků)
 - Formát XLSX s formátováním (tučné hlavičky, automatická šířka sloupců)
 - Export vždy reflektuje aktuálně zobrazený filtr — exportuje se to, co je vidět na obrazovce
 
@@ -413,13 +443,20 @@ Pokud je databáze prázdná (žádní vlastníci), zobrazí se místo tabulky a
 | **Podíl** | Číslo vyjadřující váhu vlastníka (podíl na SČD = počet hlasů) |
 | **Číselník** | Seznam povolených hodnot (typ prostoru, sekce domu...) |
 | **SMTP** | Emailový server — nastavení pro odesílání emailů |
+| **SMTP profil** | Uložená konfigurace jednoho emailového účtu pro odesílání (NOVINKA) |
+| **IMAP** | Protokol pro přístup k emailové schránce — používá se pro ukládání kopií a detekci nedoručených emailů |
 | **Variabilní symbol (VS)** | Unikátní číslo pro identifikaci platby — vlastník/nájemce ho uvádí při bankovním převodu |
+| **VS prefix** | Číslo na začátku VS (např. „1098"), které aplikace používá pro rozpoznání čísla jednotky |
 | **Předpis** | Měsíční částka, kterou má vlastník platit SVJ |
 | **Alokace** | Přiřazení platby ke konkrétnímu předpisu (měsíci) |
-| **Nedoplatek** | Vlastník zaplatil méně, než bylo předepsáno |
-| **Přeplatek** | Vlastník zaplatil více, než bylo předepsáno |
+| **Saldo** | Rozdíl mezi zaplacenou a očekávanou částkou (kladné = přeplatek, záporné = dluh) |
+| **Nedoplatek** | Vlastník zaplatil méně, než bylo předepsáno (záporné saldo) |
+| **Přeplatek** | Vlastník zaplatil více, než bylo předepsáno (kladné saldo) |
 | **Vyúčtování** | Roční souhrn předpisů a plateb s výsledným nedoplatkem/přeplatkem |
 | **Nesrovnalost** | Problém v platbě — špatný VS, nesprávná částka, nebo sloučená platba za více jednotek |
+| **Bounce** | Nedoručený email — vrácený emailovým serverem příjemce (NOVINKA) |
+| **Hard bounce** | Trvalé selhání doručení (adresa neexistuje, schránka zrušena) |
+| **Soft bounce** | Dočasné selhání doručení (plná schránka, dočasný výpadek) |
 | **Prostor** | Nebytový prostor SVJ (sklep, garáž, kancelář...) — může být pronajímán |
 | **Nájemce** | Osoba pronajímající prostor SVJ — může být propojená s vlastníkem |
 
@@ -458,10 +495,10 @@ Aplikace se pokusí automaticky přiřadit platby z bankovního výpisu k předp
 Aplikace to zvládne — jedna platba se může rozdělit na více měsíců. Například čtvrtletní platba se alokuje na 3 měsíční předpisy.
 
 **Jak zjistím, kdo dluží?**
-V platebním přehledu je barevná matice — červené buňky znamenají nezaplacené měsíce. Aplikace také zobrazuje seznam dlužníků s celkovou dlužnou částkou.
+V platebním přehledu je barevná matice — červené buňky znamenají nezaplacené měsíce. Sloupec „Saldo" ukazuje rozdíl: záporné číslo červeně = dluh. Aplikace také zobrazuje seznam dlužníků.
 
-**Co znamená „nedoplatek" ve vyúčtování?**
-Nedoplatek znamená, že vlastník za daný rok zaplatil méně, než bylo celkem předepsáno (včetně případného zůstatku z předchozího roku). Přeplatek je opak — zaplatil více.
+**Co znamená „saldo" v platebním přehledu?**
+Saldo = zaplaceno minus očekávané. Kladné saldo (zelené) = přeplatek, záporné (červené) = nedoplatek. Při najetí myší na buňku se zobrazí datum platby.
 
 **Jak fungují nesrovnalosti v platbách?**
 Po importu bankovního výpisu aplikace automaticky zkontroluje napárované platby a zjistí, kde vlastník použil špatný variabilní symbol, zaplatil jinou částku nebo sloučil platby za více jednotek. Tyto problémy zobrazí na přehledné stránce a nabídne možnost rozeslat upozornění emailem.
@@ -471,3 +508,12 @@ Ne. Aplikace si u každé platby pamatuje, kdy bylo upozornění odesláno. Na s
 
 **Jak fungují prostory a nájemci?**
 Prostory SVJ (sklepy, garáže, kanceláře...) se evidují se svými nájemci. Nájemce může být propojený s existujícím vlastníkem nebo být zcela samostatná osoba. Platby nájemného se párují stejně jako platby vlastníků — přes variabilní symbol.
+
+**Mohu odesílat emaily z více emailových adres?** (NOVINKA)
+Ano. V Nastavení můžete vytvořit až 3 emailové profily. Při každé rozesílce si vyberete, ze kterého emailu se bude odesílat. Jeden profil nastavíte jako výchozí.
+
+**Jak zjistím, že se email nedoručil?** (NOVINKA)
+Aplikace automaticky kontroluje emailovou schránku a hledá „bounce" zprávy (oznámení o nedoručení). Při nalezení trvalého selhání (adresa neexistuje) automaticky označí email vlastníka jako neplatný. Důvod nedoručení se zobrazí v češtině.
+
+**Co znamená „Ukládat do Odeslaných" v emailovém profilu?** (NOVINKA)
+Pokud tuto možnost zapnete, každý odeslaný email se automaticky uloží do složky „Odeslaných" ve vaší emailové schránce. Tak budete mít přehled o odeslaných emailech přímo v emailovém klientu. Doporučeno pro Seznam.cz, u Gmailu většinou není potřeba (Gmail to dělá automaticky).

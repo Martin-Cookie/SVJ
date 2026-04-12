@@ -40,12 +40,18 @@ input[type="text"].htmx-request {
     animation: slide-in 0.3s ease-out;
 }
 
-/* Smooth transitions for HTMX swaps */
+/* Smooth transitions for HTMX swaps — partial (tbody) */
 .htmx-swapping {
     opacity: 0;
-    transition: opacity 0.2s ease-out;
+    transition: opacity 0.15s ease-out;
 }
 .htmx-settling {
     opacity: 1;
-    transition: opacity 0.2s ease-in;
+    transition: opacity 0.15s ease-in;
+}
+
+/* Boost navigation: hide main content during body swap to prevent stale content flash */
+body.htmx-request > *:not(nav):not(#sidebar):not(#sidebar-overlay):not(#sidebar-toggle) {
+    opacity: 0.3;
+    transition: opacity 0.1s ease-out;
 }

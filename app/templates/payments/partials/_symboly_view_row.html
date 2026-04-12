@@ -2,7 +2,7 @@
 {% set source_colors = {"auto": "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300", "manual": "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300", "legacy": "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300"} %}
 {% set _qs = "q=" ~ q ~ "&sort=" ~ sort ~ "&order=" ~ order ~ "&zdroj=" ~ zdroj ~ "&entita=" ~ entita ~ "&back=" ~ (back_url|default('')|urlencode) ~ "&list_url=" ~ (list_url|default('')|urlencode) %}
 <tr class="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors" id="vs-{{ m.id }}">
-    <td class="px-3 py-2 font-mono font-medium text-gray-900 dark:text-white">{{ m.variable_symbol }}</td>
+    <td class="px-3 py-2 font-mono font-medium {% if '?' in m.variable_symbol %}text-red-600 dark:text-red-400{% else %}text-gray-900 dark:text-white{% endif %}"{% if '?' in m.variable_symbol %} title="Neověřený variabilní symbol"{% endif %}>{{ m.variable_symbol }}</td>
     <td class="px-3 py-2">
         {% if m.unit %}
         <a href="/jednotky/{{ m.unit.id }}?back={{ (list_url ~ '#vs-' ~ m.id)|urlencode }}" class="text-blue-600 dark:text-blue-400 hover:underline">č. {{ m.unit.unit_number }}</a>

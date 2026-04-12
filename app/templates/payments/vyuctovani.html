@@ -65,7 +65,7 @@
                     <p class="text-lg font-bold text-gray-800 dark:text-gray-200">{{ bubble_counts[''] }}</p>
                     <p class="text-xs text-gray-500 dark:text-gray-400">Vše</p>
                 </a>
-                {% for key, label in status_labels.items() %}
+                {% for key, label in status_labels.items() if key %}
                 {% set count = bubble_counts.get(key, 0) %}
                 <a href="{{ _base }}stav={{ key }}&{{ _back }}"
                    class="flex-1 block bg-blue-50 dark:bg-blue-900/20 rounded p-2 text-center border border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors {% if stav == key %}ring-2 ring-blue-400{% endif %}">

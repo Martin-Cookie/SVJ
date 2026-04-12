@@ -140,7 +140,7 @@
                     </th>
                     {% endfor %}
                     {% set prevod_order = "desc" if sort == "prevod" and order == "asc" else "asc" %}
-                    <th class="px-1 py-2 text-center font-semibold text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                    <th class="px-1 py-2 text-center font-semibold text-gray-600 dark:text-gray-300 whitespace-nowrap" title="Počáteční zůstatek z předchozího roku (import v Platby → Zůstatky)">
                         <a href="{{ _sort_base }}sort=prevod&order={{ prevod_order }}{{ _back }}" class="hover:text-blue-600 select-none">
                             Převod
                             {% if sort == "prevod" %}<span class="ml-0.5">{{ "▲" if order == "asc" else "▼" }}</span>{% endif %}
@@ -177,6 +177,27 @@
             <tbody id="prehled-tbody">
                 {% include "payments/partials/prehled_tbody.html" %}
             </tbody>
+            <tfoot class="sticky bottom-0 bg-gray-100 dark:bg-gray-700 border-t-2 border-gray-300 dark:border-gray-500 font-semibold text-xs">
+                <tr>
+                    {% if entita == 'prostory' %}
+                    <td class="px-2 py-2 text-gray-700 dark:text-gray-300" colspan="2">Celkem</td>
+                    {% else %}
+                    <td class="px-2 py-2 text-gray-700 dark:text-gray-300" colspan="3">Celkem</td>
+                    {% endif %}
+                    <td class="px-2 py-2 text-right text-gray-700 dark:text-gray-300 whitespace-nowrap">{{ total_prescribed|fmt_num }}</td>
+                    <td class="px-1 py-2"></td>
+                    {% for m in range(1, 13) %}
+                    {% if m in months_with_data or show_all_months %}
+                    <td class="px-1 py-2"></td>
+                    {% endif %}
+                    {% endfor %}
+                    <td class="px-2 py-2 text-right text-gray-900 dark:text-white whitespace-nowrap">{{ total_paid|fmt_num }}</td>
+                    {% set total_saldo = total_paid - (total_prescribed * (months_with_data|length)) %}
+                    <td class="px-2 py-2 text-right whitespace-nowrap {% if total_saldo > 0 %}text-green-600 dark:text-green-400{% elif total_saldo < 0 %}text-red-600 dark:text-red-400{% else %}text-gray-400{% endif %}">
+                        {{ total_saldo|fmt_num }}
+                    </td>
+                </tr>
+            </tfoot>
         </table>
     </div>
 
