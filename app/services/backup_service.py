@@ -12,6 +12,26 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+# Cached app version (git short hash or fallback)
+_app_version_cache: str | None = None
+
+
+def _get_app_version() -> str:
+    """Return short git commit hash as app version, cached after first call."""
+    global _app_version_cache
+    if _app_version_cache is None:
+        import subprocess
+        try:
+            result = subprocess.run(
+                ["git", "rev-parse", "--short", "HEAD"],
+                capture_output=True, text=True, timeout=5,
+                cwd=str(Path(__file__).resolve().parent.parent),
+            )
+            _app_version_cache = result.stdout.strip() if result.returncode == 0 else "unknown"
+        except Exception:
+            _app_version_cache = "unknown"
+    return _app_version_cache
+
 # ---- File-based restore lock ----
 
 _LOCK_FILENAME = ".restore_lock"
@@ -128,7 +148,7 @@ def create_backup(
         table_counts = _get_table_counts(db_path) if os.path.isfile(db_path) else {}
         manifest = {
             "created_at": datetime.now().isoformat(),
-            "app_version": "1.0",
+            "app_version": _get_app_version(),
             "db_file": "svj.db",
             "db_size_bytes": db_size,
             "table_counts": table_counts,
@@ -164,30 +184,46 @@ def _check_disk_space(db_path: str, uploads_dir: str, generated_dir: str, backup
         )
 
 
-def cleanup_old_backups(backup_dir: str, keep_count: int = 10) -> int:
+def cleanup_old_backups(backup_dir: str, keep_count: int = 10, keep_safety: int = 5) -> int:
     """Delete oldest backups beyond keep_count. Returns number of deleted backups.
 
-    Safety backups (prefixed with ``_safety_``) are excluded from cleanup
-    to prevent accidental deletion of restore rollback points.
+    Safety backups (prefixed with ``_safety_``) are cleaned up separately —
+    only the newest ``keep_safety`` are kept.
     """
     backup_path = Path(backup_dir)
     if not backup_path.is_dir():
         return 0
 
-    # Exclude safety backups from cleanup — they are restore rollback points
-    zips = sorted(
+    deleted = 0
+
+    # Regular backups — keep newest keep_count
+    regular = sorted(
         (p for p in backup_path.glob("*.zip") if not p.name.startswith(SAFETY_BACKUP_PREFIX)),
         key=lambda p: p.stat().st_mtime,
         reverse=True,
     )
-    deleted = 0
-    for old_zip in zips[keep_count:]:
+    for old_zip in regular[keep_count:]:
         try:
             old_zip.unlink()
             deleted += 1
             logger.info("Auto-cleanup: smazána stará záloha %s", old_zip.name)
         except OSError as e:
             logger.warning("Auto-cleanup: nelze smazat %s: %s", old_zip.name, e)
+
+    # Safety backups — keep newest keep_safety
+    safety = sorted(
+        (p for p in backup_path.glob(f"{SAFETY_BACKUP_PREFIX}*.zip")),
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
+    for old_zip in safety[keep_safety:]:
+        try:
+            old_zip.unlink()
+            deleted += 1
+            logger.info("Auto-cleanup: smazána stará safety záloha %s", old_zip.name)
+        except OSError as e:
+            logger.warning("Auto-cleanup: nelze smazat safety %s: %s", old_zip.name, e)
+
     return deleted
 
 
@@ -210,6 +246,7 @@ def restore_backup(
     backup_dir: str,
 ) -> None:
     """Restore data from a ZIP backup. Creates a safety backup first."""
+    logger.warning("Obnova zahájena — aplikace by neměla přijímat požadavky během obnovy")
     zip_path = Path(zip_path)
 
     # Validate ZIP
@@ -267,6 +304,7 @@ def restore_from_directory(
     backup_dir: str,
 ) -> None:
     """Restore data from an unzipped backup directory. Creates a safety backup first."""
+    logger.warning("Obnova z adresáře zahájena — aplikace by neměla přijímat požadavky během obnovy")
     src = Path(src_dir)
 
     # Find svj.db — either directly in src or one level deeper
@@ -332,6 +370,11 @@ def _rollback_from_safety(safety_zip: str, db_path: str, uploads_dir: str, gener
                     shutil.copyfileobj(src, dst)
             _restore_directory_from_zip(zf, "uploads", uploads_dir)
             _restore_directory_from_zip(zf, "generated", generated_dir)
+            # Restore .env if present in safety backup
+            if ".env" in zf.namelist():
+                env_path = Path(db_path).parent.parent / ".env"
+                with zf.open(".env") as src, open(str(env_path), "wb") as dst:
+                    shutil.copyfileobj(src, dst)
         logger.info("Rollback ze safety backup úspěšný: %s", safety_zip)
     except Exception:
         logger.exception("KRITICKÁ CHYBA: rollback ze safety backup selhal: %s", safety_zip)

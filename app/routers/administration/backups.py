@@ -6,6 +6,7 @@ import re
 import shutil
 import sqlite3
 import tempfile
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import List
@@ -216,8 +217,8 @@ async def backup_restore(file: UploadFile = File(...)):
     if not acquire_restore_lock(str(BACKUP_DIR)):
         return RedirectResponse("/sprava/zalohy?chyba=probihajici", status_code=302)
 
-    # Save uploaded file to temp location
-    temp_path = BACKUP_DIR / "upload_temp.zip"
+    # Save uploaded file to unique temp location
+    temp_path = BACKUP_DIR / f"_upload_{int(time.time())}_{os.getpid()}.zip"
     os.makedirs(BACKUP_DIR, exist_ok=True)
     with open(temp_path, "wb") as f:
         f.write(await file.read())
@@ -375,13 +376,19 @@ async def backup_restore_folder(files: List[UploadFile] = File(...)):
         if not db_found:
             return RedirectResponse("/sprava/zalohy?chyba=neplatny", status_code=302)
 
+        # Track which backups exist before restore (to find the safety backup name)
+        existing = set(p.name for p in BACKUP_DIR.glob("*.zip")) if BACKUP_DIR.is_dir() else set()
+
         # Use service function with safety backup + rollback on failure
         engine.dispose()
         restore_from_directory(
             tmp, str(DB_PATH), str(UPLOADS_DIR), str(GENERATED_DIR), str(BACKUP_DIR),
         )
 
-        log_restore(str(BACKUP_DIR), folder_name or "složka", "Složka (Finder)")
+        # Find safety backup created by restore_from_directory
+        new_backups = set(p.name for p in BACKUP_DIR.glob("*.zip")) - existing
+        safety = next(iter(new_backups), "")
+        log_restore(str(BACKUP_DIR), folder_name or "složka", "Složka (Finder)", safety_backup=safety)
 
         from app.main import run_post_restore_migrations
         warnings = run_post_restore_migrations()
