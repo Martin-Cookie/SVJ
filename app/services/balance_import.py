@@ -147,6 +147,7 @@ def execute_balance_import(
 
     # Smazat existující zůstatky pro rok
     deleted = db.query(UnitBalance).filter_by(year=year).delete()
+    db.flush()
     logger.info("Deleted %d existing balances for year %d", deleted, year)
 
     imported = 0
