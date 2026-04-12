@@ -13,7 +13,7 @@ from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
-from app.models import ActivityAction, Owner, OwnerType, OwnerUnit, PrescriptionYear, SvjInfo, Unit, UnitBalance, log_activity
+from app.models import ActivityAction, Owner, OwnerType, OwnerUnit, Prescription, PrescriptionYear, SvjInfo, Unit, UnitBalance, log_activity
 from app.routers.payments._helpers import compute_debt_map
 from app.services.code_list_service import get_all_code_lists
 from app.services.owner_exchange import recalculate_unit_votes
@@ -185,12 +185,27 @@ async def owner_list(
     # Current list URL for back navigation
     list_url = build_list_url(request)
 
+    # Mapa unit_id → VS + měsíční předpis (pro tooltipy u čísel jednotek)
+    unit_vs = {}
+    unit_monthly = {}
+    current_year = utcnow().year
+    py = db.query(PrescriptionYear).filter_by(year=current_year).first()
+    if py:
+        for presc in db.query(Prescription).filter_by(prescription_year_id=py.id).all():
+            if presc.unit_id:
+                if presc.variable_symbol:
+                    unit_vs[presc.unit_id] = presc.variable_symbol
+                if presc.monthly_total:
+                    unit_monthly[presc.unit_id] = presc.monthly_total
+
     # Return partial only for targeted HTMX requests (search/filter), not boosted navigation
     if is_htmx_partial(request):
         return templates.TemplateResponse(request, "partials/owner_table_body.html", {
             "owners": owners,
             "list_url": list_url,
             "debt_map": debt_map,
+            "unit_vs": unit_vs,
+            "unit_monthly": unit_monthly,
         })
 
     # Stats for header
@@ -255,6 +270,8 @@ async def owner_list(
         "sort": sort,
         "order": order,
         "debt_map": debt_map,
+        "unit_vs": unit_vs,
+        "unit_monthly": unit_monthly,
         "owner_types": OwnerType,
         "stats": {
             "total_owners": all_owners,
