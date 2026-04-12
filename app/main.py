@@ -822,6 +822,25 @@ def _migrate_smtp_profiles():
         db.close()
 
 
+def _migrate_fix_activity_log_modules():
+    """Fix activity_logs where profile ID was stored as module instead of 'nastaveni'."""
+    db = SessionLocal()
+    try:
+        db.execute(
+            text("""
+                UPDATE activity_logs
+                SET module = 'nastaveni'
+                WHERE entity_type = 'smtp_profile'
+                  AND module NOT IN ('nastaveni', 'sprava')
+            """)
+        )
+        db.commit()
+    except Exception:
+        db.rollback()
+    finally:
+        db.close()
+
+
 _ALL_MIGRATIONS = [
     ("units table", _migrate_units_table),
     ("owner_units history", _migrate_owner_units_history),
@@ -841,6 +860,7 @@ _ALL_MIGRATIONS = [
     ("dedupe tenants", _migrate_dedupe_tenants),
     ("bank_statement send settings", _migrate_bank_statement_send_settings),
     ("smtp profiles", _migrate_smtp_profiles),
+    ("fix activity_log modules", _migrate_fix_activity_log_modules),
     ("index creation", _ensure_indexes),
     ("code list seeding", _seed_code_lists),
     ("email template seeding", _seed_email_templates),

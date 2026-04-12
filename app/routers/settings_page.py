@@ -354,8 +354,8 @@ async def smtp_create(
         is_default=is_default,
     )
     db.add(profile)
-    log_activity(db, ActivityAction.CREATED, "smtp_profile", str(profile.id),
-                 entity_name=name.strip(), description=smtp_host)
+    log_activity(db, ActivityAction.CREATED, "smtp_profile", "nastaveni",
+                 entity_id=profile.id, entity_name=name.strip(), description=smtp_host)
     db.commit()
 
     return templates.TemplateResponse(request, "partials/smtp_info.html",
@@ -400,8 +400,8 @@ async def smtp_update(
     profile.smtp_use_tls = smtp_use_tls == "true"
     profile.imap_save_sent = imap_save_sent == "true"
 
-    log_activity(db, ActivityAction.UPDATED, "smtp_profile", str(profile_id),
-                 entity_name=name.strip(), description=smtp_host)
+    log_activity(db, ActivityAction.UPDATED, "smtp_profile", "nastaveni",
+                 entity_id=profile_id, entity_name=name.strip(), description=smtp_host)
     db.commit()
 
     return templates.TemplateResponse(request, "partials/smtp_info.html",
@@ -468,8 +468,8 @@ async def smtp_delete(request: Request, profile_id: int, db: Session = Depends(g
         return templates.TemplateResponse(request, "partials/smtp_info.html", _smtp_profiles_ctx(db))
 
     was_default = profile.is_default
-    log_activity(db, ActivityAction.DELETED, "smtp_profile", str(profile_id),
-                 entity_name=profile.name)
+    log_activity(db, ActivityAction.DELETED, "smtp_profile", "nastaveni",
+                 entity_id=profile_id, entity_name=profile.name)
     db.delete(profile)
     db.commit()
 
