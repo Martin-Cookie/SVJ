@@ -450,6 +450,7 @@ Sloučená stránka se dvěma sekcemi — Kontrola vlastníků (nahoře) a Kontr
 ### I. Nastavení (`/nastaveni`)
 
 - SMTP konfigurace — read-only přehled (4-sloupcový grid) + inline editace (HTMX)
+- Výchozí nastavení odesílání (kolapsovatelná sekce) — globální defaults pro dávku, interval, potvrzení, testovací email. Nové rozesílky a nesrovnalosti dědí tato nastavení, lze je pak přepsat per-session/per-výpis
 - Historie odeslaných emailů (posledních 100):
   - Řaditelné sloupce (datum, modul, příjemce, předmět, stav) s šipkami
   - Hledání (příjemce, email, předmět, modul — diacritics-insensitive)
@@ -994,7 +995,7 @@ Připojuje se na IMAP schránku (Gmail SSL imap.gmail.com:993, fallback na SMTP 
 | POST | `/platby/vyuctovani/smazat-rok` | Smazání všech vyúčtování roku |
 | GET | `/platby/vypisy/{id}/nesrovnalosti` | Náhled nesrovnalostí v platbách (špatný VS, částka, sloučené) |
 | POST | `/platby/vypisy/{id}/nesrovnalosti/test` | Odeslání testovacího emailu s upozorněním |
-| POST | `/platby/vypisy/{id}/nesrovnalosti/nastaveni` | Uložení nastavení odesílání (dávka, interval, potvrzení) |
+| POST | `/platby/vypisy/{id}/nesrovnalosti/nastaveni` | Uložení per-výpis nastavení odesílání (dědí z globálu, lze přepsat) |
 | POST | `/platby/vypisy/{id}/nesrovnalosti/odeslat` | Zahájení dávkového odesílání vybraných upozornění |
 | GET | `/platby/vypisy/{id}/nesrovnalosti/prubeh` | Stránka s progress barem odesílání |
 | GET | `/platby/vypisy/{id}/nesrovnalosti/prubeh-stav` | HTMX polling endpoint pro progress |
@@ -1053,7 +1054,8 @@ Připojuje se na IMAP schránku (Gmail SSL imap.gmail.com:993, fallback na SMTP 
 
 | Metoda | Cesta | Popis |
 |--------|-------|-------|
-| GET | `/nastaveni` | Seznam šablon a SMTP nastavení |
+| GET | `/nastaveni` | Seznam šablon, SMTP a globální nastavení odesílání |
+| POST | `/nastaveni/odesilani` | Uložení výchozích nastavení odesílání (dávka, interval, potvrzení, test email) |
 | GET | `/nastaveni/smtp/formular` | HTMX: editační formulář SMTP |
 | GET | `/nastaveni/smtp/info` | HTMX: zobrazení SMTP nastavení |
 | POST | `/nastaveni/smtp` | Uložení SMTP nastavení |
