@@ -658,6 +658,7 @@ async def send_test_email(
         module="tax",
         reference_id=session.id,
         db=db,
+        smtp_profile_id=session.smtp_profile_id,
     )
 
     if result["success"]:

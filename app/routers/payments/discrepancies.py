@@ -442,6 +442,7 @@ async def discrepancy_test_email(
         module="payment_notice",
         reference_id=statement_id,
         db=db,
+        smtp_profile_id=statement.smtp_profile_id,
     )
 
     form_data = await request.form()
