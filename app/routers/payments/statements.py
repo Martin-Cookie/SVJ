@@ -777,7 +777,11 @@ async def vypis_detail(
         units_by_id[unit.id] = unit
         if owner:
             if owner.display_name:
-                unit_owner_names[unit.id] = owner.display_name
+                existing = unit_owner_names.get(unit.id)
+                if existing:
+                    unit_owner_names[unit.id] = existing + ", " + owner.display_name
+                else:
+                    unit_owner_names[unit.id] = owner.display_name
             if owner.name_normalized:
                 words = {w for w in strip_diacritics(owner.name_normalized).split() if len(w) > 2}
                 if words:
