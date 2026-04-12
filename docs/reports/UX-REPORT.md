@@ -531,28 +531,28 @@
 
 ## Top 5 doporuceni (podle dopadu)
 
-| # | Navrh | Dopad | Slozitost | Cas | Zavisi na | Rozhodnuti | Priorita |
-|---|-------|-------|-----------|-----|-----------|------------|----------|
-| 1 | **#30** Opravit HTMX boost vizualni glitche | Vysoky | Stredni | ~1 hod | -- | 🔧 | HNED |
-| 2 | **#28** Dark mode konzistence pri navigaci | Vysoky | Stredni | ~30 min | #30 | 🔧 | HNED |
-| 3 | **#17** Odstranit duplicitni "Vse" bubliny ve vyuctovani | Vysoky | Nizka | ~15 min | -- | 🔧 | HNED |
-| 4 | **#26** Tooltip na badge 94 v sidebaru | Vysoky | Nizka | ~10 min | -- | 🔧 | HNED |
-| 5 | **#14** Klikaci badge "102 nesrovnalosti" na detailu vypisu | Vysoky | Nizka | ~15 min | -- | 🔧 | BRZY |
+| # | Navrh | Dopad | Slozitost | Cas | Zavisi na | Rozhodnuti | Stav |
+|---|-------|-------|-----------|-----|-----------|------------|------|
+| 1 | **#30** Opravit HTMX boost vizualni glitche | Vysoky | Stredni | ~1 hod | -- | 🔧 | ✅ OPRAVENO |
+| 2 | **#28** Dark mode konzistence pri navigaci | Vysoky | Stredni | ~30 min | #30 | 🔧 | ✅ OPRAVENO |
+| 3 | **#17** Odstranit duplicitni "Vse" bubliny ve vyuctovani | Vysoky | Nizka | ~15 min | -- | 🔧 | ✅ OPRAVENO |
+| 4 | **#26** Tooltip na badge 94 v sidebaru | Vysoky | Nizka | ~10 min | -- | 🔧 | ✅ OPRAVENO |
+| 5 | **#14** Klikaci badge "102 nesrovnalosti" na detailu vypisu | Vysoky | Nizka | ~15 min | -- | 🔧 | ✅ BYLO JIZ OK |
 
 ---
 
 ## Quick wins (nizka slozitost, okamzity efekt)
 
-- [ ] #1 Odstranit "None" a "test" bubliny z dashboardu (~15 min)
-- [ ] #3 Prejmenovat "Dluh" na "Saldo" ve vlastnicich/jednotkach (~10 min)
-- [ ] #7 Udelat vsechna jmena najemcu klikaci (~10 min)
-- [ ] #17 Odstranit duplicitni "Vse" bubliny (~15 min)
-- [ ] #25 Opravit skloneni "1 skupin duplicit" (~5 min)
-- [ ] #26 Pridat tooltip na badge 94 (~10 min)
-- [ ] #6 Zvyraznit "???" ve sloupci VS u prostoru (~15 min)
-- [ ] #19 Zvyraznit VS s otaznikem (~15 min)
-- [ ] #22 Pridat popisek stavu k rozpracovanym rozsilkam (~5 min)
-- [ ] #23 Pridat title tooltip na orezany nazev souboru (~5 min)
+- [x] #1 Odstranit "None" a "test" bubliny z dashboardu — OPRAVENO
+- [x] #3 Prejmenovat "Dluh" na "Saldo" ve vlastnicich/jednotkach — OPRAVENO
+- [x] #7 Udelat vsechna jmena najemcu klikaci — BYLO JIZ OK
+- [x] #17 Odstranit duplicitni "Vse" bubliny — OPRAVENO
+- [x] #25 Opravit skloneni "1 skupin duplicit" — OPRAVENO
+- [x] #26 Pridat tooltip na badge 94 — OPRAVENO
+- [x] #6 Zvyraznit "???" ve sloupci VS u prostoru — BYLO JIZ OK
+- [x] #19 Zvyraznit VS s otaznikem — OPRAVENO
+- [x] #22 Pridat popisek stavu k rozpracovanym rozsilkam — OPRAVENO
+- [x] #23 Pridat title tooltip na orezany nazev souboru — BYLO JIZ OK
 
 ---
 
