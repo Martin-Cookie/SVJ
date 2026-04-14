@@ -1,29 +1,52 @@
 <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-4 border-l-4 border-green-500">
-    <h2 class="text-sm font-semibold text-gray-700 mb-3">Nový vlastník</h2>
+    <h2 class="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3">Nový vlastník</h2>
     <form hx-post="/vlastnici/novy" hx-target="#owner-create-section" hx-swap="innerHTML">
+        {% set ot = (form_data or {}).get('owner_type', 'physical') %}
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
             <div>
-                <label class="block text-xs text-gray-500 mb-1">Příjmení *</label>
-                <input type="text" name="last_name" required autofocus value="{{ (form_data or {}).get('last_name', '') }}"
-                       class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500">
-            </div>
-            <div>
-                <label class="block text-xs text-gray-500 mb-1">Jméno *</label>
-                <input type="text" name="first_name" required value="{{ (form_data or {}).get('first_name', '') }}"
-                       class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500">
-            </div>
-            <div>
-                <label class="block text-xs text-gray-500 mb-1">Titul</label>
-                <input type="text" name="title" value="{{ (form_data or {}).get('title', '') }}"
-                       class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500">
-            </div>
-            <div>
                 <label class="block text-xs text-gray-500 mb-1">Typ</label>
-                <select name="owner_type" class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500">
-                    <option value="physical" {% if (form_data or {}).get('owner_type') == 'physical' %}selected{% endif %}>Fyzická osoba</option>
-                    <option value="legal" {% if (form_data or {}).get('owner_type') == 'legal' %}selected{% endif %}>Právnická osoba</option>
+                <select name="owner_type" id="create-owner-type"
+                        onchange="toggleCreateFields(this.value)"
+                        class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500">
+                    <option value="physical" {% if ot == 'physical' %}selected{% endif %}>Fyzická osoba</option>
+                    <option value="legal" {% if ot == 'legal' %}selected{% endif %}>Právnická osoba</option>
                 </select>
             </div>
+
+            {# Fyzická osoba #}
+            <div id="create-physical-fields" class="contents {% if ot == 'legal' %}hidden{% endif %}">
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">Příjmení *</label>
+                    <input type="text" name="last_name" autofocus value="{{ (form_data or {}).get('last_name', '') }}"
+                           class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">Jméno *</label>
+                    <input type="text" name="first_name_physical" value="{{ (form_data or {}).get('first_name', '') if ot == 'physical' else '' }}"
+                           class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">Titul</label>
+                    <input type="text" name="title" value="{{ (form_data or {}).get('title', '') }}"
+                           class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500">
+                </div>
+            </div>
+
+            {# Právnická osoba #}
+            <div id="create-legal-fields" class="contents {% if ot != 'legal' %}hidden{% endif %}">
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">Název firmy *</label>
+                    <input type="text" name="first_name_legal" value="{{ (form_data or {}).get('first_name', '') if ot == 'legal' else '' }}"
+                           class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">IČ</label>
+                    <input type="text" name="company_id" value="{{ (form_data or {}).get('company_id', '') }}" placeholder="12345678"
+                           class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500">
+                </div>
+            </div>
+
+            {# Sdílená pole #}
             <div>
                 <label class="block text-xs text-gray-500 mb-1">Email</label>
                 <input type="email" name="email" value="{{ (form_data or {}).get('email', '') }}"
@@ -34,9 +57,9 @@
                 <input type="text" name="phone" value="{{ (form_data or {}).get('phone', '') }}"
                        class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500">
             </div>
-            <div>
-                <label class="block text-xs text-gray-500 mb-1">RČ / IČ</label>
-                <input type="text" name="birth_number" value="{{ (form_data or {}).get('birth_number', '') }}"
+            <div id="create-birth-number-field" class="{% if ot == 'legal' %}hidden{% endif %}">
+                <label class="block text-xs text-gray-500 mb-1">Rodné číslo</label>
+                <input type="text" name="birth_number" value="{{ (form_data or {}).get('birth_number', '') }}" placeholder="000000/0000"
                        class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500">
             </div>
         </div>
@@ -67,3 +90,10 @@
         </div>
     </form>
 </div>
+<script>
+function toggleCreateFields(val) {
+    document.getElementById('create-physical-fields').classList.toggle('hidden', val === 'legal');
+    document.getElementById('create-legal-fields').classList.toggle('hidden', val !== 'legal');
+    document.getElementById('create-birth-number-field').classList.toggle('hidden', val === 'legal');
+}
+</script>

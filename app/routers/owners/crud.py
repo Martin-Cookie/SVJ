@@ -45,10 +45,12 @@ async def owner_create_form(request: Request):
 @router.post("/novy")
 async def owner_create(
     request: Request,
-    first_name: str = Form(...),
-    last_name: str = Form(...),
-    title: str = Form(""),
     owner_type: str = Form("physical"),
+    last_name: str = Form(""),
+    first_name_physical: str = Form(""),
+    first_name_legal: str = Form(""),
+    title: str = Form(""),
+    company_id: str = Form(""),
     email: str = Form(""),
     phone: str = Form(""),
     birth_number: str = Form(""),
@@ -56,37 +58,72 @@ async def owner_create(
     db: Session = Depends(get_db),
 ):
     """Vytvoření nového vlastníka s kontrolou duplicit."""
+    is_legal = owner_type == "legal"
+
+    # Resolve fields based on type
+    if is_legal:
+        first_name = first_name_legal.strip()
+        last_name_val = None
+        title_val = None
+        birth_number_val = None
+        company_id_val = company_id.strip() or None
+    else:
+        first_name = first_name_physical.strip()
+        last_name_val = last_name.strip() or None
+        title_val = title.strip() or None
+        birth_number_val = birth_number.strip() or None
+        company_id_val = None
+
+    # form_data for re-rendering on error/duplicates
+    form_data = {
+        "first_name": first_name, "last_name": last_name,
+        "title": title, "owner_type": owner_type,
+        "email": email, "phone": phone,
+        "birth_number": birth_number, "company_id": company_id,
+    }
+
+    # Validate — at least name required
+    if is_legal and not first_name:
+        return templates.TemplateResponse(request, "partials/owner_create_form.html", {
+            "error": "Vyplňte název firmy.",
+            "form_data": form_data,
+        })
+    if not is_legal and not (first_name or last_name_val):
+        return templates.TemplateResponse(request, "partials/owner_create_form.html", {
+            "error": "Vyplňte jméno nebo příjmení.",
+            "form_data": form_data,
+        })
+
     # Build name_with_titles and name_normalized
-    parts_wt = []
-    if title:
-        parts_wt.append(title)
-    if last_name:
-        parts_wt.append(last_name)
-    if first_name:
-        parts_wt.append(first_name)
-    name_with_titles = " ".join(parts_wt)
+    if is_legal:
+        name_with_titles = first_name
+        name_normalized = strip_diacritics(first_name)
+    else:
+        parts_wt = []
+        if title_val:
+            parts_wt.append(title_val)
+        if last_name_val:
+            parts_wt.append(last_name_val)
+        if first_name:
+            parts_wt.append(first_name)
+        name_with_titles = " ".join(parts_wt)
 
-    parts_norm = []
-    if last_name:
-        parts_norm.append(last_name)
-    if first_name:
-        parts_norm.append(first_name)
-    name_normalized = strip_diacritics(" ".join(parts_norm))
+        parts_norm = []
+        if last_name_val:
+            parts_norm.append(last_name_val)
+        if first_name:
+            parts_norm.append(first_name)
+        name_normalized = strip_diacritics(" ".join(parts_norm))
 
-    # Validate email — return form with error if invalid
+    # Validate email
     email_clean = email.strip() if email else ""
     if email_clean and not is_valid_email(email_clean):
         return templates.TemplateResponse(request, "partials/owner_create_form.html", {
             "error": f"Neplatný formát emailu: {email_clean}",
-            "form_data": {
-                "first_name": first_name, "last_name": last_name,
-                "title": title, "owner_type": owner_type,
-                "email": email, "phone": phone,
-                "birth_number": birth_number,
-            },
+            "form_data": form_data,
         })
 
-    # Check for duplicates — name, birth_number, email
+    # Check for duplicates — name, birth_number/IČ, email
     duplicates = []
     if name_normalized:
         dup_name = db.query(Owner).filter(
@@ -95,7 +132,7 @@ async def owner_create(
         ).first()
         if dup_name:
             duplicates.append(("jméno", dup_name))
-    bn_clean = birth_number.strip() if birth_number else ""
+    bn_clean = birth_number_val or ""
     if bn_clean:
         dup_bn = db.query(Owner).filter(
             Owner.is_active == True,
@@ -103,6 +140,13 @@ async def owner_create(
         ).first()
         if dup_bn and dup_bn not in [d[1] for d in duplicates]:
             duplicates.append(("RČ", dup_bn))
+    if is_legal and company_id_val:
+        dup_ico = db.query(Owner).filter(
+            Owner.is_active == True,
+            Owner.company_id == company_id_val,
+        ).first()
+        if dup_ico and dup_ico not in [d[1] for d in duplicates]:
+            duplicates.append(("IČ", dup_ico))
     if email_clean:
         dup_email = db.query(Owner).filter(
             Owner.is_active == True,
@@ -115,24 +159,20 @@ async def owner_create(
     if duplicates and force_create != "1":
         return templates.TemplateResponse(request, "partials/owner_create_form.html", {
             "duplicates": duplicates,
-            "form_data": {
-                "first_name": first_name, "last_name": last_name,
-                "title": title, "owner_type": owner_type,
-                "email": email, "phone": phone,
-                "birth_number": birth_number,
-            },
+            "form_data": form_data,
         })
 
     owner = Owner(
-        first_name=first_name.strip(),
-        last_name=last_name.strip() or None,
-        title=title.strip() or None,
+        first_name=first_name or None,
+        last_name=last_name_val,
+        title=title_val,
         owner_type=OwnerType(owner_type),
+        company_id=company_id_val,
         name_with_titles=name_with_titles,
         name_normalized=name_normalized,
         email=email_clean or None,
         phone=phone.strip() or None,
-        birth_number=bn_clean or None,
+        birth_number=birth_number_val,
         data_source="manual",
         is_active=True,
         created_at=utcnow(),
