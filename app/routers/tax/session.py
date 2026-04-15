@@ -398,6 +398,7 @@ async def tax_detail(
     n: int = Query(0, alias="n"),
     reassigned: int = Query(0, alias="reassigned"),
     newly: int = Query(0, alias="newly"),
+    reparsed: int = Query(0, alias="reparsed"),
     db: Session = Depends(get_db),
 ):
     """Detail daňové session s dokumenty, párováním a filtrováním."""
@@ -526,8 +527,10 @@ async def tax_detail(
     flash_message = None
     flash_type = None
     if flash == "prematched":
-        if n:
+        if n or reparsed:
             parts = []
+            if reparsed:
+                parts.append(f"znovu načteno {reparsed} jmen z PDF")
             if reassigned:
                 parts.append(f"přepřiřazeno {reassigned}")
             if newly:

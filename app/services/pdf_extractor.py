@@ -67,11 +67,12 @@ def _extract_name_from_sp_line(line: str) -> str | None:
     """
     stripped = line.strip()
     # Pattern 1: "SP label fraction(s) Name"
-    m = re.match(r"SP\s+\S+\s+\d+/\d+(?:,\s*\d+/\d+)*\s*(.*)", stripped)
+    # Fraction may have decimal comma: 1694,75/907635
+    m = re.match(r"SP\s+\S+\s+\d+(?:,\d+)?/\d+(?:,\s*\d+(?:,\d+)?/\d+)*\s*(.*)", stripped)
     if not m:
         # Pattern 2: "Spoluvlastnický podíl N: fraction Name"
         m = re.match(
-            r"[Ss]poluvlastnick[ýy]\s+pod[ií]l\s+\S+:?\s+\d+\s*/\s*\d+(?:,\s*\d+\s*/\s*\d+)*\s*(.*)",
+            r"[Ss]poluvlastnick[ýy]\s+pod[ií]l\s+\S+:?\s+\d+(?:,\d+)?\s*/\s*\d+(?:,\s*\d+(?:,\d+)?\s*/\s*\d+)*\s*(.*)",
             stripped,
         )
     if m:
@@ -115,6 +116,13 @@ def parse_owner_names_from_details(text: str) -> list[str]:
     names = []
     in_details = False
 
+    def _split_and_add(text_val: str) -> None:
+        """Split semicolon-separated names and add each individually."""
+        for part in text_val.split(";"):
+            part = part.strip()
+            if part and re.match(r"[A-ZÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ0-9]", part):
+                names.append(part)
+
     for line in lines:
         stripped = line.strip()
 
@@ -126,8 +134,8 @@ def parse_owner_names_from_details(text: str) -> list[str]:
             m = re.search(r"[úu]daje o vlastn[ií]k[^:]*:\s*(.+)", stripped, re.IGNORECASE)
             if m:
                 val = m.group(1).strip()
-                if val and re.match(r"[A-ZÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ0-9]", val):
-                    names.append(val)
+                if val:
+                    _split_and_add(val)
             continue
 
         if in_details:
@@ -141,7 +149,7 @@ def parse_owner_names_from_details(text: str) -> list[str]:
             # Try to extract name from SP line
             name = _extract_name_from_sp_line(stripped)
             if name:
-                names.append(name)
+                _split_and_add(name)
             # Standalone name line (not an SP line) — e.g. "SJM Kočovi" between SP rows
             # or name starting with digit (e.g. "35 ASSOCIATES INVESTMENT GROUP")
             # or company suffix fragment (e.g. "s.r.o.", "a.s.")

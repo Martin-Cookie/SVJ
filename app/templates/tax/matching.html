@@ -74,9 +74,16 @@
                 </form>
                 {% else %}
                 <form method="post" action="/dane/{{ session.id }}/prepocitat-skore" hx-boost="false" class="inline"
-                      data-confirm="Přepočítat skóre shody u auto-přiřazených dokumentů?\n\nPoužije aktuální verzi fuzzy matcheru. Aktualizuje jen tam, kde by nové skóre bylo vyšší.">
-                    <button type="submit" class="px-3 py-1.5 text-sm font-medium text-purple-600 border border-purple-300 rounded-lg hover:bg-purple-50 transition-colors" title="Přepočítat match_confidence aktuálním matcherem">
+                      data-confirm="Přepočítat přiřazení vlastníků?\n\nZnovu porovná jména z PDF se všemi vlastníky v evidenci. Změní pouze auto-přiřazené a nepřiřazené dokumenty.">
+                    <button type="submit" class="px-3 py-1.5 text-sm font-medium text-purple-600 border border-purple-300 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/30 transition-colors" title="Znovu přiřadí vlastníky k dokumentům (rychlé)">
                         Přepočítat skóre
+                    </button>
+                </form>
+                <form method="post" action="/dane/{{ session.id }}/prepocitat-skore" hx-boost="false" class="inline"
+                      data-confirm="Znovu načíst jména z PDF a přepočítat přiřazení?\n\nTato operace trvá déle (~2–3 min) — znovu přečte všechny PDF soubory a poté přepočítá přiřazení.">
+                    <input type="hidden" name="reparse" value="1">
+                    <button type="submit" class="px-3 py-1.5 text-sm font-medium text-orange-600 border border-orange-300 rounded-lg hover:bg-orange-50 dark:hover:bg-orange-900/30 transition-colors" title="Znovu načte jména z PDF souborů + přepočítá přiřazení (pomalejší)">
+                        Přepočítat vše
                     </button>
                 </form>
                 <a href="/dane/{{ session.id }}/upload?back={{ list_url|urlencode }}"

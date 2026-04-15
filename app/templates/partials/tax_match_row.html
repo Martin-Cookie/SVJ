@@ -37,7 +37,8 @@
     </td>
 
     {# Extracted name from PDF #}
-    <td class="px-3 py-3 text-sm text-gray-500 truncate" title="{{ doc.extracted_owner_name or '' }}" aria-label="{{ doc.extracted_owner_name or '' }}">{{ doc.extracted_owner_name or '—' }}</td>
+    {% set display_owner_name = (doc.extracted_owner_name or '')|replace(' | ', ', ') %}
+    <td class="px-3 py-3 text-sm text-gray-500 truncate" title="{{ display_owner_name }}" aria-label="{{ display_owner_name }}">{{ display_owner_name or '—' }}</td>
 
     {# Assigned owners (multi-owner) #}
     <td class="px-3 py-3 text-sm" data-v="{% for dist in doc.distributions %}{{ dist.owner.display_name if dist.owner else (dist.ad_hoc_name or '') }} {% endfor %}">
