@@ -492,6 +492,7 @@ def _recompute_scores_thread(session_id: int, tax_year, reparse_pdfs: bool = Fal
             _recompute_progress[session_id]["phase"] = "matching"
             _recompute_progress[session_id]["total"] = len(docs_to_rematch)
             _recompute_progress[session_id]["current"] = 0
+            _recompute_progress[session_id]["started_at"] = _time.monotonic()
 
         reassigned = 0
         newly_matched = 0
