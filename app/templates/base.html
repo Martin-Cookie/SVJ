@@ -147,6 +147,15 @@
                         {% endif %}
                     </a>
                 </li>
+                <li>
+                    <a href="/vodometry" class="flex items-center px-2 py-2 rounded-lg text-xs font-medium transition-colors
+                        {% if active_nav == 'water_meters' %}bg-gray-700 text-white{% else %}text-gray-300 hover:bg-gray-700 hover:text-white{% endif %}">
+                        <svg aria-hidden="true" class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 2C12 2 6 9 6 14a6 6 0 0012 0c0-5-6-12-6-12z"/>
+                        </svg>
+                        Vodoměry
+                    </a>
+                </li>
                 <li class="pt-4">
                     <p class="px-2 text-xs uppercase tracking-wider text-gray-500 font-semibold">Systém</p>
                 </li>

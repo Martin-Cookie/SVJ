@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Import odečtů vodoměrů{% endblock %}
+
+{% block content %}
+<div class="flex flex-col" style="height:calc(100vh - 3rem)">
+<div class="shrink-0 px-4 pt-4">
+    {% include "partials/wizard_stepper.html" %}
+
+    <h1 class="text-xl font-bold text-gray-800 dark:text-gray-100">Import odečtů vodoměrů</h1>
+    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1 mb-4">Nahrajte soubor XLS/XLSX s odečty z Techem nebo jiného poskytovatele.</p>
+
+    <form action="/vodometry/import/nahrat" method="post" enctype="multipart/form-data"
+          class="max-w-md">
+        <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Soubor s odečty</label>
+            <input type="file" name="file" accept=".xls,.xlsx" required
+                   class="file-input block w-full text-sm text-gray-500 border border-gray-300 rounded-lg cursor-pointer bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 focus:outline-none">
+        </div>
+        <button type="submit"
+                class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">
+            Nahrát a zobrazit náhled
+        </button>
+    </form>
+
+    <div class="mt-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg text-xs text-gray-600 dark:text-gray-400">
+        <p class="font-medium mb-1">Podporovaný formát:</p>
+        <ul class="list-disc list-inside space-y-0.5">
+            <li>Techem XLS/XLSX — automatická detekce sloupců</li>
+            <li>Sloupce: číslo jednotky, evidenční č. měřidla, typ (SV/TV), datum odečtu, hodnota</li>
+            <li>Vodoměry se automaticky přiřadí k jednotkám podle čísla</li>
+        </ul>
+    </div>
+</div>
+</div>
+{% endblock %}

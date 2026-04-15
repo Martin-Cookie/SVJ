@@ -120,6 +120,7 @@ class Unit(Base):
     created_at = Column(DateTime, default=utcnow)
 
     owners = relationship("OwnerUnit", back_populates="unit", cascade="all, delete-orphan")
+    water_meters = relationship("WaterMeter", back_populates="unit", cascade="all, delete-orphan")
 
     @property
     def current_owners(self):

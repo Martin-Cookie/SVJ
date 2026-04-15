@@ -25,6 +25,7 @@ from app.models.payment import (
 )
 from app.models.space import Space, Tenant, SpaceTenant, SpaceStatus
 from app.models.smtp_profile import SmtpProfile
+from app.models.water_meter import WaterMeter, WaterReading, MeterType
 
 __all__ = [
     "Owner", "Unit", "OwnerUnit", "OwnerType", "Proxy",
@@ -48,4 +49,5 @@ __all__ = [
     "ImportStatus", "PaymentDirection", "PaymentMatchStatus", "SettlementStatus",
     "Space", "Tenant", "SpaceTenant", "SpaceStatus",
     "SmtpProfile",
+    "WaterMeter", "WaterReading", "MeterType",
 ]

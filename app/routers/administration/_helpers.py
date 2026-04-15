@@ -18,6 +18,7 @@ from app.models import (
     VariableSymbolMapping, BankStatement, Payment, PaymentAllocation,
     BankStatementColumnMapping,
     UnitBalance, Settlement, SettlementItem,
+    WaterMeter, WaterReading,
     EmailTemplate, EmailLog, ImportLog, ActivityLog,
 )
 from app.services.backup_service import read_restore_log
@@ -89,6 +90,11 @@ _PURGE_CATEGORIES = {
         "description": "Prostory, nájemci, nájemní vztahy",
         "models": [SpaceTenant, Tenant, Space],
     },
+    "water_meters": {
+        "label": "Vodoměry",
+        "description": "Vodoměry a odečty",
+        "models": [WaterReading, WaterMeter],
+    },
     "payments": {
         "label": "Evidence plateb",
         "description": "Předpisy, VS mapování, výpisy, platby, zůstatky, vyúčtování",
@@ -149,7 +155,7 @@ _PURGE_CATEGORIES = {
 }
 
 _PURGE_ORDER = [
-    "owners", "spaces", "votings", "tax", "sync", "share_check", "payments",
+    "owners", "spaces", "water_meters", "votings", "tax", "sync", "share_check", "payments",
     "email_logs", "import_logs", "activity_logs",
     "svj_info", "board", "code_lists", "email_templates",
     "backups", "restore_log",
@@ -162,6 +168,7 @@ _PURGE_GROUPS = [
     {"cat_keys": ["tax"]},
     {"cat_keys": ["sync"]},
     {"cat_keys": ["spaces"]},
+    {"cat_keys": ["water_meters"]},
     {"cat_keys": ["share_check"]},
     {"cat_keys": ["payments"]},
     {"label": "Logy", "cat_keys": ["email_logs", "import_logs", "activity_logs"]},
