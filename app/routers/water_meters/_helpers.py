@@ -4,9 +4,66 @@ import logging
 import re
 from datetime import date, datetime
 
+from app.models import MeterType
 from app.utils import templates
 
 logger = logging.getLogger(__name__)
+
+
+def compute_consumption(meter) -> float | None:
+    """Compute consumption = last reading - second to last reading.
+
+    Returns None if fewer than 2 readings exist.
+    """
+    if not meter.readings or len(meter.readings) < 2:
+        return None
+    sorted_r = sorted(meter.readings, key=lambda r: r.reading_date)
+    last = sorted_r[-1].value
+    prev = sorted_r[-2].value
+    if last is None or prev is None:
+        return None
+    return round(last - prev, 3)
+
+
+def compute_deviations(meters: list) -> dict:
+    """Compute per-meter deviation from average consumption per type.
+
+    Returns dict: {meter_id: {"consumption": float|None, "deviation_pct": float|None}}
+    """
+    # Compute consumption for each meter
+    consumption_map = {}
+    for m in meters:
+        consumption_map[m.id] = compute_consumption(m)
+
+    # Average per type (SV/TV separately)
+    type_sums = {}   # {MeterType: [sum, count]}
+    for m in meters:
+        c = consumption_map[m.id]
+        if c is not None and c >= 0:
+            key = m.meter_type
+            if key not in type_sums:
+                type_sums[key] = [0.0, 0]
+            type_sums[key][0] += c
+            type_sums[key][1] += 1
+
+    type_avg = {}
+    for key, (total, count) in type_sums.items():
+        type_avg[key] = total / count if count > 0 else 0
+
+    # Compute deviation for each meter
+    result = {}
+    for m in meters:
+        c = consumption_map[m.id]
+        avg = type_avg.get(m.meter_type, 0)
+        deviation = None
+        if c is not None and avg > 0:
+            deviation = round((c - avg) / avg * 100, 1)
+        result[m.id] = {
+            "consumption": c,
+            "deviation_pct": deviation,
+        }
+
+    return result
 
 
 def parse_unit_label(label: str) -> tuple[int | None, str]:

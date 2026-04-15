@@ -16,6 +16,8 @@ from app.utils import (
     strip_diacritics, templates,
 )
 
+from ._helpers import compute_deviations
+
 router = APIRouter()
 
 SORT_COLUMNS = {
@@ -54,6 +56,7 @@ def _filter_meters(db: Session, q: str = "", typ: str = "", stav: str = "",
         query = query.filter(WaterMeter.unit_id.isnot(None))
     elif stav == "neprirazeno":
         query = query.filter(WaterMeter.unit_id.is_(None))
+    # vysoka_odchylka is filtered Python-side after query (needs computed values)
 
     # Sorting
     sort_col = SORT_COLUMNS.get(sort, WaterMeter.unit_number)
@@ -78,6 +81,29 @@ def _filter_meters(db: Session, q: str = "", typ: str = "", stav: str = "",
                 return date.min
             return max(r.reading_date for r in m.readings)
         meters.sort(key=_last_date, reverse=(order == "desc"))
+    elif sort == "spotreba":
+        from ._helpers import compute_consumption
+        def _consumption(m):
+            c = compute_consumption(m)
+            return c if c is not None else -1
+        meters.sort(key=_consumption, reverse=(order == "desc"))
+    elif sort == "odchylka":
+        # Need deviations — compute on the fly for sort
+        all_for_dev = [m for m in meters]  # already loaded with readings
+        dev_map = compute_deviations(all_for_dev)
+        def _deviation(m):
+            d = dev_map.get(m.id, {}).get("deviation_pct")
+            return abs(d) if d is not None else -1
+        meters.sort(key=_deviation, reverse=(order == "desc"))
+
+    # Python-side filter for high deviation (needs computed values)
+    if stav == "vysoka_odchylka":
+        dev_map = compute_deviations(meters)
+        meters = [
+            m for m in meters
+            if dev_map.get(m.id, {}).get("deviation_pct") is not None
+            and abs(dev_map[m.id]["deviation_pct"]) > 50
+        ]
 
     return meters
 
@@ -90,18 +116,29 @@ def _build_ctx(request: Request, meters: list, db: Session) -> dict:
     sort = request.query_params.get("sort", "jednotka")
     order = request.query_params.get("order", "asc")
 
+    # Compute deviations for all displayed meters
+    all_loaded = db.query(WaterMeter).options(
+        joinedload(WaterMeter.readings),
+    ).all()
+    deviations = compute_deviations(all_loaded)
+
     # Bubble counts (on full dataset, not filtered)
-    all_meters = db.query(WaterMeter).all()
-    count_all = len(all_meters)
-    count_sv = sum(1 for m in all_meters if m.meter_type == MeterType.COLD)
-    count_tv = sum(1 for m in all_meters if m.meter_type == MeterType.HOT)
-    count_linked = sum(1 for m in all_meters if m.unit_id is not None)
+    count_all = len(all_loaded)
+    count_sv = sum(1 for m in all_loaded if m.meter_type == MeterType.COLD)
+    count_tv = sum(1 for m in all_loaded if m.meter_type == MeterType.HOT)
+    count_linked = sum(1 for m in all_loaded if m.unit_id is not None)
     count_unlinked = count_all - count_linked
+    count_high_dev = sum(
+        1 for m in all_loaded
+        if deviations.get(m.id, {}).get("deviation_pct") is not None
+        and abs(deviations[m.id]["deviation_pct"]) > 50
+    )
 
     return {
         "active_nav": "water_meters",
         "meters": meters,
         "total_meters": len(meters),
+        "deviations": deviations,
         "list_url": build_list_url(request),
         "q": q,
         "typ": typ,
@@ -113,6 +150,7 @@ def _build_ctx(request: Request, meters: list, db: Session) -> dict:
         "count_tv": count_tv,
         "count_linked": count_linked,
         "count_unlinked": count_unlinked,
+        "count_high_dev": count_high_dev,
     }
 
 
@@ -169,11 +207,17 @@ async def water_meters_export(
         suffix = "_vsechny"
 
     headers_list = ["Jednotka", "Sekce", "Typ", "Sériové č.", "Umístění",
-                    "Poslední odečet", "Hodnota (m3)"]
+                    "Poslední odečet", "Hodnota (m3)", "Spotřeba (m3)", "Odchylka (%)"]
+
+    from ._helpers import compute_consumption
+    dev_map = compute_deviations(meters)
 
     rows_data = []
     for m in meters:
         last = max(m.readings, key=lambda r: r.reading_date) if m.readings else None
+        consumption = compute_consumption(m)
+        dev_info = dev_map.get(m.id, {})
+        deviation = dev_info.get("deviation_pct")
         rows_data.append([
             m.unit_number or "",
             m.unit_letter or "",
@@ -182,6 +226,8 @@ async def water_meters_export(
             m.location or "",
             last.reading_date.strftime("%d.%m.%Y") if last else "",
             last.value if last else "",
+            round(consumption, 3) if consumption is not None else "",
+            round(deviation, 1) if deviation is not None else "",
         ])
 
     if fmt == "csv":
