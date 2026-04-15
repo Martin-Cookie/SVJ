@@ -3,9 +3,10 @@
 {%- set has_unmatched = 'unmatched' in status_values or not doc.distributions -%}
 {%- set all_confirmed = doc.distributions and status_values|reject('in', ['confirmed', 'manual'])|list|length == 0 -%}
 {%- set has_auto = 'auto_matched' in status_values -%}
-{%- set _conf_values = doc.distributions|selectattr('match_confidence')|map(attribute='match_confidence')|list -%}
-{%- set _total = _conf_values|length -%}
-{%- set avg_confidence = (_conf_values|sum / _total) if _total > 0 and _conf_values else None -%}
+{%- set _all_dists = doc.distributions|list -%}
+{%- set _total = _all_dists|length -%}
+{%- set _conf_nums = _all_dists|map(attribute='match_confidence')|select('number')|list -%}
+{%- set avg_confidence = (_conf_nums|sum / _total) if _total > 0 else None -%}
 <tr id="tax-row-{{ doc.id }}"
     class="{% if all_confirmed %}bg-green-50{% elif has_unmatched %}bg-red-50{% elif has_auto %}bg-yellow-50{% endif %}">
     {# Checkbox column #}
