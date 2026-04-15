@@ -27,6 +27,10 @@ _processing_lock = threading.Lock()
 _sending_progress: dict[int, dict] = {}
 _sending_lock = threading.Lock()
 
+# In-memory progress tracker for background score recomputation
+_recompute_progress: dict[int, dict] = {}
+_recompute_lock = threading.Lock()
+
 
 def recover_stuck_sending_sessions():
     """Reset any SENDING sessions to PAUSED on startup (server restart recovery)."""

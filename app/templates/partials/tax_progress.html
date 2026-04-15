@@ -13,7 +13,7 @@
     </div>
     {% else %}
     <div class="flex justify-between items-center">
-        <span class="text-sm font-medium text-gray-700">Zpracování PDF souborů</span>
+        <span class="text-sm font-medium text-gray-700">{{ progress_title|default("Zpracování PDF souborů") }}</span>
         <span class="text-sm text-gray-500">{{ current }} / {{ total }}</span>
     </div>
     <div class="relative w-full bg-gray-200 rounded-full h-5 overflow-hidden">

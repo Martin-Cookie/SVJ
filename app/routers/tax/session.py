@@ -396,6 +396,8 @@ async def tax_detail(
     order: str = Query("asc", alias="order"),
     flash: str = Query("", alias="flash"),
     n: int = Query(0, alias="n"),
+    reassigned: int = Query(0, alias="reassigned"),
+    newly: int = Query(0, alias="newly"),
     db: Session = Depends(get_db),
 ):
     """Detail daňové session s dokumenty, párováním a filtrováním."""
@@ -524,7 +526,18 @@ async def tax_detail(
     flash_message = None
     flash_type = None
     if flash == "prematched":
-        flash_message = f"Přepočítáno skóre — aktualizováno {n} přiřazení." if n else "Přepočítáno skóre — žádné přiřazení nebylo potřeba aktualizovat."
+        if n:
+            parts = []
+            if reassigned:
+                parts.append(f"přepřiřazeno {reassigned}")
+            if newly:
+                parts.append(f"nově přiřazeno {newly}")
+            score_only = n - reassigned - newly
+            if score_only > 0:
+                parts.append(f"aktualizováno skóre {score_only}")
+            flash_message = f"Přepočet dokončen — {', '.join(parts)}."
+        else:
+            flash_message = "Přepočet dokončen — žádné změny nebyly potřeba."
         flash_type = None
     elif flash == "locked":
         flash_message = "Přepočet skóre není možný — rozesílání je uzamčeno."

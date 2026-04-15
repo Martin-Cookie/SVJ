@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import re
+import threading
+import time as _time
 from datetime import date
 from pathlib import Path
 
@@ -23,6 +25,7 @@ from app.services.pdf_extractor import (
 from ._helpers import (
     logger, templates,
     _processing_progress, _processing_lock,
+    _recompute_progress, _recompute_lock,
     _tax_wizard,
 )
 
@@ -393,12 +396,122 @@ async def tax_processing_status(session_id: int, request: Request):
     })
 
 
+def _find_best_match(
+    cand_texts: list[str],
+    unit_number: str | None,
+    unit_to_owners: dict[str, list[dict]],
+    owner_dicts: list[dict],
+) -> dict | None:
+    """Najde nejlepší match pro kandidátní texty — stejná dvoustupňová logika
+    jako _auto_match_distributions (local unit → global fallback).
+    Vrací {"owner_id", "confidence"} nebo None."""
+    best_match = None
+    best_conf = 0.0
+
+    for cand in cand_texts:
+        # 1) Local unit match (threshold 0.6)
+        if unit_number and unit_number in unit_to_owners:
+            local = match_name(cand, unit_to_owners[unit_number], threshold=0.6)
+            if local and local[0]["confidence"] > best_conf:
+                best_match = local[0]
+                best_conf = local[0]["confidence"]
+
+        # 2) Global match (threshold 0.75, require_stem_overlap)
+        global_matches = match_name(cand, owner_dicts, threshold=0.75,
+                                    require_stem_overlap=True)
+        if global_matches and global_matches[0]["confidence"] > best_conf:
+            best_match = global_matches[0]
+            best_conf = global_matches[0]["confidence"]
+
+    return best_match
+
+
+def _recompute_scores_thread(session_id: int, tax_year):
+    """Background thread: přepřiřazení vlastníků k PDF dokumentům."""
+    db = SessionLocal()
+    try:
+        owner_dicts, unit_to_owners = _prepare_owner_lookup(db, tax_year)
+
+        docs = (
+            db.query(TaxDocument)
+            .filter_by(session_id=session_id)
+            .options(
+                joinedload(TaxDocument.distributions).joinedload(TaxDistribution.owner)
+            )
+            .all()
+        )
+
+        # Spočítat distribuce k zpracování (AUTO_MATCHED + UNMATCHED)
+        work_items = []
+        for doc in docs:
+            if not doc.extracted_owner_name:
+                continue
+            candidates = [p.strip() for p in doc.extracted_owner_name.split(",") if p.strip()]
+            if not candidates:
+                candidates = [doc.extracted_owner_name]
+            cand_texts = list(dict.fromkeys([doc.extracted_owner_name, *candidates]))
+            unit_num = str(doc.unit_number) if doc.unit_number else None
+
+            for dist in doc.distributions:
+                if dist.match_status in (MatchStatus.CONFIRMED, MatchStatus.MANUAL):
+                    continue
+                work_items.append((dist, cand_texts, unit_num))
+
+        with _recompute_lock:
+            _recompute_progress[session_id]["total"] = len(work_items)
+
+        reassigned = 0
+        newly_matched = 0
+        score_updated = 0
+
+        for i, (dist, cand_texts, unit_num) in enumerate(work_items):
+            best = _find_best_match(cand_texts, unit_num, unit_to_owners, owner_dicts)
+
+            if dist.match_status == MatchStatus.UNMATCHED:
+                if best:
+                    dist.owner_id = best["owner_id"]
+                    dist.match_confidence = best["confidence"]
+                    dist.match_status = MatchStatus.AUTO_MATCHED
+                    newly_matched += 1
+
+            elif dist.match_status == MatchStatus.AUTO_MATCHED:
+                if best:
+                    old_owner_id = dist.owner_id
+                    old_conf = dist.match_confidence or 0
+                    if best["owner_id"] != old_owner_id:
+                        dist.owner_id = best["owner_id"]
+                        dist.match_confidence = best["confidence"]
+                        reassigned += 1
+                    elif best["confidence"] > old_conf + 0.001:
+                        dist.match_confidence = best["confidence"]
+                        score_updated += 1
+
+            with _recompute_lock:
+                _recompute_progress[session_id]["current"] = i + 1
+
+        db.commit()
+
+        total = reassigned + newly_matched + score_updated
+        with _recompute_lock:
+            _recompute_progress[session_id]["result"] = {
+                "total": total,
+                "reassigned": reassigned,
+                "newly": newly_matched,
+            }
+    except Exception as e:
+        logger.exception("Recompute scores failed for session %s", session_id)
+        with _recompute_lock:
+            _recompute_progress[session_id]["error"] = str(e)
+        db.rollback()
+    finally:
+        with _recompute_lock:
+            _recompute_progress[session_id]["done"] = True
+        db.close()
+
+
 @router.post("/{session_id}/prepocitat-skore")
 def tax_recompute_scores(session_id: int, db: Session = Depends(get_db)):
-    """Přepočítá match_confidence u AUTO_MATCHED distribucí pomocí aktuální
-    verze fuzzy matcheru. Aktualizuje jen tam, kde by nové skóre bylo vyšší.
-    Použití: když se změní logika titulového stemmingu (TITLE_PATTERNS)
-    a existující sezení má zamrznutá stará skóre z původního uploadu."""
+    """Spustí přepřiřazení vlastníků k PDF na pozadí s progress barem."""
     session = db.query(TaxSession).get(session_id)
     if not session:
         return RedirectResponse("/dane", status_code=302)
@@ -406,54 +519,110 @@ def tax_recompute_scores(session_id: int, db: Session = Depends(get_db)):
                                 SendStatus.PAUSED, SendStatus.COMPLETED):
         return RedirectResponse(f"/dane/{session_id}?flash=locked", status_code=302)
 
-    docs = (
-        db.query(TaxDocument)
-        .filter_by(session_id=session_id)
-        .options(
-            joinedload(TaxDocument.distributions).joinedload(TaxDistribution.owner)
-        )
-        .all()
+    with _recompute_lock:
+        _recompute_progress[session_id] = {
+            "current": 0,
+            "total": 0,
+            "started_at": _time.monotonic(),
+            "done": False,
+            "error": None,
+            "result": None,
+        }
+
+    t = threading.Thread(
+        target=_recompute_scores_thread,
+        args=(session_id, session.year),
+        daemon=True,
     )
+    t.start()
 
-    # Memo cache pro (candidate_text, owner_id) → confidence — stejný vlastník
-    # se opakuje napříč distribucemi, nemá smysl volat match_name pořád dokola.
-    score_cache: dict[tuple[str, int], float] = {}
-
-    updated = 0
-    for doc in docs:
-        if not doc.extracted_owner_name:
-            continue
-        candidates = [p.strip() for p in doc.extracted_owner_name.split(",") if p.strip()]
-        if not candidates:
-            candidates = [doc.extracted_owner_name]
-        # Unikátní sada kandidátních textů (celá fráze + části)
-        cand_texts = list(dict.fromkeys([doc.extracted_owner_name, *candidates]))
-
-        for dist in doc.distributions:
-            if dist.match_status != MatchStatus.AUTO_MATCHED or not dist.owner:
-                continue
-            owner_id = dist.owner.id
-            best = 0.0
-            for cand in cand_texts:
-                key = (cand, owner_id)
-                if key in score_cache:
-                    score = score_cache[key]
-                else:
-                    r = match_name(cand, [{
-                        "id": owner_id,
-                        "name": dist.owner.display_name,
-                        "name_normalized": dist.owner.name_normalized,
-                    }], threshold=0.0)
-                    score = r[0]["confidence"] if r else 0.0
-                    score_cache[key] = score
-                if score > best:
-                    best = score
-            old = dist.match_confidence or 0
-            if best > old + 0.001:
-                dist.match_confidence = round(best, 3)
-                updated += 1
-
-    db.commit()
     return RedirectResponse(
-        f"/dane/{session_id}?flash=prematched&n={updated}", status_code=302
+        f"/dane/{session_id}/prepocitavani", status_code=302
     )
+
+
+@router.get("/{session_id}/prepocitavani")
+async def tax_recompute_progress_page(
+    session_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Stránka s progress barem přepočtu přiřazení."""
+    with _recompute_lock:
+        progress = _recompute_progress.get(session_id)
+        if not progress or progress.get("done"):
+            result = progress.get("result", {}) if progress else {}
+            _recompute_progress.pop(session_id, None)
+            n = result.get("total", 0)
+            reassigned = result.get("reassigned", 0)
+            newly = result.get("newly", 0)
+            return RedirectResponse(
+                f"/dane/{session_id}?flash=prematched&n={n}"
+                f"&reassigned={reassigned}&newly={newly}",
+                status_code=302,
+            )
+        progress = dict(progress)
+
+    session = db.query(TaxSession).get(session_id)
+    if not session:
+        return RedirectResponse("/dane", status_code=302)
+
+    eta = compute_eta(progress["current"], progress["total"], progress["started_at"])
+
+    return templates.TemplateResponse(request, "tax/recompute_progress.html", {
+        "active_nav": "tax",
+        "session": session,
+        "error": progress.get("error"),
+        "total": progress["total"],
+        "current": progress["current"],
+        "current_file": "přiřazení vlastníků",
+        "progress_title": "Přepočet přiřazení vlastníků",
+        **eta,
+        **_tax_wizard(session, 2, has_documents=True),
+    })
+
+
+@router.get("/{session_id}/prepocitavani-stav")
+async def tax_recompute_progress_status(session_id: int, request: Request):
+    """HTMX polling endpoint — progress přepočtu přiřazení."""
+    with _recompute_lock:
+        progress = _recompute_progress.get(session_id)
+        if not progress:
+            response = HTMLResponse("")
+            response.headers["HX-Redirect"] = f"/dane/{session_id}"
+            return response
+        if progress.get("done"):
+            error = progress.get("error")
+            if error:
+                progress = dict(progress)
+                _recompute_progress.pop(session_id, None)
+                eta = compute_eta(progress["current"], progress["total"], progress["started_at"])
+                return templates.TemplateResponse(request, "partials/tax_progress.html", {
+                    "error": error,
+                    "total": progress["total"],
+                    "current": progress["current"],
+                    "current_file": None,
+                    **eta,
+                })
+            result = progress.get("result", {})
+            _recompute_progress.pop(session_id, None)
+            n = result.get("total", 0)
+            reassigned = result.get("reassigned", 0)
+            newly = result.get("newly", 0)
+            response = HTMLResponse("")
+            response.headers["HX-Redirect"] = (
+                f"/dane/{session_id}?flash=prematched&n={n}"
+                f"&reassigned={reassigned}&newly={newly}"
+            )
+            return response
+        progress = dict(progress)
+
+    eta = compute_eta(progress["current"], progress["total"], progress["started_at"])
+    return templates.TemplateResponse(request, "partials/tax_progress.html", {
+        "error": None,
+        "total": progress["total"],
+        "current": progress["current"],
+        "current_file": "přiřazení vlastníků",
+        "progress_title": "Přepočet přiřazení vlastníků",
+        **eta,
+    })
