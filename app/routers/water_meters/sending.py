@@ -1,0 +1,584 @@
+from __future__ import annotations
+
+import logging
+import threading
+import time
+from typing import Optional
+
+from fastapi import APIRouter, Depends, Form, Request
+from fastapi.responses import HTMLResponse, RedirectResponse
+from sqlalchemy.orm import Session, joinedload
+
+from app.database import SessionLocal, get_db
+from app.models import (
+    ActivityAction, Owner, OwnerUnit, Unit, WaterMeter, MeterType,
+    log_activity,
+)
+from app.models.administration import EmailTemplate, SvjInfo
+from app.models.smtp_profile import SmtpProfile
+from app.services.email_service import create_smtp_connection, send_email
+from app.utils import compute_eta, render_email_template, strip_diacritics, templates, utcnow
+
+from ._helpers import compute_consumption, compute_deviations
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter()
+
+# In-memory progress tracker for background email sending
+_sending_progress: dict[str, dict] = {}
+_sending_lock = threading.Lock()
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _build_recipients(db: Session) -> list[dict]:
+    """Build recipient list: one entry per owner who has units with water meters.
+
+    Each recipient gets aggregated consumption data for all their meters.
+    Returns list of dicts: {owner_id, name, email, units: [{unit_number, meters: [...]}]}
+    """
+    # Load all meters with readings and units
+    meters = db.query(WaterMeter).options(
+        joinedload(WaterMeter.unit),
+        joinedload(WaterMeter.readings),
+    ).filter(WaterMeter.unit_id.isnot(None)).all()
+
+    if not meters:
+        return []
+
+    deviations = compute_deviations(meters)
+
+    # Group meters by unit_id
+    unit_meters: dict[int, list] = {}
+    for m in meters:
+        unit_meters.setdefault(m.unit_id, []).append(m)
+
+    # Load current owner-unit relationships
+    owner_units = (
+        db.query(OwnerUnit)
+        .filter(OwnerUnit.valid_to.is_(None))
+        .options(
+            joinedload(OwnerUnit.owner),
+            joinedload(OwnerUnit.unit),
+        )
+        .all()
+    )
+
+    # Build {owner_id: {owner, units: {unit_id: unit}}}
+    owner_data: dict[int, dict] = {}
+    for ou in owner_units:
+        if ou.unit_id not in unit_meters:
+            continue  # unit has no water meters
+        if ou.owner_id not in owner_data:
+            owner_data[ou.owner_id] = {
+                "owner": ou.owner,
+                "unit_ids": set(),
+            }
+        owner_data[ou.owner_id]["unit_ids"].add(ou.unit_id)
+
+    # Build recipients
+    recipients = []
+    for owner_id, data in owner_data.items():
+        owner = data["owner"]
+        units_info = []
+        for uid in sorted(data["unit_ids"]):
+            u_meters = unit_meters.get(uid, [])
+            if not u_meters:
+                continue
+            unit = u_meters[0].unit
+            meter_infos = []
+            for m in u_meters:
+                consumption = compute_consumption(m)
+                dev_info = deviations.get(m.id, {})
+                last_reading = max(m.readings, key=lambda r: r.reading_date) if m.readings else None
+                meter_infos.append({
+                    "serial": m.meter_serial,
+                    "type": "SV" if m.meter_type == MeterType.COLD else "TV",
+                    "type_key": m.meter_type.value,
+                    "location": m.location or "",
+                    "last_value": last_reading.value if last_reading else None,
+                    "last_date": last_reading.reading_date if last_reading else None,
+                    "consumption": consumption,
+                    "deviation_pct": dev_info.get("deviation_pct"),
+                })
+            units_info.append({
+                "unit_number": unit.unit_number,
+                "unit_letter": u_meters[0].unit_letter or "",
+                "meters": meter_infos,
+            })
+
+        # Aggregate consumption by type for template variables
+        total_sv = sum(
+            mi["consumption"] or 0
+            for ui in units_info for mi in ui["meters"]
+            if mi["type_key"] == "cold" and mi["consumption"] is not None
+        )
+        total_tv = sum(
+            mi["consumption"] or 0
+            for ui in units_info for mi in ui["meters"]
+            if mi["type_key"] == "hot" and mi["consumption"] is not None
+        )
+        # Average deviation per type
+        sv_devs = [
+            mi["deviation_pct"] for ui in units_info for mi in ui["meters"]
+            if mi["type_key"] == "cold" and mi["deviation_pct"] is not None
+        ]
+        tv_devs = [
+            mi["deviation_pct"] for ui in units_info for mi in ui["meters"]
+            if mi["type_key"] == "hot" and mi["deviation_pct"] is not None
+        ]
+
+        unit_labels = ", ".join(
+            f"{ui['unit_number']}{ui['unit_letter']}" for ui in units_info
+        )
+
+        recipients.append({
+            "owner_id": owner_id,
+            "name": owner.display_name,
+            "email": owner.email or "",
+            "units": units_info,
+            "unit_labels": unit_labels,
+            "spotreba_sv": round(total_sv, 1),
+            "spotreba_tv": round(total_tv, 1),
+            "odchylka_sv": round(sum(sv_devs) / len(sv_devs), 1) if sv_devs else None,
+            "odchylka_tv": round(sum(tv_devs) / len(tv_devs), 1) if tv_devs else None,
+        })
+
+    # Sort by name
+    recipients.sort(key=lambda r: r["name"])
+    return recipients
+
+
+def _sending_eta(progress: dict) -> dict:
+    """Compute ETA fields from sending progress dict."""
+    sent = progress["sent"]
+    failed = progress["failed"]
+    current = sent + failed
+    eta = compute_eta(current, progress["total"], progress["started_at"])
+
+    return {
+        "total": progress["total"],
+        "sent": sent,
+        "failed": failed,
+        "current": current,
+        **eta,
+        "current_recipient": progress.get("current_recipient", ""),
+        "done": progress.get("done", False),
+        "error": progress.get("error"),
+        "paused": progress.get("paused", False),
+        "waiting_batch_confirm": progress.get("waiting_batch_confirm", False),
+        "batch_number": progress.get("batch_number", 0),
+        "total_batches": progress.get("total_batches", 0),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Routes
+# ---------------------------------------------------------------------------
+
+@router.get("/rozeslat", response_class=HTMLResponse)
+async def send_preview(request: Request, db: Session = Depends(get_db)):
+    """Show send preview page with recipients and email configuration."""
+    recipients = _build_recipients(db)
+    svj = db.query(SvjInfo).first()
+    smtp_profiles = db.query(SmtpProfile).order_by(
+        SmtpProfile.is_default.desc(), SmtpProfile.id
+    ).all()
+
+    # Load email template
+    template = db.query(EmailTemplate).filter_by(name="Odečty vodoměrů").first()
+
+    # Stats
+    with_email = sum(1 for r in recipients if r["email"])
+    without_email = sum(1 for r in recipients if not r["email"])
+
+    # Flash from query
+    flash_message = ""
+    flash_type = ""
+    flash = request.query_params.get("flash", "")
+    if flash == "test_ok":
+        flash_message = request.query_params.get("msg", "Testovací email odeslán.")
+        flash_type = "success"
+    elif flash == "test_err":
+        flash_message = request.query_params.get("msg", "Chyba při odesílání testu.")
+        flash_type = "error"
+    elif flash == "settings_ok":
+        flash_message = "Nastavení uloženo."
+        flash_type = "success"
+
+    ctx = {
+        "active_nav": "water_meters",
+        "recipients": recipients,
+        "total_recipients": len(recipients),
+        "with_email": with_email,
+        "without_email": without_email,
+        "smtp_profiles": smtp_profiles,
+        "svj": svj,
+        "email_subject": template.subject_template if template else "Odečty vodoměrů",
+        "email_body": template.body_template if template else "",
+        "test_email_value": svj.send_test_email_address if svj else "",
+    }
+    if flash_message:
+        ctx["flash_message"] = flash_message
+        ctx["flash_type"] = flash_type
+
+    return templates.TemplateResponse(request, "water_meters/send.html", ctx)
+
+
+@router.post("/rozeslat/nastaveni")
+async def save_send_settings(
+    request: Request,
+    db: Session = Depends(get_db),
+    send_batch_size: int = Form(10),
+    send_batch_interval: int = Form(5),
+    send_confirm_each_batch: bool = Form(False),
+):
+    """Save batch send settings to SvjInfo."""
+    svj = db.query(SvjInfo).first()
+    if svj:
+        svj.send_batch_size = send_batch_size
+        svj.send_batch_interval = send_batch_interval
+        svj.send_confirm_each_batch = send_confirm_each_batch
+        db.commit()
+
+    return RedirectResponse("/vodometry/rozeslat?flash=settings_ok", status_code=302)
+
+
+@router.post("/rozeslat/test")
+async def send_test_email(
+    request: Request,
+    db: Session = Depends(get_db),
+    test_email: str = Form(...),
+    email_subject: str = Form(""),
+    email_body: str = Form(""),
+    smtp_profile_id: int = Form(None),
+):
+    """Send a test email with sample data."""
+    from urllib.parse import quote
+
+    # Save test email address
+    svj = db.query(SvjInfo).first()
+    if svj:
+        svj.send_test_email_address = test_email
+        db.commit()
+
+    # Sample context
+    ctx = {
+        "jmeno": "Jan Novák",
+        "jednotka": "101A",
+        "spotreba_sv": "5.2",
+        "spotreba_tv": "3.1",
+        "odchylka_sv": "+12",
+        "odchylka_tv": "-8",
+        "obdobi": "2025",
+    }
+
+    subject = render_email_template(email_subject, ctx)
+    body = render_email_template(email_body, ctx)
+
+    result = send_email(
+        to_email=test_email,
+        to_name="Test",
+        subject=subject,
+        body_html=body,
+        module="water",
+        db=db,
+        smtp_profile_id=smtp_profile_id,
+    )
+
+    if result["success"]:
+        return RedirectResponse(
+            f"/vodometry/rozeslat?flash=test_ok&msg=Test+odeslán+na+{quote(test_email)}",
+            status_code=302,
+        )
+    else:
+        return RedirectResponse(
+            f"/vodometry/rozeslat?flash=test_err&msg={quote(result.get('error', 'Neznámá chyba'))}",
+            status_code=302,
+        )
+
+
+def _send_emails_batch(
+    send_id: str,
+    recipient_data: list[dict],
+    email_subject: str,
+    email_body: str,
+    batch_size: int,
+    batch_interval: int,
+    confirm_each_batch: bool,
+    smtp_profile_id: Optional[int] = None,
+):
+    """Background thread: send water meter emails in batches."""
+    db = SessionLocal()
+    try:
+        batches = []
+        for i in range(0, len(recipient_data), batch_size):
+            batches.append(recipient_data[i:i + batch_size])
+
+        with _sending_lock:
+            _sending_progress[send_id]["total_batches"] = len(batches)
+
+        for batch_idx, batch in enumerate(batches):
+            with _sending_lock:
+                _sending_progress[send_id]["batch_number"] = batch_idx + 1
+
+            smtp_conn = None
+            try:
+                smtp_conn = create_smtp_connection(profile_id=smtp_profile_id)
+            except Exception:
+                logger.warning("Failed to create shared SMTP connection, falling back to per-email")
+
+            for rcpt in batch:
+                # Check paused
+                while True:
+                    with _sending_lock:
+                        paused = _sending_progress[send_id].get("paused")
+                        done = _sending_progress[send_id].get("done")
+                    if not paused:
+                        break
+                    if done:
+                        if smtp_conn:
+                            try:
+                                smtp_conn.quit()
+                            except Exception:
+                                pass
+                        return
+                    time.sleep(0.5)
+
+                with _sending_lock:
+                    _sending_progress[send_id]["current_recipient"] = rcpt["name"]
+
+                # Render personalized email
+                ctx = {
+                    "jmeno": rcpt["name"],
+                    "jednotka": rcpt["unit_labels"],
+                    "spotreba_sv": str(rcpt["spotreba_sv"]),
+                    "spotreba_tv": str(rcpt["spotreba_tv"]),
+                    "odchylka_sv": f"{rcpt['odchylka_sv']:+.0f}" if rcpt["odchylka_sv"] is not None else "—",
+                    "odchylka_tv": f"{rcpt['odchylka_tv']:+.0f}" if rcpt["odchylka_tv"] is not None else "—",
+                    "obdobi": "",
+                }
+                subject = render_email_template(email_subject, ctx)
+                body = render_email_template(email_body, ctx)
+
+                try:
+                    result = send_email(
+                        to_email=rcpt["email"],
+                        to_name=rcpt["name"],
+                        subject=subject,
+                        body_html=body,
+                        module="water",
+                        db=db,
+                        smtp_server=smtp_conn,
+                        smtp_profile_id=smtp_profile_id,
+                    )
+                except Exception as exc:
+                    logger.exception("Neočekávaná chyba při odesílání pro %s (%s)",
+                                     rcpt["name"], rcpt["email"])
+                    result = {"success": False, "error": str(exc)}
+                    smtp_conn = None
+                    try:
+                        smtp_conn = create_smtp_connection(profile_id=smtp_profile_id)
+                    except Exception:
+                        logger.warning("Nepodařilo se obnovit SMTP spojení")
+
+                with _sending_lock:
+                    if result["success"]:
+                        _sending_progress[send_id]["sent"] += 1
+                    else:
+                        _sending_progress[send_id]["failed"] += 1
+
+            # Close SMTP after batch
+            if smtp_conn:
+                try:
+                    smtp_conn.quit()
+                except Exception:
+                    pass
+                smtp_conn = None
+
+            # After batch: wait or confirm
+            if batch_idx < len(batches) - 1:
+                if confirm_each_batch:
+                    with _sending_lock:
+                        _sending_progress[send_id]["waiting_batch_confirm"] = True
+                    while True:
+                        with _sending_lock:
+                            waiting = _sending_progress[send_id].get("waiting_batch_confirm")
+                            done = _sending_progress[send_id].get("done")
+                        if not waiting:
+                            break
+                        if done:
+                            return
+                        time.sleep(0.5)
+                else:
+                    for _ in range(batch_interval * 2):
+                        with _sending_lock:
+                            done = _sending_progress[send_id].get("done")
+                        if done:
+                            return
+                        time.sleep(0.5)
+
+        # Log activity
+        log_activity(db, ActivityAction.STATUS_CHANGED, "water_meters", "vodometry",
+                     description=f"Rozesílka odečtů vodoměrů dokončena: {_sending_progress[send_id]['sent']} odesláno")
+        db.commit()
+
+    except Exception as e:
+        logger.exception("Error in water meter batch email sending")
+        with _sending_lock:
+            _sending_progress[send_id]["error"] = str(e)
+    finally:
+        with _sending_lock:
+            _sending_progress[send_id]["done"] = True
+            _sending_progress[send_id]["current_recipient"] = ""
+            _sending_progress[send_id]["finished_at"] = time.monotonic()
+        db.close()
+
+
+@router.post("/rozeslat/odeslat")
+async def start_batch_send(
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Start batch email sending for water meter reports."""
+    form = await request.form()
+    email_subject = form.get("email_subject", "Odečty vodoměrů")
+    email_body = form.get("email_body", "")
+    smtp_profile_id = form.get("smtp_profile_id")
+    if smtp_profile_id:
+        smtp_profile_id = int(smtp_profile_id)
+
+    # Build recipients
+    recipients = _build_recipients(db)
+    recipients_to_send = [r for r in recipients if r["email"]]
+
+    if not recipients_to_send:
+        return RedirectResponse("/vodometry/rozeslat", status_code=302)
+
+    # Check no concurrent sending
+    send_id = "water"
+    with _sending_lock:
+        progress = _sending_progress.get(send_id)
+        if progress and not progress.get("done"):
+            return RedirectResponse("/vodometry/rozeslat/prubeh", status_code=302)
+
+    svj = db.query(SvjInfo).first()
+    batch_size = svj.send_batch_size if svj else 10
+    batch_interval = svj.send_batch_interval if svj else 5
+    confirm_each = svj.send_confirm_each_batch if svj else False
+
+    log_activity(db, ActivityAction.STATUS_CHANGED, "water_meters", "vodometry",
+                 description=f"Rozesílka odečtů vodoměrů zahájena: {len(recipients_to_send)} příjemců")
+    db.commit()
+
+    # Initialize progress
+    with _sending_lock:
+        _sending_progress[send_id] = {
+            "total": len(recipients_to_send),
+            "sent": 0,
+            "failed": 0,
+            "current_recipient": "",
+            "done": False,
+            "error": None,
+            "started_at": time.monotonic(),
+            "paused": False,
+            "waiting_batch_confirm": False,
+            "batch_number": 0,
+            "total_batches": 0,
+        }
+
+    thread = threading.Thread(
+        target=_send_emails_batch,
+        args=(
+            send_id,
+            recipients_to_send,
+            email_subject,
+            email_body,
+            batch_size,
+            batch_interval,
+            confirm_each,
+            smtp_profile_id,
+        ),
+        daemon=True,
+    )
+    thread.start()
+
+    return RedirectResponse("/vodometry/rozeslat/prubeh", status_code=302)
+
+
+@router.get("/rozeslat/prubeh", response_class=HTMLResponse)
+async def sending_progress_page(request: Request):
+    """Show progress page while emails are being sent."""
+    send_id = "water"
+    with _sending_lock:
+        progress = _sending_progress.get(send_id)
+        if not progress:
+            return RedirectResponse("/vodometry/rozeslat", status_code=302)
+        progress = dict(progress)
+
+    return templates.TemplateResponse(request, "water_meters/sending.html", {
+        "active_nav": "water_meters",
+        **_sending_eta(progress),
+    })
+
+
+@router.get("/rozeslat/prubeh-stav", response_class=HTMLResponse)
+async def sending_progress_status(request: Request):
+    """HTMX polling endpoint — returns progress partial or redirect when done."""
+    send_id = "water"
+    with _sending_lock:
+        progress = _sending_progress.get(send_id)
+        if not progress:
+            response = HTMLResponse("")
+            response.headers["HX-Redirect"] = "/vodometry/rozeslat"
+            return response
+        if progress.get("done"):
+            finished_at = progress.get("finished_at", 0)
+            if time.monotonic() - finished_at >= 3:
+                _sending_progress.pop(send_id, None)
+                response = HTMLResponse("")
+                response.headers["HX-Redirect"] = "/vodometry/rozeslat"
+                return response
+        progress = dict(progress)
+
+    return templates.TemplateResponse(request, "partials/_send_progress_inner.html", {
+        **_sending_eta(progress),
+    })
+
+
+@router.post("/rozeslat/pozastavit")
+async def pause_sending():
+    """Pause the sending process."""
+    send_id = "water"
+    with _sending_lock:
+        progress = _sending_progress.get(send_id)
+        if progress and not progress.get("done"):
+            progress["paused"] = True
+    return RedirectResponse("/vodometry/rozeslat/prubeh", status_code=302)
+
+
+@router.post("/rozeslat/pokracovat")
+async def resume_sending():
+    """Resume the sending process (also confirms batch)."""
+    send_id = "water"
+    with _sending_lock:
+        progress = _sending_progress.get(send_id)
+        if progress and not progress.get("done"):
+            progress["paused"] = False
+            progress["waiting_batch_confirm"] = False
+    return RedirectResponse("/vodometry/rozeslat/prubeh", status_code=302)
+
+
+@router.post("/rozeslat/zrusit")
+async def cancel_sending():
+    """Cancel the sending process."""
+    send_id = "water"
+    with _sending_lock:
+        progress = _sending_progress.get(send_id)
+        if progress and not progress.get("done"):
+            progress["done"] = True
+            progress["finished_at"] = time.monotonic()
+    return RedirectResponse("/vodometry/rozeslat", status_code=302)

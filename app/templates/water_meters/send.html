@@ -1,0 +1,216 @@
+{% extends "base.html" %}
+{% block title %}Rozesílka odečtů vodoměrů{% endblock %}
+
+{% block content %}
+<div class="flex flex-col" style="height:calc(100vh - 3rem)">
+
+{# ── Fixed header ── #}
+<div class="shrink-0 px-4 pt-4">
+    <a href="/vodometry" class="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400">&larr; Zpět na přehled</a>
+
+    {% if flash_message is defined and flash_message %}
+    <div class="mt-2 p-3 rounded-lg text-sm
+                {% if flash_type == 'success' %}bg-green-50 text-green-700 border border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800
+                {% elif flash_type == 'error' %}bg-red-50 text-red-700 border border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800
+                {% else %}bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800{% endif %}"
+         data-auto-dismiss>
+        {{ flash_message }}
+    </div>
+    {% endif %}
+
+    <div class="flex items-center justify-between mt-2 mb-3">
+        <div>
+            <h1 class="text-xl font-bold text-gray-800 dark:text-gray-100">Rozesílka odečtů vodoměrů</h1>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{ total_recipients }} příjemců ({{ with_email }} s emailem, {{ without_email }} bez emailu)</p>
+        </div>
+    </div>
+
+    {# ── Email configuration ── #}
+    <details class="bg-white dark:bg-gray-800 rounded-lg shadow mb-3 border border-gray-200 dark:border-gray-700">
+        <summary class="px-4 py-2 cursor-pointer text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 select-none">
+            ► Konfigurace emailu
+        </summary>
+        <div class="px-4 pb-3 border-t border-gray-100 dark:border-gray-700">
+            <div class="grid mt-2 gap-x-3 gap-y-2" style="grid-template-columns:1fr auto">
+                {# Row 1 left: Subject #}
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Předmět emailu</label>
+                    <input type="text" id="cfg-subject" value="{{ email_subject }}"
+                           class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                {# Row 1 right: SMTP profile + Batch params #}
+                <div class="flex gap-3 items-end flex-wrap">
+                    {% if smtp_profiles|length > 1 %}
+                    <div class="w-44">
+                        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">SMTP profil</label>
+                        <select id="cfg-smtp-profile"
+                                class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1.5 text-sm bg-white dark:bg-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            {% for p in smtp_profiles %}
+                            <option value="{{ p.id }}" {% if p.is_default %}selected{% endif %}>
+                                {{ p.name }} ({{ p.smtp_from_email }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% elif smtp_profiles|length == 1 %}
+                    <input type="hidden" id="cfg-smtp-profile" value="{{ smtp_profiles[0].id }}">
+                    {% endif %}
+                    <form method="post" action="/vodometry/rozeslat/nastaveni" hx-boost="false" class="flex gap-3 items-end">
+                        <div class="w-20">
+                            <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5" title="Kolik příjemců se odešle najednou">Dávka</label>
+                            <input type="number" name="send_batch_size" value="{{ svj.send_batch_size or 10 if svj else 10 }}" min="1" max="100"
+                                   class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1.5 text-sm bg-white dark:bg-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div class="w-20">
+                            <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5" title="Sekund mezi dávkami">Int. (s)</label>
+                            <input type="number" name="send_batch_interval" value="{{ svj.send_batch_interval or 5 if svj else 5 }}" min="1" max="60"
+                                   class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1.5 text-sm bg-white dark:bg-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <label class="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap pb-0.5">
+                            <input type="checkbox" name="send_confirm_each_batch" value="true"
+                                   {% if svj and svj.send_confirm_each_batch %}checked{% endif %}
+                                   class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                            Potvrdit dávku
+                        </label>
+                        <button type="submit" class="px-3 py-1.5 text-sm font-medium text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors whitespace-nowrap">
+                            Uložit
+                        </button>
+                    </form>
+                </div>
+                {# Row 2 left: Body #}
+                <div class="flex flex-col">
+                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Text emailu (HTML)</label>
+                    <textarea id="cfg-body" rows="6"
+                              class="w-full flex-1 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-blue-500 font-mono">{{ email_body }}</textarea>
+                    <p class="text-xs text-gray-400 mt-1">Proměnné: {{ '{{' }} jmeno {{ '}}' }}, {{ '{{' }} jednotka {{ '}}' }}, {{ '{{' }} spotreba_sv {{ '}}' }}, {{ '{{' }} spotreba_tv {{ '}}' }}, {{ '{{' }} odchylka_sv {{ '}}' }}, {{ '{{' }} odchylka_tv {{ '}}' }}, {{ '{{' }} obdobi {{ '}}' }}</p>
+                </div>
+                {# Row 2 right: Test email #}
+                <div class="flex flex-col gap-1.5 justify-end">
+                    <label class="text-xs font-medium text-gray-600 dark:text-gray-400">Testovací email</label>
+                    <input type="email" id="test-email-input" placeholder="test@example.com"
+                           value="{{ test_email_value|default('') }}"
+                           class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-blue-500">
+                    <button type="button" id="test-send-btn" onclick="sendTest(this)"
+                            class="px-3 py-1.5 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 text-sm font-medium whitespace-nowrap transition-colors">
+                        Odeslat test
+                    </button>
+                    <form id="test-email-form" method="post" action="/vodometry/rozeslat/test" hx-boost="false" class="hidden">
+                        <input type="hidden" name="test_email" id="test-email-hidden">
+                        <input type="hidden" name="email_subject" id="test-subject-hidden">
+                        <input type="hidden" name="email_body" id="test-body-hidden">
+                        <input type="hidden" name="smtp_profile_id" id="test-smtp-hidden">
+                    </form>
+                </div>
+            </div>
+        </div>
+    </details>
+</div>
+
+{# ── Scrollable recipients table ── #}
+<div class="flex-1 overflow-y-auto overflow-x-hidden min-h-0 px-4 pb-4">
+    {% if recipients %}
+    <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+        <thead class="bg-gray-50 dark:bg-gray-800 sticky top-0 z-10">
+            <tr>
+                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Příjemce</th>
+                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Email</th>
+                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Jednotky</th>
+                <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Spotřeba SV</th>
+                <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Spotřeba TV</th>
+                <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Odchylka SV</th>
+                <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Odchylka TV</th>
+            </tr>
+        </thead>
+        <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+            {% for r in recipients %}
+            <tr class="{% if not r.email %}bg-orange-50/50 dark:bg-orange-900/10{% endif %}">
+                <td class="px-3 py-2 text-sm text-gray-900 dark:text-gray-100">{{ r.name }}</td>
+                <td class="px-3 py-2 text-sm">
+                    {% if r.email %}
+                    <span class="text-gray-600 dark:text-gray-400">{{ r.email }}</span>
+                    {% else %}
+                    <span class="text-orange-500 text-xs">Bez emailu</span>
+                    {% endif %}
+                </td>
+                <td class="px-3 py-2 text-sm text-gray-600 dark:text-gray-400">{{ r.unit_labels }}</td>
+                <td class="px-3 py-2 text-sm text-right text-gray-900 dark:text-gray-100">{{ '%.1f'|format(r.spotreba_sv) }} m³</td>
+                <td class="px-3 py-2 text-sm text-right text-gray-900 dark:text-gray-100">{{ '%.1f'|format(r.spotreba_tv) }} m³</td>
+                <td class="px-3 py-2 text-sm text-right">
+                    {% if r.odchylka_sv is not none %}
+                        {% set abs_sv = r.odchylka_sv|abs %}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+                            {% if abs_sv <= 20 %}bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300
+                            {% elif abs_sv <= 50 %}bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300
+                            {% else %}bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300{% endif %}">
+                            {{ '%+.0f'|format(r.odchylka_sv) }} %
+                        </span>
+                    {% else %}
+                    <span class="text-gray-400">—</span>
+                    {% endif %}
+                </td>
+                <td class="px-3 py-2 text-sm text-right">
+                    {% if r.odchylka_tv is not none %}
+                        {% set abs_tv = r.odchylka_tv|abs %}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+                            {% if abs_tv <= 20 %}bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300
+                            {% elif abs_tv <= 50 %}bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300
+                            {% else %}bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300{% endif %}">
+                            {{ '%+.0f'|format(r.odchylka_tv) }} %
+                        </span>
+                    {% else %}
+                    <span class="text-gray-400">—</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {# Send button #}
+    <div class="sticky bottom-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 p-3 flex items-center justify-between">
+        <p class="text-sm text-gray-600 dark:text-gray-400">
+            Bude odesláno <strong class="text-blue-600">{{ with_email }}</strong> příjemcům s emailem.
+        </p>
+        <form id="send-form" method="post" action="/vodometry/rozeslat/odeslat" hx-boost="false"
+              data-confirm="Rozeslat {{ with_email }} emailů s odečty vodoměrů?">
+            <input type="hidden" name="email_subject" id="send-subject-hidden">
+            <input type="hidden" name="email_body" id="send-body-hidden">
+            <input type="hidden" name="smtp_profile_id" id="send-smtp-hidden">
+            <button type="submit" onclick="fillSendForm()"
+                    {% if with_email == 0 %}disabled{% endif %}
+                    class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                Rozeslat ({{ with_email }})
+            </button>
+        </form>
+    </div>
+    {% else %}
+    <div class="text-center py-12">
+        <p class="text-gray-500 dark:text-gray-400 text-sm">Žádní příjemci — nejsou vodoměry přiřazené k jednotkám s vlastníky.</p>
+        <a href="/vodometry" class="inline-block mt-2 text-sm text-blue-600 hover:underline">Zpět na přehled</a>
+    </div>
+    {% endif %}
+</div>
+</div>
+
+<script>
+function sendTest(btn) {
+    var email = document.getElementById('test-email-input').value;
+    if (!email) return;
+    document.getElementById('test-email-hidden').value = email;
+    document.getElementById('test-subject-hidden').value = document.getElementById('cfg-subject').value;
+    document.getElementById('test-body-hidden').value = document.getElementById('cfg-body').value;
+    var smtpEl = document.getElementById('cfg-smtp-profile');
+    document.getElementById('test-smtp-hidden').value = smtpEl ? smtpEl.value : '';
+    btn.textContent = 'Odesílám...';
+    btn.disabled = true;
+    document.getElementById('test-email-form').submit();
+}
+
+function fillSendForm() {
+    document.getElementById('send-subject-hidden').value = document.getElementById('cfg-subject').value;
+    document.getElementById('send-body-hidden').value = document.getElementById('cfg-body').value;
+    var smtpEl = document.getElementById('cfg-smtp-profile');
+    document.getElementById('send-smtp-hidden').value = smtpEl ? smtpEl.value : '';
+}
+</script>
+{% endblock %}

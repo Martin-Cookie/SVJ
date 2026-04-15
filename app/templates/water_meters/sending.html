@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Odesílání — odečty vodoměrů{% endblock %}
+
+{% block content %}
+<div class="px-4 pt-4">
+    <a href="/vodometry/rozeslat" class="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400">&larr; Zpět na rozesílku</a>
+
+    <h1 class="text-xl font-bold text-gray-800 dark:text-gray-100 mt-2 mb-4">Odesílání odečtů vodoměrů</h1>
+
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 max-w-xl border border-gray-200 dark:border-gray-700">
+        {% with
+            poll_url="/vodometry/rozeslat/prubeh-stav",
+            pause_url="/vodometry/rozeslat/pozastavit",
+            resume_url="/vodometry/rozeslat/pokracovat",
+            cancel_url="/vodometry/rozeslat/zrusit",
+            cancel_label="Zrušit rozesílku",
+            cancel_confirm="Zrušit rozesílku? Již odeslané emaily zůstanou, zbývající se neodešlou.",
+            progress_label="Odesílání odečtů vodoměrů"
+        %}
+        {% include "partials/_send_progress.html" %}
+        {% endwith %}
+    </div>
+</div>
+{% endblock %}

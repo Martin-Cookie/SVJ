@@ -469,6 +469,21 @@ def _seed_email_templates():
                 order=10,
             ))
 
+        if "Odečty vodoměrů" not in existing:
+            session.add(EmailTemplate(
+                name="Odečty vodoměrů",
+                subject_template="Odečty vodoměrů — {{ jednotka }}",
+                body_template=(
+                    "Dobrý den, {{ jmeno }},\n\n"
+                    "zasíláme Vám přehled spotřeby vody za poslední období:\n\n"
+                    "<strong>Studená voda (SV):</strong> {{ spotreba_sv }} m³ (odchylka {{ odchylka_sv }} %)\n"
+                    "<strong>Teplá voda (TV):</strong> {{ spotreba_tv }} m³ (odchylka {{ odchylka_tv }} %)\n\n"
+                    "V případě dotazů nás kontaktujte.\n\n"
+                    "S pozdravem,\nSVJ"
+                ),
+                order=20,
+            ))
+
         session.commit()
         logger.info("Email templates seeded")
 
