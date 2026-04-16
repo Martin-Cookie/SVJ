@@ -72,6 +72,17 @@ def _build_recipients(db: Session) -> list[dict]:
 
     deviations = compute_deviations(meters)
 
+    # Compute type averages for email comparison
+    _type_sums: dict[str, list[float]] = {}
+    for m in meters:
+        c = compute_consumption(m)
+        if c is not None and c >= 0:
+            _type_sums.setdefault(m.meter_type, []).append(c)
+    type_avg = {
+        mt: round(sum(vals) / len(vals), 1) if vals else 0
+        for mt, vals in _type_sums.items()
+    }
+
     # Group meters by unit_id
     unit_meters: dict[int, list] = {}
     for m in meters:
@@ -115,7 +126,9 @@ def _build_recipients(db: Session) -> list[dict]:
             for m in u_meters:
                 consumption = compute_consumption(m)
                 dev_info = deviations.get(m.id, {})
-                last_reading = max(m.readings, key=lambda r: r.reading_date) if m.readings else None
+                sorted_readings = sorted(m.readings, key=lambda r: r.reading_date) if m.readings else []
+                last_reading = sorted_readings[-1] if sorted_readings else None
+                prev_reading = sorted_readings[-2] if len(sorted_readings) >= 2 else None
                 meter_infos.append({
                     "id": m.id,
                     "serial": m.meter_serial,
@@ -124,6 +137,8 @@ def _build_recipients(db: Session) -> list[dict]:
                     "location": m.location or "",
                     "last_value": last_reading.value if last_reading else None,
                     "last_date": last_reading.reading_date if last_reading else None,
+                    "prev_value": prev_reading.value if prev_reading else None,
+                    "prev_date": prev_reading.reading_date if prev_reading else None,
                     "consumption": consumption,
                     "deviation_pct": dev_info.get("deviation_pct"),
                     "notified_at": m.notified_at,
@@ -180,14 +195,73 @@ def _build_recipients(db: Session) -> list[dict]:
             "odchylka_sv": round(sum(sv_devs) / len(sv_devs), 1) if sv_devs else None,
             "odchylka_tv": round(sum(tv_devs) / len(tv_devs), 1) if tv_devs else None,
             "notified_at": latest_notified,
+            "type_avg": type_avg,
         })
 
     recipients.sort(key=lambda r: r["name"])
     return recipients
 
 
+def _fmt(val: float | None) -> str:
+    """Format number with comma decimal separator (Czech)."""
+    if val is None:
+        return "—"
+    return f"{val:.1f}".replace(".", ",")
+
+
 def _build_email_context(rcpt: dict) -> dict:
-    """Build email template context for a recipient."""
+    """Build email template context for a recipient.
+
+    Includes per-meter reading data for HTML table (variant B).
+    TV section is omitted when all TV consumption is 0.
+    """
+    type_avg = rcpt.get("type_avg", {})
+    avg_sv = type_avg.get(MeterType.COLD, 0)
+    avg_tv = type_avg.get(MeterType.HOT, 0)
+
+    odecty_sv: list[dict] = []
+    odecty_tv: list[dict] = []
+
+    for ui in rcpt.get("units", []):
+        for mi in ui["meters"]:
+            if mi["consumption"] is None:
+                continue  # meter without 2+ readings — skip
+
+            avg = avg_sv if mi["type_key"] == "cold" else avg_tv
+            dev = mi["deviation_pct"]
+
+            if dev is not None and avg > 0:
+                if dev > 5:
+                    srovnani = f"\u25b2 +{dev:.0f}\u00a0%"
+                elif dev < -5:
+                    srovnani = f"\u25bc {dev:.0f}\u00a0%"
+                else:
+                    srovnani = f"\u2248 {dev:+.0f}\u00a0%"
+            else:
+                srovnani = "—"
+
+            entry = {
+                "cislo": mi["serial"],
+                "predchozi": f"{_fmt(mi['prev_value'])} m\u00b3",
+                "aktualni": f"{_fmt(mi['last_value'])} m\u00b3",
+                "spotreba": f"{_fmt(mi['consumption'])} m\u00b3",
+                "prumer": f"{_fmt(avg)} m\u00b3",
+                "srovnani": srovnani,
+            }
+
+            if mi["type_key"] == "cold":
+                odecty_sv.append(entry)
+            else:
+                odecty_tv.append(entry)
+
+    # Skip TV entirely if all TV consumption is 0
+    has_tv = any(
+        mi["consumption"] and mi["consumption"] > 0
+        for ui in rcpt.get("units", [])
+        for mi in ui["meters"]
+        if mi["type_key"] == "hot"
+    )
+
     return {
         "jmeno": rcpt["name"],
         "jednotka": rcpt["unit_labels"],
@@ -197,6 +271,10 @@ def _build_email_context(rcpt: dict) -> dict:
         "odchylka_tv": f"{rcpt['odchylka_tv']:+.0f}" if rcpt["odchylka_tv"] is not None else "—",
         "vodomer": rcpt["meter_serials"],
         "obdobi": "",
+        "odecty_sv": odecty_sv,
+        "odecty_tv": odecty_tv if has_tv else [],
+        "prumer_sv": _fmt(avg_sv),
+        "prumer_tv": _fmt(avg_tv),
     }
 
 

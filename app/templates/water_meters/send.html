@@ -15,7 +15,10 @@
         </div>
         {% endif %}
 
-        <div class="flex items-center justify-between mx-4 mt-3 mb-3">
+        <div class="mx-4 mt-2 mb-1">
+            <a href="/vodometry" class="text-xs text-blue-600 dark:text-blue-400 hover:underline">&larr; Vodoměry</a>
+        </div>
+        <div class="flex items-center justify-between mx-4 mb-3">
             <div>
                 <h1 class="text-lg font-bold text-gray-900 dark:text-white">
                     Rozesílka odečtů vodoměrů
@@ -115,10 +118,16 @@
         </details>
         {% endif %}
 
-        {# Filtrovací bubliny #}
+        {# Filtrovací bubliny + hledání #}
         {% set _base = "/vodometry/rozeslat?sort=" ~ sort ~ "&order=" ~ order %}
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow mx-4 mb-2">
             <div class="flex flex-wrap items-center gap-2 px-3 py-3">
+                <div class="relative mr-2">
+                    <input type="text" id="send-search" placeholder="Hledat příjemce…"
+                           oninput="filterSendTable(this.value)"
+                           class="w-48 border border-gray-300 dark:border-gray-600 rounded-lg pl-7 pr-2 py-1 text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <svg class="w-3.5 h-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                </div>
                 <a href="{{ _base }}"
                    class="px-2 py-1 text-xs rounded border {% if not filtr %}bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 border-gray-400 ring-2 ring-gray-400{% else %}bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-100{% endif %}">
                     Vše <span class="ml-1 opacity-75">{{ bubble_counts.vse }}</span>
@@ -247,7 +256,7 @@
                             <p class="text-xs font-medium text-gray-800 dark:text-gray-200 mb-2">
                                 Předmět: {{ preview.subject }}
                             </p>
-                            <div class="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-line bg-white dark:bg-gray-800 rounded p-2 border border-gray-200 dark:border-gray-700">{{ preview.body }}</div>
+                            <div class="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-line bg-white dark:bg-gray-800 rounded p-2 border border-gray-200 dark:border-gray-700">{{ preview.body|safe }}</div>
                         </div>
                     </td>
                 </tr>
@@ -418,5 +427,31 @@ document.addEventListener('change', function(e) {
 
 // Initial count
 updateSelectedCount();
+
+// Client-side search — filters table rows by name, email, unit, meter serial
+function filterSendTable(q) {
+    q = q.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    var tbody = document.getElementById('send-tbody');
+    if (!tbody) return;
+    var rows = tbody.querySelectorAll('tr');
+    var visible = 0;
+    for (var i = 0; i < rows.length; i++) {
+        var row = rows[i];
+        // Skip preview rows — they follow data rows
+        if (row.classList.contains('email-preview')) {
+            // Show/hide preview with its parent data row
+            continue;
+        }
+        var text = (row.textContent || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        var show = !q || text.indexOf(q) !== -1;
+        row.style.display = show ? '' : 'none';
+        // Also hide/show the preview row right after
+        var next = row.nextElementSibling;
+        if (next && next.classList.contains('email-preview')) {
+            next.style.display = show ? next.classList.contains('hidden') ? 'none' : '' : 'none';
+        }
+        if (show) visible++;
+    }
+}
 </script>
 {% endblock %}

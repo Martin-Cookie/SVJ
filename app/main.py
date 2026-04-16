@@ -427,6 +427,64 @@ def _seed_code_lists():
         logger.info("Code lists seeded from existing data")
 
 
+_TH = 'style="padding:4px 8px;text-align:{align};border:1px solid #ddd;"'
+_TD = 'style="padding:4px 8px;{extra}border:1px solid #ddd;"'
+_TABLE = 'style="border-collapse:collapse;width:100%;font-size:13px;margin:8px 0;"'
+
+_WATER_EMAIL_BODY_V2 = (
+    "Dobrý den, {{ jmeno }},\n\n"
+    "přehled odečtů vodoměrů — jednotka {{ jednotka }}."
+    "{% if odecty_sv %}\n\n"
+    "<strong>Studená voda:</strong>\n"
+    f'<table {_TABLE}>'
+    f'<tr style="background:#f0f4f8;">'
+    f'<th {_TH.format(align="left")}>Vodoměr</th>'
+    f'<th {_TH.format(align="right")}>Předchozí</th>'
+    f'<th {_TH.format(align="right")}>Aktuální</th>'
+    f'<th {_TH.format(align="right")}>Spotřeba</th>'
+    f'<th {_TH.format(align="right")}>Průměr SVJ</th>'
+    f'<th {_TH.format(align="center")}>Srovnání</th>'
+    '</tr>'
+    '{% for m in odecty_sv %}'
+    '<tr>'
+    f'<td {_TD.format(extra="")}>{{{{ m.cislo }}}}</td>'
+    f'<td {_TD.format(extra="text-align:right;")}>{{{{ m.predchozi }}}}</td>'
+    f'<td {_TD.format(extra="text-align:right;")}>{{{{ m.aktualni }}}}</td>'
+    f'<td {_TD.format(extra="text-align:right;font-weight:bold;")}>{{{{ m.spotreba }}}}</td>'
+    f'<td {_TD.format(extra="text-align:right;")}>{{{{ m.prumer }}}}</td>'
+    f'<td {_TD.format(extra="text-align:center;")}>{{{{ m.srovnani }}}}</td>'
+    '</tr>'
+    '{% endfor %}'
+    '</table>'
+    "{% endif %}"
+    "{% if odecty_tv %}\n\n"
+    "<strong>Teplá voda:</strong>\n"
+    f'<table {_TABLE}>'
+    f'<tr style="background:#fff4f0;">'
+    f'<th {_TH.format(align="left")}>Vodoměr</th>'
+    f'<th {_TH.format(align="right")}>Předchozí</th>'
+    f'<th {_TH.format(align="right")}>Aktuální</th>'
+    f'<th {_TH.format(align="right")}>Spotřeba</th>'
+    f'<th {_TH.format(align="right")}>Průměr SVJ</th>'
+    f'<th {_TH.format(align="center")}>Srovnání</th>'
+    '</tr>'
+    '{% for m in odecty_tv %}'
+    '<tr>'
+    f'<td {_TD.format(extra="")}>{{{{ m.cislo }}}}</td>'
+    f'<td {_TD.format(extra="text-align:right;")}>{{{{ m.predchozi }}}}</td>'
+    f'<td {_TD.format(extra="text-align:right;")}>{{{{ m.aktualni }}}}</td>'
+    f'<td {_TD.format(extra="text-align:right;font-weight:bold;")}>{{{{ m.spotreba }}}}</td>'
+    f'<td {_TD.format(extra="text-align:right;")}>{{{{ m.prumer }}}}</td>'
+    f'<td {_TD.format(extra="text-align:center;")}>{{{{ m.srovnani }}}}</td>'
+    '</tr>'
+    '{% endfor %}'
+    '</table>'
+    "{% endif %}\n\n"
+    "V případě dotazů nás kontaktujte.\n\n"
+    "S pozdravem,\nSVJ"
+)
+
+
 def _seed_email_templates():
     """Seed default email templates if missing."""
     from sqlalchemy.orm import Session as _Session
@@ -473,16 +531,7 @@ def _seed_email_templates():
             session.add(EmailTemplate(
                 name="Odečty vodoměrů",
                 subject_template="Odečty vodoměrů — {{ jednotka }}",
-                body_template=(
-                    "Dobrý den, {{ jmeno }},\n\n"
-                    "zasíláme Vám přehled spotřeby vody za poslední období:\n\n"
-                    "<strong>Jednotka:</strong> {{ jednotka }}\n"
-                    "<strong>Vodoměr:</strong> {{ vodomer }}\n\n"
-                    "<strong>Studená voda (SV):</strong> {{ spotreba_sv }} m³ (odchylka {{ odchylka_sv }} %)\n"
-                    "<strong>Teplá voda (TV):</strong> {{ spotreba_tv }} m³ (odchylka {{ odchylka_tv }} %)\n\n"
-                    "V případě dotazů nás kontaktujte.\n\n"
-                    "S pozdravem,\nSVJ"
-                ),
+                body_template=_WATER_EMAIL_BODY_V2,
                 order=20,
             ))
 
@@ -1004,6 +1053,22 @@ def _migrate_water_meter_unit_suffix():
         db.close()
 
 
+def _migrate_water_email_template_v2():
+    """Aktualizovat email šablonu vodoměrů na verzi s HTML tabulkou."""
+    from sqlalchemy.orm import Session as _Session
+    from app.models.administration import EmailTemplate
+
+    with _Session(engine) as session:
+        tpl = session.query(EmailTemplate).filter_by(name="Odečty vodoměrů").first()
+        if not tpl:
+            return
+        # Aktualizovat jen pokud je stará defaultní šablona (obsahuje statický TV řádek)
+        if "<strong>Teplá voda (TV):</strong>" in (tpl.body_template or ""):
+            tpl.body_template = _WATER_EMAIL_BODY_V2
+            session.commit()
+            logger.info("Updated water meter email template to v2 (HTML table)")
+
+
 def _migrate_water_meter_notified_at():
     """Přidat notified_at do water_meters a water_notified_at do owners."""
     with engine.connect() as conn:
@@ -1047,6 +1112,7 @@ _ALL_MIGRATIONS = [
     ("fix water meter unit links", _migrate_fix_water_meter_unit_links),
     ("water meter unit_suffix", _migrate_water_meter_unit_suffix),
     ("water meter notified_at", _migrate_water_meter_notified_at),
+    ("water email template v2", _migrate_water_email_template_v2),
     ("index creation", _ensure_indexes),
     ("code list seeding", _seed_code_lists),
     ("email template seeding", _seed_email_templates),
