@@ -10,13 +10,21 @@
         <a href="{{ back }}" class="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400">&larr; Zpět na přehled</a>
     </div>
 
+    {% if flash_message %}
+    <div class="mb-3 px-3 py-2 rounded-lg text-sm
+        {% if flash_type == 'success' %}bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300
+        {% else %}bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300{% endif %}">
+        {{ flash_message }}
+    </div>
+    {% endif %}
+
     <div class="flex items-center justify-between mb-3">
         <div>
             <h1 class="text-xl font-bold text-gray-800 dark:text-gray-100">
                 Vodoměr {{ meter.meter_serial }}
             </h1>
             <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                {% if meter.unit_letter %}{{ meter.unit_letter }}&nbsp;{% endif %}{{ meter.unit_number or '—' }}
+                {% if meter.unit %}{{ meter.unit.building_number }}{% elif meter.unit_letter %}{{ meter.unit_letter }}&nbsp;{{ meter.unit_number }}{% else %}—{% endif %}
                 &middot;
                 {% if meter.meter_type.value == 'cold' %}SV (studená){% else %}TV (teplá){% endif %}
                 {% if meter.location %}&middot; {{ meter.location }}{% endif %}
@@ -25,15 +33,16 @@
         </div>
     </div>
 
-    {# Info card #}
-    <div class="flex gap-4 mb-3">
+    {# Info cards #}
+    <div class="flex flex-wrap gap-4 mb-3">
         <div class="px-3 py-2 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
             <span class="text-xs text-blue-600 dark:text-blue-400">Jednotka</span>
             <div class="text-sm font-semibold text-blue-700 dark:text-blue-300">
                 {% if meter.unit %}
                 <a href="/jednotky/{{ meter.unit.id }}" class="hover:underline">
-                    {% if meter.unit_letter %}{{ meter.unit_letter }}&nbsp;{% endif %}{{ meter.unit_number }}
+                    {{ meter.unit.building_number }}
                 </a>
+                <span class="text-xs font-normal text-blue-500 dark:text-blue-400">(katastr. {{ meter.unit.unit_number }})</span>
                 {% else %}
                 <span class="text-gray-400">Nepřiřazeno</span>
                 {% endif %}
@@ -63,6 +72,43 @@
             <span class="text-xs text-gray-500 dark:text-gray-400">Počet odečtů</span>
             <div class="text-sm font-semibold text-gray-700 dark:text-gray-300">{{ readings|length }}</div>
         </div>
+    </div>
+
+    {# ── Assignment form ── #}
+    <div class="mb-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+        <form method="post" action="/vodometry/{{ meter.id }}/prirazeni?back={{ back|urlencode }}" class="flex items-end gap-3">
+            <div class="flex-1 max-w-sm">
+                <label for="unit_id" class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Přiřadit k jednotce</label>
+                <select name="unit_id" id="unit_id"
+                        class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                    <option value="">— vyberte jednotku —</option>
+                    {% set sections = {} %}
+                    {% for u in all_units %}
+                        {% set sec = u.building_number[0] if u.building_number else '?' %}
+                        {% if sec not in sections %}
+                            {% if not loop.first %}</optgroup>{% endif %}
+                            <optgroup label="Sekce {{ sec }}">
+                            {% if sections.update({sec: true}) %}{% endif %}
+                        {% endif %}
+                        <option value="{{ u.id }}" {% if meter.unit_id == u.id %}selected{% endif %}>
+                            {{ u.building_number }} (katastr. {{ u.unit_number }})
+                        </option>
+                    {% endfor %}
+                    {% if all_units %}</optgroup>{% endif %}
+                </select>
+            </div>
+            <input type="hidden" name="action" value="assign">
+            <button type="submit"
+                    class="px-4 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors">
+                {% if meter.unit %}Změnit{% else %}Přiřadit{% endif %}
+            </button>
+            {% if meter.unit %}
+            <button type="submit" name="action" value="unlink"
+                    class="px-4 py-1.5 text-sm font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/40 transition-colors">
+                Odpojit
+            </button>
+            {% endif %}
+        </form>
     </div>
 </div>
 

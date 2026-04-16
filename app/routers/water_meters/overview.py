@@ -3,14 +3,14 @@ from __future__ import annotations
 import io
 from datetime import date
 
-from fastapi import APIRouter, Depends, Query, Request
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi import APIRouter, Depends, Form, Query, Request
+from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from openpyxl import Workbook
 from sqlalchemy import String, cast, func
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
-from app.models import WaterMeter, WaterReading, MeterType, Unit, OwnerUnit, Owner
+from app.models import WaterMeter, WaterReading, MeterType, Unit, OwnerUnit, Owner, ActivityAction, log_activity
 from app.utils import (
     build_list_url, excel_auto_width, is_htmx_partial,
     strip_diacritics, templates,
@@ -208,32 +208,6 @@ async def water_meters_overview(request: Request, db: Session = Depends(get_db))
 
 
 # ---------------------------------------------------------------------------
-# Detail
-# ---------------------------------------------------------------------------
-
-@router.get("/{meter_id}", response_class=HTMLResponse)
-async def water_meter_detail(request: Request, meter_id: int, db: Session = Depends(get_db)):
-    meter = (
-        db.query(WaterMeter)
-        .options(joinedload(WaterMeter.unit), joinedload(WaterMeter.readings))
-        .get(meter_id)
-    )
-    if not meter:
-        from fastapi.responses import RedirectResponse
-        return RedirectResponse("/vodometry", status_code=303)
-
-    readings = sorted(meter.readings, key=lambda r: r.reading_date, reverse=True)
-    back = request.query_params.get("back", "/vodometry")
-
-    return templates.TemplateResponse(request, "water_meters/detail.html", {
-        "active_nav": "water_meters",
-        "meter": meter,
-        "readings": readings,
-        "back": back,
-    })
-
-
-# ---------------------------------------------------------------------------
 # Export
 # ---------------------------------------------------------------------------
 
@@ -320,3 +294,83 @@ async def water_meters_export(
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="vodometry{suffix}.xlsx"'},
     )
+
+
+# ---------------------------------------------------------------------------
+# Detail
+# ---------------------------------------------------------------------------
+
+@router.get("/{meter_id}", response_class=HTMLResponse)
+async def water_meter_detail(request: Request, meter_id: int, db: Session = Depends(get_db)):
+    meter = (
+        db.query(WaterMeter)
+        .options(joinedload(WaterMeter.unit), joinedload(WaterMeter.readings))
+        .get(meter_id)
+    )
+    if not meter:
+        return RedirectResponse("/vodometry", status_code=303)
+
+    readings = sorted(meter.readings, key=lambda r: r.reading_date, reverse=True)
+    back = request.query_params.get("back", "/vodometry")
+
+    # Units for assignment select, grouped by section
+    all_units = (
+        db.query(Unit)
+        .order_by(Unit.building_number.asc())
+        .all()
+    )
+
+    flash = request.query_params.get("flash", "")
+    flash_message = ""
+    flash_type = ""
+    if flash == "assigned":
+        flash_message = "Vodoměr přiřazen k jednotce."
+        flash_type = "success"
+    elif flash == "unlinked":
+        flash_message = "Vodoměr odpojen od jednotky."
+        flash_type = "success"
+
+    return templates.TemplateResponse(request, "water_meters/detail.html", {
+        "active_nav": "water_meters",
+        "meter": meter,
+        "readings": readings,
+        "back": back,
+        "all_units": all_units,
+        "flash_message": flash_message,
+        "flash_type": flash_type,
+    })
+
+
+@router.post("/{meter_id}/prirazeni")
+async def water_meter_assign(
+    request: Request,
+    meter_id: int,
+    unit_id: int = Form(None),
+    action: str = Form("assign"),
+    db: Session = Depends(get_db),
+):
+    meter = db.query(WaterMeter).get(meter_id)
+    if not meter:
+        return RedirectResponse("/vodometry", status_code=303)
+
+    back = request.query_params.get("back", "/vodometry")
+
+    if action == "unlink":
+        old_unit = db.query(Unit).get(meter.unit_id) if meter.unit_id else None
+        meter.unit_id = None
+        log_activity(db, ActivityAction.UPDATED, "water_meter",
+                     module="vodometry",
+                     description=f"Vodoměr {meter.meter_serial} odpojen od jednotky {old_unit.building_number if old_unit else '?'}")
+        db.commit()
+        return RedirectResponse(f"/vodometry/{meter_id}?back={back}&flash=unlinked", status_code=303)
+
+    if unit_id:
+        unit = db.query(Unit).get(unit_id)
+        if unit:
+            meter.unit_id = unit.id
+            log_activity(db, ActivityAction.UPDATED, "water_meter",
+                         module="vodometry",
+                         description=f"Vodoměr {meter.meter_serial} přiřazen k jednotce {unit.building_number}")
+            db.commit()
+
+    return RedirectResponse(f"/vodometry/{meter_id}?back={back}&flash=assigned", status_code=303)
