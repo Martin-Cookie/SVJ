@@ -10,7 +10,7 @@ from sqlalchemy import String, cast, func
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
-from app.models import WaterMeter, WaterReading, MeterType, Unit
+from app.models import WaterMeter, WaterReading, MeterType, Unit, OwnerUnit, Owner
 from app.utils import (
     build_list_url, excel_auto_width, is_htmx_partial,
     strip_diacritics, templates,
@@ -32,7 +32,7 @@ def _filter_meters(db: Session, q: str = "", typ: str = "", stav: str = "",
                    sort: str = "jednotka", order: str = "asc"):
     """Filter and sort water meters. Returns list with eager-loaded relations."""
     query = db.query(WaterMeter).options(
-        joinedload(WaterMeter.unit),
+        joinedload(WaterMeter.unit).joinedload(Unit.owners).joinedload(OwnerUnit.owner),
         joinedload(WaterMeter.readings),
     )
 
@@ -89,6 +89,12 @@ def _filter_meters(db: Session, q: str = "", typ: str = "", stav: str = "",
             c = compute_consumption(m)
             return c if c is not None else -1
         meters.sort(key=_consumption, reverse=(order == "desc"))
+    elif sort == "vlastnik":
+        def _owner_name(m):
+            if m.unit and m.unit.current_owners:
+                return m.unit.current_owners[0].owner.display_name.lower()
+            return ""
+        meters.sort(key=_owner_name, reverse=(order == "desc"))
     elif sort == "odchylka":
         # Need deviations — compute on the fly for sort
         all_for_dev = [m for m in meters]  # already loaded with readings
@@ -234,7 +240,7 @@ async def water_meters_export(
     if not suffix:
         suffix = "_vsechny"
 
-    headers_list = ["Jednotka", "Sekce", "Typ", "Sériové č.", "Umístění",
+    headers_list = ["Jednotka", "Sekce", "Vlastník", "Typ", "Sériové č.", "Umístění",
                     "Poslední odečet", "Hodnota (m3)", "Spotřeba (m3)", "Odchylka (%)"]
 
     from ._helpers import compute_consumption
@@ -246,9 +252,13 @@ async def water_meters_export(
         consumption = compute_consumption(m)
         dev_info = dev_map.get(m.id, {})
         deviation = dev_info.get("deviation_pct")
+        owner_names = ", ".join(
+            ou.owner.display_name for ou in m.unit.current_owners
+        ) if m.unit and m.unit.current_owners else ""
         rows_data.append([
             m.unit_number or "",
             m.unit_letter or "",
+            owner_names,
             "SV" if m.meter_type == MeterType.COLD else "TV",
             m.meter_serial,
             m.location or "",
