@@ -130,18 +130,26 @@ def _build_recipients(db: Session) -> list[dict]:
                 last_reading = sorted_readings[-1] if sorted_readings else None
                 prev_reading = sorted_readings[-2] if len(sorted_readings) >= 2 else None
 
-                # Historical consumption — last 2-3 periods
+                # Historical consumption — last 2-3 periods (last reading per month only)
+                # Deduplicate: keep only the last reading in each calendar month
+                monthly: dict[str, object] = {}  # "YYYY-MM" → reading
+                for r in sorted_readings:
+                    if r.reading_date:
+                        key = r.reading_date.strftime("%Y-%m")
+                        monthly[key] = r  # later reading in same month overwrites
+                monthly_readings = sorted(monthly.values(), key=lambda r: r.reading_date)
+
                 history: list[dict] = []
-                for hi in range(len(sorted_readings) - 1, 0, -1):
+                for hi in range(len(monthly_readings) - 1, 0, -1):
                     if len(history) >= 3:
                         break
-                    r_cur = sorted_readings[hi]
-                    r_prev = sorted_readings[hi - 1]
+                    r_cur = monthly_readings[hi]
+                    r_prev = monthly_readings[hi - 1]
                     diff = round(r_cur.value - r_prev.value, 1)
                     if diff < 0:
                         continue
                     history.append({
-                        "date": r_cur.reading_date.strftime("%m/%Y") if r_cur.reading_date else "",
+                        "date": r_cur.reading_date.strftime("%m/%Y"),
                         "consumption": diff,
                     })
 

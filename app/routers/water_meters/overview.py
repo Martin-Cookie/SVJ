@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, Form, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from openpyxl import Workbook
 from sqlalchemy import String, cast, func
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, contains_eager, joinedload
 
 from app.database import get_db
 from app.models import WaterMeter, WaterReading, MeterType, Unit, OwnerUnit, Owner, ActivityAction, log_activity
@@ -31,20 +31,25 @@ SORT_COLUMNS = {
 def _filter_meters(db: Session, q: str = "", typ: str = "", stav: str = "",
                    sort: str = "jednotka", order: str = "asc"):
     """Filter and sort water meters. Returns list with eager-loaded relations."""
-    query = db.query(WaterMeter).options(
-        joinedload(WaterMeter.unit).joinedload(Unit.owners).joinedload(OwnerUnit.owner),
-        joinedload(WaterMeter.readings),
+    query = (
+        db.query(WaterMeter)
+        .outerjoin(WaterMeter.unit)
+        .options(
+            contains_eager(WaterMeter.unit).joinedload(Unit.owners).joinedload(OwnerUnit.owner),
+            joinedload(WaterMeter.readings),
+        )
     )
 
     # Text search
     if q:
         search = f"%{q}%"
-        query = query.outerjoin(WaterMeter.unit).filter(
+        query = query.filter(
             WaterMeter.meter_serial.ilike(search)
             | WaterMeter.location.ilike(search)
             | cast(WaterMeter.unit_number, String).like(search)
             | WaterMeter.unit_letter.ilike(search)
             | Unit.building_number.ilike(search)
+            | cast(Unit.unit_number, String).like(search)
         )
 
     # Bubble filters
