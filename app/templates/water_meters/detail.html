@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}Vodoměr {{ meter.meter_serial }}{% endblock %}
+
+{% block content %}
+<div class="flex flex-col" style="height:calc(100vh - 3rem)">
+
+{# ── Fixed header ── #}
+<div class="shrink-0 px-4 pt-4">
+    <div class="mb-3">
+        <a href="{{ back }}" class="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400">&larr; Zpět na přehled</a>
+    </div>
+
+    <div class="flex items-center justify-between mb-3">
+        <div>
+            <h1 class="text-xl font-bold text-gray-800 dark:text-gray-100">
+                Vodoměr {{ meter.meter_serial }}
+            </h1>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                {% if meter.unit_letter %}{{ meter.unit_letter }}&nbsp;{% endif %}{{ meter.unit_number or '—' }}
+                &middot;
+                {% if meter.meter_type.value == 'cold' %}SV (studená){% else %}TV (teplá){% endif %}
+                {% if meter.location %}&middot; {{ meter.location }}{% endif %}
+                &middot; {{ readings|length }} odečtů
+            </p>
+        </div>
+    </div>
+
+    {# Info card #}
+    <div class="flex gap-4 mb-3">
+        <div class="px-3 py-2 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
+            <span class="text-xs text-blue-600 dark:text-blue-400">Jednotka</span>
+            <div class="text-sm font-semibold text-blue-700 dark:text-blue-300">
+                {% if meter.unit %}
+                <a href="/jednotky/{{ meter.unit.id }}" class="hover:underline">
+                    {% if meter.unit_letter %}{{ meter.unit_letter }}&nbsp;{% endif %}{{ meter.unit_number }}
+                </a>
+                {% else %}
+                <span class="text-gray-400">Nepřiřazeno</span>
+                {% endif %}
+            </div>
+        </div>
+        <div class="px-3 py-2 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg">
+            <span class="text-xs text-indigo-600 dark:text-indigo-400">Typ</span>
+            <div class="text-sm font-semibold text-indigo-700 dark:text-indigo-300">
+                {% if meter.meter_type.value == 'cold' %}
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300">SV</span>
+                {% else %}
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300">TV</span>
+                {% endif %}
+            </div>
+        </div>
+        {% if readings %}
+        {% set last = readings[0] %}
+        <div class="px-3 py-2 bg-green-50 dark:bg-green-900/30 rounded-lg">
+            <span class="text-xs text-green-600 dark:text-green-400">Poslední odečet</span>
+            <div class="text-sm font-semibold text-green-700 dark:text-green-300">
+                {{ '%.1f'|format(last.value) }} m3
+                <span class="text-xs font-normal text-green-600 dark:text-green-400">({{ last.reading_date.strftime('%d.%m.%Y') }})</span>
+            </div>
+        </div>
+        {% endif %}
+        <div class="px-3 py-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
+            <span class="text-xs text-gray-500 dark:text-gray-400">Počet odečtů</span>
+            <div class="text-sm font-semibold text-gray-700 dark:text-gray-300">{{ readings|length }}</div>
+        </div>
+    </div>
+</div>
+
+{# ── Scrollable table ── #}
+<div class="flex-1 overflow-y-auto overflow-x-hidden min-h-0 px-4 pb-4">
+    {% if readings %}
+    <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+        <thead class="bg-gray-50 dark:bg-gray-800 sticky top-0 z-10">
+            <tr>
+                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Datum</th>
+                <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Hodnota (m3)</th>
+                <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Spotřeba (m3)</th>
+            </tr>
+        </thead>
+        <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+            {% for r in readings %}
+            {% set prev = readings[loop.index] if loop.index < readings|length else None %}
+            {% set diff = (r.value - prev.value)|round(3) if prev and r.value is not none and prev.value is not none else None %}
+            <tr>
+                <td class="px-3 py-2 text-sm text-gray-900 dark:text-gray-100">{{ r.reading_date.strftime('%d.%m.%Y') }}</td>
+                <td class="px-3 py-2 text-sm text-right text-gray-900 dark:text-gray-100">{{ '%.1f'|format(r.value) if r.value is not none else '—' }}</td>
+                <td class="px-3 py-2 text-sm text-right">
+                    {% if diff is not none %}
+                    <span class="{% if diff > 0 %}text-gray-900 dark:text-gray-100{% elif diff == 0 %}text-gray-400{% else %}text-red-600 dark:text-red-400{% endif %}">
+                        {{ '%.1f'|format(diff) }}
+                    </span>
+                    {% else %}
+                    <span class="text-gray-400">—</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="text-center py-12">
+        <p class="text-gray-500 dark:text-gray-400 text-sm">Žádné odečty.</p>
+    </div>
+    {% endif %}
+</div>
+</div>
+{% endblock %}

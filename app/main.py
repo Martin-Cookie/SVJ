@@ -856,6 +856,16 @@ def _migrate_fix_activity_log_modules():
         db.close()
 
 
+def _migrate_water_meter_import_mapping():
+    """Add water_meter_import_mapping column to svj_info table."""
+    with engine.connect() as conn:
+        cols = [r[1] for r in conn.execute(text("PRAGMA table_info('svj_info')")).fetchall()]
+        if "water_meter_import_mapping" not in cols:
+            conn.execute(text("ALTER TABLE svj_info ADD COLUMN water_meter_import_mapping TEXT"))
+            conn.commit()
+            logger.info("Added water_meter_import_mapping column to svj_info")
+
+
 _ALL_MIGRATIONS = [
     ("units table", _migrate_units_table),
     ("owner_units history", _migrate_owner_units_history),
@@ -876,6 +886,7 @@ _ALL_MIGRATIONS = [
     ("bank_statement send settings", _migrate_bank_statement_send_settings),
     ("smtp profiles", _migrate_smtp_profiles),
     ("fix activity_log modules", _migrate_fix_activity_log_modules),
+    ("water meter import mapping", _migrate_water_meter_import_mapping),
     ("index creation", _ensure_indexes),
     ("code list seeding", _seed_code_lists),
     ("email template seeding", _seed_email_templates),

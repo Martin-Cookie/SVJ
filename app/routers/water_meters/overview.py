@@ -81,6 +81,8 @@ def _filter_meters(db: Session, q: str = "", typ: str = "", stav: str = "",
                 return date.min
             return max(r.reading_date for r in m.readings)
         meters.sort(key=_last_date, reverse=(order == "desc"))
+    elif sort == "odectu":
+        meters.sort(key=lambda m: len(m.readings), reverse=(order == "desc"))
     elif sort == "spotreba":
         from ._helpers import compute_consumption
         def _consumption(m):
@@ -177,6 +179,32 @@ async def water_meters_overview(request: Request, db: Session = Depends(get_db))
         return templates.TemplateResponse(request, "partials/water_meter_tbody.html", ctx)
 
     return templates.TemplateResponse(request, "water_meters/overview.html", ctx)
+
+
+# ---------------------------------------------------------------------------
+# Detail
+# ---------------------------------------------------------------------------
+
+@router.get("/{meter_id}", response_class=HTMLResponse)
+async def water_meter_detail(request: Request, meter_id: int, db: Session = Depends(get_db)):
+    meter = (
+        db.query(WaterMeter)
+        .options(joinedload(WaterMeter.unit), joinedload(WaterMeter.readings))
+        .get(meter_id)
+    )
+    if not meter:
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse("/vodometry", status_code=303)
+
+    readings = sorted(meter.readings, key=lambda r: r.reading_date, reverse=True)
+    back = request.query_params.get("back", "/vodometry")
+
+    return templates.TemplateResponse(request, "water_meters/detail.html", {
+        "active_nav": "water_meters",
+        "meter": meter,
+        "readings": readings,
+        "back": back,
+    })
 
 
 # ---------------------------------------------------------------------------

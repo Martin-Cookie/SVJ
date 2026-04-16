@@ -23,11 +23,12 @@
     </form>
 
     <div class="mt-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg text-xs text-gray-600 dark:text-gray-400">
-        <p class="font-medium mb-1">Podporovaný formát:</p>
+        <p class="font-medium mb-1">Podporované formáty:</p>
         <ul class="list-disc list-inside space-y-0.5">
-            <li>Techem XLS/XLSX — automatická detekce sloupců</li>
-            <li>Sloupce: číslo jednotky, evidenční č. měřidla, typ (SV/TV), datum odečtu, hodnota</li>
-            <li>Vodoměry se automaticky přiřadí k jednotkám podle čísla</li>
+            <li><strong>Sloupcový</strong> (XLS) — jeden řádek = jeden vodoměr, měsíční odečty ve sloupcích s datumy v hlavičce</li>
+            <li><strong>Řádkový</strong> (XLSX) — jeden řádek = jeden odečet, sloupce Datum + Hodnota</li>
+            <li>Mapování sloupců v dalším kroku — automatická detekce</li>
+            <li>Vodoměry se přiřadí k jednotkám podle čísla</li>
         </ul>
     </div>
 </div>

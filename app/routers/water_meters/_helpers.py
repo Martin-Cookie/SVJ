@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import re
+from collections import defaultdict
 from datetime import date, datetime
 
 from app.models import MeterType
@@ -104,8 +105,12 @@ def _parse_header_date(header: str) -> date | None:
     return None
 
 
-def parse_techem_xls(file_path: str) -> list[dict]:
+def parse_techem_xls(file_path: str, mapping: dict | None = None,
+                     sheet_name: str | None = None, header_row: int = 1) -> list[dict]:
     """Parse Techem XLS file with monthly reading columns.
+
+    If mapping is provided, uses mapping["fields"] for column indices.
+    Otherwise falls back to auto-detection.
 
     Techem format has:
       - Fixed columns: unit label, user name, meter type, serial, etc.
@@ -118,56 +123,68 @@ def parse_techem_xls(file_path: str) -> list[dict]:
     import xlrd
 
     book = xlrd.open_workbook(file_path)
-    sheet = book.sheet_by_index(0)
+    if sheet_name and sheet_name in book.sheet_names():
+        sheet = book.sheet_by_name(sheet_name)
+    else:
+        sheet = book.sheet_by_index(0)
 
-    if sheet.nrows < 2:
+    header_idx = header_row - 1  # xlrd is 0-based
+    data_start = header_row      # data starts on next row (0-based = header_row)
+
+    if sheet.nrows <= data_start:
         return []
 
-    headers = [str(sheet.cell_value(0, c)).strip() for c in range(sheet.ncols)]
+    headers = [str(sheet.cell_value(header_idx, c)).strip() for c in range(sheet.ncols)]
 
-    # Auto-detect fixed columns by header name
+    # Resolve column indices from mapping or auto-detect
     col = {}
+    if mapping and "fields" in mapping:
+        mf = mapping["fields"]
+        for key in ("unit_label", "meter_serial", "meter_type", "location"):
+            if key in mf:
+                col[key] = int(mf[key])
+    else:
+        # Auto-detect fixed columns by header name
+        for i, h in enumerate(headers):
+            hl = h.lower()
+            if "zákazník" in hl and "číslo" in hl.lower().replace("zákazník", "").replace("jednotky", ""):
+                col["unit_label"] = i
+            elif "jméno" in hl and "2" not in h:
+                col.setdefault("user_name", i)
+            elif "typ přístroje" in hl or "typ měřidla" in hl:
+                col["meter_type"] = i
+            elif "číslo přístroje" in hl or "evidenční" in hl:
+                col["meter_serial"] = i
+            elif "poloha" in hl:
+                col["location"] = i
+            elif "místnost" in hl and "číslo" not in hl and "zkratka" not in hl:
+                col.setdefault("room", i)
+
+        # Fallback: exact name matching for critical columns
+        exact_map = {
+            "Číslo jednotky Zákazník": "unit_label",
+            "Jméno uživatele": "user_name",
+            "Typ přístroje": "meter_type",
+            "Číslo přístroje": "meter_serial",
+            "Poloha": "location",
+        }
+        for i, h in enumerate(headers):
+            for name, key in exact_map.items():
+                if h == name and key not in col:
+                    col[key] = i
+
+    # Detect date columns (monthly readings) — always auto-detected from headers
     date_columns = []  # [(col_index, date_object), ...]
-
     for i, h in enumerate(headers):
-        hl = h.lower()
-        if "zákazník" in hl and "číslo" in hl.lower().replace("zákazník", "").replace("jednotky", ""):
-            # "Číslo jednotky Zákazník"
-            col["unit_label"] = i
-        elif "jméno" in hl and "2" not in h:
-            col.setdefault("user_name", i)
-        elif "typ přístroje" in hl or "typ měřidla" in hl:
-            col["meter_type"] = i
-        elif "číslo přístroje" in hl or "evidenční" in hl:
-            col["meter_serial"] = i
-        elif "poloha" in hl:
-            col["location"] = i
-        elif "místnost" in hl and "číslo" not in hl and "zkratka" not in hl:
-            col.setdefault("room", i)
-        else:
-            # Try to parse as date (monthly reading columns)
-            d = _parse_header_date(h)
-            if d:
-                date_columns.append((i, d))
-
-    # Fallback: exact name matching for critical columns
-    exact_map = {
-        "Číslo jednotky Zákazník": "unit_label",
-        "Jméno uživatele": "user_name",
-        "Typ přístroje": "meter_type",
-        "Číslo přístroje": "meter_serial",
-        "Poloha": "location",
-    }
-    for i, h in enumerate(headers):
-        for name, key in exact_map.items():
-            if h == name and key not in col:
-                col[key] = i
+        d = _parse_header_date(h)
+        if d:
+            date_columns.append((i, d))
 
     # Sort date columns chronologically
     date_columns.sort(key=lambda x: x[1])
 
     rows = []
-    for r in range(1, sheet.nrows):
+    for r in range(data_start, sheet.nrows):
         # Unit label
         unit_idx = col.get("unit_label", 7)
         raw_label = str(sheet.cell_value(r, unit_idx)).strip()
@@ -228,3 +245,119 @@ def parse_techem_xls(file_path: str) -> list[dict]:
         })
 
     return rows
+
+
+def parse_water_readings_row_format(
+    file_path: str, mapping: dict,
+    sheet_name: str | None = None, header_row: int = 1,
+) -> list[dict]:
+    """Parse row-based water meter XLSX (each row = one reading).
+
+    Columns: unit_label, user_name, meter_serial, meter_type, location,
+             reading_date, reading_value.
+    Rows are grouped by meter_serial into one dict per meter.
+
+    Returns same format as parse_techem_xls:
+        [{unit_label, unit_number, unit_letter, meter_serial,
+          meter_type, location, user_name, readings: [{date, value}]}, ...]
+    """
+    from openpyxl import load_workbook
+
+    wb = load_workbook(file_path, read_only=True, data_only=True)
+    if sheet_name and sheet_name in wb.sheetnames:
+        ws = wb[sheet_name]
+    else:
+        ws = wb.active
+
+    mf = mapping.get("fields", {})
+    col = {}
+    for key in ("unit_label", "meter_serial", "meter_type",
+                "location", "reading_date", "reading_value"):
+        if key in mf:
+            col[key] = int(mf[key])
+
+    # Read all rows into memory (read_only mode needs iteration)
+    all_rows = list(ws.iter_rows(min_row=header_row + 1, values_only=True))
+    wb.close()
+
+    # Group by meter serial
+    meters: dict[str, dict] = {}  # serial → meter dict
+    for row in all_rows:
+        if not row or len(row) <= max(col.values()):
+            continue
+
+        # Meter serial
+        serial_raw = row[col["meter_serial"]]
+        if serial_raw is None:
+            continue
+        serial = str(serial_raw).strip()
+        if serial.endswith(".0"):
+            serial = serial[:-2]
+        if not serial or serial == "None":
+            continue
+
+        # Parse reading
+        rd_raw = row[col.get("reading_date", 0)]
+        rv_raw = row[col.get("reading_value", 0)]
+
+        reading_date = None
+        if isinstance(rd_raw, datetime):
+            reading_date = rd_raw.date()
+        elif isinstance(rd_raw, date):
+            reading_date = rd_raw
+        elif isinstance(rd_raw, str):
+            reading_date = _parse_header_date(rd_raw)
+
+        reading_value = None
+        if isinstance(rv_raw, (int, float)):
+            reading_value = float(rv_raw)
+        elif isinstance(rv_raw, str):
+            cleaned = rv_raw.replace(",", ".").replace(" ", "").strip()
+            if cleaned:
+                try:
+                    reading_value = float(cleaned)
+                except ValueError:
+                    pass
+
+        if serial not in meters:
+            # Parse unit label
+            ul_raw = row[col.get("unit_label", 0)]
+            raw_label = str(ul_raw).strip() if ul_raw is not None else ""
+            unit_number, unit_letter = parse_unit_label(raw_label)
+
+            # Meter type
+            mt_raw = row[col.get("meter_type", 0)]
+            raw_type = str(mt_raw).strip().upper() if mt_raw is not None else ""
+            if "SV" in raw_type or "STUD" in raw_type:
+                meter_type = "cold"
+            elif "TV" in raw_type or "TEPL" in raw_type:
+                meter_type = "hot"
+            else:
+                meter_type = "cold"
+
+            # Location
+            loc_raw = row[col["location"]] if "location" in col else None
+            location = str(loc_raw).strip() if loc_raw is not None else ""
+
+            meters[serial] = {
+                "unit_label": raw_label,
+                "unit_number": unit_number,
+                "unit_letter": unit_letter,
+                "meter_serial": serial,
+                "meter_type": meter_type,
+                "location": location,
+                "readings": [],
+            }
+
+        # Add reading
+        if reading_date is not None and reading_value is not None:
+            meters[serial]["readings"].append({
+                "date": reading_date,
+                "value": reading_value,
+            })
+
+    # Sort readings chronologically per meter
+    for m in meters.values():
+        m["readings"].sort(key=lambda r: r["date"])
+
+    return list(meters.values())

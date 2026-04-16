@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block title %}Mapování sloupců - Import odečtů{% endblock %}
+
+{% block content %}
+{% from "partials/import_mapping_fields.html" import render_mapping_groups %}
+
+<div class="flex flex-col" style="height:calc(100vh - 3rem)">
+<div class="shrink-0 px-4 pt-4">
+    <div class="mb-3">
+        <a href="/vodometry/import" class="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400">&larr; Zpět na import</a>
+    </div>
+
+    {% include "partials/wizard_stepper.html" %}
+
+    <div class="flex items-center justify-between mb-3">
+        <div>
+            <h1 class="text-xl font-bold text-gray-800 dark:text-gray-100">Mapování sloupců — Import odečtů</h1>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Soubor: {{ filename }} | {{ headers|length }} sloupců nalezeno</p>
+        </div>
+    </div>
+
+    <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mb-3">
+        <p class="text-sm text-blue-800 dark:text-blue-300">
+            <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            Namapujte sloupce pro identifikaci vodoměrů.
+            {% if date_columns_count > 0 %}
+            Datové sloupce se rozpoznají automaticky podle datumu v hlavičce.
+            <strong>Nalezeno {{ date_columns_count }} datových sloupců.</strong>
+            Skupinu Odečty nemusíte mapovat.
+            {% else %}
+            Pokud soubor obsahuje odečty v řádcích (každý řádek = jeden odečet), namapujte skupinu <strong>Odečty</strong> (Datum + Hodnota).
+            {% endif %}
+        </p>
+    </div>
+
+    {# Sheet selector + start row #}
+    {% if sheets|length > 1 %}
+    <div class="flex items-center gap-4 mb-3">
+        <div class="flex items-center gap-2">
+            <label class="text-xs font-medium text-gray-700 dark:text-gray-300">List:</label>
+            <select id="sheet-select" class="text-xs border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 bg-white dark:bg-gray-700 dark:text-gray-200"
+                    onchange="reloadMapping()">
+                {% for s in sheets %}
+                <option value="{{ s }}" {% if s == current_sheet %}selected{% endif %}>{{ s }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="flex items-center gap-2">
+            <label class="text-xs font-medium text-gray-700 dark:text-gray-300" title="Číslo řádku v Excelu, od kterého začínají data">Data od řádku:</label>
+            <input type="number" id="start-row" value="{{ start_row }}" min="1" max="100"
+                   class="text-xs border border-gray-300 dark:border-gray-600 rounded px-2 py-1 w-16 bg-white dark:bg-gray-700 dark:text-gray-200">
+        </div>
+        <button type="button" onclick="reloadMapping()" class="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded hover:bg-gray-200 dark:hover:bg-gray-600 dark:text-gray-200">
+            Aktualizovat hlavičky
+        </button>
+    </div>
+    {% else %}
+    <div class="flex items-center gap-4 mb-3">
+        <div class="flex items-center gap-2">
+            <label class="text-xs font-medium text-gray-700 dark:text-gray-300" title="Číslo řádku v Excelu, od kterého začínají data">Data od řádku:</label>
+            <input type="number" id="start-row" value="{{ start_row }}" min="1" max="100"
+                   class="text-xs border border-gray-300 dark:border-gray-600 rounded px-2 py-1 w-16 bg-white dark:bg-gray-700 dark:text-gray-200">
+        </div>
+        <button type="button" onclick="reloadMapping()" class="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded hover:bg-gray-200 dark:hover:bg-gray-600 dark:text-gray-200">
+            Aktualizovat
+        </button>
+    </div>
+    {% endif %}
+
+    {# Stats bar #}
+    <div class="flex items-center gap-3 mb-3" id="stats-bar">
+        <span id="stats-matched" class="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">
+            {{ stats.matched }}/{{ stats.total }} nalezeno
+        </span>
+        {% if stats.required_missing > 0 %}
+        <span id="stats-required" class="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300">
+            {{ stats.required_missing }} povinných chybí
+        </span>
+        {% else %}
+        <span id="stats-required" class="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">
+            Povinná pole OK
+        </span>
+        {% endif %}
+    </div>
+</div>
+
+{# Mapping fields #}
+<div class="flex-1 overflow-y-auto min-h-0 px-4 pr-1">
+    {{ render_mapping_groups(groups_data, headers) }}
+</div>
+
+{# Bottom bar #}
+<div class="shrink-0 px-4 mt-3 pb-4 flex items-center justify-between border-t border-gray-200 dark:border-gray-700 pt-3">
+    <label class="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+        <input type="checkbox" id="save-mapping" checked
+               class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+        Uložit mapování pro příští import
+    </label>
+    <div class="flex gap-2">
+        <a href="/vodometry/import" class="px-3 py-1.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-xs font-medium">Zrušit</a>
+        <button type="button" id="submit-mapping" onclick="submitMapping()"
+                class="px-4 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+            Pokračovat na náhled
+        </button>
+    </div>
+</div>
+</div>
+
+<form id="mapping-form" action="/vodometry/import/nahled" method="post" class="hidden">
+    <input type="hidden" name="file_path" value="{{ file_path }}">
+    <input type="hidden" name="filename" value="{{ filename }}">
+    <input type="hidden" name="mapping_json" id="mapping-json" value="">
+</form>
+
+{# Reload form (sheet/start-row change) #}
+<form id="reload-form" action="/vodometry/import/mapovani" method="post" class="hidden">
+    <input type="hidden" name="file_path" value="{{ file_path }}">
+    <input type="hidden" name="filename" value="{{ filename }}">
+    <input type="hidden" name="sheet_name" id="reload-sheet" value="">
+    <input type="hidden" name="start_row" id="reload-start-row" value="">
+</form>
+
+{% set mapping_default_start_row = 2 %}
+{% include "partials/import_mapping_js.html" %}
+{% endblock %}

@@ -7,11 +7,16 @@
     <td class="px-3 py-2 text-sm" data-v="{{ meter.unit_number or 0 }}">
         {% if meter.unit %}
         <a href="/jednotky/{{ meter.unit.id }}?back={{ list_url|urlencode }}" class="text-blue-600 hover:text-blue-800 hover:underline">
-            {{ meter.unit_number }}{{ meter.unit_letter }}
+            {% if meter.unit_letter %}{{ meter.unit_letter }}&nbsp;{% endif %}{{ meter.unit_number }}
         </a>
         {% else %}
-        <span class="text-gray-400">{{ meter.unit_number or '—' }}{{ meter.unit_letter }}</span>
+        <span class="text-gray-400">{% if meter.unit_letter %}{{ meter.unit_letter }}&nbsp;{% endif %}{{ meter.unit_number or '—' }}</span>
         {% endif %}
+    </td>
+    <td class="px-3 py-2 text-sm text-right" data-v="{{ meter.readings|length }}">
+        <a href="/vodometry/{{ meter.id }}?back={{ list_url|urlencode }}" class="text-blue-600 hover:text-blue-800 hover:underline">
+            {{ meter.readings|length }}
+        </a>
     </td>
     <td class="px-3 py-2 text-sm" data-v="{{ meter.meter_type.value }}">
         {% if meter.meter_type.value == 'cold' %}

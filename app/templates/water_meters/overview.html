@@ -81,7 +81,7 @@
 
     {# ── Search ── #}
     <div class="mb-3">
-        <input type="text" name="q" value="{{ q }}" placeholder="Hledat (číslo jednotky, sériové č., umístění)..."
+        <input type="text" name="q" value="{{ q }}" placeholder="Hledat (katastrální číslo, sériové č., umístění)..."
                hx-get="/vodometry" hx-target="#meter-tbody" hx-swap="innerHTML"
                hx-trigger="keyup changed delay:300ms"
                hx-include="[name=sort],[name=order],[name=typ],[name=stav]"
@@ -101,6 +101,7 @@
             <tr>
                 {% set _cols = [
                     ("jednotka", "Jednotka"),
+                    ("odectu", "Odečtů"),
                     ("typ", "Typ"),
                     ("serial", "Sériové č."),
                     ("umisteni", "Umístění"),
@@ -112,7 +113,7 @@
                 {% for col_key, col_label in _cols %}
                 {% set is_active = (sort == col_key) %}
                 {% set next_order = 'desc' if (is_active and order == 'asc') else 'asc' %}
-                <th class="px-3 py-2 text-{{ 'right' if col_key in ('hodnota', 'spotreba', 'odchylka') else 'left' }} text-xs font-medium text-gray-500 dark:text-gray-400 uppercase cursor-pointer hover:text-gray-700 dark:hover:text-gray-200 select-none"
+                <th class="px-3 py-2 text-{{ 'right' if col_key in ('hodnota', 'odectu', 'spotreba', 'odchylka') else 'left' }} text-xs font-medium text-gray-500 dark:text-gray-400 uppercase cursor-pointer hover:text-gray-700 dark:hover:text-gray-200 select-none"
                     onclick="window.location='/vodometry?sort={{ col_key }}&order={{ next_order }}&typ={{ typ }}&stav={{ stav }}&q={{ q }}'">
                     {{ col_label }}
                     {% if is_active %}

@@ -21,6 +21,7 @@ class SvjInfo(Base):
     contact_import_mapping = Column(Text, nullable=True)  # JSON — last used contact import column mapping
     balance_import_mapping = Column(Text, nullable=True)   # JSON — last used balance import column mapping
     space_import_mapping = Column(Text, nullable=True)     # JSON — last used space import column mapping
+    water_meter_import_mapping = Column(Text, nullable=True)  # JSON — last used water meter import column mapping
     # Sdílená nastavení dávkového odesílání emailů
     send_batch_size = Column(Integer, default=10)           # počet příjemců v dávce
     send_batch_interval = Column(Integer, default=5)        # sekund mezi dávkami

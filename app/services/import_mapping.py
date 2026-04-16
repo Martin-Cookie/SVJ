@@ -128,9 +128,9 @@ OWNER_FIELD_GROUPS = [
 OWNER_FIELD_DEFS: dict[str, dict] = {
     # --- Jednotka ---
     "unit_kn": {
-        "label": "Číslo jednotky (KN)",
+        "label": "Katastrální číslo (KN)",
         "required": True,
-        "description": "Číslo jednotky z katastru nemovitostí — povinné pro párování",
+        "description": "Katastrální číslo jednotky — povinné pro párování",
         "candidates": [
             "cislo jednotky", "cislo jednotky kn", "jednotka kn", "jednotka",
             "unit number", "unit kn", "c.j.", "cj", "kn",
@@ -138,9 +138,9 @@ OWNER_FIELD_DEFS: dict[str, dict] = {
         ],
     },
     "building_number": {
-        "label": "Číslo prostoru (stavební)",
+        "label": "Číslo jednotky (stavební)",
         "required": False,
-        "description": "Stavební číslo prostoru (nemusí se shodovat s číslem jednotky v KN)",
+        "description": "Číslo jednotky (nemusí se shodovat s katastrálním číslem)",
         "candidates": [
             "cislo prostoru", "stavebni cislo", "cislo prostoru stavebni",
             "building number", "prostor", "c.p.", "cp",
@@ -762,9 +762,9 @@ BALANCE_FIELD_GROUPS = [
 
 BALANCE_FIELD_DEFS: dict[str, dict] = {
     "unit_number": {
-        "label": "Katastrální číslo / č. jednotky",
+        "label": "Katastrální číslo",
         "required": True,
-        "description": "Číslo jednotky pro párování s evidencí",
+        "description": "Katastrální číslo jednotky pro párování s evidencí",
         "candidates": [
             "katastrální číslo", "katastralni cislo", "číslo jednotky",
             "cislo jednotky", "č. jednotky", "č jednotky", "jednotka",
@@ -1032,6 +1032,122 @@ def validate_contact_mapping(mapping: dict) -> str | None:
     for field_key, fdef in CONTACT_FIELD_DEFS.items():
         if fdef.get("required") and field_key not in fields:
             return f"Chybí povinné pole: {fdef['label']}"
+
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Water meter field definitions — 4 fields in 1 group
+# ---------------------------------------------------------------------------
+
+WATER_METER_FIELD_GROUPS = [
+    {
+        "key": "unit",
+        "label": "Jednotka",
+        "color": "blue",
+        "fields": ["unit_label"],
+    },
+    {
+        "key": "meter",
+        "label": "Vodoměr",
+        "color": "green",
+        "fields": ["meter_serial", "meter_type", "location"],
+    },
+    {
+        "key": "reading",
+        "label": "Odečty",
+        "color": "purple",
+        "fields": ["reading_date", "reading_value"],
+    },
+]
+
+WATER_METER_FIELD_DEFS: dict[str, dict] = {
+    "unit_label": {
+        "label": "Katastrální číslo",
+        "required": True,
+        "description": "Identifikace jednotky (např. 'A 111', 'B 234')",
+        "candidates": [
+            "cislo jednotky zakaznik", "cislo jednotky", "jednotka",
+            "byt zakaznik", "spojovy kod",
+            "zakaznik", "unit", "customer",
+        ],
+    },
+    "meter_serial": {
+        "label": "Číslo přístroje / měřidla",
+        "required": True,
+        "description": "Evidenční číslo vodoměru",
+        "candidates": [
+            "vyrobni cislo", "cislo pristroje", "evidencni cislo",
+            "cislo meridla", "seriove cislo", "serial", "pristroj",
+            "evidencni c", "cislo pristroje sn",
+        ],
+    },
+    "meter_type": {
+        "label": "Typ přístroje",
+        "required": True,
+        "description": "Typ vodoměru (SV = studená, TV = teplá)",
+        "candidates": [
+            "typ pristroje", "typ meridla", "medium",
+            "druh", "device type",
+        ],
+    },
+    "location": {
+        "label": "Poloha / umístění",
+        "required": False,
+        "description": "Umístění vodoměru v bytě",
+        "candidates": [
+            "poloha", "umisteni", "mistnost", "location",
+            "room", "pozice",
+        ],
+    },
+    "reading_date": {
+        "label": "Datum odečtu",
+        "required": False,
+        "description": "Sloupec s datem odečtu (řádkový formát — každý řádek = jeden odečet)",
+        "candidates": [
+            "datum odectu", "datum", "date", "reading date",
+            "den", "obdobi",
+        ],
+    },
+    "reading_value": {
+        "label": "Hodnota odečtu",
+        "required": False,
+        "description": "Sloupec s hodnotou odečtu v m³ (řádkový formát)",
+        "candidates": [
+            "odecet", "hodnota odectu", "hodnota", "value",
+            "stav", "reading", "spotreba",
+        ],
+    },
+}
+
+
+def is_row_format(mapping: dict) -> bool:
+    """Check if mapping uses row-based format (reading_date + reading_value mapped)."""
+    fields = mapping.get("fields", {})
+    return "reading_date" in fields and "reading_value" in fields
+
+
+def validate_water_meter_mapping(mapping: dict) -> str | None:
+    """Validate water meter import mapping. Returns error message or None."""
+    if not isinstance(mapping, dict) or "fields" not in mapping:
+        return "Neplatný formát mapování"
+
+    fields = mapping["fields"]
+    if not isinstance(fields, dict):
+        return "Neplatný formát mapování polí"
+
+    # Always required: unit_label, meter_serial, meter_type
+    for field_key in ("unit_label", "meter_serial", "meter_type"):
+        if field_key not in fields:
+            return f"Chybí povinné pole: {WATER_METER_FIELD_DEFS[field_key]['label']}"
+
+    # Row format: reading_date and reading_value must both be present or both absent
+    has_date = "reading_date" in fields
+    has_value = "reading_value" in fields
+    if has_date != has_value:
+        if has_date:
+            return "Pokud mapujete Datum odečtu, musíte mapovat i Hodnotu odečtu"
+        return "Pokud mapujete Hodnotu odečtu, musíte mapovat i Datum odečtu"
 
     return None
 
