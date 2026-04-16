@@ -240,12 +240,26 @@ async def water_import_preview(
             **build_import_wizard(1),
         })
 
-    # Match unit_numbers against DB
-    db_units = {u.unit_number: u for u in db.query(Unit).all()}
+    # Match against building_number in DB (Techem label = building_number)
+    all_units = db.query(Unit).all()
+    # Build lookup: normalize building_number for matching
+    # Techem label "A 111" → unit_letter="A", unit_number=111
+    # DB building_number "A 111" → match by reconstructed label
+    bn_lookup = {}  # "A 111" → Unit
+    for u in all_units:
+        if u.building_number:
+            bn_lookup[u.building_number.strip().upper()] = u
+
     for row in rows:
-        un = row["unit_number"]
-        row["unit_matched"] = un is not None and un in db_units
-        row["unit_id"] = db_units[un].id if row["unit_matched"] else None
+        # Reconstruct label from parsed parts for matching
+        label = ""
+        if row["unit_letter"] and row["unit_number"]:
+            label = f"{row['unit_letter']} {row['unit_number']}"
+        elif row["unit_number"]:
+            label = str(row["unit_number"])
+        unit = bn_lookup.get(label.upper()) if label else None
+        row["unit_matched"] = unit is not None
+        row["unit_id"] = unit.id if unit else None
 
     # Store in preview cache
     batch_id = uuid4().hex[:12]
@@ -300,8 +314,12 @@ async def water_import_confirm(
     meters_data = data["rows"]
     file_path = data["file_path"]
 
-    # Build unit lookup
-    db_units = {u.unit_number: u for u in db.query(Unit).all()}
+    # Build unit lookup by building_number
+    all_units = db.query(Unit).all()
+    bn_lookup = {}
+    for u in all_units:
+        if u.building_number:
+            bn_lookup[u.building_number.strip().upper()] = u
 
     # Track existing meters by serial to avoid duplicates
     existing_meters = {
@@ -320,16 +338,22 @@ async def water_import_confirm(
         if not serial:
             continue
 
+        # Reconstruct label for building_number lookup
+        label = ""
+        if row["unit_letter"] and row["unit_number"]:
+            label = f"{row['unit_letter']} {row['unit_number']}"
+        elif row["unit_number"]:
+            label = str(row["unit_number"])
+
         # Find or create WaterMeter
         meter = existing_meters.get(serial)
         if not meter:
-            un = row["unit_number"]
-            unit = db_units.get(un) if un else None
+            unit = bn_lookup.get(label.upper()) if label else None
 
             meter_type_val = MeterType.COLD if row["meter_type"] == "cold" else MeterType.HOT
             meter = WaterMeter(
                 unit_id=unit.id if unit else None,
-                unit_number=un,
+                unit_number=row["unit_number"],
                 unit_letter=row["unit_letter"],
                 meter_serial=serial,
                 meter_type=meter_type_val,
@@ -344,8 +368,8 @@ async def water_import_confirm(
                 unmatched_units += 1
         else:
             # Update unit link if meter wasn't linked before
-            if not meter.unit_id and row["unit_number"]:
-                unit = db_units.get(row["unit_number"])
+            if not meter.unit_id and label:
+                unit = bn_lookup.get(label.upper())
                 if unit:
                     meter.unit_id = unit.id
                     meter.unit_number = row["unit_number"]
