@@ -129,6 +129,22 @@ def _build_recipients(db: Session) -> list[dict]:
                 sorted_readings = sorted(m.readings, key=lambda r: r.reading_date) if m.readings else []
                 last_reading = sorted_readings[-1] if sorted_readings else None
                 prev_reading = sorted_readings[-2] if len(sorted_readings) >= 2 else None
+
+                # Historical consumption — last 2-3 periods
+                history: list[dict] = []
+                for hi in range(len(sorted_readings) - 1, 0, -1):
+                    if len(history) >= 3:
+                        break
+                    r_cur = sorted_readings[hi]
+                    r_prev = sorted_readings[hi - 1]
+                    diff = round(r_cur.value - r_prev.value, 1)
+                    if diff < 0:
+                        continue
+                    history.append({
+                        "date": r_cur.reading_date.strftime("%m/%Y") if r_cur.reading_date else "",
+                        "consumption": diff,
+                    })
+
                 meter_infos.append({
                     "id": m.id,
                     "serial": m.meter_serial,
@@ -142,6 +158,7 @@ def _build_recipients(db: Session) -> list[dict]:
                     "consumption": consumption,
                     "deviation_pct": dev_info.get("deviation_pct"),
                     "notified_at": m.notified_at,
+                    "history": history,
                 })
                 all_meter_serials.append(m.meter_serial)
                 all_meter_ids.append(m.id)
@@ -208,13 +225,10 @@ def _fmt(val: float | None) -> str:
 def _build_email_context(rcpt: dict) -> dict:
     """Build email template context for a recipient.
 
-    Includes per-meter reading data for HTML table (variant B).
+    Includes per-meter reading data for HTML table.
     TV section is omitted when all TV consumption is 0.
+    History shows last 2-3 periods of the same meter.
     """
-    type_avg = rcpt.get("type_avg", {})
-    avg_sv = type_avg.get(MeterType.COLD, 0)
-    avg_tv = type_avg.get(MeterType.HOT, 0)
-
     odecty_sv: list[dict] = []
     odecty_tv: list[dict] = []
 
@@ -223,26 +237,21 @@ def _build_email_context(rcpt: dict) -> dict:
             if mi["consumption"] is None:
                 continue  # meter without 2+ readings — skip
 
-            avg = avg_sv if mi["type_key"] == "cold" else avg_tv
-            dev = mi["deviation_pct"]
-
-            if dev is not None and avg > 0:
-                if dev > 5:
-                    srovnani = f"\u25b2 +{dev:.0f}\u00a0%"
-                elif dev < -5:
-                    srovnani = f"\u25bc {dev:.0f}\u00a0%"
-                else:
-                    srovnani = f"\u2248 {dev:+.0f}\u00a0%"
+            # Build history string: "3,2 → 4,1 → 3,8 m³"
+            hist = mi.get("history", [])
+            if len(hist) > 1:
+                # hist is newest-first, reverse for display (oldest→newest)
+                parts = [_fmt(h["consumption"]) for h in reversed(hist)]
+                historie = " → ".join(parts) + " m\u00b3"
             else:
-                srovnani = "—"
+                historie = "—"
 
             entry = {
                 "cislo": mi["serial"],
                 "predchozi": f"{_fmt(mi['prev_value'])} m\u00b3",
                 "aktualni": f"{_fmt(mi['last_value'])} m\u00b3",
                 "spotreba": f"{_fmt(mi['consumption'])} m\u00b3",
-                "prumer": f"{_fmt(avg)} m\u00b3",
-                "srovnani": srovnani,
+                "historie": historie,
             }
 
             if mi["type_key"] == "cold":
@@ -269,8 +278,6 @@ def _build_email_context(rcpt: dict) -> dict:
         "obdobi": "",
         "odecty_sv": odecty_sv,
         "odecty_tv": odecty_tv if has_tv else [],
-        "prumer_sv": _fmt(avg_sv),
-        "prumer_tv": _fmt(avg_tv),
     }
 
 
