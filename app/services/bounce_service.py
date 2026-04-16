@@ -50,44 +50,71 @@ _DIAGNOSTIC_RE = re.compile(r"diagnostic-code:\s*[^;]+;\s*(.+?)(?:\r?\n[^\s]|\Z)
 _SMTP_CODE_RE = re.compile(r"\b(5\d{2}|4\d{2})\s")
 
 
-def _imap_credentials() -> tuple[str, str] | None:
-    """Vrátí (user, password) — IMAP creds nebo fallback na SMTP profil / .env."""
-    user = settings.imap_user
-    password = settings.imap_password
-    if user and password:
-        return user, password
-    # Fallback: SMTP z .env
-    if settings.smtp_user and settings.smtp_password:
-        return settings.smtp_user, settings.smtp_password
-    # Fallback: default SMTP profil z DB
-    try:
-        from app.services.email_service import _get_default_profile, _smtp_params_from_profile
-        profile = _get_default_profile()
-        if profile:
-            params = _smtp_params_from_profile(profile)
-            if params["user"] and params["password"]:
-                return params["user"], params["password"]
-    except Exception:
-        pass
-    return None
+def _derive_imap_host(smtp_host: str) -> str:
+    """smtp.gmail.com → imap.gmail.com, smtp.seznam.cz → imap.seznam.cz."""
+    if smtp_host.startswith("smtp."):
+        return "imap." + smtp_host[5:]
+    return smtp_host
 
 
-def connect_imap() -> imaplib.IMAP4_SSL | None:
-    """Otevře IMAP spojení nebo vrátí None pokud chybí konfigurace."""
-    creds = _imap_credentials()
-    if not creds:
-        logger.warning("IMAP creds chybí — kontrola bounces přeskočena")
-        return None
-    if settings.imap_host in ("imap.example.com", ""):
-        return None
+def get_imap_accounts(db: Session) -> list[dict]:
+    """Vrátí seznam IMAP účtů ke kontrole (profily z DB + fallback .env).
 
-    try:
-        conn = imaplib.IMAP4_SSL(settings.imap_host, settings.imap_port)
-        conn.login(*creds)
-        return conn
-    except Exception as exc:
-        logger.error("IMAP připojení selhalo: %s", exc)
-        raise
+    Každý dict: {name, host, port, user, password}.
+    """
+    from app.models import SmtpProfile
+    from app.utils import decode_smtp_password
+
+    accounts: list[dict] = []
+    seen_users: set[str] = set()
+
+    # 1. SMTP profily z DB
+    profiles = db.query(SmtpProfile).order_by(SmtpProfile.id).all()
+    for p in profiles:
+        host = p.imap_host or _derive_imap_host(p.smtp_host)
+        user = p.smtp_user
+        try:
+            password = decode_smtp_password(p.smtp_password_b64)
+        except Exception:
+            continue
+        if not user or not password or not host:
+            continue
+        key = f"{user}@{host}".lower()
+        if key in seen_users:
+            continue
+        seen_users.add(key)
+        accounts.append({
+            "name": p.name,
+            "host": host,
+            "port": 993,
+            "user": user,
+            "password": password,
+        })
+
+    # 2. Fallback: .env IMAP/SMTP (pokud ještě není v seznamu)
+    env_host = settings.imap_host
+    env_user = settings.imap_user or settings.smtp_user
+    env_password = settings.imap_password or settings.smtp_password
+    if env_host and env_user and env_password and env_host not in ("imap.example.com", ""):
+        key = f"{env_user}@{env_host}".lower()
+        if key not in seen_users:
+            accounts.append({
+                "name": f".env ({env_user})",
+                "host": env_host,
+                "port": settings.imap_port,
+                "user": env_user,
+                "password": env_password,
+            })
+
+    return accounts
+
+
+def connect_imap(host: str = "", port: int = 993,
+                 user: str = "", password: str = "") -> imaplib.IMAP4_SSL:
+    """Otevře IMAP spojení s danými credentials."""
+    conn = imaplib.IMAP4_SSL(host, port)
+    conn.login(user, password)
+    return conn
 
 
 def _is_bounce_subject(subject: str | None) -> bool:
@@ -276,82 +303,114 @@ def _last_check_timestamp(db: Session) -> datetime | None:
     return last.created_at if last else None
 
 
-def fetch_bounces(db: Session, mark_invalid: bool = True) -> dict:
-    """Hlavní vstup — připojí se k IMAP, najde nové bounces, uloží do DB.
+def _fetch_bounces_for_account(
+    db: Session,
+    account: dict,
+    existing_uids: set[str],
+    mark_invalid: bool = True,
+    on_progress: callable = None,
+    cancelled: callable = None,
+) -> dict:
+    """Kontrola bounces pro jeden IMAP účet.
 
     Args:
-        mark_invalid: pokud True, hard bounces nastaví Owner.email_invalid=True
+        account: {name, host, port, user, password}
+        existing_uids: sada již zpracovaných IMAP UID
+        on_progress: callback(scanned, total, new_count) volaný po každém emailu
+        cancelled: callable() → True pokud má být kontrola zrušena
 
     Returns:
-        dict {success, new_count, scanned, error}
+        dict {success, new_count, scanned, total_uids, error}
     """
-    try:
-        conn = connect_imap()
-    except Exception as exc:
-        return {"success": False, "error": f"IMAP připojení selhalo: {exc}", "new_count": 0, "scanned": 0}
-
-    if conn is None:
-        return {"success": False, "error": "IMAP není nakonfigurován (nastavte IMAP_USER/PASSWORD nebo SMTP creds)", "new_count": 0, "scanned": 0}
-
     new_count = 0
     scanned = 0
+    total_uids = 0
     error: str | None = None
+
+    try:
+        conn = connect_imap(
+            host=account["host"],
+            port=account.get("port", 993),
+            user=account["user"],
+            password=account["password"],
+        )
+    except Exception as exc:
+        return {"success": False, "error": f"IMAP {account['name']}: {exc}", "new_count": 0, "scanned": 0, "total_uids": 0}
 
     try:
         conn.select("INBOX")
 
-        # Časový rozsah: od poslední kontroly, fallback 30 dní
         last_check = _last_check_timestamp(db)
         since = (last_check - timedelta(days=1)) if last_check else (utcnow() - timedelta(days=30))
         since_str = since.strftime("%d-%b-%Y")
 
-        # Vyhledat zprávy podle SINCE — předmět filtrujeme až lokálně (Gmail OR limit)
         status, data = conn.search(None, f'(SINCE "{since_str}")')
         if status != "OK":
-            return {"success": False, "error": f"IMAP SEARCH selhal: {status}", "new_count": 0, "scanned": 0}
+            return {"success": False, "error": f"IMAP SEARCH selhal: {status}", "new_count": 0, "scanned": 0, "total_uids": 0}
 
         uids = data[0].split() if data and data[0] else []
-        # Limit pro bezpečnost
         uids = uids[-500:]
+        total_uids = len(uids)
 
-        existing_uids = {
-            row[0] for row in
-            db.query(EmailBounce.imap_uid).filter(EmailBounce.imap_uid.isnot(None)).all()
+        # Exclude own address from bounce recipient matching
+        own_addresses = {
+            account["user"].lower(),
+            (settings.smtp_user or "").lower(),
+            (settings.smtp_from_email or "").lower(),
+            (settings.imap_user or "").lower(),
         }
 
-        for uid in uids:
+        for i, uid in enumerate(uids):
+            if cancelled and cancelled():
+                break
+
             uid_str = uid.decode() if isinstance(uid, bytes) else str(uid)
             if uid_str in existing_uids:
+                if on_progress:
+                    on_progress(i + 1, total_uids, new_count)
                 continue
 
             status, msg_data = conn.fetch(uid, "(RFC822)")
             if status != "OK" or not msg_data or not msg_data[0]:
+                if on_progress:
+                    on_progress(i + 1, total_uids, new_count)
                 continue
 
             raw = msg_data[0][1]
             if not isinstance(raw, (bytes, bytearray)):
+                if on_progress:
+                    on_progress(i + 1, total_uids, new_count)
                 continue
 
             msg = email.message_from_bytes(raw)
             subject = _decode_header(msg.get("Subject"))
 
             if not _is_bounce_subject(subject):
+                if on_progress:
+                    on_progress(i + 1, total_uids, new_count)
                 continue
 
             scanned += 1
             parsed = _parse_bounce(msg)
 
             if not parsed["recipient"]:
-                logger.debug("UID %s: bounce bez recipient adresy, přeskakuji", uid_str)
+                if on_progress:
+                    on_progress(i + 1, total_uids, new_count)
                 continue
 
-            # Vyžadovat alespoň jeden indikátor selhání — jinak je to nejspíš auto-reply
+            # Skip own address
+            if parsed["recipient"] and parsed["recipient"].lower() in own_addresses:
+                if on_progress:
+                    on_progress(i + 1, total_uids, new_count)
+                continue
+
             if (
                 parsed["bounce_type"] == BounceType.UNKNOWN
                 and not parsed["diagnostic_code"]
                 and not parsed["reason"]
             ):
-                logger.debug("UID %s: bez evidence selhání, přeskakuji", uid_str)
+                if on_progress:
+                    on_progress(i + 1, total_uids, new_count)
                 continue
 
             owner = _match_owner(db, parsed["recipient"])
@@ -372,22 +431,24 @@ def fetch_bounces(db: Session, mark_invalid: bool = True) -> dict:
                 imap_message_id=msg.get("Message-ID"),
             )
             db.add(bounce)
+            existing_uids.add(uid_str)
             new_count += 1
 
-            # Hard bounce → flag Owner
             if mark_invalid and owner and parsed["bounce_type"] == BounceType.HARD:
                 owner.email_invalid = True
                 owner.email_invalid_reason = (parsed["reason"] or parsed["diagnostic_code"] or "Hard bounce")[:500]
 
-            # Označit jako přečtené
             try:
                 conn.store(uid, "+FLAGS", "\\Seen")
             except Exception:
-                logger.debug("Nepodařilo se označit UID %s jako Seen", uid_str)
+                pass
+
+            if on_progress:
+                on_progress(i + 1, total_uids, new_count)
 
         db.commit()
     except Exception as exc:
-        logger.exception("Bounce check selhal: %s", exc)
+        logger.exception("Bounce check selhal pro %s: %s", account["name"], exc)
         db.rollback()
         error = str(exc)
     finally:
@@ -401,6 +462,41 @@ def fetch_bounces(db: Session, mark_invalid: bool = True) -> dict:
         "error": error,
         "new_count": new_count,
         "scanned": scanned,
+        "total_uids": total_uids,
+    }
+
+
+def fetch_bounces(db: Session, mark_invalid: bool = True) -> dict:
+    """Jednoduchý vstup (bez progress) — kontrola VŠECH IMAP účtů.
+
+    Returns:
+        dict {success, new_count, scanned, error}
+    """
+    accounts = get_imap_accounts(db)
+    if not accounts:
+        return {"success": False, "error": "Žádný IMAP účet nakonfigurován", "new_count": 0, "scanned": 0}
+
+    existing_uids = {
+        row[0] for row in
+        db.query(EmailBounce.imap_uid).filter(EmailBounce.imap_uid.isnot(None)).all()
+    }
+
+    total_new = 0
+    total_scanned = 0
+    errors: list[str] = []
+
+    for acc in accounts:
+        result = _fetch_bounces_for_account(db, acc, existing_uids, mark_invalid)
+        total_new += result["new_count"]
+        total_scanned += result["scanned"]
+        if result["error"]:
+            errors.append(result["error"])
+
+    return {
+        "success": len(errors) == 0,
+        "error": "; ".join(errors) if errors else None,
+        "new_count": total_new,
+        "scanned": total_scanned,
     }
 
 

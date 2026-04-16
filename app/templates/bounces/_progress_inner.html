@@ -1,0 +1,64 @@
+{# Vnitřní progress partial pro bounce check — swapuje se HTMX pollingem. #}
+<div class="space-y-4">
+    {# Account info #}
+    {% if total_accounts > 0 %}
+    <div class="flex justify-between items-center">
+        <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+            Účet {{ current_account }} z {{ total_accounts }}
+            {% if account_name %}<span class="text-gray-500 font-normal">— {{ account_name }}</span>{% endif %}
+        </span>
+        {% if account_total > 0 %}
+        <span class="text-sm text-gray-500">{{ account_scanned }} / {{ account_total }} emailů</span>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {# Progress bar #}
+    <div class="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-3 overflow-hidden">
+        {% set pct = (account_scanned / account_total * 100) if account_total > 0 else 0 %}
+        <div class="bg-blue-500 h-3 transition-all duration-300 rounded-full" style="width: {{ pct }}%"></div>
+    </div>
+
+    {# Stats #}
+    <div class="flex items-center gap-4 text-xs">
+        <span class="text-blue-600 dark:text-blue-400 font-medium">Nalezeno: {{ new_count }}</span>
+        <span class="text-gray-500">Zpracováno bounces: {{ scanned }}</span>
+    </div>
+
+    {# Status message #}
+    <div class="flex justify-between items-center">
+        {% if done %}
+            {% if cancelled %}
+            <p class="text-xs text-yellow-600 font-medium">Zrušeno — nalezeno {{ new_count }} nedoručených</p>
+            {% else %}
+            <p class="text-xs text-green-600 font-medium">Dokončeno — nalezeno {{ new_count }} nedoručených</p>
+            {% endif %}
+        {% else %}
+        <p class="text-xs text-gray-500 dark:text-gray-400">{{ status }}</p>
+        {% endif %}
+        <div class="text-xs text-gray-500 text-right">
+            <span>{{ elapsed }}</span>
+            {% if eta %}
+            <span class="mx-1">/</span>
+            <span class="text-gray-600 dark:text-gray-400 font-medium">zbývá {{ eta }}</span>
+            {% endif %}
+        </div>
+    </div>
+
+    {# Errors #}
+    {% if errors %}
+    <div role="alert" class="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded text-sm text-red-700 dark:text-red-300">
+        {% for e in errors %}
+        <p>{{ e }}</p>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if error %}
+    <div role="alert" class="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded text-sm text-red-700 dark:text-red-300">
+        {{ error }}
+    </div>
+    {% endif %}
+
+    <input type="hidden" id="bounce-done" value="{{ 'true' if done else 'false' }}">
+</div>

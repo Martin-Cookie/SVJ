@@ -839,6 +839,10 @@ def _migrate_smtp_profiles():
             conn.execute(text("ALTER TABLE smtp_profiles ADD COLUMN imap_save_sent BOOLEAN DEFAULT 0"))
             logger.info("Added imap_save_sent to smtp_profiles")
 
+        if "imap_host" not in sp_cols:
+            conn.execute(text("ALTER TABLE smtp_profiles ADD COLUMN imap_host VARCHAR(255)"))
+            logger.info("Added imap_host to smtp_profiles")
+
         # FK sloupce na tax_sessions
         ts_cols = [r[1] for r in conn.execute(text("PRAGMA table_info('tax_sessions')")).fetchall()]
         if "smtp_profile_id" not in ts_cols:

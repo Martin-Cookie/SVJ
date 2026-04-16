@@ -3,19 +3,26 @@
 from __future__ import annotations
 
 import logging
+import threading
+import time
 from datetime import datetime
 from io import BytesIO
 
 from fastapi import APIRouter, Depends, Query, Request
-from fastapi.responses import RedirectResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload
 
-from app.database import get_db
+from app.database import SessionLocal, get_db
 from app.models import BankStatement, BounceType, EmailBounce, Owner, TaxSession
-from app.services.bounce_service import fetch_bounces, humanize_reason
+from app.services.bounce_service import (
+    _fetch_bounces_for_account,
+    get_imap_accounts,
+    humanize_reason,
+)
 from app.utils import (
     build_list_url,
+    compute_eta,
     excel_auto_width,
     is_htmx_partial,
     strip_diacritics,
@@ -26,6 +33,10 @@ from app.utils import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+# ── Background bounce check progress ──
+_bounce_progress: dict | None = None
+_bounce_lock = threading.Lock()
 
 
 SORT_COLUMNS = {
@@ -210,22 +221,198 @@ async def bounces_page(
     return templates.TemplateResponse(request, "bounces/index.html", ctx)
 
 
+def _run_bounce_check_thread():
+    """Background thread — kontrola bounces pro všechny IMAP účty."""
+    db = SessionLocal()
+    try:
+        accounts = get_imap_accounts(db)
+        if not accounts:
+            with _bounce_lock:
+                if _bounce_progress:
+                    _bounce_progress["error"] = "Žádný IMAP účet nakonfigurován"
+                    _bounce_progress["done"] = True
+                    _bounce_progress["finished_at"] = time.monotonic()
+            return
+
+        existing_uids = {
+            row[0] for row in
+            db.query(EmailBounce.imap_uid).filter(EmailBounce.imap_uid.isnot(None)).all()
+        }
+
+        with _bounce_lock:
+            if _bounce_progress:
+                _bounce_progress["total_accounts"] = len(accounts)
+
+        for acc_idx, acc in enumerate(accounts):
+            with _bounce_lock:
+                if _bounce_progress and _bounce_progress.get("cancelled"):
+                    break
+                if _bounce_progress:
+                    _bounce_progress["current_account"] = acc_idx + 1
+                    _bounce_progress["account_name"] = acc["name"]
+                    _bounce_progress["account_scanned"] = 0
+                    _bounce_progress["account_total"] = 0
+                    _bounce_progress["status"] = f"Připojování k {acc['name']}…"
+
+            def on_progress(scanned, total, new_count):
+                with _bounce_lock:
+                    if _bounce_progress:
+                        _bounce_progress["account_scanned"] = scanned
+                        _bounce_progress["account_total"] = total
+                        _bounce_progress["new_count"] += new_count - _bounce_progress.get("_last_new", 0)
+                        _bounce_progress["_last_new"] = new_count
+                        _bounce_progress["status"] = f"{acc['name']}: {scanned}/{total} emailů"
+
+            def cancelled():
+                with _bounce_lock:
+                    return bool(_bounce_progress and _bounce_progress.get("cancelled"))
+
+            with _bounce_lock:
+                if _bounce_progress:
+                    _bounce_progress["_last_new"] = 0
+
+            result = _fetch_bounces_for_account(
+                db, acc, existing_uids,
+                mark_invalid=True,
+                on_progress=on_progress,
+                cancelled=cancelled,
+            )
+
+            with _bounce_lock:
+                if _bounce_progress:
+                    _bounce_progress["scanned"] += result["scanned"]
+                    if result["error"]:
+                        errors = _bounce_progress.get("errors", [])
+                        errors.append(result["error"])
+                        _bounce_progress["errors"] = errors
+
+    except Exception as exc:
+        logger.exception("Bounce check thread selhal: %s", exc)
+        with _bounce_lock:
+            if _bounce_progress:
+                _bounce_progress["error"] = str(exc)
+    finally:
+        db.close()
+        with _bounce_lock:
+            if _bounce_progress:
+                _bounce_progress["done"] = True
+                _bounce_progress["finished_at"] = time.monotonic()
+                _bounce_progress["status"] = "Dokončeno"
+
+
 @router.post("/rozesilani/bounces/zkontrolovat")
 async def run_bounce_check(
     request: Request,
     db: Session = Depends(get_db),
 ):
-    result = fetch_bounces(db)
-    if result["success"]:
-        return RedirectResponse(
-            f"/rozesilani/bounces?flash=ok&new={result['new_count']}",
-            status_code=302,
-        )
-    err = (result.get("error") or "Neznámá chyba")[:300]
-    return RedirectResponse(
-        f"/rozesilani/bounces?chyba={err}",
-        status_code=302,
-    )
+    global _bounce_progress
+
+    # Already running?
+    with _bounce_lock:
+        if _bounce_progress and not _bounce_progress.get("done"):
+            return RedirectResponse("/rozesilani/bounces/zkontrolovat/prubeh", status_code=302)
+
+    with _bounce_lock:
+        _bounce_progress = {
+            "total_accounts": 0,
+            "current_account": 0,
+            "account_name": "",
+            "account_scanned": 0,
+            "account_total": 0,
+            "new_count": 0,
+            "scanned": 0,
+            "errors": [],
+            "error": None,
+            "done": False,
+            "cancelled": False,
+            "started_at": time.monotonic(),
+            "finished_at": None,
+            "status": "Načítání IMAP účtů…",
+        }
+
+    thread = threading.Thread(target=_run_bounce_check_thread, daemon=True)
+    thread.start()
+
+    return RedirectResponse("/rozesilani/bounces/zkontrolovat/prubeh", status_code=302)
+
+
+@router.get("/rozesilani/bounces/zkontrolovat/prubeh")
+async def bounce_check_progress_page(request: Request):
+    """Stránka s progress barem kontroly bounces."""
+    with _bounce_lock:
+        if not _bounce_progress:
+            return RedirectResponse("/rozesilani/bounces", status_code=302)
+        progress = dict(_bounce_progress)
+
+    return templates.TemplateResponse(request, "bounces/progress.html", {
+        "active_nav": "bounces",
+        **_bounce_eta(progress),
+    })
+
+
+@router.get("/rozesilani/bounces/zkontrolovat/prubeh-stav")
+async def bounce_check_progress_status(request: Request):
+    """HTMX polling — vrací progress partial nebo redirect po dokončení."""
+    global _bounce_progress
+
+    with _bounce_lock:
+        if not _bounce_progress:
+            response = HTMLResponse("")
+            response.headers["HX-Redirect"] = "/rozesilani/bounces"
+            return response
+
+        if _bounce_progress.get("done"):
+            finished_at = _bounce_progress.get("finished_at", 0)
+            if time.monotonic() - finished_at >= 3:
+                new_count = _bounce_progress.get("new_count", 0)
+                errors = _bounce_progress.get("errors", [])
+                _bounce_progress = None
+                url = f"/rozesilani/bounces?flash=ok&new={new_count}"
+                if errors:
+                    url += f"&chyba={'%3B '.join(e[:100] for e in errors[:3])}"
+                response = HTMLResponse("")
+                response.headers["HX-Redirect"] = url
+                return response
+
+        progress = dict(_bounce_progress)
+
+    return templates.TemplateResponse(request, "bounces/_progress_inner.html", {
+        **_bounce_eta(progress),
+    })
+
+
+@router.post("/rozesilani/bounces/zkontrolovat/zrusit")
+async def cancel_bounce_check():
+    """Zrušit probíhající kontrolu."""
+    with _bounce_lock:
+        if _bounce_progress and not _bounce_progress.get("done"):
+            _bounce_progress["cancelled"] = True
+            _bounce_progress["status"] = "Rušení…"
+
+    return RedirectResponse("/rozesilani/bounces/zkontrolovat/prubeh", status_code=302)
+
+
+def _bounce_eta(progress: dict) -> dict:
+    """Compute ETA + flatten progress dict for templates."""
+    current = progress.get("account_scanned", 0)
+    total = progress.get("account_total", 0)
+    eta = compute_eta(current, total, progress.get("started_at", time.monotonic()))
+
+    return {
+        "total_accounts": progress.get("total_accounts", 0),
+        "current_account": progress.get("current_account", 0),
+        "account_name": progress.get("account_name", ""),
+        "account_scanned": current,
+        "account_total": total,
+        "new_count": progress.get("new_count", 0),
+        "scanned": progress.get("scanned", 0),
+        "status": progress.get("status", ""),
+        "done": progress.get("done", False),
+        "cancelled": progress.get("cancelled", False),
+        "error": progress.get("error"),
+        "errors": progress.get("errors", []),
+        **eta,
+    }
 
 
 @router.get("/rozesilani/bounces/exportovat/{fmt}")

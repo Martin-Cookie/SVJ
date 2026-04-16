@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Kontrola nedoručených — SVJ Správa{% endblock %}
+
+{% block content %}
+<div class="max-w-xl mx-auto mt-12">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <h1 class="text-lg font-bold text-gray-900 dark:text-white mb-4">Kontrola nedoručených emailů</h1>
+
+        <div id="bounce-progress-area"
+             hx-get="/rozesilani/bounces/zkontrolovat/prubeh-stav"
+             hx-trigger="every 500ms"
+             hx-swap="innerHTML">
+            {% include "bounces/_progress_inner.html" %}
+        </div>
+
+        {# Tlačítka mimo polled oblast #}
+        <div id="progress-buttons" class="flex items-center gap-2 pt-4">
+            <form id="btn-cancel" method="post" action="/rozesilani/bounces/zkontrolovat/zrusit" hx-boost="false"
+                  data-confirm="Zrušit kontrolu? Již nalezené nedoručené budou uloženy.">
+                <button type="submit" class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm font-medium transition-colors">
+                    Zrušit
+                </button>
+            </form>
+            <p id="btn-done-msg" class="text-xs text-gray-400 hidden">Přesměrování za okamžik…</p>
+        </div>
+
+        <script>
+        document.body.addEventListener('htmx:afterSwap', function(e) {
+            if (e.detail.target.id !== 'bounce-progress-area') return;
+            var doneEl = document.getElementById('bounce-done');
+            if (!doneEl) return;
+            var done = doneEl.value === 'true';
+            document.getElementById('btn-cancel').classList.toggle('hidden', done);
+            document.getElementById('btn-done-msg').classList.toggle('hidden', !done);
+        });
+        </script>
+    </div>
+</div>
+{% endblock %}
