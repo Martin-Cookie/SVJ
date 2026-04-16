@@ -476,10 +476,15 @@ Sloučená stránka se dvěma sekcemi — Kontrola vlastníků (nahoře) a Kontr
   - Export do Excel/CSV s filename suffix dle filtru
 - **Detail vodoměru** — přehled odečtů + ruční přiřazení k jednotce (select seskupený dle sekce)
 - **Výpočet spotřeby** — rozdíl posledního a předposledního odečtu; odchylka od průměru v % (per typ SV/TV)
-- **Rozesílka emailů** — hromadné odeslání odečtů vlastníkům:
-  - Přehled příjemců (agregovaná spotřeba SV/TV per vlastník)
-  - Šablona emailu s proměnnými (`{jmeno}`, `{jednotka}`, `{spotreba_sv}`, `{spotreba_tv}`, `{odchylka_sv}`, `{odchylka_tv}`)
-  - Testovací email, dávkové odesílání s progress barem, pauza/pokračování/zrušení
+- **Rozesílka emailů** — hromadné odeslání odečtů vlastníkům (plná parita s nesrovnalostmi plateb):
+  - Přehled příjemců s checkboxy a select-all (agregovaná spotřeba SV/TV per vlastník)
+  - Bubliny: Vše / S emailem / Bez emailu / Odesláno / Neodesláno
+  - Řaditelné sloupce, inline náhled emailu (klik na řádek), barevné odchylky
+  - Šablona emailu s proměnnými (`{jmeno}`, `{jednotka}`, `{vodomer}`, `{spotreba_sv}`, `{spotreba_tv}`, `{odchylka_sv}`, `{odchylka_tv}`)
+  - Test email gating (`water_test_passed`) — odesílání aktivní až po úspěšném testu
+  - Tracking odeslaných: `WaterMeter.notified_at` + `Owner.water_notified_at`
+  - Konfigurace SMTP profilu, velikosti dávky, intervalu; pauza/pokračování/zrušení
+  - Historie odeslaných emailů (module `water_notice`), filtrování neplatných emailů
 
 ## Struktura projektu
 
