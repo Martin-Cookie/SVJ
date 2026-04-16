@@ -20,6 +20,7 @@ class WaterMeter(Base):
     unit_id = Column(Integer, ForeignKey("units.id"), nullable=True, index=True)
     unit_number = Column(Integer, index=True)
     unit_letter = Column(String(5), default="")
+    unit_suffix = Column(String(5), default="")
     meter_serial = Column(String(50), index=True)
     meter_type = Column(Enum(MeterType), index=True)
     location = Column(String(100), nullable=True)

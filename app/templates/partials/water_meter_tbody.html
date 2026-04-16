@@ -10,7 +10,7 @@
             {{ meter.unit.building_number or meter.unit_number or '—' }}
         </a>
         {% else %}
-        <span class="text-gray-400">{% if meter.unit_letter %}{{ meter.unit_letter }}&nbsp;{% endif %}{{ meter.unit_number or '—' }}</span>
+        <span class="text-gray-400">{% if meter.unit_letter %}{{ meter.unit_letter }}&nbsp;{% endif %}{{ meter.unit_number or '—' }}{% if meter.unit_suffix %}&nbsp;{{ meter.unit_suffix }}{% endif %}</span>
         {% endif %}
     </td>
     <td class="px-3 py-2 text-sm text-gray-600 dark:text-gray-400" data-v="{{ meter.unit.unit_number if meter.unit else 0 }}">

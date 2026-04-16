@@ -940,6 +940,68 @@ def _migrate_fix_water_meter_unit_links():
         db.close()
 
 
+def _migrate_water_meter_unit_suffix():
+    """Add unit_suffix column and populate from Excel labels."""
+    db = SessionLocal()
+    try:
+        cur = db.execute(text("PRAGMA table_info(water_meters)"))
+        cols = {row[1] for row in cur}
+        if "unit_suffix" not in cols:
+            db.execute(text("ALTER TABLE water_meters ADD COLUMN unit_suffix VARCHAR(5) DEFAULT ''"))
+            db.commit()
+
+        # Populate suffix from last uploaded Excel
+        from app.models import WaterMeter
+        from app.routers.water_meters._helpers import parse_unit_label
+        import glob as _glob
+
+        meters = db.query(WaterMeter).all()
+        if not meters:
+            return
+
+        # Read labels from latest Excel
+        raw_labels = {}  # serial → raw_label
+        upload_dir = str(settings.upload_dir / "water_meters")
+        files = sorted(_glob.glob(f"{upload_dir}/*.xlsx"), reverse=True)
+        if files:
+            try:
+                from openpyxl import load_workbook
+                wb = load_workbook(files[0], read_only=True, data_only=True)
+                ws = wb.active
+                for row in ws.iter_rows(min_row=2, values_only=True):
+                    if row and len(row) > 9:
+                        label = str(row[3]).strip() if row[3] else ""
+                        serial = str(row[9]).strip() if row[9] else ""
+                        if serial.endswith(".0"):
+                            serial = serial[:-2]
+                        if serial and label:
+                            raw_labels[serial] = label
+                wb.close()
+            except Exception as e:
+                logger.warning("Could not read Excel for suffix migration: %s", e)
+
+        updated = 0
+        for m in meters:
+            raw = raw_labels.get(m.meter_serial, "")
+            if raw:
+                number, letter, suffix = parse_unit_label(raw)
+                if number is not None and m.unit_number != number:
+                    m.unit_number = number
+                    updated += 1
+                if letter and m.unit_letter != letter:
+                    m.unit_letter = letter
+                    updated += 1
+                if m.unit_suffix != (suffix or ""):
+                    m.unit_suffix = suffix
+                    updated += 1
+
+        if updated:
+            db.commit()
+            logger.info("Updated %d water meter suffix/letter values", updated)
+    finally:
+        db.close()
+
+
 _ALL_MIGRATIONS = [
     ("units table", _migrate_units_table),
     ("owner_units history", _migrate_owner_units_history),
@@ -962,6 +1024,7 @@ _ALL_MIGRATIONS = [
     ("fix activity_log modules", _migrate_fix_activity_log_modules),
     ("water meter import mapping", _migrate_water_meter_import_mapping),
     ("fix water meter unit links", _migrate_fix_water_meter_unit_links),
+    ("water meter unit_suffix", _migrate_water_meter_unit_suffix),
     ("index creation", _ensure_indexes),
     ("code list seeding", _seed_code_lists),
     ("email template seeding", _seed_email_templates),

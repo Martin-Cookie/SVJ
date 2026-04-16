@@ -342,6 +342,7 @@ async def water_import_confirm(
                 unit_id=unit.id if unit else None,
                 unit_number=row["unit_number"],
                 unit_letter=row["unit_letter"],
+                unit_suffix=row.get("unit_suffix", ""),
                 meter_serial=serial,
                 meter_type=meter_type_val,
                 location=row["location"] or None,
@@ -354,11 +355,12 @@ async def water_import_confirm(
             if not unit:
                 unmatched_units += 1
         else:
-            # Always update unit link from building_number lookup
+            # Always update unit link and label fields from building_number lookup
             if unit and meter.unit_id != unit.id:
                 meter.unit_id = unit.id
-                meter.unit_number = row["unit_number"]
-                meter.unit_letter = row["unit_letter"]
+            meter.unit_number = row["unit_number"]
+            meter.unit_letter = row["unit_letter"]
+            meter.unit_suffix = row.get("unit_suffix", "")
 
         # Import readings for this meter
         if import_mode == "overwrite":

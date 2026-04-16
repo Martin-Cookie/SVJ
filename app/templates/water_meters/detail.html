@@ -24,7 +24,7 @@
                 Vodoměr {{ meter.meter_serial }}
             </h1>
             <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                {% if meter.unit %}{{ meter.unit.building_number }}{% elif meter.unit_letter %}{{ meter.unit_letter }}&nbsp;{{ meter.unit_number }}{% else %}—{% endif %}
+                {% if meter.unit %}{{ meter.unit.building_number }}{% elif meter.unit_letter %}{{ meter.unit_letter }}&nbsp;{{ meter.unit_number }}{% if meter.unit_suffix %}&nbsp;{{ meter.unit_suffix }}{% endif %}{% else %}—{% endif %}
                 &middot;
                 {% if meter.meter_type.value == 'cold' %}SV (studená){% else %}TV (teplá){% endif %}
                 {% if meter.location %}&middot; {{ meter.location }}{% endif %}
