@@ -460,6 +460,27 @@ Sloučená stránka se dvěma sekcemi — Kontrola vlastníků (nahoře) a Kontr
   - Status badge: OK (zelená), Chyba (červená s tooltip), Čeká (žlutá)
   - HTMX partial pro live search, flex layout s fixní hlavičkou
 
+### J. Vodoměry (`/vodometry`)
+
+- **Datový model**: `WaterMeter` (sériové číslo, typ SV/TV, unit_letter, unit_number, unit_suffix, umístění) → `WaterReading` (datum odečtu, hodnota m³, import batch)
+- **Import z Excelu** — 4-krokový wizard (upload → mapování → náhled → potvrzení):
+  - Podpora dvou formátů: Techem XLS (sloupcový — datum v hlavičkách) a řádkový (datum jako sloupec)
+  - Dynamické mapování sloupců (uložení do `SvjInfo.water_meter_import_mapping`)
+  - Normalizace labelů jednotek (`normalize_unit_label()`) pro spolehlivé párování Excel→DB
+  - Režim Doplnit (přeskočí existující data) / Přepsat (smaže a nahradí)
+  - Párování vodoměrů na jednotky přes `building_number` (číslo v rámci budovy)
+- **Přehledová stránka** — datová tabulka s plným checklistem:
+  - Řaditelné sloupce (jednotka, katastrální č., typ, sériové č., umístění, vlastník, hodnota, datum, spotřeba, odchylka)
+  - Bubliny: Vše / SV / TV, Přiřazeno / Nepřiřazeno / Vysoká odchylka
+  - HTMX search (sériové č., umístění, číslo jednotky, sekce)
+  - Export do Excel/CSV s filename suffix dle filtru
+- **Detail vodoměru** — přehled odečtů + ruční přiřazení k jednotce (select seskupený dle sekce)
+- **Výpočet spotřeby** — rozdíl posledního a předposledního odečtu; odchylka od průměru v % (per typ SV/TV)
+- **Rozesílka emailů** — hromadné odeslání odečtů vlastníkům:
+  - Přehled příjemců (agregovaná spotřeba SV/TV per vlastník)
+  - Šablona emailu s proměnnými (`{jmeno}`, `{jednotka}`, `{spotreba_sv}`, `{spotreba_tv}`, `{odchylka_sv}`, `{odchylka_tv}`)
+  - Testovací email, dávkové odesílání s progress barem, pauza/pokračování/zrušení
+
 ## Struktura projektu
 
 ```
@@ -476,6 +497,7 @@ app/
 │   ├── share_check.py         #   ShareCheckSession, ShareCheckRecord, ShareCheckColumnMapping
 │   ├── payment.py             #   PrescriptionYear, Prescription, PrescriptionItem, VariableSymbolMapping, BankStatement, Payment, PaymentAllocation, BankStatementColumnMapping, UnitBalance, Settlement, SettlementItem
 │   ├── space.py               #   Space, SpaceStatus, Tenant, SpaceTenant
+│   ├── water_meter.py         #   WaterMeter, WaterReading, MeterType
 │   ├── smtp_profile.py        #   SmtpProfile (multi-SMTP profily s base64 heslem)
 │   ├── common.py              #   EmailLog (+ name_normalized), ImportLog, ActivityLog, ActivityAction, log_activity()
 │   └── administration.py      #   SvjInfo (+ owner/contact_import_mapping), SvjAddress, BoardMember, CodeListItem, EmailTemplate
@@ -533,6 +555,12 @@ app/
 │   │   ├── backups.py         #   Zálohy vytvoření/stažení/mazání/obnova
 │   │   ├── bulk.py            #   Export, purge, hromadné úpravy, duplicity
 │   │   └── _helpers.py        #   DB_PATH, BACKUP_DIR, _PURGE_ORDER
+│   ├── water_meters/          #   /vodometry (přehled, import, rozesílka)
+│   │   ├── __init__.py
+│   │   ├── overview.py        #   Přehled, detail, export, přiřazení
+│   │   ├── import_readings.py #   Import odečtů z Excelu (wizard 4 kroky)
+│   │   ├── sending.py         #   Rozesílka emailů s odečty
+│   │   └── _helpers.py        #   compute_consumption, compute_deviations, normalize_unit_label, parse
 │   └── settings_page.py       #   /nastaveni
 ├── services/                  # Business logika
 │   ├── excel_import.py        #   Import z 31-sloupcového Excelu
@@ -660,6 +688,14 @@ app/
 │   │   └── partials/          #     HTMX partials (_create_form, _row, _tbody, _tenant_info,
 │   │                          #       _tenant_identity_form/info, _tenant_contact_form/info,
 │   │                          #       _tenant_address_form/info)
+│   ├── water_meters/          #   Stránky vodoměrů
+│   │   ├── overview.html      #     Přehled vodoměrů (tabulka, bubliny, search)
+│   │   ├── detail.html        #     Detail vodoměru (odečty + přiřazení)
+│   │   ├── import.html        #     Import — upload souboru
+│   │   ├── import_mapping.html#     Import — mapování sloupců
+│   │   ├── preview.html       #     Import — náhled před potvrzením
+│   │   ├── send.html          #     Rozesílka — přehled příjemců + nastavení
+│   │   └── sending.html       #     Rozesílka — progress odesílání
 │   └── partials/              #   HTMX komponenty
 │       ├── owner_row.html
 │       ├── owner_table_body.html
@@ -700,6 +736,7 @@ app/
 │       ├── import_stepper.html
 │       ├── import_mapping_fields.html  # Sdílený Jinja2 macro pro mapování sloupců
 │       ├── import_mapping_js.html      # Sdílený JS pro mapování sloupců
+│       ├── water_meter_tbody.html     # HTMX: tbody řádky vodoměrů
 │       ├── ballot_vote_error.html
 │       ├── unit_owners.html
 │       └── unit_owner_edit_row.html
@@ -1070,6 +1107,30 @@ Připojuje se na IMAP schránku (Gmail SSL imap.gmail.com:993, fallback na SMTP 
 | POST | `/nastaveni/smtp/{id}/smazat` | Smazání SMTP profilu |
 | GET | `/nastaveni/priloha/{log_id}/{filename}` | Stažení přílohy emailové šablony |
 
+### Vodoměry (`/vodometry`)
+
+| Metoda | Cesta | Popis |
+|--------|-------|-------|
+| GET | `/vodometry` | Přehled vodoměrů (tabulka, bubliny, search) |
+| GET | `/vodometry/exportovat/{fmt}` | Export vodoměrů (xlsx/csv) |
+| GET | `/vodometry/{meter_id}` | Detail vodoměru (odečty + přiřazení) |
+| POST | `/vodometry/{meter_id}/prirazeni` | Přiřazení/odpojení vodoměru od jednotky |
+| GET | `/vodometry/import` | Import — upload formulář |
+| POST | `/vodometry/import/nahrat` | Import — nahrání souboru |
+| POST | `/vodometry/import/mapovani` | Import — změna sheetu/start_row |
+| POST | `/vodometry/import/nahled` | Import — zpracování a náhled |
+| GET | `/vodometry/import/nahled/{batch_id}` | Import — zobrazení náhledu |
+| POST | `/vodometry/import/potvrdit/{batch_id}` | Import — potvrzení a uložení |
+| GET | `/vodometry/rozeslat` | Rozesílka — přehled příjemců |
+| POST | `/vodometry/rozeslat/nastaveni` | Rozesílka — uložení nastavení dávky |
+| POST | `/vodometry/rozeslat/test` | Rozesílka — testovací email |
+| POST | `/vodometry/rozeslat/odeslat` | Rozesílka — zahájení odesílání |
+| GET | `/vodometry/rozeslat/prubeh` | Rozesílka — progress stránka |
+| GET | `/vodometry/rozeslat/prubeh-stav` | Rozesílka — HTMX polling progress |
+| POST | `/vodometry/rozeslat/pozastavit` | Rozesílka — pauza |
+| POST | `/vodometry/rozeslat/pokracovat` | Rozesílka — pokračování |
+| POST | `/vodometry/rozeslat/zrusit` | Rozesílka — zrušení |
+
 ## Konfigurace (.env)
 
 ```env
@@ -1107,6 +1168,9 @@ LIBREOFFICE_PATH=/Applications/LibreOffice.app/Contents/MacOS/soffice
 - **BankStatement** (locked_at) — importovaný bankovní výpis (Fio CSV); → **Payment** (amount, date, direction, match_status, unit_id, space_id, notified_at) → **PaymentAllocation** (payment_id, unit_id nullable, space_id, owner_id, prescription_id, amount — dual-write pro multi-unit/space platby); PaymentMatchStatus (UNMATCHED/AUTO_MATCHED/SUGGESTED/MANUAL), PaymentDirection (INCOME/EXPENSE); **BankStatementColumnMapping** (zapamatované mapování sloupců CSV)
 - **UnitBalance** — počáteční zůstatek jednotky per rok (opening_amount, source: manual/import/carryover, owner_id FK → Owner, owner_name text z importu)
 - **Settlement** → **SettlementItem** — roční vyúčtování per jednotka; SettlementStatus (GENERATED/SENT/PAID/OVERDUE)
+- **WaterMeter** — vodoměr (meter_serial, meter_type SV/TV, unit_letter, unit_number, unit_suffix, location, unit_id FK → Unit); `readings` relace na odečty
+- **WaterReading** — odečet vodoměru (reading_date, value m³, import_batch); meter_id FK → WaterMeter
+- **MeterType** — enum: COLD (SV), HOT (TV)
 - **EmailLog** (+ `name_normalized` pro diacritics-insensitive vyhledávání), **ImportLog** — systémové logy
 
 ## Bezpečnost a kvalita kódu

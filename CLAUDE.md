@@ -9,7 +9,7 @@
 
 ## URL konvence
 
-- Všechny URL cesty používají **české slugy bez diakritiky**: `/vlastnici`, `/jednotky`, `/prostory`, `/najemci`, `/hlasovani`, `/dane`, `/synchronizace`, `/sprava`, `/nastaveni`, `/platby`, `/kontrola-podilu`
+- Všechny URL cesty používají **české slugy bez diakritiky**: `/vlastnici`, `/jednotky`, `/prostory`, `/najemci`, `/hlasovani`, `/dane`, `/synchronizace`, `/sprava`, `/nastaveni`, `/platby`, `/kontrola-podilu`, `/vodometry`
 - Sub-endpointy: `/nova` (create), `/smazat` (delete), `/upravit` (edit), `/pridat` (add), `/potvrdit` (confirm), `/odebrat` (remove), `/exportovat` (export), `/aktualizovat` (update)
 - Nikdy nepoužívat angličtinu v URL cestách
 
@@ -228,6 +228,7 @@
   - `tenants/` — `crud.py`, `_helpers.py`
   - `administration/` — `info.py`, `board.py`, `code_lists.py`, `backups.py`, `bulk.py`, `_helpers.py`
   - `sync/` — `session.py`, `contacts.py`, `exchange.py`, `_helpers.py`
+  - `water_meters/` — `overview.py`, `import_readings.py`, `sending.py`, `_helpers.py`
 
 ## Startup (lifespan)
 
