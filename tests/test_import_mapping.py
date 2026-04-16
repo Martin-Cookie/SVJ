@@ -61,7 +61,7 @@ def test_validate_owner_mapping_missing_required():
     # unit_kn is required but missing
     err = validate_owner_mapping(mapping)
     assert err is not None
-    assert "Číslo jednotky" in err
+    assert "Katastrální číslo" in err
 
 
 def test_validate_owner_mapping_ok():

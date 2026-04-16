@@ -683,7 +683,7 @@ class TestPreviewVotingImport:
 
         result = preview_voting_import(path, mapping, v, db)
         assert len(result["unmatched"]) == 1
-        assert "Chybí číslo jednotky" in result["unmatched"][0]["reason"]
+        assert "Chybí katastrální číslo" in result["unmatched"][0]["reason"]
 
     def test_empty_rows_skipped(self, seed_voting, tmp_path):
         db = seed_voting["db"]
