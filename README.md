@@ -480,7 +480,9 @@ Sloučená stránka se dvěma sekcemi — Kontrola vlastníků (nahoře) a Kontr
   - Přehled příjemců s checkboxy a select-all (agregovaná spotřeba SV/TV per vlastník)
   - Bubliny: Vše / S emailem / Bez emailu / Odesláno / Neodesláno
   - Řaditelné sloupce, inline náhled emailu (klik na řádek), barevné odchylky
-  - Šablona emailu s proměnnými (`{jmeno}`, `{jednotka}`, `{vodomer}`, `{spotreba_sv}`, `{spotreba_tv}`, `{odchylka_sv}`, `{odchylka_tv}`)
+  - HTML email s per-vodoměr tabulkou odečtů (předchozí → aktuální → spotřeba → průměr SVJ → srovnání ▲/▼/≈)
+  - Podmíněná TV sekce — vynechána, pokud má vlastník nulovou spotřebu TV
+  - Hledání příjemců (client-side, diacritics-insensitive) + odkaz ← Vodoměry pro návrat
   - Test email gating (`water_test_passed`) — odesílání aktivní až po úspěšném testu
   - Tracking odeslaných: `WaterMeter.notified_at` + `Owner.water_notified_at`
   - Konfigurace SMTP profilu, velikosti dávky, intervalu; pauza/pokračování/zrušení
