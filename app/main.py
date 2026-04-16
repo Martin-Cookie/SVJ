@@ -866,6 +866,78 @@ def _migrate_water_meter_import_mapping():
             logger.info("Added water_meter_import_mapping column to svj_info")
 
 
+def _migrate_fix_water_meter_unit_links():
+    """Fix water meter unit_id links — re-match by building_number.
+
+    Previous import matched by unit_number (katastrální číslo) instead of
+    building_number (číslo jednotky). This corrects the links.
+    Uses raw label from last import Excel file when available.
+    """
+    db = SessionLocal()
+    try:
+        from app.models import WaterMeter, WaterReading, Unit
+
+        meters = db.query(WaterMeter).all()
+        if not meters:
+            return
+
+        # Build building_number lookup (exact match)
+        all_units = db.query(Unit).all()
+        bn_lookup = {}
+        for u in all_units:
+            if u.building_number:
+                bn_lookup[u.building_number.strip().upper()] = u
+
+        # Try to read raw labels from last imported Excel file
+        raw_labels = {}  # meter_serial → raw_label
+        import glob as _glob
+        upload_dir = str(settings.upload_dir / "water_meters")
+        files = sorted(_glob.glob(f"{upload_dir}/*.xlsx"), reverse=True)
+        if files:
+            try:
+                from openpyxl import load_workbook
+                wb = load_workbook(files[0], read_only=True, data_only=True)
+                ws = wb.active
+                for row in ws.iter_rows(min_row=2, values_only=True):
+                    if row and len(row) > 9:
+                        label = str(row[3]).strip() if row[3] else ""
+                        serial = str(row[9]).strip() if row[9] else ""
+                        if serial.endswith(".0"):
+                            serial = serial[:-2]
+                        if serial and label:
+                            raw_labels[serial] = label
+                wb.close()
+            except Exception as e:
+                logger.warning("Could not read Excel for migration: %s", e)
+
+        fixed = 0
+        for m in meters:
+            # Prefer raw label from Excel, fallback to reconstructed
+            raw = raw_labels.get(m.meter_serial, "").strip().upper()
+            if not raw:
+                if m.unit_letter and m.unit_number:
+                    raw = f"{m.unit_letter} {m.unit_number}"
+                elif m.unit_number:
+                    raw = str(m.unit_number)
+            if not raw or raw == "0":
+                continue
+
+            expected = bn_lookup.get(raw)
+            if expected and m.unit_id != expected.id:
+                m.unit_id = expected.id
+                fixed += 1
+            elif not expected and m.unit_id is not None:
+                # No match found — unlink wrong assignment
+                m.unit_id = None
+                fixed += 1
+
+        if fixed:
+            db.commit()
+            logger.info("Fixed %d water meter unit links (building_number re-match)", fixed)
+    finally:
+        db.close()
+
+
 _ALL_MIGRATIONS = [
     ("units table", _migrate_units_table),
     ("owner_units history", _migrate_owner_units_history),
@@ -887,6 +959,7 @@ _ALL_MIGRATIONS = [
     ("smtp profiles", _migrate_smtp_profiles),
     ("fix activity_log modules", _migrate_fix_activity_log_modules),
     ("water meter import mapping", _migrate_water_meter_import_mapping),
+    ("fix water meter unit links", _migrate_fix_water_meter_unit_links),
     ("index creation", _ensure_indexes),
     ("code list seeding", _seed_code_lists),
     ("email template seeding", _seed_email_templates),

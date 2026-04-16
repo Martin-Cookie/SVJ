@@ -38,12 +38,12 @@ def _filter_meters(db: Session, q: str = "", typ: str = "", stav: str = "",
 
     # Text search
     if q:
-        search_ascii = f"%{strip_diacritics(q)}%"
         search = f"%{q}%"
-        query = query.filter(
+        query = query.outerjoin(WaterMeter.unit).filter(
             WaterMeter.meter_serial.ilike(search)
             | WaterMeter.location.ilike(search)
             | cast(WaterMeter.unit_number, String).like(search)
+            | Unit.building_number.ilike(search)
         )
 
     # Bubble filters
@@ -59,12 +59,26 @@ def _filter_meters(db: Session, q: str = "", typ: str = "", stav: str = "",
     # vysoka_odchylka is filtered Python-side after query (needs computed values)
 
     # Sorting
-    sort_col = SORT_COLUMNS.get(sort, WaterMeter.unit_number)
+    sort_col = SORT_COLUMNS.get(sort)
     if sort_col is not None:
         if order == "desc":
             query = query.order_by(sort_col.desc().nulls_last())
         else:
             query = query.order_by(sort_col.asc().nulls_last())
+    elif sort == "jednotka" or sort not in (
+        "hodnota", "datum", "odectu", "spotreba", "vlastnik", "odchylka", "katastral",
+    ):
+        # Default: sort by unit_letter, then unit_number
+        if order == "desc":
+            query = query.order_by(
+                WaterMeter.unit_letter.desc().nulls_last(),
+                WaterMeter.unit_number.desc().nulls_last(),
+            )
+        else:
+            query = query.order_by(
+                WaterMeter.unit_letter.asc().nulls_last(),
+                WaterMeter.unit_number.asc().nulls_last(),
+            )
 
     meters = query.all()
 
@@ -89,6 +103,12 @@ def _filter_meters(db: Session, q: str = "", typ: str = "", stav: str = "",
             c = compute_consumption(m)
             return c if c is not None else -1
         meters.sort(key=_consumption, reverse=(order == "desc"))
+    elif sort == "katastral":
+        def _katastral(m):
+            if m.unit:
+                return m.unit.unit_number or 0
+            return 0
+        meters.sort(key=_katastral, reverse=(order == "desc"))
     elif sort == "vlastnik":
         def _owner_name(m):
             if m.unit and m.unit.current_owners:
@@ -240,7 +260,7 @@ async def water_meters_export(
     if not suffix:
         suffix = "_vsechny"
 
-    headers_list = ["Jednotka", "Sekce", "Vlastník", "Typ", "Sériové č.", "Umístění",
+    headers_list = ["Jednotka", "Katastrální č.", "Sekce", "Vlastník", "Typ", "Sériové č.", "Umístění",
                     "Poslední odečet", "Hodnota (m3)", "Spotřeba (m3)", "Odchylka (%)"]
 
     from ._helpers import compute_consumption
@@ -257,6 +277,7 @@ async def water_meters_export(
         ) if m.unit and m.unit.current_owners else ""
         rows_data.append([
             m.unit_number or "",
+            m.unit.unit_number if m.unit else "",
             m.unit_letter or "",
             owner_names,
             "SV" if m.meter_type == MeterType.COLD else "TV",

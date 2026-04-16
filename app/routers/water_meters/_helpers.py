@@ -67,28 +67,29 @@ def compute_deviations(meters: list) -> dict:
     return result
 
 
-def parse_unit_label(label: str) -> tuple[int | None, str]:
-    """Parse Techem unit label to (unit_number, section_letter).
+def parse_unit_label(label: str) -> tuple[int | None, str, str]:
+    """Parse Techem unit label to (unit_number, section_letter, suffix).
 
     Formats:
-        'A 111'  → (111, 'A')
-        'B 234'  → (234, 'B')
-        'AK 11'  → (11, 'AK')
-        '0'      → (None, '')
-        ''       → (None, '')
+        'A 111'    → (111, 'A', '')
+        'B 212 A'  → (212, 'B', 'A')
+        'C 143B'   → (143, 'C', 'B')
+        'AK 11'    → (11, 'AK', '')
+        '0'        → (None, '', '')
+        ''         → (None, '', '')
     """
     if not label or label.strip() == "0":
-        return None, ""
+        return None, "", ""
     label = label.strip()
-    # Format: "A 111", "AK 11", "D 431"
-    m = re.match(r"([A-Za-z]+)\s+(\d+)", label)
+    # Format: "A 111", "B 212 A", "C 143B", "AK 11"
+    m = re.match(r"([A-Za-z]+)\s*(\d+)\s*([A-Za-z]*)", label)
     if m:
-        return int(m.group(2)), m.group(1).upper()
+        return int(m.group(2)), m.group(1).upper(), m.group(3).upper()
     # Fallback: just number "111"
     m = re.match(r"(\d+)", label)
     if m:
-        return int(m.group(1)), ""
-    return None, ""
+        return int(m.group(1)), "", ""
+    return None, "", ""
 
 
 def _parse_header_date(header: str) -> date | None:
@@ -188,7 +189,7 @@ def parse_techem_xls(file_path: str, mapping: dict | None = None,
         # Unit label
         unit_idx = col.get("unit_label", 7)
         raw_label = str(sheet.cell_value(r, unit_idx)).strip()
-        unit_number, unit_letter = parse_unit_label(raw_label)
+        unit_number, unit_letter, unit_suffix = parse_unit_label(raw_label)
 
         # User name
         name_idx = col.get("user_name", 1)
@@ -323,7 +324,7 @@ def parse_water_readings_row_format(
             # Parse unit label
             ul_raw = row[col.get("unit_label", 0)]
             raw_label = str(ul_raw).strip() if ul_raw is not None else ""
-            unit_number, unit_letter = parse_unit_label(raw_label)
+            unit_number, unit_letter, unit_suffix = parse_unit_label(raw_label)
 
             # Meter type
             mt_raw = row[col.get("meter_type", 0)]

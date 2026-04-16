@@ -251,13 +251,9 @@ async def water_import_preview(
             bn_lookup[u.building_number.strip().upper()] = u
 
     for row in rows:
-        # Reconstruct label from parsed parts for matching
-        label = ""
-        if row["unit_letter"] and row["unit_number"]:
-            label = f"{row['unit_letter']} {row['unit_number']}"
-        elif row["unit_number"]:
-            label = str(row["unit_number"])
-        unit = bn_lookup.get(label.upper()) if label else None
+        # Use raw label from Excel for matching (preserves suffix like "B 212 A")
+        raw = row.get("unit_label", "").strip().upper()
+        unit = bn_lookup.get(raw) if raw and raw != "0" else None
         row["unit_matched"] = unit is not None
         row["unit_id"] = unit.id if unit else None
 
@@ -338,18 +334,13 @@ async def water_import_confirm(
         if not serial:
             continue
 
-        # Reconstruct label for building_number lookup
-        label = ""
-        if row["unit_letter"] and row["unit_number"]:
-            label = f"{row['unit_letter']} {row['unit_number']}"
-        elif row["unit_number"]:
-            label = str(row["unit_number"])
+        # Use raw label from Excel for building_number matching
+        raw = row.get("unit_label", "").strip().upper()
+        unit = bn_lookup.get(raw) if raw and raw != "0" else None
 
         # Find or create WaterMeter
         meter = existing_meters.get(serial)
         if not meter:
-            unit = bn_lookup.get(label.upper()) if label else None
-
             meter_type_val = MeterType.COLD if row["meter_type"] == "cold" else MeterType.HOT
             meter = WaterMeter(
                 unit_id=unit.id if unit else None,
@@ -367,13 +358,11 @@ async def water_import_confirm(
             if not unit:
                 unmatched_units += 1
         else:
-            # Update unit link if meter wasn't linked before
-            if not meter.unit_id and label:
-                unit = bn_lookup.get(label.upper())
-                if unit:
-                    meter.unit_id = unit.id
-                    meter.unit_number = row["unit_number"]
-                    meter.unit_letter = row["unit_letter"]
+            # Always update unit link from building_number lookup
+            if unit and meter.unit_id != unit.id:
+                meter.unit_id = unit.id
+                meter.unit_number = row["unit_number"]
+                meter.unit_letter = row["unit_letter"]
 
         # Import readings for this meter
         if import_mode == "overwrite":
