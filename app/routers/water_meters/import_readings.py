@@ -27,7 +27,7 @@ from app.utils import (
     build_import_wizard, is_safe_path, validate_upload, UPLOAD_LIMITS, templates,
 )
 
-from ._helpers import logger, parse_techem_xls, parse_water_readings_row_format, _parse_header_date
+from ._helpers import logger, normalize_unit_label, parse_techem_xls, parse_water_readings_row_format, _parse_header_date
 
 router = APIRouter()
 
@@ -240,20 +240,16 @@ async def water_import_preview(
             **build_import_wizard(1),
         })
 
-    # Match against building_number in DB (Techem label = building_number)
+    # Match against building_number in DB using normalized labels
     all_units = db.query(Unit).all()
-    # Build lookup: normalize building_number for matching
-    # Techem label "A 111" → unit_letter="A", unit_number=111
-    # DB building_number "A 111" → match by reconstructed label
-    bn_lookup = {}  # "A 111" → Unit
+    bn_lookup = {}  # normalized label → Unit
     for u in all_units:
         if u.building_number:
-            bn_lookup[u.building_number.strip().upper()] = u
+            bn_lookup[normalize_unit_label(u.building_number)] = u
 
     for row in rows:
-        # Use raw label from Excel for matching (preserves suffix like "B 212 A")
-        raw = row.get("unit_label", "").strip().upper()
-        unit = bn_lookup.get(raw) if raw and raw != "0" else None
+        norm = normalize_unit_label(row.get("unit_label", ""))
+        unit = bn_lookup.get(norm) if norm else None
         row["unit_matched"] = unit is not None
         row["unit_id"] = unit.id if unit else None
 
@@ -315,7 +311,7 @@ async def water_import_confirm(
     bn_lookup = {}
     for u in all_units:
         if u.building_number:
-            bn_lookup[u.building_number.strip().upper()] = u
+            bn_lookup[normalize_unit_label(u.building_number)] = u
 
     # Track existing meters by serial to avoid duplicates
     existing_meters = {
@@ -334,9 +330,9 @@ async def water_import_confirm(
         if not serial:
             continue
 
-        # Use raw label from Excel for building_number matching
-        raw = row.get("unit_label", "").strip().upper()
-        unit = bn_lookup.get(raw) if raw and raw != "0" else None
+        # Normalized label matching
+        norm = normalize_unit_label(row.get("unit_label", ""))
+        unit = bn_lookup.get(norm) if norm else None
 
         # Find or create WaterMeter
         meter = existing_meters.get(serial)

@@ -92,6 +92,29 @@ def parse_unit_label(label: str) -> tuple[int | None, str, str]:
     return None, "", ""
 
 
+def normalize_unit_label(label: str) -> str:
+    """Normalize unit label to canonical form with consistent spacing.
+
+    Uses parse_unit_label to decompose then reconstructs:
+        'C 143B'  → 'C 143 B'
+        'D212'    → 'D 212'
+        'BK 11A'  → 'BK 11 A'
+        'A 111'   → 'A 111'
+        'B 212 A' → 'B 212 A'
+        '0'       → ''
+    """
+    num, letter, suffix = parse_unit_label(label)
+    if num is None:
+        return ""
+    parts = []
+    if letter:
+        parts.append(letter)
+    parts.append(str(num))
+    if suffix:
+        parts.append(suffix)
+    return " ".join(parts)
+
+
 def _parse_header_date(header: str) -> date | None:
     """Parse date from column header like '31.1.25' or '28.2.25'.
 

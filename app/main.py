@@ -881,12 +881,13 @@ def _migrate_fix_water_meter_unit_links():
         if not meters:
             return
 
-        # Build building_number lookup (exact match)
+        # Build building_number lookup (normalized)
+        from app.routers.water_meters._helpers import normalize_unit_label
         all_units = db.query(Unit).all()
         bn_lookup = {}
         for u in all_units:
             if u.building_number:
-                bn_lookup[u.building_number.strip().upper()] = u
+                bn_lookup[normalize_unit_label(u.building_number)] = u
 
         # Try to read raw labels from last imported Excel file
         raw_labels = {}  # meter_serial → raw_label
@@ -913,16 +914,17 @@ def _migrate_fix_water_meter_unit_links():
         fixed = 0
         for m in meters:
             # Prefer raw label from Excel, fallback to reconstructed
-            raw = raw_labels.get(m.meter_serial, "").strip().upper()
+            raw = raw_labels.get(m.meter_serial, "")
             if not raw:
                 if m.unit_letter and m.unit_number:
                     raw = f"{m.unit_letter} {m.unit_number}"
                 elif m.unit_number:
                     raw = str(m.unit_number)
-            if not raw or raw == "0":
+            norm = normalize_unit_label(raw)
+            if not norm:
                 continue
 
-            expected = bn_lookup.get(raw)
+            expected = bn_lookup.get(norm)
             if expected and m.unit_id != expected.id:
                 m.unit_id = expected.id
                 fixed += 1
