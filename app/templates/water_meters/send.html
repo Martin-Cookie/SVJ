@@ -193,8 +193,8 @@
                 {% for r in recipients %}
                 {% set preview = email_previews.get(r.owner_id) %}
                 <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50{% if preview %} cursor-pointer{% endif %}{% if not r.email %} opacity-60{% endif %}"
-                    {% if preview %}onclick="var el=document.getElementById('preview-{{ r.owner_id }}'); el.classList.toggle('hidden')"{% endif %}>
-                    <td class="px-2 py-2 text-center" onclick="event.stopPropagation()">
+                    {% if preview %}onclick="if(event.target.closest('a')||event.target.closest('input'))return;var el=document.getElementById('preview-{{ r.owner_id }}');el.classList.toggle('hidden')"{% endif %}>
+                    <td class="px-2 py-2 text-center">
                         {% if r.email %}
                         <input type="checkbox" name="selected_ids" value="{{ r.owner_id }}"
                                class="rcpt-cb rounded border-gray-300 dark:border-gray-500 text-blue-600 focus:ring-blue-500"
@@ -206,7 +206,7 @@
                         <svg class="w-3 h-3 text-gray-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
                         {% endif %}
                     </td>
-                    <td class="px-2 py-2" onclick="event.stopPropagation()">
+                    <td class="px-2 py-2">
                         <a href="/vlastnici/{{ r.owner_id }}?back={{ list_url|urlencode }}" class="text-blue-600 dark:text-blue-400 hover:underline">{{ r.name }}</a>
                         {% if r.email %}
                         <br><span class="text-[10px] text-green-600 dark:text-green-400">{{ r.email }}</span>

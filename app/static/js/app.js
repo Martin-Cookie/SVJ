@@ -493,9 +493,10 @@ function _restoreTaxChecked() {
 // into sessionStorage keyed by current URL. On return, restore exact pixel position.
 
 function _getScrollContainer() {
-    // Find the actually scrollable container (not sidebar nav or hidden elements)
+    // Find the actually scrollable container (skip sidebar nav and hidden elements)
     var els = document.querySelectorAll('.overflow-y-auto');
     for (var i = 0; i < els.length; i++) {
+        if (els[i].id === 'sidebar') continue;
         if (els[i].scrollHeight > els[i].clientHeight && els[i].clientHeight > 0) {
             return els[i];
         }

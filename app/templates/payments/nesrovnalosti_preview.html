@@ -178,8 +178,8 @@
                 {% for d in discrepancies %}
                 {% set preview = email_previews.get(d.payment_id) %}
                 <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50{% if preview %} cursor-pointer{% endif %}{% if not d.recipient_email %} opacity-60{% endif %}"
-                    {% if preview %}onclick="var el=document.getElementById('preview-{{ d.payment_id }}'); el.classList.toggle('hidden')"{% endif %}>
-                    <td class="px-2 py-2 text-center" onclick="event.stopPropagation()">
+                    {% if preview %}onclick="if(event.target.closest('a')||event.target.closest('input'))return;var el=document.getElementById('preview-{{ d.payment_id }}');el.classList.toggle('hidden')"{% endif %}>
+                    <td class="px-2 py-2 text-center">
                         {% if d.recipient_email %}
                         <input type="checkbox" name="selected_ids" value="{{ d.payment_id }}"
                                class="rcpt-cb rounded border-gray-300 dark:border-gray-500 text-orange-600 focus:ring-orange-500"
@@ -217,7 +217,7 @@
                         {% endfor %}
                         </div>
                     </td>
-                    <td class="px-2 py-2" onclick="event.stopPropagation()">
+                    <td class="px-2 py-2">
                         {% set _detail_url = "/vlastnici/" ~ d.owner_id if d.owner_id else ("/najemci/" ~ d.tenant_id if d.tenant_id else "") %}
                         {% if _detail_url %}
                         <a href="{{ _detail_url }}?back={{ list_url|urlencode }}" class="text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1">
