@@ -182,7 +182,7 @@ async def tax_send_export(
         )
         .all()
     )
-    all_recipients = _build_recipients(documents)
+    all_recipients = _build_recipients(documents, db=db)
 
     # Filter — same logic as send preview
     if filtr == "with_email":
@@ -335,7 +335,7 @@ async def tax_send_preview(
         if dist.match_status == MatchStatus.AUTO_MATCHED
     )
 
-    all_recipients = _build_recipients(documents)
+    all_recipients = _build_recipients(documents, db=db)
     total_recipients = len(all_recipients)
     with_email = sum(1 for r in all_recipients if r["email"])
     without_email = total_recipients - with_email
@@ -450,7 +450,7 @@ async def update_recipient_email(
             .options(joinedload(TaxDocument.distributions).joinedload(TaxDistribution.owner))
             .all()
         )
-        recipients = _build_recipients(documents)
+        recipients = _build_recipients(documents, db=db)
         key = f"owner_{dist.owner_id}" if dist.owner_id else f"ext_{dist.id}"
         recipient = next((r for r in recipients if r["key"] == key), None)
         if recipient:
@@ -592,7 +592,7 @@ async def toggle_recipient_email(
         .order_by(cast(TaxDocument.unit_number, Integer), TaxDocument.unit_letter)
         .all()
     )
-    recipients = _build_recipients(documents)
+    recipients = _build_recipients(documents, db=db)
 
     key = f"owner_{dist.owner_id}" if dist.owner_id else f"ext_{dist.id}"
     recipient = next((r for r in recipients if r["key"] == key), None)
@@ -692,7 +692,7 @@ async def send_test_email(
         if dist.match_status == MatchStatus.AUTO_MATCHED
     )
 
-    recipients = _build_recipients(documents)
+    recipients = _build_recipients(documents, db=db)
     total_recipients = len(recipients)
     with_email = sum(1 for r in recipients if r["email"])
 
@@ -993,7 +993,7 @@ async def start_batch_send(
         )
         .all()
     )
-    all_recipients = _build_recipients(documents)
+    all_recipients = _build_recipients(documents, db=db)
 
     # Filter to selected
     selected_set = set(selected_keys)
@@ -1208,7 +1208,7 @@ async def retry_failed(
         )
         .all()
     )
-    all_recipients = _build_recipients(documents)
+    all_recipients = _build_recipients(documents, db=db)
     failed_recipients = [r for r in all_recipients if r["email_status"] == "failed" and r["email"]]
 
     if not failed_recipients:

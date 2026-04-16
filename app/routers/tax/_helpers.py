@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.config import settings
 from app.database import SessionLocal
 from app.models import (
-    MatchStatus, Owner, OwnerUnit, SendStatus,
+    BounceType, EmailBounce, MatchStatus, Owner, OwnerUnit, SendStatus,
     TaxDistribution, TaxDocument, TaxSession, Unit,
 )
 from app.utils import build_wizard_steps, templates
@@ -197,7 +197,19 @@ def _reload_doc_row(doc_id: int, session_id: int, request: Request, db: Session)
     })
 
 
-def _build_recipients(documents):
+def _load_bounced_emails(db: Session) -> dict[int, set[str]]:
+    """Pre-load hard-bounced email addresses grouped by owner_id."""
+    result: dict[int, set[str]] = {}
+    for row in (
+        db.query(EmailBounce.owner_id, EmailBounce.recipient_email)
+        .filter(EmailBounce.bounce_type == BounceType.HARD, EmailBounce.owner_id.isnot(None))
+        .all()
+    ):
+        result.setdefault(row.owner_id, set()).add(row.recipient_email.lower())
+    return result
+
+
+def _build_recipients(documents, db: Session | None = None):
     """Deduplicate recipients across documents by owner_id (or ad_hoc key).
 
     Returns list of dicts:
@@ -206,6 +218,9 @@ def _build_recipients(documents):
          primary_email: str|None, secondary_email: str|None,
          selected_emails: [str], has_dual_email: bool}
     """
+    # Pre-load bounced emails for smart filtering
+    bounced_by_owner = _load_bounced_emails(db) if db else {}
+
     recipients = {}  # key -> recipient dict
 
     for doc in documents:
@@ -237,9 +252,16 @@ def _build_recipients(documents):
                 else:
                     selected_emails = []
 
-                # Hard bounce flag — vyloučit z rozesílky (vlastník má email_invalid)
+                # Hard bounce — vyloučit jen konkrétní bounced adresy, ne všechny
                 if owner_email_invalid:
-                    selected_emails = []
+                    owner_bounced = bounced_by_owner.get(dist.owner_id, set())
+                    if owner_bounced:
+                        selected_emails = [e for e in selected_emails if e.lower() not in owner_bounced]
+                        # Fallback na sekundární email pokud primární bounced
+                        if not selected_emails and secondary_email and secondary_email.lower() not in owner_bounced:
+                            selected_emails = [secondary_email]
+                    else:
+                        selected_emails = []
 
                 # has_dual_email: both present and different
                 has_dual_email = bool(
