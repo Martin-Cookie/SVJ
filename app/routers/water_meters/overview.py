@@ -43,6 +43,7 @@ def _filter_meters(db: Session, q: str = "", typ: str = "", stav: str = "",
             WaterMeter.meter_serial.ilike(search)
             | WaterMeter.location.ilike(search)
             | cast(WaterMeter.unit_number, String).like(search)
+            | WaterMeter.unit_letter.ilike(search)
             | Unit.building_number.ilike(search)
         )
 
