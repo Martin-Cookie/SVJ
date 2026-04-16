@@ -175,12 +175,8 @@ def _build_recipients(db: Session) -> list[dict]:
             f"{ui['unit_number']}{ui['unit_letter']}" for ui in units_info
         )
 
-        # Determine notified_at — latest across all meters for this owner
-        meter_notified = [
-            mi["notified_at"] for ui in units_info for mi in ui["meters"]
-            if mi["notified_at"] is not None
-        ]
-        latest_notified = max(meter_notified) if meter_notified else None
+        # Determine notified_at — from owner, not meters (shared units/SJM)
+        latest_notified = owner.water_notified_at
 
         recipients.append({
             "owner_id": owner_id,
