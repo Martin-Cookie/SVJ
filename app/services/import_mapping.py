@@ -1063,9 +1063,9 @@ WATER_METER_FIELD_GROUPS = [
 
 WATER_METER_FIELD_DEFS: dict[str, dict] = {
     "unit_label": {
-        "label": "Katastrální číslo",
+        "label": "Číslo jednotky",
         "required": True,
-        "description": "Identifikace jednotky (např. 'A 111', 'B 234')",
+        "description": "Číslo jednotky pro přiřazení vodoměru (např. 'A 111', 'B 234')",
         "candidates": [
             "cislo jednotky zakaznik", "cislo jednotky", "jednotka",
             "byt zakaznik", "spojovy kod",
