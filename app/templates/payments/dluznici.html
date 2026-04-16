@@ -92,7 +92,7 @@
                     {% if entita == 'prostory' %}
                     {% set _dcols = [("cislo", "Č. prostoru"), ("vlastnik", "Nájemce"), ("predpis", "Předpis/měs"), ("zaplaceno", "Zaplaceno"), ("saldo", "Saldo"), ("mesice", "Měsíce")] %}
                     {% else %}
-                    {% set _dcols = [("cislo", "Č. jednotky"), ("vlastnik", "Vlastník"), ("predpis", "Předpis/měs"), ("zaplaceno", "Zaplaceno"), ("saldo", "Saldo"), ("mesice", "Měsíce")] %}
+                    {% set _dcols = [("cislo", "Katastr. č."), ("vlastnik", "Vlastník"), ("predpis", "Předpis/měs"), ("zaplaceno", "Zaplaceno"), ("saldo", "Saldo"), ("mesice", "Měsíce")] %}
                     {% endif %}
                     {% for col_key, col_label in _dcols %}
                     {% set new_order = "desc" if sort == col_key and order == "asc" else "asc" %}

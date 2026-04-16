@@ -538,7 +538,7 @@ async def dluznici_export(
                 r["months_unpaid"],
             ]
     else:
-        headers = ["Č. jednotky", "Vlastník", "Předpis/měs", "Zaplaceno", "Saldo", "Měsíce"]
+        headers = ["Katastr. č.", "Vlastník", "Předpis/měs", "Zaplaceno", "Saldo", "Měsíce"]
 
         def _row(r):
             owner_name = ", ".join(o.display_name for o in r["owners"]) if r["owners"] else (r["prescription"].owner_name or "")

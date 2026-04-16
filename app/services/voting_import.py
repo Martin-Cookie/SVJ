@@ -238,7 +238,7 @@ def preview_voting_import(file_path: str, mapping: dict, voting: Voting, db: Ses
                 "row": row_idx,
                 "owner_name": owner_name or "",
                 "unit_number": "",
-                "reason": "Chybí číslo jednotky",
+                "reason": "Chybí katastrální číslo",
             })
             continue
 
@@ -248,7 +248,7 @@ def preview_voting_import(file_path: str, mapping: dict, voting: Voting, db: Ses
                 "row": row_idx,
                 "owner_name": owner_name or "",
                 "unit_number": unit_raw,
-                "reason": f"Neplatné číslo jednotky: {unit_raw}",
+                "reason": f"Neplatné katastrální číslo: {unit_raw}",
             })
             continue
 

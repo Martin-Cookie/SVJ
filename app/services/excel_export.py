@@ -18,7 +18,7 @@ def export_owners_to_excel(db: Session, output_path: str) -> str:
 
     # Header row matching import columns A-AE
     headers = [
-        "Číslo jednotky (KN)", "Číslo prostoru (stavební)", "Podíl na SČD",
+        "Katastrální číslo (KN)", "Číslo jednotky (stavební)", "Podíl na SČD",
         "Podlahová plocha (m²)", "Počet místností", "Druh prostoru",
         "Sekce domu", "Číslo orientační", "Adresa jednotky", "LV číslo",
         "Typ vlastnictví", "Jméno", "Příjmení / název", "Titul",

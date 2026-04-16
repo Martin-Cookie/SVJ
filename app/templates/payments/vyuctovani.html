@@ -173,7 +173,7 @@
                             aria-label="Vybrat vše"
                             class="w-3.5 h-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer">
                     </th>
-                    {% for col_key, col_label in [("cislo", "Č. jednotky"), ("vlastnik", "Vlastník"), ("predpis", "Předpis celkem"), ("zaplaceno", "Zaplaceno"), ("vysledek", "Výsledek"), ("stav", "Stav")] %}
+                    {% for col_key, col_label in [("cislo", "Katastr. č."), ("vlastnik", "Vlastník"), ("predpis", "Předpis celkem"), ("zaplaceno", "Zaplaceno"), ("vysledek", "Výsledek"), ("stav", "Stav")] %}
                     {% set new_order = "desc" if sort == col_key and order == "asc" else "asc" %}
                     <th class="px-3 py-2 {% if col_key in ['predpis', 'zaplaceno', 'vysledek'] %}text-right{% elif col_key == 'stav' %}text-center{% else %}text-left{% endif %} font-semibold text-gray-600 dark:text-gray-300 whitespace-nowrap">
                         <a href="{{ _sort_base }}sort={{ col_key }}&order={{ new_order }}{{ _back }}" class="hover:text-blue-600 select-none">

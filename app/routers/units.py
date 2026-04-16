@@ -114,12 +114,12 @@ async def unit_create(
         unit_number_int = int(unit_number)
     except (ValueError, TypeError):
         return templates.TemplateResponse(request, "partials/unit_create_form.html", {
-            "error": "Číslo jednotky musí být celé číslo.",
+            "error": "Katastrální číslo musí být celé číslo.",
             "code_lists": get_all_code_lists(db),
         })
     if unit_number_int < 1 or unit_number_int > 99999:
         return templates.TemplateResponse(request, "partials/unit_create_form.html", {
-            "error": "Číslo jednotky musí být v rozsahu 1–99999.",
+            "error": "Katastrální číslo musí být v rozsahu 1–99999.",
             "code_lists": get_all_code_lists(db),
         })
 
@@ -138,7 +138,7 @@ async def unit_create(
             bn_int = int(bn_clean)
             if bn_int < 1 or bn_int > 99999:
                 return templates.TemplateResponse(request, "partials/unit_create_form.html", {
-                    "error": f"Číslo budovy {bn_int} mimo rozsah 1–99999.",
+                    "error": f"Číslo jednotky {bn_int} mimo rozsah 1–99999.",
                     "code_lists": get_all_code_lists(db),
                 })
         except (ValueError, TypeError):
@@ -326,13 +326,13 @@ async def unit_update(
     except (ValueError, TypeError):
         return templates.TemplateResponse(request, "partials/unit_edit_form.html", {
             "unit": unit,
-            "error": "Číslo jednotky musí být celé číslo.",
+            "error": "Katastrální číslo musí být celé číslo.",
             "code_lists": get_all_code_lists(db),
         })
     if unit_number_int < 1 or unit_number_int > 99999:
         return templates.TemplateResponse(request, "partials/unit_edit_form.html", {
             "unit": unit,
-            "error": "Číslo jednotky musí být v rozsahu 1–99999.",
+            "error": "Katastrální číslo musí být v rozsahu 1–99999.",
             "code_lists": get_all_code_lists(db),
         })
 
@@ -541,7 +541,7 @@ async def unit_export(
 
     units = _filter_units(db, q, typ, sekce, sort, order)
 
-    headers = ["Č. jednotky", "Budova", "Typ prostoru", "Sekce", "Adresa", "LV", "Místnosti", "Plocha", "Podíl SČD", "Vlastníci"]
+    headers = ["Katastr. č.", "Č. jednotky", "Typ prostoru", "Sekce", "Adresa", "LV", "Místnosti", "Plocha", "Podíl SČD", "Vlastníci"]
 
     def _row(u):
         owners = ", ".join(ou.owner.display_name for ou in u.current_owners)

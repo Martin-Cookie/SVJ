@@ -469,7 +469,7 @@ async def vyuctovani_export(
     filename = f"vyuctovani_{rok}_{suffix}{detail_suffix}_{timestamp}"
 
     headers_summary = [
-        "Č. jednotky", "Vlastník", "VS", "Předpis měsíční",
+        "Katastr. č.", "Vlastník", "VS", "Předpis měsíční",
         "Předpis roční", "Zaplaceno", "Výsledek", "Stav",
     ]
 

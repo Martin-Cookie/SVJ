@@ -229,7 +229,7 @@ async def zustatky_export(
 
     balances = _filter_balances(db, rok, q, sort, order)
 
-    headers = ["Rok", "Č. jednotky", "Vlastník", "Částka (Kč)", "Typ", "Zdroj", "Poznámka"]
+    headers = ["Rok", "Katastr. č.", "Vlastník", "Částka (Kč)", "Typ", "Zdroj", "Poznámka"]
 
     source_labels = {
         "manual": "Ručně",

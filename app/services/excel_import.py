@@ -160,7 +160,7 @@ def _describe_skip_error(row: tuple, row_idx: int, fm: dict) -> str:
 
     missing = []
     if not unit_kn:
-        missing.append("číslo jednotky")
+        missing.append("katastrální číslo")
     if not first_name:
         missing.append("jméno")
 
