@@ -346,7 +346,11 @@ def _fetch_bounces_for_account(
 
         status, data = conn.search(None, f'(SINCE "{since_str}")')
         if status != "OK":
-            return {"success": False, "error": f"IMAP SEARCH selhal: {status}", "new_count": 0, "scanned": 0, "total_uids": 0}
+            # Fallback: některé servery (Seznam) nepodporují SINCE → zkusit ALL
+            logger.warning("IMAP SINCE selhal pro %s, zkouším ALL", account["name"])
+            status, data = conn.search(None, "ALL")
+            if status != "OK":
+                return {"success": False, "error": f"IMAP SEARCH selhal: {status}", "new_count": 0, "scanned": 0, "total_uids": 0}
 
         uids = data[0].split() if data and data[0] else []
         uids = uids[-500:]
