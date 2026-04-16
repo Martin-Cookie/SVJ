@@ -24,6 +24,7 @@ class WaterMeter(Base):
     meter_serial = Column(String(50), index=True)
     meter_type = Column(Enum(MeterType), index=True)
     location = Column(String(100), nullable=True)
+    notified_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=utcnow)
     updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 

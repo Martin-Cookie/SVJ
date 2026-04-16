@@ -476,6 +476,8 @@ def _seed_email_templates():
                 body_template=(
                     "Dobrý den, {{ jmeno }},\n\n"
                     "zasíláme Vám přehled spotřeby vody za poslední období:\n\n"
+                    "<strong>Jednotka:</strong> {{ jednotka }}\n"
+                    "<strong>Vodoměr:</strong> {{ vodomer }}\n\n"
                     "<strong>Studená voda (SV):</strong> {{ spotreba_sv }} m³ (odchylka {{ odchylka_sv }} %)\n"
                     "<strong>Teplá voda (TV):</strong> {{ spotreba_tv }} m³ (odchylka {{ odchylka_tv }} %)\n\n"
                     "V případě dotazů nás kontaktujte.\n\n"
@@ -1002,6 +1004,25 @@ def _migrate_water_meter_unit_suffix():
         db.close()
 
 
+def _migrate_water_meter_notified_at():
+    """Přidat notified_at do water_meters a water_notified_at do owners."""
+    with engine.connect() as conn:
+        cols = [r[1] for r in conn.execute(text("PRAGMA table_info('water_meters')")).fetchall()]
+        if "notified_at" not in cols:
+            conn.execute(text("ALTER TABLE water_meters ADD COLUMN notified_at DATETIME"))
+            logger.info("Added notified_at column to water_meters")
+        owner_cols = [r[1] for r in conn.execute(text("PRAGMA table_info('owners')")).fetchall()]
+        if "water_notified_at" not in owner_cols:
+            conn.execute(text("ALTER TABLE owners ADD COLUMN water_notified_at DATETIME"))
+            logger.info("Added water_notified_at column to owners")
+        # water_test_passed flag on svj_info for gating send
+        svj_cols = [r[1] for r in conn.execute(text("PRAGMA table_info('svj_info')")).fetchall()]
+        if "water_test_passed" not in svj_cols:
+            conn.execute(text("ALTER TABLE svj_info ADD COLUMN water_test_passed BOOLEAN DEFAULT 0"))
+            logger.info("Added water_test_passed column to svj_info")
+        conn.commit()
+
+
 _ALL_MIGRATIONS = [
     ("units table", _migrate_units_table),
     ("owner_units history", _migrate_owner_units_history),
@@ -1025,6 +1046,7 @@ _ALL_MIGRATIONS = [
     ("water meter import mapping", _migrate_water_meter_import_mapping),
     ("fix water meter unit links", _migrate_fix_water_meter_unit_links),
     ("water meter unit_suffix", _migrate_water_meter_unit_suffix),
+    ("water meter notified_at", _migrate_water_meter_notified_at),
     ("index creation", _ensure_indexes),
     ("code list seeding", _seed_code_lists),
     ("email template seeding", _seed_email_templates),

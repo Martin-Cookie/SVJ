@@ -6,5 +6,5 @@ from .sending import router as sending_router
 
 router = APIRouter()
 router.include_router(import_router)
-router.include_router(overview_router)
 router.include_router(sending_router)
+router.include_router(overview_router)
