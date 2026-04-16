@@ -903,12 +903,15 @@ wheels/                        # Offline Python balíčky (gitignored)
 
 ### Nedoručené emaily — bounces (`/rozesilani/bounces`)
 
-Připojuje se na IMAP schránku (Gmail SSL imap.gmail.com:993, fallback na SMTP creds), hledá DSN bounce zprávy (Delivery Status Notification, Mail Delivery Failed, Returned Mail…), parsuje dle RFC 3464 (Final-Recipient, Diagnostic-Code, Status-Code), ukládá do `email_bounces`. Hard bounces (5.x.x) automaticky nastaví `Owner.email_invalid=True` → vlastník je vyloučen z budoucích rozesílek (daně, platby) a v UI se zobrazuje červený badge `⚠ neplatný` v kontaktech a `⚠ skrytý` v rozesílce. **Auto-reset:** když uživatel v detailu vlastníka (`/vlastnici/{id}/upravit`) změní primární email na novou neprázdnou hodnotu, `email_invalid` + `email_invalid_reason` se automaticky vyprázdní a vlastník je znovu plnohodnotný příjemce. Manuální spuštění tlačítkem, deduplikace přes `imap_uid`, zprávy se v Gmailu označí jako přečtené. Časový rozsah: od poslední kontroly (–1 den buffer) nebo 30 dní fallback. Vyžaduje alespoň jeden indikátor selhání (status code / diagnostic / reason) — auto-reply zprávy se přeskočí. Vlastní SMTP from-adresa je vyloučena z parsování (prevence false positives).
+Kontroluje **všechny SMTP profily** přes IMAP (host odvozeno z SMTP: `smtp.x` → `imap.x`, nebo explicitní `SmtpProfile.imap_host`). Hledá DSN bounce zprávy (Delivery Status Notification, Mail Delivery Failed, Returned Mail…), parsuje dle RFC 3464 (Final-Recipient, Diagnostic-Code, Status-Code), ukládá do `email_bounces`. **Progress bar** — kontrola běží na pozadí s live progress (HTMX polling 500ms): účet X z Y, počet emailů, nalezené bounces, ETA, tlačítko Zrušit. Hard bounces (5.x.x) automaticky nastaví `Owner.email_invalid=True` → vlastník je vyloučen z budoucích rozesílek (daně, platby) a v UI se zobrazuje červený badge `⚠ neplatný` v kontaktech a `⚠ skrytý` v rozesílce. **Auto-reset:** když uživatel v detailu vlastníka (`/vlastnici/{id}/upravit`) změní primární email na novou neprázdnou hodnotu, `email_invalid` + `email_invalid_reason` se automaticky vyprázdní a vlastník je znovu plnohodnotný příjemce. Manuální spuštění tlačítkem, deduplikace přes `imap_uid`, zprávy se označí jako přečtené. Časový rozsah: od poslední kontroly (–1 den buffer) nebo 30 dní fallback. Vyžaduje alespoň jeden indikátor selhání (status code / diagnostic / reason) — auto-reply zprávy se přeskočí. Vlastní SMTP from-adresa je vyloučena z parsování (prevence false positives).
 
 | Metoda | Cesta | Popis |
 |--------|-------|-------|
 | GET | `/rozesilani/bounces` | Seznam nedoručených emailů (filtry typ/modul, search, sort) |
-| POST | `/rozesilani/bounces/zkontrolovat` | Manuální spuštění IMAP kontroly |
+| POST | `/rozesilani/bounces/zkontrolovat` | Spuštění IMAP kontroly (background thread + progress) |
+| GET | `/rozesilani/bounces/zkontrolovat/prubeh` | Progress stránka s live progress barem |
+| GET | `/rozesilani/bounces/zkontrolovat/prubeh-stav` | HTMX polling endpoint pro progress |
+| POST | `/rozesilani/bounces/zkontrolovat/zrusit` | Zrušení probíhající kontroly |
 | GET | `/rozesilani/bounces/exportovat/{xlsx\|csv}` | Export do Excelu/CSV (respektuje filtry) |
 
 ### Kontroly (`/synchronizace` + `/kontrola-podilu`)
