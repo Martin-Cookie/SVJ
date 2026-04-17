@@ -254,12 +254,37 @@ def _build_email_context(rcpt: dict) -> dict:
             else:
                 historie = "—"
 
+            # Vs. historical average — compare current consumption against older periods
+            vs_prumer = "—"
+            if mi["consumption"] is not None and len(hist) >= 2:
+                older = [h["consumption"] for h in hist[1:]]
+                if older:
+                    avg = sum(older) / len(older)
+                    if avg > 0:
+                        diff_pct = (mi["consumption"] - avg) / avg * 100
+                        if diff_pct > 5:
+                            color, bg, arrow = "#dc2626", "#fee2e2", "▲"
+                        elif diff_pct < -5:
+                            color, bg, arrow = "#16a34a", "#dcfce7", "▼"
+                        else:
+                            color, bg, arrow = "#6b7280", "#f3f4f6", "≈"
+                        sign = "+" if diff_pct >= 0 else ""
+                        vs_prumer = (
+                            f'<span style="display:inline-block;padding:1px 6px;'
+                            f'border-radius:8px;font-size:11px;font-weight:bold;'
+                            f'background:{bg};color:{color};">'
+                            f'{arrow}&nbsp;{sign}{diff_pct:.0f}\u00a0%</span>'
+                            f'<br><span style="font-size:10px;color:#888;">'
+                            f'\u00d8 {_fmt(avg)} m\u00b3</span>'
+                        )
+
             entry = {
                 "cislo": mi["serial"],
                 "predchozi": f"{_fmt(mi['prev_value'])} m\u00b3",
                 "aktualni": f"{_fmt(mi['last_value'])} m\u00b3",
                 "spotreba": f"{_fmt(mi['consumption'])} m\u00b3",
                 "historie": historie,
+                "vs_prumer": vs_prumer,
             }
 
             if mi["type_key"] == "cold":

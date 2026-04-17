@@ -479,6 +479,59 @@ _WATER_EMAIL_BODY_V3 = (
     "S pozdravem,\nSVJ"
 )
 
+# V4: přidán sloupec "Vs. průměr" — porovnání aktuální spotřeby s průměrem vodoměru
+_WATER_EMAIL_BODY_V4 = (
+    "Přehled odečtů vodoměrů — jednotka {{ jednotka }}."
+    "{% if odecty_sv %}\n\n"
+    "<strong>Studená voda:</strong>\n"
+    f'<table {_TABLE}>'
+    f'<tr style="background:#f0f4f8;">'
+    f'<th {_TH.format(align="left")}>Vodoměr</th>'
+    f'<th {_TH.format(align="right")}>Předchozí</th>'
+    f'<th {_TH.format(align="right")}>Aktuální</th>'
+    f'<th {_TH.format(align="right")}>Spotřeba</th>'
+    f'<th {_TH.format(align="center")}>Vs. průměr</th>'
+    f'<th {_TH.format(align="left")}>Historie</th>'
+    '</tr>'
+    '{% for m in odecty_sv %}'
+    '<tr>'
+    f'<td {_TD.format(extra="")}>{{{{ m.cislo }}}}</td>'
+    f'<td {_TD.format(extra="text-align:right;")}>{{{{ m.predchozi }}}}</td>'
+    f'<td {_TD.format(extra="text-align:right;")}>{{{{ m.aktualni }}}}</td>'
+    f'<td {_TD.format(extra="text-align:right;font-weight:bold;")}>{{{{ m.spotreba }}}}</td>'
+    f'<td {_TD.format(extra="text-align:center;")}>{{{{ m.vs_prumer }}}}</td>'
+    f'<td {_TD.format(extra="font-size:11px;color:#666;")}>{{{{ m.historie }}}}</td>'
+    '</tr>'
+    '{% endfor %}'
+    '</table>'
+    "{% endif %}"
+    "{% if odecty_tv %}\n\n"
+    "<strong>Teplá voda:</strong>\n"
+    f'<table {_TABLE}>'
+    f'<tr style="background:#fff4f0;">'
+    f'<th {_TH.format(align="left")}>Vodoměr</th>'
+    f'<th {_TH.format(align="right")}>Předchozí</th>'
+    f'<th {_TH.format(align="right")}>Aktuální</th>'
+    f'<th {_TH.format(align="right")}>Spotřeba</th>'
+    f'<th {_TH.format(align="center")}>Vs. průměr</th>'
+    f'<th {_TH.format(align="left")}>Historie</th>'
+    '</tr>'
+    '{% for m in odecty_tv %}'
+    '<tr>'
+    f'<td {_TD.format(extra="")}>{{{{ m.cislo }}}}</td>'
+    f'<td {_TD.format(extra="text-align:right;")}>{{{{ m.predchozi }}}}</td>'
+    f'<td {_TD.format(extra="text-align:right;")}>{{{{ m.aktualni }}}}</td>'
+    f'<td {_TD.format(extra="text-align:right;font-weight:bold;")}>{{{{ m.spotreba }}}}</td>'
+    f'<td {_TD.format(extra="text-align:center;")}>{{{{ m.vs_prumer }}}}</td>'
+    f'<td {_TD.format(extra="font-size:11px;color:#666;")}>{{{{ m.historie }}}}</td>'
+    '</tr>'
+    '{% endfor %}'
+    '</table>'
+    "{% endif %}\n\n"
+    "V případě dotazů nás kontaktujte.\n\n"
+    "S pozdravem,\nSVJ"
+)
+
 
 def _seed_email_templates():
     """Seed default email templates if missing."""
@@ -526,7 +579,7 @@ def _seed_email_templates():
             session.add(EmailTemplate(
                 name="Odečty vodoměrů",
                 subject_template="Odečty vodoměrů — {{ jednotka }}",
-                body_template=_WATER_EMAIL_BODY_V3,
+                body_template=_WATER_EMAIL_BODY_V4,
                 order=20,
             ))
 
@@ -1085,6 +1138,23 @@ def _migrate_water_email_template_v3():
             logger.info("Updated water meter email template to v3 (history, no greeting)")
 
 
+def _migrate_water_email_template_v4():
+    """Přidat sloupec 'Vs. průměr' do email šablony vodoměrů."""
+    from sqlalchemy.orm import Session as _Session
+    from app.models.administration import EmailTemplate
+
+    with _Session(engine) as session:
+        tpl = session.query(EmailTemplate).filter_by(name="Odečty vodoměrů").first()
+        if not tpl:
+            return
+        body = tpl.body_template or ""
+        # Aktualizovat pokud nemá vs_prumer sloupec (v3 nebo starší)
+        if "vs_prumer" not in body:
+            tpl.body_template = _WATER_EMAIL_BODY_V4
+            session.commit()
+            logger.info("Updated water meter email template to v4 (vs. average column)")
+
+
 def _migrate_water_meter_notified_at():
     """Přidat notified_at do water_meters a water_notified_at do owners."""
     with engine.connect() as conn:
@@ -1130,6 +1200,7 @@ _ALL_MIGRATIONS = [
     ("water meter notified_at", _migrate_water_meter_notified_at),
     ("water email template v2", _migrate_water_email_template_v2),
     ("water email template v3", _migrate_water_email_template_v3),
+    ("water email template v4", _migrate_water_email_template_v4),
     ("index creation", _ensure_indexes),
     ("code list seeding", _seed_code_lists),
     ("email template seeding", _seed_email_templates),
