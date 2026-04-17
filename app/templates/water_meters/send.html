@@ -433,7 +433,7 @@ function filterSendTable(q) {
     q = q.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     var tbody = document.getElementById('send-tbody');
     if (!tbody) return;
-    var rows = tbody.querySelectorAll('tr');
+    var rows = tbody.querySelectorAll(':scope > tr');
     var visible = 0;
     for (var i = 0; i < rows.length; i++) {
         var row = rows[i];
