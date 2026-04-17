@@ -474,7 +474,7 @@ Sloučená stránka se dvěma sekcemi — Kontrola vlastníků (nahoře) a Kontr
   - Bubliny: Vše / SV / TV, Přiřazeno / Nepřiřazeno / Vysoká odchylka
   - HTMX search (sériové č., umístění, číslo jednotky, sekce)
   - Export do Excel/CSV s filename suffix dle filtru
-- **Detail vodoměru** — přehled odečtů + ruční přiřazení k jednotce (select seskupený dle sekce)
+- **Detail vodoměru** — přehled odečtů + ruční přiřazení k jednotce (select seskupený dle sekce), karta s aktuálním vlastníkem jednotky
 - **Výpočet spotřeby** — rozdíl posledního a předposledního odečtu; odchylka od průměru v % (per typ SV/TV)
 - **Rozesílka emailů** — hromadné odeslání odečtů vlastníkům (plná parita s nesrovnalostmi plateb):
   - Přehled příjemců s checkboxy a select-all (agregovaná spotřeba SV/TV per vlastník)
@@ -486,7 +486,7 @@ Sloučená stránka se dvěma sekcemi — Kontrola vlastníků (nahoře) a Kontr
   - Hledání příjemců (client-side, diacritics-insensitive) + odkaz ← Vodoměry pro návrat
   - Test email gating (`water_test_passed`) — odesílání aktivní až po úspěšném testu
   - Tracking odeslaných: `WaterMeter.notified_at` + `Owner.water_notified_at`
-  - Konfigurace SMTP profilu, velikosti dávky, intervalu; pauza/pokračování/zrušení
+  - Konfigurace SMTP profilu (uložen v `SvjInfo.smtp_profile_id`), velikosti dávky, intervalu; pauza/pokračování/zrušení
   - Historie odeslaných emailů (module `water_notice`), filtrování neplatných emailů
 
 ## Struktura projektu
