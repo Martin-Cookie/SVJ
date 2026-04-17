@@ -1,7 +1,7 @@
 # SVJ Aplikace — Business Logic Reference
 
 > Technicky dokument s odkazy na zdrojovy kod (soubor:radek).
-> Posledni aktualizace: 2026-04-12
+> Posledni aktualizace: 2026-04-17
 
 ---
 
@@ -232,6 +232,50 @@
 **Auto-detekce blokovanych prostoru** (`space_import.py:26-30`):
 - Klicova slova v nazvu: kocarkarna, ustredna, trezor, kotelna, strojovna, sklad odpadu, komora, rozvodna, chodba, schodiste, vytah, zasedaci, spolecna, technick, uklid
 - Prostor s temito klicovymi slovy se automaticky nastavi jako `BLOCKED`
+
+### 1.11 Vodomery (NOVE od 2026-04)
+
+| Entity | Tabulka | Soubor |
+|--------|---------|--------|
+| `WaterMeter` | `water_meters` | `app/models/water_meter.py:16` |
+| `WaterReading` | `water_readings` | `app/models/water_meter.py:35` |
+
+**MeterType** (`water_meter.py:11`):
+- `COLD` = "cold" — studena voda (SV)
+- `HOT` = "hot" — tepla voda (TV)
+
+**WaterMeter:**
+- Reprezentuje fyzicky vodomer v jednotce
+- `unit_id` (FK -> Unit, nullable) — prirazeni k jednotce (muze byt neprirazeny)
+- `unit_number` (Integer) — cislo jednotky z importu (z Techem labelu)
+- `unit_letter` (String) — sekce/dopis budovy (napr. "A", "BK", "CK")
+- `unit_suffix` (String) — suffix za cislem jednotky (napr. "A" v "B 212 A")
+- `meter_serial` (String, indexovano) — seriove cislo vodomeru (identifikator)
+- `meter_type` (Enum MeterType) — SV/TV
+- `location` (String) — umisteni (napr. "Koupelna", "Kuchyn")
+- `notified_at` (DateTime, nullable) — timestamp posledniho odeslani upozorneni per vodomer
+- Relace: `unit` (Unit), `readings` (WaterReading, cascade delete-orphan)
+
+**WaterReading:**
+- Jeden odecet vodomeru v danem datu
+- `meter_id` (FK -> WaterMeter, not null) — vazba na vodomer
+- `reading_date` (Date) — datum odectu
+- `value` (Float) — odecetena hodnota v m3
+- `import_batch` (String) — batch ID importu pro trasovatelnost
+
+**Owner.water_notified_at** (`owner.py:58`):
+- Timestamp posledniho odeslani rozesílky odectu vodomeru pro tohoto vlastnika
+- Nastavuje se po uspesnem odeslani emailu v rozesílce vodomeru
+- Pouziva se pro bublinu "Odesláno" / "Neodesláno" na strance rozesílky
+
+**SvjInfo.water_test_passed** (`administration.py:30`):
+- Boolean flag — gating: test email pro rozesílku vodomeru odeslán
+- `True` po uspesnem odeslani testu, musi byt `True` pred zahajenim davkoveho odesilani
+- Resetuje se implicitne pri zmene sablon/dat
+
+**SvjInfo.water_meter_import_mapping** (`administration.py:24`):
+- JSON ulozene mapovani sloupcu z posledniho importu odectu vodomeru
+- Predvyplni se pri dalsim importu
 
 ---
 
@@ -908,6 +952,152 @@ vysledek = (mesicni_predpis * 12) + pocatecni_zustatek - celkem_zaplaceno
 - Fire-and-forget — selhani nikdy neblokuje odeslani emailu
 - Bezpecny Date header parsing s fallbackem na `datetime.now()`
 
+### 3.14 Evidence vodomeru — import odectu (NOVE od 2026-04)
+
+- **Soubory:** `app/routers/water_meters/import_readings.py`, `app/routers/water_meters/_helpers.py`
+- Workflow: Upload XLS/XLSX -> Mapovani sloupcu -> Preview -> Potvrzeni importu
+
+#### Krok 1: Upload souboru (`import_readings.py:78-121`)
+- Podporovane formaty: XLS (Techem format pres `xlrd`), XLSX (radkovy format pres `openpyxl`)
+- Validace pres `validate_upload(**UPLOAD_LIMITS["excel"])` — max 50 MB, povolene pripony
+- Soubor se ulozi do `data/uploads/water_meters/`
+
+#### Krok 2: Mapovani sloupcu (`import_readings.py:128-168`)
+- Dynamicke mapovani: `unit_label`, `meter_serial`, `meter_type`, `location`, `reading_date`, `reading_value`
+- Ulozene mapovani v `SvjInfo.water_meter_import_mapping` (JSON)
+- Detekce datumovych sloupcu v hlavicce (Techem format: mesicni odecty jako sloupce "31.1.25", "28.2.25"...)
+- Auto-detekce formatu: `is_row_format()` — radkovy vs sloupcovy Techem
+
+#### Krok 3: Parsovani souboru
+
+**Techem XLS format** (`_helpers.py:132-272`):
+- Fixni sloupce: cislo jednotky, jmeno uzivatele, typ pristroje, cislo pristroje, poloha
+- Datumove sloupce (13+): mesicni odecty s datumy v hlavicce
+- Auto-detekce sloupcu dle nazvu: "Cislo jednotky Zakaznik", "Typ pristroje", "Cislo pristroje", "Poloha"
+- Fallback na exaktni nazvy sloupcu
+
+**Parsovani cisla jednotky z Techem labelu** (`_helpers.py:70-92`):
+- `parse_unit_label()` — decomponuje label na (unit_number, section_letter, suffix)
+- Formaty: `"A 111"` -> (111, "A", ""), `"B 212 A"` -> (212, "B", "A"), `"C 143B"` -> (143, "C", "B"), `"AK 11"` -> (11, "AK", "")
+- `normalize_unit_label()` — rekonstruuje kanonicky tvar s konzistentnimi mezerami
+
+**Radkovy XLSX format** (`_helpers.py:275-389`):
+- Kazdy radek = jeden odecet (meter_serial, reading_date, reading_value)
+- Radky se seskupi dle `meter_serial` do jednoho zaznamu per vodomer
+
+**Detekce typu vodomeru:**
+- "SV" nebo "STUD" v nazvu -> `COLD` (studena voda)
+- "TV" nebo "TEPL" v nazvu -> `HOT` (tepla voda)
+- Default: `COLD`
+
+#### Krok 4: Preview a parovani (`import_readings.py:175-288`)
+- Rozparsovana data se parují na existujici jednotky pres `building_number` -> `normalize_unit_label()`
+- Preview zobrazuje: pocet vodomeru, pocet odectu, sparovane/nesparovane jednotky
+- Data se ulozi do in-memory cache (`_preview_cache`) s unikatnim `batch_id`
+
+#### Krok 5: Potvrzeni importu (`import_readings.py:295-431`)
+- **Append mode** (default): preskoci existujici odecty pro stejny datum a vodomer
+- **Overwrite mode**: smaze vsechny existujici odecty vodomeru a nahradí novymi
+- Deduplikace vodomeru dle `meter_serial` — existujici vodomer se aktualizuje (unit_id, label fields), novy se vytvori
+- `ImportLog` + `ActivityLog` se zaznamena po importu
+
+### 3.15 Rozesílka odectu vodomeru (NOVE od 2026-04)
+
+- **Soubory:** `app/routers/water_meters/sending.py`, `app/routers/water_meters/_helpers.py`
+- Workflow: Preview prijemcu -> Konfigurace odesilani -> Test email (povinny) -> Davkove odesilani -> Tracking
+
+#### Sestaveni prijemcu (`_build_recipients`, `sending.py:60-225`)
+1. Nacte vsechny vodomery s `unit_id` (sparovane) + eager loading unit, readings
+2. Spocita spotrebu a odchylky pro vsechny vodomery (`compute_consumption`, `compute_deviations`)
+3. Seskupi vodomery dle `unit_id`, pak dle aktivnich vlastniku (pres `OwnerUnit.valid_to IS NULL`)
+4. Pro kazdeho vlastnika agreguje: SV spotrebu, TV spotrebu, SV/TV odchylky, seriova cisla vodomeru
+5. **Within-month historie**: pro kazdy vodomer spocita spotrebu z poslednich 3 mesicu (last - second_to_last per mesic)
+6. **Notified_at**: sleduje `Owner.water_notified_at` (ne per-vodomer, ale per vlastnik — podporuje SJM/sdilene jednotky)
+
+#### Preview stránka (`/vodometry/rozeslat`, `sending.py:512-610`)
+- Tabulka prijemcu s bublinami: Vse / S emailem / Bez emailu / Odeslano / Neodeslano
+- Raditelne sloupce: prijemce, email, jednotky, spotreba SV/TV, odchylka SV/TV
+- Inline nahled emailu per prijemce (renderovany z sablony)
+- SMTP profil vyber, nastaveni davky (batch_size, batch_interval, confirm_each_batch)
+- Historie odeslaných emailu (`EmailLog` s `module="water_notice"`, limit 200)
+
+#### Sestaveni emailoveho kontextu (`_build_email_context`, `sending.py:235-317`)
+- Per-vodomer data: cislo, predchozi/aktualni odecet, spotreba, historie, vs. prumer
+- **Vs. prumer badge**: porovnani aktualni spotreby s prumerem starsich mesicu:
+  - diff_pct > +5% -> cerveny badge ▲ (nadprumerna spotreba)
+  - diff_pct < -5% -> zeleny badge ▼ (podprumerna spotreba)
+  - -5% <= diff_pct <= +5% -> sedy badge ≈ (v norme)
+  - Zobrazuje se i absolutni prumer starsich mesicu
+- **TV sekce se vynechava** pokud vsechna TV spotreba = 0
+- Historie: `"3,2 → 4,1 → 3,8 m³"` (od nejstarsi k nejnovejsi)
+
+#### Test email — gating (`sending.py:633-684`)
+- Endpoint: `POST /vodometry/rozeslat/test`
+- Odesle testovaci email s daty prvniho prijemce ([TEST] prefix v predmetu)
+- Po uspesnem odeslani: `SvjInfo.water_test_passed = True`
+- **Davkove odesilani je BLOKOVANO dokud `water_test_passed != True`**
+
+#### Davkove odesilani (`_send_emails_batch`, `sending.py:344-504`)
+- Spusti se v daemon threadu (`start_batch_send`, `sending.py:687-768`)
+- Checkboxy — uzivatel vybira ktere prijemce zahrnout (`selected_ids`)
+- **Smart bounce filtering**: invalidni emaily se vyloucuji z odeslani
+- Pocatecni prodleva 5 sekund (uzivatel muze pozastavit/zrusit)
+- Sdilene SMTP pripojeni per davka, fallback na per-email pri selhani
+- Podpora: pozastaveni, pokracovani, zruseni, potvrzeni po kazde davce
+- **Tracking notified_at**: po uspesnem odeslani se nastavi:
+  - `WaterMeter.notified_at = utcnow()` pro vsechny vodomery prijemce
+  - `Owner.water_notified_at = utcnow()` pro vlastnika
+- Sablona emailu: `EmailTemplate` s nazvem "Odecty vodomeru"
+- `EmailLog` s `module="water_notice"`
+- `ActivityLog` se zaznamena pri zahajeni a dokonceni rozesílky
+
+#### Progress tracking (`sending.py:771-846`)
+- In-memory dict `_sending_progress` s thread-safe Lock
+- Sdileny progress bar (`partials/_send_progress_inner.html`)
+- HTMX polling (`/vodometry/rozeslat/prubeh-stav`)
+- ETA vypocet pres `compute_eta()`
+- Po dokonceni ceka 3 sekundy pred redirectem na preview s flash zpravou
+
+### 3.16 Smart bounce filtering v rozesílkach (NOVE od 2026-04)
+
+- **Soubor:** `app/routers/tax/_helpers.py:200-264`
+- Aplikuje se v: rozesílani (tax sending), rozesílka vodomeru (water sending)
+
+#### Logika — selektivni vylouceni bounced adres
+- `_load_bounced_emails()` — pre-load hard-bounced adres seskupenych dle `owner_id`
+- Vraci: `dict[int, set[str]]` — `{owner_id: {"bounced@email.cz", ...}}`
+
+#### Pravidla:
+1. **Jen konkretni bounced email se vylouci**, ne vsechny emaily vlastnika
+2. `selected_emails` se filtruje: `[e for e in selected if e.lower() not in owner_bounced]`
+3. **Fallback na sekundarni email**: pokud primarni bounced a sekundarni ne -> pouzije se sekundarni
+4. Pokud zadny email neni validni po filtraci -> prijemce se nevylouci cele, ale email zustane prazdny (zobrazi se bez emailu v UI)
+5. Oproti staremu chovani: drive se pri `email_invalid=True` vyloucily VSECHNY emaily vlastnika. Nyni se vyloucuji jen ty, ktere jsou v `EmailBounce` tabulce s `bounce_type=HARD`
+
+### 3.17 Multi-profil bounce check (NOVE od 2026-04)
+
+- **Soubory:** `app/services/bounce_service.py:60-109`, `app/routers/bounces.py:224-300`
+- Kontrola bounces probiha pres VSECHNY SMTP profily (ne jen default)
+
+#### Sestaveni IMAP uctu (`get_imap_accounts`, `bounce_service.py:60-109`)
+1. Nacte vsechny `SmtpProfile` z DB
+2. Pro kazdy odvodí IMAP host: `smtp.x.cz` -> `imap.x.cz` (nebo explicitni `imap_host`)
+3. Dekoduje heslo z base64
+4. Fallback: .env IMAP/SMTP credentials (pokud jeste nejsou v seznamu)
+5. Deduplikace dle `user@host` (kazdy ucet jen jednou)
+
+#### IMAP SINCE fallback (`bounce_service.py:347-353`)
+- Primarni: `SEARCH (SINCE "DD-Mon-YYYY")` — hleda od posledni kontroly
+- **Fallback**: pokud server nepodporuje SINCE (napr. Seznam IMAP) -> `SEARCH ALL`
+- Omezeno na poslednich 500 zprav (`uids[-500:]`)
+
+#### Background thread s progress barem (`bounces.py:224-300`)
+- `_run_bounce_check_thread()` — iteruje pres vsechny IMAP ucty
+- Per-ucet progress: `on_progress(scanned, total, new_count)`
+- Podpora zruseni (`cancelled` callback)
+- Progress v sablone: nazev uctu, scanned/total, novy nalezene bounces
+- HTMX polling kazdych 500ms
+
 ---
 
 ## 4. Vypocetni pravidla
@@ -999,6 +1189,45 @@ saldo = total_paid - expected
 - DSN status 4.x.x -> `SOFT` bounce (dočasné selhání)
 - Fallback: SMTP kód v diagnostic (5xx -> HARD, 4xx -> SOFT)
 - Bez DSN statusu i SMTP kódu -> `UNKNOWN`
+
+### 4.13 Spotreba vodomeru — compute_consumption (NOVE od 2026-04)
+- **Soubor:** `app/routers/water_meters/_helpers.py:14-26`
+- **Vzorec:** `spotreba = posledni_odecet - predposledni_odecet`
+- Vyzaduje minimalne 2 odecty per vodomer (jinak vraci `None`)
+- Odecty se radi chronologicky dle `reading_date`
+- Zaokrouhleni na 3 desetinna mista
+- Nepocita se z celkove mesicni hodnoty ale z within-month par (last - second_to_last)
+
+### 4.14 Odchylka spotreby — compute_deviations (NOVE od 2026-04)
+- **Soubor:** `app/routers/water_meters/_helpers.py:29-67`
+- **Vzorec:** `odchylka_pct = (spotreba_vodomeru - prumer_typu) / prumer_typu * 100`
+- Prumer se pocita separatne pro SV (studena) a TV (tepla)
+- Zaporne spotreby se NEZAHRNUJI do prumeru (`c >= 0`)
+- Pokud prumer typu = 0 -> odchylka = `None`
+- Vysledek: `dict[meter_id: {"consumption": float|None, "deviation_pct": float|None}]`
+
+### 4.15 Within-month historie spotreby (NOVE od 2026-04)
+- **Soubor:** `app/routers/water_meters/sending.py:134-156`
+- Pro kazdy vodomer se spocita spotreba per mesic z poslednich 3 obdobi
+- Seskupeni odectu dle `YYYY-MM`, v kazdem mesici se vezmou posledni 2 odecty
+- `spotreba_mesic = posledni_odecet_v_mesici - predposledni_odecet_v_mesici`
+- Zaporne hodnoty se preskoci
+- Pouziti: emailovy kontext (historie spotreby) a vs. prumer badge
+
+### 4.16 Vs. prumer badge (NOVE od 2026-04)
+- **Soubor:** `app/routers/water_meters/sending.py:259-282`
+- Porovnani aktualni spotreby (nejnovejsi mesic) s prumerem starsich mesicu
+- Vyzaduje minimalne 2 mesice historie (`len(hist) >= 2`)
+- **Prahy:**
+  - `diff_pct > +5%` -> cerveny badge ▲ (nadprumerna spotreba)
+  - `diff_pct < -5%` -> zeleny badge ▼ (podprumerna spotreba)
+  - `-5% <= diff_pct <= +5%` -> sedy badge ≈ (v norme)
+- Zobrazuje: badge s procentem + absolutni prumer (`Ø X,X m³`)
+
+### 4.17 Vysoka odchylka — prah pro filtrovani (NOVE od 2026-04)
+- **Soubor:** `app/routers/water_meters/overview.py:134-140`
+- Vodomer ma "vysokou odchylku" pokud `abs(deviation_pct) > 50%`
+- Bublina "Vysoka odchylka" filtruje vodomery s >50% absolutni odchylkou od prumeru
 
 ---
 
@@ -1122,6 +1351,32 @@ saldo = total_paid - expected
 - Parsovani dle RFC 3464 (Delivery Status Notification)
 - Podporovane vzory: DSN `Final-Recipient`, `Diagnostic-Code`, `X-Failed-Recipients`, Postfix `for <email>`
 - Cas. rozsah: od posledni kontroly nebo 30 dni zpetne, max 500 zprav
+- **Multi-profil** (NOVE): kontrola probiha pres vsechny SMTP profily z DB (ne jen default)
+- **IMAP SINCE fallback** (NOVE): pokud server nepodporuje SINCE (napr. Seznam) -> fallback na ALL, omezeno na 500 zprav
+
+### 5.18 XLS/XLSX import odectu vodomeru (NOVE od 2026-04)
+- **Soubor:** `app/routers/water_meters/_helpers.py`, `app/routers/water_meters/import_readings.py`
+- Smer: import (cteni odectu z Excelu do DB)
+- **Techem XLS format** (`xlrd`):
+  - Sloupcovy format: fixni sloupce (jednotka, vodomer, typ) + datumove sloupce (mesicni odecty)
+  - Datumove sloupce se detekuji automaticky z hlavicek (formaty: `31.1.25`, `28.2.2025`, `31/01/25`)
+  - Cislo jednotky: Techem label format ("A 111", "BK 11", "C 143B")
+- **Radkovy XLSX format** (`openpyxl`):
+  - Kazdy radek = jeden odecet (seriove cislo, datum, hodnota)
+  - Seskupeni dle serioveho cisla vodomeru
+- Parovani na jednotky: `building_number` z DB pres `normalize_unit_label()`
+- Import mody: append (prida nove), overwrite (smaze a nahradi)
+- Ulozene mapovani v `SvjInfo.water_meter_import_mapping` (JSON)
+
+### 5.19 Email rozesílka odectu vodomeru (NOVE od 2026-04)
+- **Soubor:** `app/routers/water_meters/sending.py`
+- Smer: export (odesilani emailu s odecty vlastnikum)
+- Sablona: `EmailTemplate` "Odecty vodomeru" (Jinja2)
+- Promenne: `{{ jmeno }}`, `{{ jednotka }}`, `{{ spotreba_sv }}`, `{{ spotreba_tv }}`, `{{ vodomer }}`, `{{ odecty_sv }}` (list), `{{ odecty_tv }}` (list)
+- Per-vodomer data v listu: `cislo`, `predchozi`, `aktualni`, `spotreba`, `historie`, `vs_prumer`
+- SMTP: sdilene pripojeni per davka, vyber profilu, testovaci email gating
+- Tracking: `WaterMeter.notified_at` + `Owner.water_notified_at`
+- Log: `EmailLog.module = "water_notice"`
 
 ---
 
@@ -1217,6 +1472,39 @@ saldo = total_paid - expected
 - Zpravy bez evidence selhani (bez diagnostic_code a reason) se preskoci
 - Predchazi false-positive z auto-reply zprav ktere maji bounce-like predmety
 
+### 6.19 IMAP SINCE fallback (NOVE od 2026-04)
+- **Soubor:** `bounce_service.py:347-353`
+- Seznam IMAP server nepodporuje SINCE filtr v SEARCH prikazu -> vrati prazdny vysledek
+- Detekce: `status != "OK"` z IMAP SEARCH s SINCE
+- Fallback: `conn.search(None, "ALL")` — nacte vsechny zpravy
+- Omezeni: `uids[-500:]` — zpracuje jen poslednich 500 (ochrana pred pretizenim)
+- Riziko: bez SINCE se muze nacist velke mnozstvi zprav na aktivnich uctech
+
+### 6.20 Smart bounce — selektivni vylouceni (NOVE od 2026-04)
+- **Soubor:** `app/routers/tax/_helpers.py:255-264`
+- **Problem:** Drive se pri `email_invalid=True` vyloucily VSECHNY emaily vlastnika — i sekundarni email, ktery mohl byt funkcni
+- **Reseni:** Nacteni konkretnich bounced adres z `EmailBounce` tabulky a filtrace jen tech
+- **Fallback:** Pokud primarni email bounced ale sekundarni ne -> automaticky prepne na sekundarni
+- **Edge case:** Pokud `email_invalid=True` ale zadny bounce zaznam v DB -> vsechny emaily se vyloucí (zachovava puvodni chovani pro rucne oznacene invalidni)
+
+### 6.21 Vodomer — TV sekce vynechani (NOVE od 2026-04)
+- **Soubor:** `sending.py:298-304`
+- Pokud vsechny TV vodomery prijemce maji spotrebu 0 nebo `None` -> TV sekce se v emailu vynechava
+- Predchazi zmateni prijemce prazdnou tabulkou TV
+
+### 6.22 Vodomer — parovani jednotek pres building_number (NOVE od 2026-04)
+- **Soubor:** `import_readings.py:243-252`
+- Techem labely (napr. "A 111") se parují na jednotky pres `Unit.building_number` (ne `unit_number`)
+- `building_number` muze byt alfanumericky (napr. "A 111") -> normalizace pres `normalize_unit_label()`
+- **Problem:** `unit_number` v DB je Integer (katastralní cislo), Techem label je jiny identifikator
+- **Reseni:** lookup pres `building_number` s normalizaci; pri nesparovani se vodomer importuje bez `unit_id`
+
+### 6.23 Vodomer — preview cache expirace (NOVE od 2026-04)
+- **Soubor:** `import_readings.py:258-263`
+- Data z parsovani se ukladaji do in-memory cache `_preview_cache` s unikatnim `batch_id`
+- Pokud uzivatel nepotvrdí import a server se restartuje -> cache se ztrati
+- Redirect na import stranku s flash zpravou "Nahled vyprsel"
+
 ---
 
 ## 7. Konfigurace
@@ -1239,6 +1527,7 @@ libreoffice_path                        # Pro PDF generovani z Word
 - `tax_pdfs/session_{id}/` — PDF danove dokumenty
 - `csv/` — CSV soubory pro synchronizaci
 - `share_check/` — soubory pro kontrolu podilu
+- `water_meters/` — XLS/XLSX soubory importu odectu vodomeru (NOVE)
 
 ### 7.3 Ciselniky (`CodeListItem`)
 - Kategorie: `space_type`, `section`, `room_count`, `ownership_type`
@@ -1247,6 +1536,7 @@ libreoffice_path                        # Pro PDF generovani z Word
 ### 7.4 Emailove sablony (`EmailTemplate`)
 - `"Rozúčtování příjmů za rok {rok}"` — sablona pro rozesílani danovych dokumentu
 - `"Upozornění na nesrovnalost v platbě"` — sablona pro upozorneni na nesrovnalosti (Jinja2 syntax s `{{ }}`)
+- `"Odečty vodoměrů"` — sablona pro rozesílku odectu vodomeru (NOVE od 2026-04). Promenne: `{{ jmeno }}`, `{{ jednotka }}`, `{{ odecty_sv }}` (list per vodomer), `{{ odecty_tv }}` (list per vodomer), `{{ spotreba_sv }}`, `{{ spotreba_tv }}`
 - Seedovane pri startu aplikace (`main.py:_seed_email_templates`)
 - Editovatelne v Nastaveni
 
@@ -1390,7 +1680,7 @@ libreoffice_path                        # Pro PDF generovani z Word
 
 ### 11.6 Sdileny progress bar pro davkove odesilani
 - **Soubory:** `partials/_send_progress.html`, `partials/_send_progress_inner.html`
-- Pouzivano v: rozesílani (tax), nesrovnalosti (discrepancy)
+- Pouzivano v: rozesílani (tax), nesrovnalosti (discrepancy), vodomerycka rozesílka (water_notice), bounce check
 - Vnější partial: polling div + tlacitka (Pozastavit/Pokracovat/Zrusit) MIMO polled oblast
 - Vnitřní partial: progress bar, statistiky, stav — swapuje se HTMX pollingem (500ms)
 - Tlacitka musi byt mimo HTMX-polled oblast — jinak `data-confirm` modal prestane fungovat
@@ -1423,3 +1713,8 @@ libreoffice_path                        # Pro PDF generovani z Word
 | Tolerance nasobku | 0.01 | `payment_discrepancy.py` | Presnost detekce nasobku predpisu |
 | `_BOUNCE_SUBJECT_PATTERNS` | 8 vzoru | `bounce_service.py` | Detekce bounce emailu dle predmetu |
 | Max SMTP profilu | 3 | `settings_page.py` | Limit poctu SMTP profilu v DB |
+| Max IMAP zprav | 500 | `bounce_service.py` | Limit zprav pri bounce checku (`uids[-500:]`) |
+| Vs. prumer prah | ±5% | `sending.py` | Prah pro cerveny/zeleny badge odchylky spotreby |
+| Vysoka odchylka prah | 50% | `overview.py` | Prah pro bublinu "Vysoka odchylka" v prehledu vodomeru |
+| Pocatecni prodleva | 5s | `sending.py` | Prodleva pred odeslanim prvniho emailu (pro moznost zruseni) |
+| `water_test_passed` | Boolean | `administration.py` | Gating: test email musi projit pred rozesílkou |
