@@ -139,7 +139,7 @@
             <thead class="sticky top-0 z-10 bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
                 <tr>
                     {% set _sort_qs = "&typ=" ~ typ ~ "&modul=" ~ modul ~ "&q=" ~ q %}
-                    {% for col_key, col_label in [('datum', 'Datum'), ('email', 'Email'), ('vlastnik', 'Vlastník'), ('typ', 'Typ'), ('duvod', 'Důvod'), ('modul', 'Modul'), (None, 'Akce')] %}
+                    {% for col_key, col_label in [('datum', 'Datum'), ('email', 'Email'), ('vlastnik', 'Vlastník'), ('typ', 'Typ'), ('duvod', 'Důvod'), ('modul', 'Modul'), ('profil', 'Profil'), (None, 'Akce')] %}
                     <th class="px-3 py-2 text-left font-medium text-gray-600 dark:text-gray-300">
                         {% if col_key %}
                         <a href="{{ _base }}sort={{ col_key }}&order={{ 'asc' if sort == col_key and order == 'desc' else 'desc' }}{{ _sort_qs }}"

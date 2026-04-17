@@ -46,6 +46,7 @@ SORT_COLUMNS = {
     "typ": EmailBounce.bounce_type,
     "duvod": EmailBounce.reason,
     "modul": EmailBounce.module,
+    "profil": EmailBounce.smtp_profile_name,
     "vytvoreno": EmailBounce.created_at,
 }
 
@@ -56,11 +57,12 @@ _TYPE_LABELS = {
 }
 
 _MODULE_LABELS = {
-    "tax": "Daně",
+    "tax": "Rozesílání",
     "voting": "Hlasování",
     "payments": "Platby",
     "payment_notice": "Upozornění platby",
     "payment_discrepancy": "Nesrovnalosti",
+    "water_notice": "Vodoměry",
 }
 
 
@@ -453,7 +455,7 @@ async def export_bounces(
     today = utcnow().strftime("%Y%m%d")
     filename = f"bounces_{suffix}_{today}.{fmt}"
 
-    headers_row = ["Datum", "Email", "Vlastník", "Typ", "Důvod", "Diagnostic", "Modul", "Reference", "Předmět"]
+    headers_row = ["Datum", "Email", "Vlastník", "Typ", "Důvod", "Diagnostic", "Modul", "Reference", "Profil", "Předmět"]
 
     def _row(b: EmailBounce) -> list[str]:
         return [
@@ -465,6 +467,7 @@ async def export_bounces(
             (b.diagnostic_code or "")[:300],
             _MODULE_LABELS.get(b.module or "", b.module or ""),
             str(b.reference_id) if b.reference_id else "",
+            b.smtp_profile_name or "",
             (b.subject or "")[:300],
         ]
 

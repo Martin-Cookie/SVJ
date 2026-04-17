@@ -433,6 +433,7 @@ def _fetch_bounces_for_account(
                 bounced_at=parsed["bounced_at"],
                 imap_uid=uid_str,
                 imap_message_id=msg.get("Message-ID"),
+                smtp_profile_name=account.get("name"),
             )
             db.add(bounce)
             existing_uids.add(uid_str)

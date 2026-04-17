@@ -59,6 +59,9 @@
         {% endif %}
     </td>
     <td class="px-3 py-2 text-gray-500 dark:text-gray-400 text-[10px]">
+        {% if b.smtp_profile_name %}{{ b.smtp_profile_name }}{% else %}—{% endif %}
+    </td>
+    <td class="px-3 py-2 text-gray-500 dark:text-gray-400 text-[10px]">
         {% if b.email_log_id %}
         <a href="/nastaveni#log-{{ b.email_log_id }}" class="text-blue-600 hover:underline">log #{{ b.email_log_id }}</a>
         {% endif %}
@@ -67,7 +70,7 @@
 {% endfor %}
 {% else %}
 <tr>
-    <td colspan="7" class="px-3 py-8 text-center text-gray-500 dark:text-gray-400">
+    <td colspan="8" class="px-3 py-8 text-center text-gray-500 dark:text-gray-400">
         Žádné nedoručené emaily.<br>
         <span class="text-xs">Klikněte na „🔄 Zkontrolovat nyní" pro načtení z IMAP schránky.</span>
     </td>

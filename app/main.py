@@ -255,6 +255,16 @@ def _migrate_email_log_name_normalized():
             conn.commit()
 
 
+def _migrate_bounce_smtp_profile():
+    """Přidat smtp_profile_name do email_bounces."""
+    with engine.connect() as conn:
+        cols = [r[1] for r in conn.execute(text("PRAGMA table_info('email_bounces')")).fetchall()]
+        if "smtp_profile_name" not in cols:
+            conn.execute(text("ALTER TABLE email_bounces ADD COLUMN smtp_profile_name VARCHAR(100)"))
+            conn.commit()
+            logger.info("Added smtp_profile_name to email_bounces")
+
+
 def _ensure_indexes():
     """Create indexes defined in models that may be missing on existing tables."""
     _INDEXES = [
@@ -1202,6 +1212,7 @@ _ALL_MIGRATIONS = [
     ("water email template v2", _migrate_water_email_template_v2),
     ("water email template v3", _migrate_water_email_template_v3),
     ("water email template v4", _migrate_water_email_template_v4),
+    ("bounce smtp_profile_name", _migrate_bounce_smtp_profile),
     ("index creation", _ensure_indexes),
     ("code list seeding", _seed_code_lists),
     ("email template seeding", _seed_email_templates),

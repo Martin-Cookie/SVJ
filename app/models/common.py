@@ -37,6 +37,7 @@ class EmailBounce(Base):
     bounced_at = Column(DateTime, nullable=True, index=True)
     imap_uid = Column(String(50), nullable=True, index=True)
     imap_message_id = Column(String(300), nullable=True, index=True)
+    smtp_profile_name = Column(String(100), nullable=True)
     created_at = Column(DateTime, default=utcnow, index=True)
 
     owner = relationship("Owner", lazy="joined")
