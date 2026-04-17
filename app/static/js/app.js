@@ -695,7 +695,7 @@ function toggleEmailSelect(checkbox, sessionId, distId, email, key) {
     form.append('email', email);
     form.append('checked', checked ? 'true' : 'false');
     checkbox.disabled = true;
-    fetch('/dane/' + sessionId + '/rozeslat/email-vyber/' + distId, {
+    fetch('/rozesilani/' + sessionId + '/rozeslat/email-vyber/' + distId, {
         method: 'POST',
         body: form,
         headers: {'HX-Request': 'true'}

@@ -1,7 +1,8 @@
+{% set _email_module_labels = {"water_notice": "Odečty vodoměrů", "payment_notice": "Upozornění platby", "tax": "Rozesílání", "voting": "Hlasování", "dane": "Rozesílání", "sync": "Kontroly"} %}
 {% for email in email_logs %}
 <tr class="hover:bg-gray-50">
     <td class="px-3 py-1.5 text-xs text-gray-500 whitespace-nowrap">{{ email.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
-    <td class="px-3 py-1.5 text-xs text-gray-500">{{ email.module }}</td>
+    <td class="px-3 py-1.5 text-xs text-gray-500">{{ _email_module_labels.get(email.module, email.module) }}</td>
     <td class="px-3 py-1.5 text-xs overflow-hidden" style="text-overflow:ellipsis;white-space:nowrap" title="{{ email.recipient_name or '' }} <{{ email.recipient_email }}>">
         {% set oid = owner_by_email.get((email.recipient_email or '').lower()) %}
         {% if oid %}

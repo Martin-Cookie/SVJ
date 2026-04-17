@@ -23,7 +23,7 @@ from app.models import (
     SmtpProfile, SvjInfo, Unit, WaterMeter, MeterType,
     log_activity,
 )
-from app.utils import build_list_url, compute_eta, render_email_template, templates, utcnow
+from app.utils import build_list_url, compute_eta, get_invalid_emails, render_email_template, templates, utcnow
 
 from ._helpers import compute_consumption, compute_deviations
 
@@ -567,6 +567,8 @@ async def send_preview(request: Request, db: Session = Depends(get_db)):
         .all()
     )
 
+    has_tv = any(r["spotreba_tv"] > 0 or r["odchylka_tv"] is not None for r in all_recipients)
+
     ctx = {
         "active_nav": "water_meters",
         "recipients": recipients,
@@ -575,6 +577,7 @@ async def send_preview(request: Request, db: Session = Depends(get_db)):
         "total_recipients": len(all_recipients),
         "with_email": len(all_sendable),
         "without_email": len(all_recipients) - len(all_sendable),
+        "has_tv": has_tv,
         "smtp_profiles": smtp_profiles,
         "svj": svj,
         "template": template,
@@ -713,14 +716,7 @@ async def start_batch_send(
     all_recipients = _build_recipients(db)
 
     # Cache invalid emails
-    invalid_emails = set()
-    for o in db.query(Owner).filter(Owner.email_invalid == True).all():  # noqa: E712
-        for field in (o.email, o.email_secondary):
-            if field:
-                for e in field.replace(",", ";").split(";"):
-                    e = e.strip().lower()
-                    if e:
-                        invalid_emails.add(e)
+    invalid_emails = get_invalid_emails(db)
 
     recipients = []
     for r in all_recipients:

@@ -98,7 +98,7 @@ Projdi 9 klíčových stránek přes Playwright (`browser_navigate` + `browser_s
 | 2 | `/vlastnici` | Seznam vlastníků, tabulka s řádky (nebo prázdný stav) |
 | 3 | `/jednotky` | Seznam jednotek, tabulka nebo prázdný stav |
 | 4 | `/hlasovani` | Seznam hlasování |
-| 5 | `/dane` | Daňové sestavy |
+| 5 | `/rozesilani` | Daňové sestavy |
 | 6 | `/synchronizace` | Synchronizace — taby viditelné |
 | 7 | `/sprava` | Správa — karty/sekce |
 | 8 | `/nastaveni` | Nastavení — formuláře/sekce |

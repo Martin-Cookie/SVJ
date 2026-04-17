@@ -29,7 +29,7 @@ def test_owners_package_routes(client):
     "/najemci",
     "/prostory",
     "/hlasovani",
-    "/dane",
+    "/rozesilani",
     "/platby",
     "/platby/predpisy",
     "/platby/symboly",

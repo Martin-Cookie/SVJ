@@ -56,7 +56,7 @@ Testováno 62 GET rout bez path parametrů:
 | 2 | `/vlastnici` | ✅ | 453 vlastníků, tabulka s řádky |
 | 3 | `/jednotky` | ✅ | 508 jednotek |
 | 4 | `/hlasovani` | ✅ | Seznam hlasování |
-| 5 | `/dane` | ✅ | Hromadné rozesílání |
+| 5 | `/rozesilani` | ✅ | Hromadné rozesílání |
 | 6 | `/synchronizace` | ✅ | Kontroly — sessions viditelné |
 | 7 | `/sprava` | ✅ | Administrace — sekce viditelné |
 | 8 | `/nastaveni` | ✅ | Nastavení — formuláře |
@@ -88,7 +88,7 @@ Testováno 62 GET rout bez path parametrů:
 | 2 | `/vlastnici` | 0 | 1 |
 | 3 | `/jednotky` | 0 | 1 |
 | 4 | `/hlasovani` | 0 | 1 |
-| 5 | `/dane` | 0 | 1 |
+| 5 | `/rozesilani` | 0 | 1 |
 | 6 | `/synchronizace` | 0 | 1 |
 | 7 | `/sprava` | 0 | 1 |
 | 8 | `/nastaveni` | 0 | 1 |

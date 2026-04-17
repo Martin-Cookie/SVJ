@@ -35,7 +35,7 @@ async def confirm_match(
 
     if request.headers.get("HX-Request"):
         return _reload_doc_row(dist.document_id, session_id, request, db)
-    return RedirectResponse(f"/dane/{session_id}", status_code=302)
+    return RedirectResponse(f"/rozesilani/{session_id}", status_code=302)
 
 
 @router.post("/{session_id}/prirazeni/{doc_id}")
@@ -49,7 +49,7 @@ async def manual_assign(
     """Ruční přiřazení dokumentu k vlastníkovi."""
     doc = db.query(TaxDocument).get(doc_id)
     if not doc:
-        return RedirectResponse(f"/dane/{session_id}", status_code=302)
+        return RedirectResponse(f"/rozesilani/{session_id}", status_code=302)
 
     session = db.query(TaxSession).get(session_id)
 
@@ -74,7 +74,7 @@ async def manual_assign(
 
     if request and request.headers.get("HX-Request"):
         return _reload_doc_row(doc_id, session_id, request, db)
-    return RedirectResponse(f"/dane/{session_id}", status_code=302)
+    return RedirectResponse(f"/rozesilani/{session_id}", status_code=302)
 
 
 @router.post("/{session_id}/potvrdit-vse")
@@ -95,13 +95,13 @@ async def confirm_all(
 
     # Preserve scroll position via referer or hash
     referer = request.headers.get("referer", "")
-    if referer and f"/dane/{session_id}" in referer:
+    if referer and f"/rozesilani/{session_id}" in referer:
         parsed = urlparse(referer)
         redirect_url = parsed.path
         if parsed.query:
             redirect_url += "?" + parsed.query
         return RedirectResponse(redirect_url, status_code=302)
-    return RedirectResponse(f"/dane/{session_id}", status_code=302)
+    return RedirectResponse(f"/rozesilani/{session_id}", status_code=302)
 
 
 @router.post("/{session_id}/potvrdit-vybrane")
@@ -124,13 +124,13 @@ async def confirm_selected(
 
     # Preserve scroll position via referer
     referer = request.headers.get("referer", "")
-    if referer and f"/dane/{session_id}" in referer:
+    if referer and f"/rozesilani/{session_id}" in referer:
         parsed = urlparse(referer)
         redirect_url = parsed.path
         if parsed.query:
             redirect_url += "?" + parsed.query
         return RedirectResponse(redirect_url, status_code=302)
-    return RedirectResponse(f"/dane/{session_id}", status_code=302)
+    return RedirectResponse(f"/rozesilani/{session_id}", status_code=302)
 
 
 @router.post("/{session_id}/odebrat/{dist_id}")
@@ -143,7 +143,7 @@ async def remove_distribution(
     """Remove one owner from a document. If no distributions remain, create UNMATCHED."""
     dist = db.query(TaxDistribution).get(dist_id)
     if not dist:
-        return RedirectResponse(f"/dane/{session_id}", status_code=302)
+        return RedirectResponse(f"/rozesilani/{session_id}", status_code=302)
 
     doc_id = dist.document_id
     db.delete(dist)
@@ -164,7 +164,7 @@ async def remove_distribution(
 
     if request.headers.get("HX-Request"):
         return _reload_doc_row(doc_id, session_id, request, db)
-    return RedirectResponse(f"/dane/{session_id}", status_code=302)
+    return RedirectResponse(f"/rozesilani/{session_id}", status_code=302)
 
 
 @router.post("/{session_id}/pridat-externi/{doc_id}")
@@ -179,7 +179,7 @@ async def add_external_recipient(
     """Add an ad-hoc external recipient to a document."""
     doc = db.query(TaxDocument).get(doc_id)
     if not doc:
-        return RedirectResponse(f"/dane/{session_id}", status_code=302)
+        return RedirectResponse(f"/rozesilani/{session_id}", status_code=302)
 
     # Remove UNMATCHED placeholder if present
     db.query(TaxDistribution).filter(
@@ -200,4 +200,4 @@ async def add_external_recipient(
 
     if request and request.headers.get("HX-Request"):
         return _reload_doc_row(doc_id, session_id, request, db)
-    return RedirectResponse(f"/dane/{session_id}", status_code=302)
+    return RedirectResponse(f"/rozesilani/{session_id}", status_code=302)

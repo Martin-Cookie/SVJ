@@ -135,7 +135,7 @@ def _resolve_references(db: Session, items: list[EmailBounce]) -> dict:
             label = s.title
             if s.year:
                 label = f"{s.title} ({s.year})"
-            out[("tax", s.id)] = {"name": label, "url": f"/dane/{s.id}"}
+            out[("tax", s.id)] = {"name": label, "url": f"/rozesilani/{s.id}"}
     if stmt_ids:
         for st in db.query(BankStatement).filter(BankStatement.id.in_(stmt_ids)).all():
             if st.period_from and st.period_to:

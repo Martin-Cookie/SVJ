@@ -269,6 +269,8 @@ async def water_meters_export(
             round(deviation, 1) if deviation is not None else "",
         ])
 
+    date_suffix = f"_{date.today().strftime('%Y%m%d')}"
+
     if fmt == "csv":
         import csv
         output = io.StringIO()
@@ -280,7 +282,7 @@ async def water_meters_export(
         return StreamingResponse(
             io.BytesIO(content),
             media_type="text/csv; charset=utf-8",
-            headers={"Content-Disposition": f'attachment; filename="vodometry{suffix}.csv"'},
+            headers={"Content-Disposition": f'attachment; filename="vodometry{suffix}{date_suffix}.csv"'},
         )
 
     # xlsx
@@ -298,7 +300,7 @@ async def water_meters_export(
     return StreamingResponse(
         buf,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f'attachment; filename="vodometry{suffix}.xlsx"'},
+        headers={"Content-Disposition": f'attachment; filename="vodometry{suffix}{date_suffix}.xlsx"'},
     )
 
 

@@ -181,7 +181,7 @@ def _reload_doc_row(doc_id: int, session_id: int, request: Request, db: Session)
         if parsed.query:
             list_url += "?" + parsed.query
     else:
-        list_url = f"/dane/{session_id}"
+        list_url = f"/rozesilani/{session_id}"
 
     # Unit lookup for clickable unit links
     unit_by_number = _unit_by_number(db)

@@ -124,7 +124,7 @@
         {% endif %}
     </div>
     <div class="min-w-0 block bg-white rounded-lg shadow p-3 hover:shadow-md transition-shadow">
-        <a href="/dane?back=/" class="flex items-center">
+        <a href="/rozesilani?back=/" class="flex items-center">
             <div class="p-2 bg-emerald-100 rounded-lg">
                 <svg aria-hidden="true" class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z"/>
@@ -141,7 +141,7 @@
             {% for status in ['sending', 'paused', 'ready', 'draft', 'completed'] %}
             {% if status in tax_by_status %}
             {% set info = tax_by_status[status] %}
-            <a href="/dane/{{ info.latest.id }}?back=/" class="flex items-center gap-1 text-xs hover:bg-gray-50 rounded -mx-1 px-1" onclick="event.stopPropagation()">
+            <a href="/rozesilani/{{ info.latest.id }}?back=/" class="flex items-center gap-1 text-xs hover:bg-gray-50 rounded -mx-1 px-1" onclick="event.stopPropagation()">
                 <span class="shrink-0 px-1 py-0.5 font-medium {{ ts_map[status].bg }} rounded-full text-xs leading-none">{{ info.count }} {{ ts_map[status].label }}</span>
                 <span class="text-gray-500 truncate" title="{{ info.latest.title }}">&rarr; {{ info.latest.title }}</span>
                 {% if info.total_dists > 0 %}

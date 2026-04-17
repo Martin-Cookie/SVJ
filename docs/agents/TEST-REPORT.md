@@ -42,7 +42,7 @@
 | 2 | `/vlastnici` | ✅ | 447 vlastníků, tabulka s řádky, filtry, bubliny |
 | 3 | `/jednotky` | ✅ | 508 jednotek, tabulka |
 | 4 | `/hlasovani` | ✅ | Seznam hlasování |
-| 5 | `/dane` | ✅ | Hromadné rozesílání — 3 sessions |
+| 5 | `/rozesilani` | ✅ | Hromadné rozesílání — 3 sessions |
 | 6 | `/synchronizace` | ✅ | Taby "Kontrola vlastníků" + "Kontrola podílů" |
 | 7 | `/sprava` | ✅ | Administrace — karty/sekce |
 | 8 | `/nastaveni` | ✅ | Nastavení |

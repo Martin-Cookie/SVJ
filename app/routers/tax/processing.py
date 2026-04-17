@@ -349,12 +349,12 @@ async def tax_processing(
         progress = _processing_progress.get(session_id)
         if not progress or progress.get("done"):
             _processing_progress.pop(session_id, None)
-            return RedirectResponse(f"/dane/{session_id}", status_code=302)
+            return RedirectResponse(f"/rozesilani/{session_id}", status_code=302)
         progress = dict(progress)  # snapshot under lock
 
     session = db.query(TaxSession).get(session_id)
     if not session:
-        return RedirectResponse("/dane", status_code=302)
+        return RedirectResponse("/rozesilani", status_code=302)
 
     return templates.TemplateResponse(request, "tax/processing.html", {
         "active_nav": "tax",
@@ -372,7 +372,7 @@ async def tax_processing_status(session_id: int, request: Request):
         progress = _processing_progress.get(session_id)
         if not progress:
             response = HTMLResponse("")
-            response.headers["HX-Redirect"] = f"/dane/{session_id}"
+            response.headers["HX-Redirect"] = f"/rozesilani/{session_id}"
             return response
         if progress.get("done"):
             error = progress.get("error")
@@ -386,7 +386,7 @@ async def tax_processing_status(session_id: int, request: Request):
                 })
             _processing_progress.pop(session_id, None)
             response = HTMLResponse("")
-            response.headers["HX-Redirect"] = f"/dane/{session_id}"
+            response.headers["HX-Redirect"] = f"/rozesilani/{session_id}"
             return response
         progress = dict(progress)  # snapshot under lock
 
@@ -604,10 +604,10 @@ def tax_recompute_scores(
     Pokud reparse=1, znovu extrahuje jména z PDF souborů."""
     session = db.query(TaxSession).get(session_id)
     if not session:
-        return RedirectResponse("/dane", status_code=302)
+        return RedirectResponse("/rozesilani", status_code=302)
     if session.send_status in (SendStatus.READY, SendStatus.SENDING,
                                 SendStatus.PAUSED, SendStatus.COMPLETED):
-        return RedirectResponse(f"/dane/{session_id}?flash=locked", status_code=302)
+        return RedirectResponse(f"/rozesilani/{session_id}?flash=locked", status_code=302)
 
     reparse_pdfs = reparse == "1"
 
@@ -630,7 +630,7 @@ def tax_recompute_scores(
     t.start()
 
     return RedirectResponse(
-        f"/dane/{session_id}/prepocitavani", status_code=302
+        f"/rozesilani/{session_id}/prepocitavani", status_code=302
     )
 
 
@@ -651,7 +651,7 @@ async def tax_recompute_progress_page(
             newly = result.get("newly", 0)
             reparsed = result.get("reparsed", 0)
             return RedirectResponse(
-                f"/dane/{session_id}?flash=prematched&n={n}"
+                f"/rozesilani/{session_id}?flash=prematched&n={n}"
                 f"&reassigned={reassigned}&newly={newly}&reparsed={reparsed}",
                 status_code=302,
             )
@@ -659,7 +659,7 @@ async def tax_recompute_progress_page(
 
     session = db.query(TaxSession).get(session_id)
     if not session:
-        return RedirectResponse("/dane", status_code=302)
+        return RedirectResponse("/rozesilani", status_code=302)
 
     phase = progress.get("phase", "matching")
     if phase == "reparse":
@@ -691,7 +691,7 @@ async def tax_recompute_progress_status(session_id: int, request: Request):
         progress = _recompute_progress.get(session_id)
         if not progress:
             response = HTMLResponse("")
-            response.headers["HX-Redirect"] = f"/dane/{session_id}"
+            response.headers["HX-Redirect"] = f"/rozesilani/{session_id}"
             return response
         if progress.get("done"):
             error = progress.get("error")
@@ -714,7 +714,7 @@ async def tax_recompute_progress_status(session_id: int, request: Request):
             reparsed = result.get("reparsed", 0)
             response = HTMLResponse("")
             response.headers["HX-Redirect"] = (
-                f"/dane/{session_id}?flash=prematched&n={n}"
+                f"/rozesilani/{session_id}?flash=prematched&n={n}"
                 f"&reassigned={reassigned}&newly={newly}&reparsed={reparsed}"
             )
             return response

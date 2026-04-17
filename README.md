@@ -190,7 +190,7 @@ python3 -m pytest tests/ -q --tb=short  # stručný výstup
   - Detekce nerozpoznaných hodnot: řádky s vyplněnými buňkami, které neodpovídají pravidlům PRO/PROTI, se zobrazí v oranžové bublině „Nerozpoznáno" se surovými hodnotami
   - Výsledek s prokliky na zpracované/nezpracované lístky
 
-### D. Hromadné rozesílání (`/dane`)
+### D. Hromadné rozesílání (`/rozesilani`)
 
 - Nahrání daňových PDF dokumentů (jednotlivě nebo celý adresář) s progress barem:
   - Upload progress bar (XMLHttpRequest s upload.onprogress) — okamžitá zpětná vazba při nahrávání stovek souborů
@@ -232,7 +232,7 @@ python3 -m pytest tests/ -q --tb=short  # stručný výstup
   - „Nahrát další PDF" — obrysové tlačítko na stránce přiřazení pro doplnění/přepsání dokumentů
   - Re-import: volba režimu „Doplnit k existujícím" / „Přepsat stávající" (smaže staré PDF + přiřazení)
   - Read-only mód: skryté checkboxy, assign dropdown, potvrdit/odebrat tlačítka, externí formulář; viditelné statusové štítky (Potvrzeno/Nepřiřazeno/Nepotvrzeno)
-- Rozesílka (`/dane/{id}/rozeslat`):
+- Rozesílka (`/rozesilani/{id}/rozeslat`):
   - Stat karty jako filtry (celkem, s emailem, čekající, odesláno, chyba, bez emailu) — HTMX partial swap, scroll pozice při návratu z detailu
   - Bublina „Bez emailu" (oranžová) — filtruje příjemce bez nastavené emailové adresy
   - Duální email: vlastníci se dvěma emaily (primární + sekundární) mají checkboxy pro výběr kam poslat; HTMX toggle s propagací na sibling distribuce
@@ -524,7 +524,7 @@ app/
 │   │   ├── ballots.py         #   Seznam lístků, zpracování, neodevzdané
 │   │   ├── import_votes.py    #   Import výsledků z Excelu
 │   │   └── _helpers.py        #   _voting_wizard, _ballot_stats
-│   ├── tax/                   #   /dane (session, processing, matching, sending, _helpers)
+│   ├── tax/                   #   /rozesilani (session, processing, matching, sending, _helpers)
 │   │   ├── __init__.py
 │   │   ├── session.py         #   CRUD, detail, export
 │   │   ├── processing.py      #   PDF zpracování, progress
@@ -864,43 +864,43 @@ wheels/                        # Offline Python balíčky (gitignored)
 | GET | `/hlasovani/{id}/neodevzdane/exportovat` | Export neodevzdaných lístků do Excelu |
 | GET | `/hlasovani/{id}/exportovat` | Export do Excelu |
 
-### Hromadné rozesílání (`/dane`)
+### Hromadné rozesílání (`/rozesilani`)
 
 | Metoda | Cesta | Popis |
 |--------|-------|-------|
-| GET | `/dane` | Seznam rozesílání |
-| GET | `/dane/nova` | Formulář nového rozesílání |
-| POST | `/dane/nova` | Nahrání PDF + spuštění zpracování na pozadí → redirect na progress |
-| GET | `/dane/{id}/zpracovani` | Stránka s progress barem zpracování PDF |
-| GET | `/dane/{id}/zpracovani-stav` | HTMX polling: aktuální stav zpracování (nebo HX-Redirect po dokončení) |
-| GET | `/dane/{id}` | Detail s párováním dokumentů (stat karty, checkboxy) |
-| POST | `/dane/{id}/prejmenovat` | Přejmenování relace (HTMX inline editace) |
-| POST | `/dane/{id}/potvrdit/{dist_id}` | Potvrzení automatického párování |
-| POST | `/dane/{id}/prirazeni/{doc_id}` | Ruční přiřazení dokumentu (+ spoluvlastníci) |
-| POST | `/dane/{id}/potvrdit-vse` | Potvrzení všech automaticky přiřazených |
-| POST | `/dane/{id}/potvrdit-vybrane` | Potvrzení vybraných (z checkboxů) |
-| POST | `/dane/{id}/odebrat/{dist_id}` | Odebrání vlastníka z dokumentu |
-| POST | `/dane/{id}/pridat-externi/{doc_id}` | Přidání externího příjemce (jméno + email) |
-| POST | `/dane/{id}/dokoncit` | Uzamknutí relace (read-only mód) |
-| POST | `/dane/{id}/znovu-otevrit` | Odemknutí relace pro další úpravy |
-| POST | `/dane/{id}/prepocitat-skore` | Přepočet `match_confidence` u AUTO_MATCHED dokumentů aktuálním matcherem (jen navýšení, nikdy nesníží) |
-| GET | `/dane/{id}/upload` | Formulář pro nahrání dalších PDF (append/overwrite) |
-| POST | `/dane/{id}/upload` | Nahrání dalších PDF + zpracování na pozadí |
-| POST | `/dane/{id}/smazat` | Smazání relace (session + dokumenty + soubory) |
-| GET | `/dane/{id}/rozeslat` | Rozesílka — preview příjemců (search, sort) |
-| GET | `/dane/{id}/dokument/{doc_id}` | Náhled/stažení dokumentu |
-| POST | `/dane/{id}/rozeslat/odeslat` | Spuštění odesílání emailů |
-| GET | `/dane/{id}/rozeslat/prubeh` | Stránka průběhu odesílání |
-| GET | `/dane/{id}/rozeslat/prubeh-stav` | HTMX: polling stavu odesílání |
-| POST | `/dane/{id}/rozeslat/pozastavit` | Pozastavení odesílání |
-| POST | `/dane/{id}/rozeslat/pokracovat` | Pokračování v odesílání |
-| POST | `/dane/{id}/rozeslat/zrusit` | Zrušení odesílání |
-| POST | `/dane/{id}/rozeslat/retry` | Opakování neúspěšných |
-| POST | `/dane/{id}/rozeslat/test` | Odeslání testovacího emailu |
-| POST | `/dane/{id}/rozeslat/nastaveni` | Uložení nastavení odesílání |
-| POST | `/dane/{id}/rozeslat/email/{dist_id}` | Úprava emailu příjemce |
-| POST | `/dane/{id}/rozeslat/email-vyber/{dist_id}` | Toggle email checkboxu (duální email) |
-| GET | `/dane/{id}/exportovat` | Export do Excelu |
+| GET | `/rozesilani` | Seznam rozesílání |
+| GET | `/rozesilani/nova` | Formulář nového rozesílání |
+| POST | `/rozesilani/nova` | Nahrání PDF + spuštění zpracování na pozadí → redirect na progress |
+| GET | `/rozesilani/{id}/zpracovani` | Stránka s progress barem zpracování PDF |
+| GET | `/rozesilani/{id}/zpracovani-stav` | HTMX polling: aktuální stav zpracování (nebo HX-Redirect po dokončení) |
+| GET | `/rozesilani/{id}` | Detail s párováním dokumentů (stat karty, checkboxy) |
+| POST | `/rozesilani/{id}/prejmenovat` | Přejmenování relace (HTMX inline editace) |
+| POST | `/rozesilani/{id}/potvrdit/{dist_id}` | Potvrzení automatického párování |
+| POST | `/rozesilani/{id}/prirazeni/{doc_id}` | Ruční přiřazení dokumentu (+ spoluvlastníci) |
+| POST | `/rozesilani/{id}/potvrdit-vse` | Potvrzení všech automaticky přiřazených |
+| POST | `/rozesilani/{id}/potvrdit-vybrane` | Potvrzení vybraných (z checkboxů) |
+| POST | `/rozesilani/{id}/odebrat/{dist_id}` | Odebrání vlastníka z dokumentu |
+| POST | `/rozesilani/{id}/pridat-externi/{doc_id}` | Přidání externího příjemce (jméno + email) |
+| POST | `/rozesilani/{id}/dokoncit` | Uzamknutí relace (read-only mód) |
+| POST | `/rozesilani/{id}/znovu-otevrit` | Odemknutí relace pro další úpravy |
+| POST | `/rozesilani/{id}/prepocitat-skore` | Přepočet `match_confidence` u AUTO_MATCHED dokumentů aktuálním matcherem (jen navýšení, nikdy nesníží) |
+| GET | `/rozesilani/{id}/upload` | Formulář pro nahrání dalších PDF (append/overwrite) |
+| POST | `/rozesilani/{id}/upload` | Nahrání dalších PDF + zpracování na pozadí |
+| POST | `/rozesilani/{id}/smazat` | Smazání relace (session + dokumenty + soubory) |
+| GET | `/rozesilani/{id}/rozeslat` | Rozesílka — preview příjemců (search, sort) |
+| GET | `/rozesilani/{id}/dokument/{doc_id}` | Náhled/stažení dokumentu |
+| POST | `/rozesilani/{id}/rozeslat/odeslat` | Spuštění odesílání emailů |
+| GET | `/rozesilani/{id}/rozeslat/prubeh` | Stránka průběhu odesílání |
+| GET | `/rozesilani/{id}/rozeslat/prubeh-stav` | HTMX: polling stavu odesílání |
+| POST | `/rozesilani/{id}/rozeslat/pozastavit` | Pozastavení odesílání |
+| POST | `/rozesilani/{id}/rozeslat/pokracovat` | Pokračování v odesílání |
+| POST | `/rozesilani/{id}/rozeslat/zrusit` | Zrušení odesílání |
+| POST | `/rozesilani/{id}/rozeslat/retry` | Opakování neúspěšných |
+| POST | `/rozesilani/{id}/rozeslat/test` | Odeslání testovacího emailu |
+| POST | `/rozesilani/{id}/rozeslat/nastaveni` | Uložení nastavení odesílání |
+| POST | `/rozesilani/{id}/rozeslat/email/{dist_id}` | Úprava emailu příjemce |
+| POST | `/rozesilani/{id}/rozeslat/email-vyber/{dist_id}` | Toggle email checkboxu (duální email) |
+| GET | `/rozesilani/{id}/exportovat` | Export do Excelu |
 
 ### Nedoručené emaily — bounces (`/rozesilani/bounces`)
 
@@ -1347,7 +1347,7 @@ Zbývající nálezy z druhého auditu: autentizace (plánováno), CSRF ochrana,
 Zbývající z 9. auditu (vyžaduje rozhodnutí nebo odloženo): Business Logic — 4 kritické nálezy (OwnerUnit.votes Int vs Float podíl, SJM první import, hardcoded VS_PREFIX, přeplatky v nesrovnalostech), `administration/duplicates.html` layout (karty ponechány), autentizace + CSRF.
 
 **Doplněk — /hlasovani sjednocení bublin+sort (1 oprava):**
-`voting/index.html` byl v 9. auditu přehlédnutý — měl bubliny a Řadit: jako dva samostatné bloky s nekanonickým `rounded-full` stylem. Sjednoceno na kanonický vzor: shared `bg-white` container s `border-t` separátorem mezi bublinami a sort pills (stejně jako /dane, /vlastnici, /jednotky a 6 dalších stránek).
+`voting/index.html` byl v 9. auditu přehlédnutý — měl bubliny a Řadit: jako dva samostatné bloky s nekanonickým `rounded-full` stylem. Sjednoceno na kanonický vzor: shared `bg-white` container s `border-t` separátorem mezi bublinami a sort pills (stejně jako /rozesilani, /vlastnici, /jednotky a 6 dalších stránek).
 
 **Doplněk — /platby/vypisy, vypis_detail, nesrovnalosti (3 opravy):**
 Tři stránky v modulu Platby měly starý `rounded-full bg-blue-600 text-white` styl bublin s shadow a bubliny mimo shared container. Sjednoceno na kanonický plochý vzor (`rounded border bg-{color}-100 border-{color}-300 ring-2`) v shared containeru. Tím je 9. audit kompletně uzavřen.
@@ -1445,11 +1445,11 @@ Projekt prošel UX analýzou klíčových modulů (6 expertních perspektiv: UX 
 
 *Nový modul — nedoručené emaily (`/rozesilani/bounces`):* IMAP kontrola bounce zpráv (RFC 3464), automatické označení `Owner.email_invalid=True` u hard bounces (5.x.x), vyloučení neplatných adres z budoucích rozesílek. Deduplikace přes `imap_uid`, filtry typ/modul, export Excel/CSV. Nová šablona `bounces/index.html` + `bounces/_table.html`, router `app/routers/bounces.py`, service `app/services/bounce_service.py`. UI badge `⚠ neplatný` v kontaktech vlastníka, `⚠ skrytý` v dist list v rozesílce.
 
-*UX sjednocení s kanonickým vzorem `/vlastnici` (8 stránek):* stat-card bubliny + HTMX search ve sdíleném `bg-white rounded-lg shadow` kontejneru s `border-t` separátorem, `<a href>` sort odkazy místo `onclick`, hidden inputy pro HTMX state propagation. Stránky: `/platby/dluznici`, `/platby/prehled`, `/platby/vyuctovani`, `/platby/symboly`, `/platby/zustatky`, `/dane`, `/rozesilani/bounces`, nedoručené hlasovací lístky (už přes partial). Bounces stránka dostala stejný layout hned při vzniku.
+*UX sjednocení s kanonickým vzorem `/vlastnici` (8 stránek):* stat-card bubliny + HTMX search ve sdíleném `bg-white rounded-lg shadow` kontejneru s `border-t` separátorem, `<a href>` sort odkazy místo `onclick`, hidden inputy pro HTMX state propagation. Stránky: `/platby/dluznici`, `/platby/prehled`, `/platby/vyuctovani`, `/platby/symboly`, `/platby/zustatky`, `/rozesilani`, `/rozesilani/bounces`, nedoručené hlasovací lístky (už přes partial). Bounces stránka dostala stejný layout hned při vzniku.
 
 *Revert vypisy_list designu:* experimentální přepis řádků v `/platby/vypisy` odmítnut, návrat k původní verzi (commit `47f1983`).
 
-*Fuzzy matcher — rozšířené tituly + rematch endpoint:* `owner_matcher.py` nově rozpoznává `arch.` (z `Ing.arch.`) a dotted `M.B.A.` formu — tyto konstrukce dříve zůstávaly jako tokeny a snižovaly confidence na 0.8. Přidán endpoint `POST /dane/{id}/prepocitat-skore` s tlačítkem „Přepočítat skóre" v hlavičce kroku 2 — bezpečně přepočítá `match_confidence` u AUTO_MATCHED dokumentů aktuálním matcherem, aktualizuje jen tam, kde by nové skóre bylo vyšší (nikdy nesnižuje). Řeší zamrzlá stará skóre u sezení vytvořených před opravou matcheru.
+*Fuzzy matcher — rozšířené tituly + rematch endpoint:* `owner_matcher.py` nově rozpoznává `arch.` (z `Ing.arch.`) a dotted `M.B.A.` formu — tyto konstrukce dříve zůstávaly jako tokeny a snižovaly confidence na 0.8. Přidán endpoint `POST /rozesilani/{id}/prepocitat-skore` s tlačítkem „Přepočítat skóre" v hlavičce kroku 2 — bezpečně přepočítá `match_confidence` u AUTO_MATCHED dokumentů aktuálním matcherem, aktualizuje jen tam, kde by nové skóre bylo vyšší (nikdy nesnižuje). Řeší zamrzlá stará skóre u sezení vytvořených před opravou matcheru.
 
 ## Dokumentace business logiky
 

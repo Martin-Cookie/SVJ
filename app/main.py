@@ -2,7 +2,8 @@ import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
@@ -1379,7 +1380,21 @@ app.include_router(dashboard.router)
 app.include_router(owners.router, prefix="/vlastnici", tags=["Vlastníci"])
 app.include_router(units.router, prefix="/jednotky", tags=["Jednotky"])
 app.include_router(voting.router, prefix="/hlasovani", tags=["Hlasování"])
-app.include_router(tax.router, prefix="/dane", tags=["Daně"])
+app.include_router(bounces.router, tags=["Nedoručené emaily"])
+app.include_router(tax.router, prefix="/rozesilani", tags=["Rozesílání"])
+
+
+# Redirect /dane → /rozesilani (zpětná kompatibilita)
+@app.get("/dane/{path:path}", include_in_schema=False)
+@app.get("/dane", include_in_schema=False)
+async def dane_redirect(request: Request, path: str = ""):
+    qs = str(request.query_params)
+    target = f"/rozesilani/{path}" if path else "/rozesilani"
+    if qs:
+        target += f"?{qs}"
+    return RedirectResponse(target, status_code=301)
+
+
 app.include_router(sync.router, prefix="/synchronizace", tags=["Synchronizace"])
 app.include_router(share_check.router, prefix="/kontrola-podilu", tags=["Kontrola podílu"])
 app.include_router(administration.router, prefix="/sprava", tags=["Administrace"])
@@ -1388,4 +1403,3 @@ app.include_router(payments.router, prefix="/platby", tags=["Platby"])
 app.include_router(spaces.router, prefix="/prostory", tags=["Prostory"])
 app.include_router(tenants.router, prefix="/najemci", tags=["Nájemci"])
 app.include_router(water_meters.router, prefix="/vodometry", tags=["Vodoměry"])
-app.include_router(bounces.router, tags=["Nedoručené emaily"])

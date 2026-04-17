@@ -2,7 +2,7 @@
 {% block title %}Nahrát další PDF - {{ session.title }}{% endblock %}
 
 {% block content %}
-<a href="{{ back_url|default('/dane') }}" class="text-sm text-blue-600 hover:text-blue-800">&larr; Zpět na přiřazení</a>
+<a href="{{ back_url|default('/rozesilani') }}" class="text-sm text-blue-600 hover:text-blue-800">&larr; Zpět na přiřazení</a>
 
 {% if wizard_steps is defined and wizard_steps %}
 <div class="mt-2">
@@ -19,14 +19,14 @@
         <button id="submit-btn" type="button" onclick="startUpload()" class="hidden px-3 py-1.5 text-sm font-medium text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors">
             Nahrát a zpracovat
         </button>
-        <a href="{{ back_url|default('/dane/' ~ session.id) }}" class="px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm font-medium">
+        <a href="{{ back_url|default('/rozesilani/' ~ session.id) }}" class="px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm font-medium">
             Zrušit
         </a>
     </div>
 </div>
 
 <div class="bg-white rounded-lg shadow p-6 max-w-2xl">
-    <form id="upload-form" action="/dane/{{ session.id }}/upload" method="post" enctype="multipart/form-data" hx-boost="false">
+    <form id="upload-form" action="/rozesilani/{{ session.id }}/upload" method="post" enctype="multipart/form-data" hx-boost="false">
         <div class="space-y-4">
             {% if has_documents %}
             <div>

@@ -157,6 +157,20 @@ def is_valid_email(email: str) -> bool:
     return bool(_EMAIL_RE.match(email))
 
 
+def get_invalid_emails(db) -> set:
+    """Načte všechny emailové adresy vlastníků označených jako email_invalid (hard bounce)."""
+    from app.models import Owner
+    invalid = set()
+    for o in db.query(Owner).filter(Owner.email_invalid == True).all():  # noqa: E712
+        for field in (o.email, o.email_secondary):
+            if field:
+                for e in field.replace(",", ";").split(";"):
+                    e = e.strip().lower()
+                    if e:
+                        invalid.add(e)
+    return invalid
+
+
 def setup_jinja_filters(templates):
     """Register custom Jinja2 filters on a Jinja2Templates instance."""
     templates.env.filters["fmt_num"] = fmt_num

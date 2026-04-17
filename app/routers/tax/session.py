@@ -205,13 +205,13 @@ async def tax_create(
     pdf_files = [f for f in files if f.filename and f.filename.lower().endswith(".pdf")]
     if not pdf_files:
         return RedirectResponse(
-            f"/dane/nova?chyba={quote('Nebyly nalezeny žádné PDF soubory. Zkontrolujte, zda vybraný adresář obsahuje soubory s příponou .pdf.')}",
+            f"/rozesilani/nova?chyba={quote('Nebyly nalezeny žádné PDF soubory. Zkontrolujte, zda vybraný adresář obsahuje soubory s příponou .pdf.')}",
             status_code=302,
         )
 
     err = await validate_uploads(pdf_files, **UPLOAD_LIMITS["pdf"])
     if err:
-        return RedirectResponse(f"/dane/nova?chyba={quote(err)}", status_code=302)
+        return RedirectResponse(f"/rozesilani/nova?chyba={quote(err)}", status_code=302)
 
     year = datetime.now().year
     # Inicializace send settings z globálních defaults (SvjInfo)
@@ -243,7 +243,7 @@ async def tax_create(
 
     if not saved_files:
         db.rollback()
-        return RedirectResponse("/dane", status_code=302)
+        return RedirectResponse("/rozesilani", status_code=302)
 
     log_activity(db, ActivityAction.CREATED, "tax_session", "dane",
                  entity_id=session.id, entity_name=session.title,
@@ -269,7 +269,7 @@ async def tax_create(
     )
     thread.start()
 
-    return RedirectResponse(f"/dane/{session.id}/zpracovani", status_code=302)
+    return RedirectResponse(f"/rozesilani/{session.id}/zpracovani", status_code=302)
 
 
 @router.get("/{session_id}/upload")
@@ -285,7 +285,7 @@ async def tax_upload_page(
         joinedload(TaxSession.documents),
     ).get(session_id)
     if not session:
-        return RedirectResponse("/dane", status_code=302)
+        return RedirectResponse("/rozesilani", status_code=302)
 
     has_documents = len(session.documents) > 0
     ctx = {
@@ -293,7 +293,7 @@ async def tax_upload_page(
         "active_nav": "tax",
         "session": session,
         "has_documents": has_documents,
-        "back_url": back or f"/dane/{session_id}",
+        "back_url": back or f"/rozesilani/{session_id}",
         **_tax_wizard(session, 1, has_documents=has_documents),
     }
     if chyba:
@@ -315,19 +315,19 @@ async def tax_upload_additional(
     pdf_files = [f for f in files if f.filename and f.filename.lower().endswith(".pdf")]
     if not pdf_files:
         return RedirectResponse(
-            f"/dane/{session_id}/upload?chyba={quote('Nebyly nalezeny žádné PDF soubory.')}",
+            f"/rozesilani/{session_id}/upload?chyba={quote('Nebyly nalezeny žádné PDF soubory.')}",
             status_code=302,
         )
 
     err = await validate_uploads(pdf_files, **UPLOAD_LIMITS["pdf"])
     if err:
-        return RedirectResponse(f"/dane/{session_id}/upload?chyba={quote(err)}", status_code=302)
+        return RedirectResponse(f"/rozesilani/{session_id}/upload?chyba={quote(err)}", status_code=302)
 
     session = db.query(TaxSession).options(
         joinedload(TaxSession.documents).joinedload(TaxDocument.distributions),
     ).get(session_id)
     if not session:
-        return RedirectResponse("/dane", status_code=302)
+        return RedirectResponse("/rozesilani", status_code=302)
 
     # Save new PDF files to disk FIRST (before deleting old ones) (#21)
     upload_dir = settings.upload_dir / "tax_pdfs" / f"session_{session_id}"
@@ -359,7 +359,7 @@ async def tax_upload_additional(
                 logger.debug("Failed to clean up old file: %s", fp)
 
     if not saved_files:
-        return RedirectResponse(f"/dane/{session_id}", status_code=302)
+        return RedirectResponse(f"/rozesilani/{session_id}", status_code=302)
 
     db.commit()
 
@@ -382,7 +382,7 @@ async def tax_upload_additional(
     )
     thread.start()
 
-    return RedirectResponse(f"/dane/{session_id}/zpracovani", status_code=302)
+    return RedirectResponse(f"/rozesilani/{session_id}/zpracovani", status_code=302)
 
 
 @router.get("/{session_id}")
@@ -404,7 +404,7 @@ async def tax_detail(
     """Detail daňové session s dokumenty, párováním a filtrováním."""
     session = db.query(TaxSession).get(session_id)
     if not session:
-        return RedirectResponse("/dane", status_code=302)
+        return RedirectResponse("/rozesilani", status_code=302)
 
     is_partial = is_htmx_partial(request)
 
@@ -546,10 +546,10 @@ async def tax_detail(
         flash_message = "Přepočet skóre není možný — rozesílání je uzamčeno."
         flash_type = "warning"
 
-    back_url = back or "/dane"
+    back_url = back or "/rozesilani"
     back_label = (
         "Zpět na přehled" if back == "/"
-        else "Zpět na seznam rozesílek" if back.startswith("/dane") and "/" not in back.lstrip("/dane")
+        else "Zpět na seznam rozesílek" if back.startswith("/rozesilani") and "/" not in back.lstrip("/rozesilani")
         else "Zpět na rozesílání"
     )
 
@@ -585,7 +585,7 @@ async def rename_session(
     """Přejmenování daňové session."""
     session = db.query(TaxSession).get(session_id)
     if not session:
-        return RedirectResponse("/dane", status_code=302)
+        return RedirectResponse("/rozesilani", status_code=302)
 
     session.title = title.strip()
     db.commit()
@@ -619,7 +619,7 @@ async def finalize_session(
                      entity_id=session.id, entity_name=session.title,
                      description="Stav: koncept → připraveno k odeslání")
         db.commit()
-    return RedirectResponse(f"/dane/{session_id}", status_code=302)
+    return RedirectResponse(f"/rozesilani/{session_id}", status_code=302)
 
 
 @router.post("/{session_id}/znovu-otevrit")
@@ -635,7 +635,7 @@ async def reopen_session(
                      entity_id=session.id, entity_name=session.title,
                      description="Stav: znovu otevřeno pro úpravy")
         db.commit()
-    return RedirectResponse(f"/dane/{session_id}", status_code=302)
+    return RedirectResponse(f"/rozesilani/{session_id}", status_code=302)
 
 
 @router.get("/{session_id}/exportovat/{fmt}")
@@ -650,7 +650,7 @@ async def tax_export(
 ):
     """Export distribution overview to Excel or CSV with filter support."""
     if fmt not in ("xlsx", "csv"):
-        return RedirectResponse(f"/dane/{session_id}", status_code=302)
+        return RedirectResponse(f"/rozesilani/{session_id}", status_code=302)
 
     session = db.query(TaxSession).options(
         joinedload(TaxSession.documents)
@@ -658,7 +658,7 @@ async def tax_export(
         .joinedload(TaxDistribution.owner),
     ).get(session_id)
     if not session:
-        return RedirectResponse("/dane", status_code=302)
+        return RedirectResponse("/rozesilani", status_code=302)
 
     all_documents = sorted(session.documents, key=lambda d: (int(d.unit_number) if d.unit_number and d.unit_number.isdigit() else 0, d.unit_letter or "", d.filename or ""))
 
@@ -795,7 +795,7 @@ async def delete_session(
     """Delete session, its documents, distributions, and files from disk."""
     session = db.query(TaxSession).get(session_id)
     if not session:
-        return RedirectResponse("/dane", status_code=302)
+        return RedirectResponse("/rozesilani", status_code=302)
 
     # Delete files from disk
     upload_dir = settings.upload_dir / "tax_pdfs" / f"session_{session_id}"
@@ -810,7 +810,7 @@ async def delete_session(
     db.delete(session)
     db.commit()
 
-    return RedirectResponse("/dane", status_code=302)
+    return RedirectResponse("/rozesilani", status_code=302)
 
 
 # ---------------------------------------------------------------------------
@@ -826,10 +826,10 @@ async def serve_document(
     """Serve a tax PDF file for in-browser viewing."""
     doc = db.query(TaxDocument).filter_by(id=doc_id, session_id=session_id).first()
     if not doc or not doc.file_path:
-        return RedirectResponse(f"/dane/{session_id}", status_code=302)
+        return RedirectResponse(f"/rozesilani/{session_id}", status_code=302)
 
     path = Path(doc.file_path)
     if not path.exists() or not is_safe_path(path, settings.upload_dir):
-        return RedirectResponse(f"/dane/{session_id}", status_code=302)
+        return RedirectResponse(f"/rozesilani/{session_id}", status_code=302)
 
     return FileResponse(path, media_type="application/pdf")

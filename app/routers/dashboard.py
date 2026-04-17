@@ -26,13 +26,15 @@ _MODULE_CANONICAL = {
     "tax": "dane",
     "voting": "hlasovani",
     "tenants": "najemci",
+    "water_meter": "water_meters",
+    "water_notice": "water_meters",
 }
 
 
 _KNOWN_MODULES = {
     "vlastnici", "jednotky", "najemci", "prostory",
     "hlasovani", "dane", "sync", "platby", "payment_notice",
-    "sprava", "nastaveni",
+    "sprava", "nastaveni", "water_meters",
 }
 
 
@@ -261,7 +263,7 @@ async def home(
     # URL mapování pro entity_type → detail stránka
     _entity_urls = {
         "voting": "/hlasovani/{id}",
-        "tax_session": "/dane/{id}",
+        "tax_session": "/rozesilani/{id}",
         "owner": "/vlastnici/{id}",
     }
 
@@ -274,7 +276,7 @@ async def home(
             key = (day, e.module, e.subject or "")
             grouped_emails[key].append(e)
         else:
-            url = f"/dane/{e.reference_id}" if e.reference_id else ""
+            url = f"/rozesilani/{e.reference_id}" if e.reference_id else ""
             unified.append({
                 "type": "email",
                 "created_at": e.created_at,

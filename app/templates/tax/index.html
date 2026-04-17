@@ -9,7 +9,7 @@
 {% endif %}
 <div class="flex items-center justify-between mb-6">
     <h1 class="text-2xl font-bold text-gray-800">Hromadné rozesílání</h1>
-    <a href="/dane/nova" class="px-3 py-1.5 text-sm font-medium text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors">
+    <a href="/rozesilani/nova" class="px-3 py-1.5 text-sm font-medium text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors">
         Nové rozesílání
     </a>
 </div>
@@ -20,27 +20,27 @@
 <!-- Bubliny + řazení ve společném kontejneru (kanonický vzor /vlastnici) -->
 <div class="bg-white dark:bg-gray-800 rounded-lg shadow mb-4">
     <div class="flex gap-2 p-3 pb-2">
-        <a href="/dane/{% if _sort_suffix %}?{{ _sort_suffix[1:] }}{% endif %}"
+        <a href="/rozesilani/{% if _sort_suffix %}?{{ _sort_suffix[1:] }}{% endif %}"
            class="flex-1 block rounded p-2 text-center hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors {% if not current_stav %}ring-2 ring-gray-400{% endif %}">
             <p class="text-lg font-bold text-gray-800 dark:text-gray-200">{{ status_counts.get('all', 0) }}</p>
             <p class="text-xs text-gray-500 dark:text-gray-400">Vše</p>
         </a>
-        <a href="/dane?stav=draft{{ _sort_suffix }}"
+        <a href="/rozesilani?stav=draft{{ _sort_suffix }}"
            class="flex-1 block bg-yellow-50 dark:bg-yellow-900/20 rounded p-2 text-center border border-yellow-200 dark:border-yellow-800 hover:bg-yellow-100 dark:hover:bg-yellow-900/40 transition-colors {% if current_stav == 'draft' %}ring-2 ring-yellow-400{% endif %}">
             <p class="text-lg font-bold text-yellow-600 dark:text-yellow-400">{{ status_counts.get('draft', 0) }}</p>
             <p class="text-xs text-yellow-600 dark:text-yellow-400">Rozpracováno</p>
         </a>
-        <a href="/dane?stav=ready{{ _sort_suffix }}"
+        <a href="/rozesilani?stav=ready{{ _sort_suffix }}"
            class="flex-1 block bg-green-50 dark:bg-green-900/20 rounded p-2 text-center border border-green-200 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors {% if current_stav == 'ready' %}ring-2 ring-green-400{% endif %}">
             <p class="text-lg font-bold text-green-600 dark:text-green-400">{{ status_counts.get('ready', 0) }}</p>
             <p class="text-xs text-green-600 dark:text-green-400">Dokončeno</p>
         </a>
-        <a href="/dane?stav=sending{{ _sort_suffix }}"
+        <a href="/rozesilani?stav=sending{{ _sort_suffix }}"
            class="flex-1 block bg-blue-50 dark:bg-blue-900/20 rounded p-2 text-center border border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors {% if current_stav == 'sending' %}ring-2 ring-blue-400{% endif %}">
             <p class="text-lg font-bold text-blue-600 dark:text-blue-400">{{ status_counts.get('sending', 0) }}</p>
             <p class="text-xs text-blue-600 dark:text-blue-400">Odesílá se</p>
         </a>
-        <a href="/dane?stav=completed{{ _sort_suffix }}"
+        <a href="/rozesilani?stav=completed{{ _sort_suffix }}"
            class="flex-1 block bg-indigo-50 dark:bg-indigo-900/20 rounded p-2 text-center border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors {% if current_stav == 'completed' %}ring-2 ring-indigo-400{% endif %}">
             <p class="text-lg font-bold text-indigo-600 dark:text-indigo-400">{{ status_counts.get('completed', 0) }}</p>
             <p class="text-xs text-indigo-600 dark:text-indigo-400">Odesláno</p>
@@ -54,7 +54,7 @@
     <div class="flex flex-wrap items-center gap-2 px-3 py-2">
         <span class="text-xs text-gray-500 dark:text-gray-400 mr-1">Řadit:</span>
         {% for key, label in [('created_desc', 'Nejnovější'), ('created_asc', 'Nejstarší'), ('updated_desc', 'Poslední úprava'), ('name', 'Název'), ('docs', 'Počet dokumentů')] %}
-        <a href="/dane?sort={{ key }}{{ _stav_suffix }}"
+        <a href="/rozesilani?sort={{ key }}{{ _stav_suffix }}"
            class="px-2 py-1 text-xs rounded border {% if current_sort == key %}bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 border-purple-300 ring-2 ring-purple-400{% else %}bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-100{% endif %}">
             {{ label }}
         </a>
@@ -69,7 +69,7 @@
     <div class="bg-white rounded-lg shadow hover:shadow-md transition-shadow p-6{% if session.send_status and session.send_status.value == 'paused' %} border-l-4 border-yellow-400{% endif %}">
         <div class="flex items-center justify-between">
             <div class="flex-1 min-w-0">
-                <a href="/dane/{{ session.id }}?back={{ (list_url or '/dane')|urlencode }}" class="text-lg font-semibold text-blue-600 hover:text-blue-800 truncate">
+                <a href="/rozesilani/{{ session.id }}?back={{ (list_url or '/rozesilani')|urlencode }}" class="text-lg font-semibold text-blue-600 hover:text-blue-800 truncate">
                     {{ session.title }}
                 </a>
                 <div class="flex items-center mt-1 space-x-4 text-sm text-gray-500">
@@ -96,7 +96,7 @@
             </div>
             <div class="flex items-center gap-2 ml-4 shrink-0">
                 {% if session.send_status and session.send_status.value == 'ready' %}
-                <a href="/dane/{{ session.id }}/rozeslat" class="px-3 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full hover:bg-green-200 transition-colors">
+                <a href="/rozesilani/{{ session.id }}/rozeslat" class="px-3 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full hover:bg-green-200 transition-colors">
                     Rozeslat &rarr;
                 </a>
                 {% elif session.send_status and session.send_status.value == 'sending' %}
@@ -109,7 +109,7 @@
                 <span class="px-3 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full">Rozpracováno</span>
                 {% endif %}
                 {% if session.send_status and session.send_status.value == 'completed' %}
-                <a href="/dane/{{ session.id }}/exportovat" hx-boost="false" title="Exportovat přehled"
+                <a href="/rozesilani/{{ session.id }}/exportovat" hx-boost="false" title="Exportovat přehled"
                    class="p-1 text-gray-500 hover:text-green-600 rounded hover:bg-green-50">
                     <svg aria-hidden="true" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
@@ -117,7 +117,7 @@
                 </a>
                 {% endif %}
                 {% set is_completed = session.send_status and session.send_status.value == 'completed' %}
-                <form action="/dane/{{ session.id }}/smazat" method="post" class="inline" hx-boost="false"
+                <form action="/rozesilani/{{ session.id }}/smazat" method="post" class="inline" hx-boost="false"
                       {% if is_completed %}
                       onsubmit="event.preventDefault(); openDeleteModal(this, '{{ session.title }}')"
                       {% else %}
@@ -141,10 +141,10 @@
     </svg>
     {% if current_stav %}
     <p class="text-gray-500 mb-3">Žádné rozesílání v tomto stavu.</p>
-    <a href="/dane" class="inline-block text-sm text-blue-600 hover:underline">← Zobrazit vše</a>
+    <a href="/rozesilani" class="inline-block text-sm text-blue-600 hover:underline">← Zobrazit vše</a>
     {% else %}
     <p class="text-gray-500 mb-3">Zatím nebylo vytvořeno žádné rozesílání.</p>
-    <a href="/dane/nova" class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors">
+    <a href="/rozesilani/nova" class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
         Vytvořit první rozesílání
     </a>

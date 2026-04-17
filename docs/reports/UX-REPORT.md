@@ -25,7 +25,7 @@ Predchozi report (12.04.2026) mel 32 nalezu. Stav oprav:
 | #17 | Duplicitni "Vse" bubliny ve vyuctovani | OPRAVENO |
 | #19 | VS s otaznikem | OPRAVENO |
 | #20 | Dva hlasovani se stejnym nazvem | OPRAVENO (cisla #1, #2 pridana) |
-| #21 | URL "/dane" vede na "Rozesilani" | NERESENO — stale platne |
+| #21 | URL "/rozesilani" vede na "Rozesilani" | NERESENO — stale platne |
 | #25 | "1 skupin duplicit" gramatika | OPRAVENO |
 | #26 | Badge 94 v sidebaru bez tooltipa | OPRAVENO |
 | #28 | Dark mode nekonzistence | OPRAVENO |
@@ -241,16 +241,16 @@ Predchozi report (12.04.2026) mel 32 nalezu. Stav oprav:
 
 ---
 
-### Hromadne rozesilani (/dane)
+### Hromadne rozesilani (/rozesilani)
 
-#### Nalez #13: URL "/dane" stale vede na "Hromadne rozesilani"
+#### Nalez #13: URL "/rozesilani" stale vede na "Hromadne rozesilani"
 - **Severity:** KRITICKE
 - **Pohled:** Bezny uzivatel
-- **Co a kde:** URL `/dane` zobrazuje stranku "Hromadne rozesilani". V sidebaru je polozka "Hromadne rozesilani" odkazujici na `/dane`. Nazev URL neodpovida obsahu. Toto bylo nahlaseno v predchozim reportu (#21) a neni opraveno.
+- **Co a kde:** URL `/rozesilani` zobrazuje stranku "Hromadne rozesilani". V sidebaru je polozka "Hromadne rozesilani" odkazujici na `/rozesilani`. Nazev URL neodpovida obsahu. Toto bylo nahlaseno v predchozim reportu (#21) a neni opraveno.
 - **Dopad:** Matouci navigace — uzivatel hledajici danovy modul skonci na spatne strance.
-- **Reseni:** Zmenit URL z `/dane` na `/rozesilani` (s redirect z `/dane` pro zpetnou kompatibilitu). Sidebar uz ukazuje "Hromadne rozesilani".
+- **Reseni:** Zmenit URL z `/rozesilani` na `/rozesilani` (s redirect z `/rozesilani` pro zpetnou kompatibilitu). Sidebar uz ukazuje "Hromadne rozesilani".
 - **Kde v kodu:** `app/main.py` — mount router, `app/routers/tax/` — prefix
-- **Narocnost:** stredni ~20 min (presmerovat + hledat vsechny reference na `/dane`)
+- **Narocnost:** stredni ~20 min (presmerovat + hledat vsechny reference na `/rozesilani`)
 - **Zavislosti:** --
 - **Regrese riziko:** stredni (bookmarky, externi linky)
 - **Rozhodnuti:** ❓ potreba rozhodnuti uzivatele
@@ -259,7 +259,7 @@ Predchozi report (12.04.2026) mel 32 nalezu. Stav oprav:
 #### Nalez #14: Rozesilka "Predpis zaloh na rok 2026" — stepper krok 2 ale chybi context
 - **Severity:** DROBNE
 - **Pohled:** Bezny uzivatel
-- **Co a kde:** Na strance `/dane` je session "Predpis zaloh na rok 2026" se stavem "Rozpracovano" a stepper ukazuje krok 2 (zeleny bod). Text rika "Ceka na potvrzeni (530)". Uzivatel nevedi co presne je treba potvrdit ani jak pokracovat — musi kliknout na nazev session pro detail.
+- **Co a kde:** Na strance `/rozesilani` je session "Predpis zaloh na rok 2026" se stavem "Rozpracovano" a stepper ukazuje krok 2 (zeleny bod). Text rika "Ceka na potvrzeni (530)". Uzivatel nevedi co presne je treba potvrdit ani jak pokracovat — musi kliknout na nazev session pro detail.
 - **Dopad:** Nizky — uzivatel muze kliknout pro detail, ale chybi rychla akce.
 - **Reseni:** Pridat klikaci odkaz "Pokracovat →" vedle textu "Ceka na potvrzeni".
 - **Kde v kodu:** `app/templates/tax/index.html`
@@ -267,7 +267,7 @@ Predchozi report (12.04.2026) mel 32 nalezu. Stav oprav:
 - **Zavislosti:** --
 - **Regrese riziko:** nizke
 - **Rozhodnuti:** 🔧 jen opravit
-- **Jak otestovat:** Otevrit `/dane` → u rozpracovane session videt odkaz "Pokracovat"
+- **Jak otestovat:** Otevrit `/rozesilani` → u rozpracovane session videt odkaz "Pokracovat"
 
 ---
 

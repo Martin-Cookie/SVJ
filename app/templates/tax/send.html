@@ -5,7 +5,7 @@
 <div class="flex flex-col" style="height:calc(100vh - 3rem)">
     <!-- Fixed header -->
     <div class="shrink-0">
-        <a href="{{ back_url|default('/dane/' ~ session.id) }}" class="text-sm text-blue-600 hover:text-blue-800">&larr; Zpět na přiřazení</a>
+        <a href="{{ back_url|default('/rozesilani/' ~ session.id) }}" class="text-sm text-blue-600 hover:text-blue-800">&larr; Zpět na přiřazení</a>
 
         {% if wizard_steps is defined and wizard_steps %}
         <div class="mt-2">
@@ -20,7 +20,7 @@
             </svg>
             <p class="text-sm text-yellow-800">
                 {{ skipped_auto_count }} {{ "přiřazení nebylo potvrzeno" if skipped_auto_count > 1 else "přiřazení nebylo potvrzeno" }} (automatické párování) — {{ "nebudou zahrnuta" if skipped_auto_count > 1 else "nebude zahrnuto" }} v rozesílce.
-                <a href="/dane/{{ session.id }}" class="font-medium underline hover:text-yellow-900">Přejít na přiřazení</a>
+                <a href="/rozesilani/{{ session.id }}" class="font-medium underline hover:text-yellow-900">Přejít na přiřazení</a>
             </p>
         </div>
         {% endif %}
@@ -33,21 +33,21 @@
             </div>
             <div class="flex items-center gap-2">
                 {% set _export_qs = "filtr=" ~ filtr ~ "&q=" ~ (q|default('')|urlencode) ~ "&sort=" ~ sort ~ "&order=" ~ order %}
-                <a href="/dane/{{ session.id }}/rozeslat/export/xlsx?{{ _export_qs }}" hx-boost="false"
+                <a href="/rozesilani/{{ session.id }}/rozeslat/export/xlsx?{{ _export_qs }}" hx-boost="false"
                    onclick="var b=this,t=b.textContent;b.textContent='Generuji…';b.classList.add('opacity-50');setTimeout(function(){b.textContent=t;b.classList.remove('opacity-50')},3000)"
                    class="px-2.5 py-1.5 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 text-xs font-medium transition-colors border border-gray-200"
                    title="Export do Excelu">↓ Excel</a>
-                <a href="/dane/{{ session.id }}/rozeslat/export/csv?{{ _export_qs }}" hx-boost="false"
+                <a href="/rozesilani/{{ session.id }}/rozeslat/export/csv?{{ _export_qs }}" hx-boost="false"
                    onclick="var b=this,t=b.textContent;b.textContent='Generuji…';b.classList.add('opacity-50');setTimeout(function(){b.textContent=t;b.classList.remove('opacity-50')},3000)"
                    class="px-2.5 py-1.5 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 text-xs font-medium transition-colors border border-gray-200"
                    title="Export do CSV">↓ CSV</a>
-                <a href="/dane/{{ session.id }}" hx-boost="false"
+                <a href="/rozesilani/{{ session.id }}" hx-boost="false"
                    onclick="try{sessionStorage.removeItem('svj_send_snapshot')}catch(e){}"
                    class="px-3 py-1.5 text-sm font-medium text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
                     Zavřít
                 </a>
                 {% if count_failed|default(0) > 0 %}
-                <form method="post" action="/dane/{{ session.id }}/rozeslat/retry" hx-boost="false">
+                <form method="post" action="/rozesilani/{{ session.id }}/rozeslat/retry" hx-boost="false">
                     <button type="submit" class="px-3 py-1.5 bg-orange-500 text-white rounded-lg hover:bg-orange-600 text-xs font-medium transition-colors">
                         Zopakovat neúspěšné ({{ count_failed }})
                     </button>
@@ -81,7 +81,7 @@
                 ► Konfigurace emailu
             </summary>
             <div class="px-4 pb-3 border-t border-gray-100">
-                <form method="post" action="/dane/{{ session.id }}/rozeslat/nastaveni" hx-boost="false">
+                <form method="post" action="/rozesilani/{{ session.id }}/rozeslat/nastaveni" hx-boost="false">
                     <div class="grid mt-2 gap-x-3 gap-y-2" style="grid-template-columns:1fr auto">
                         <!-- Row 1 left: Subject -->
                         <div>
@@ -157,7 +157,7 @@
                     </div>
                 </form>
                 <!-- Hidden test form -->
-                <form id="test-email-form" method="post" action="/dane/{{ session.id }}/rozeslat/test" hx-boost="false" class="hidden">
+                <form id="test-email-form" method="post" action="/rozesilani/{{ session.id }}/rozeslat/test" hx-boost="false" class="hidden">
                     <input type="hidden" name="test_email" id="test-email-hidden">
                     <input type="hidden" name="test_doc_id" id="test-doc-hidden">
                     <input type="hidden" name="email_subject" id="test-subject-hidden">
@@ -168,7 +168,7 @@
         </details>
 
         <!-- Stats + Search (unified container) -->
-        {% set filter_base = "/dane/" ~ session.id ~ "/rozeslat" %}
+        {% set filter_base = "/rozesilani/" ~ session.id ~ "/rozeslat" %}
         {% set _qs = "&q=" ~ (q|default('')|urlencode) ~ "&sort=" ~ sort ~ "&order=" ~ order ~ "&back=" ~ (back_url|default('')|urlencode) %}
         <div class="bg-white rounded-lg shadow mb-2">
             <div class="flex gap-2 p-3 pb-2">
@@ -228,7 +228,7 @@
                     <input type="text" name="q" value="{{ q }}"
                            placeholder="Hledat příjemce, email, soubor..."
                            aria-label="Hledat"
-                           hx-get="/dane/{{ session.id }}/rozeslat"
+                           hx-get="/rozesilani/{{ session.id }}/rozeslat"
                            hx-trigger="keyup changed delay:300ms"
                            hx-target="#send-tbody"
                            hx-include="[name='filtr'],[name='sort'],[name='order'],[name='back']"
@@ -256,7 +256,7 @@
                 {% set next_order = "desc" if sort == col and order == "asc" else "asc" %}
                 <th class="px-4 py-3 text-left text-xs font-medium {% if sort == col %}text-blue-600{% else %}text-gray-500{% endif %} uppercase">
                     {% set _all = "q=" ~ (q|default('')|urlencode) ~ "&filtr=" ~ (filtr|default('')) ~ "&back=" ~ (back_url|default('')|urlencode) %}
-                    <a href="/dane/{{ session.id }}/rozeslat?sort={{ col }}&order={{ next_order }}&{{ _all }}"
+                    <a href="/rozesilani/{{ session.id }}/rozeslat?sort={{ col }}&order={{ next_order }}&{{ _all }}"
                        class="inline-flex items-center gap-0.5 cursor-pointer hover:text-blue-600 select-none">
                         {{ label }}
                         {% if sort == col %}
@@ -280,7 +280,7 @@
                     {{ sort_th("Stav", "status") }}
                 </tr>
             </thead>
-            <tbody id="send-tbody" class="divide-y divide-gray-200" data-send-url="/dane/{{ session.id }}/rozeslat/odeslat">
+            <tbody id="send-tbody" class="divide-y divide-gray-200" data-send-url="/rozesilani/{{ session.id }}/rozeslat/odeslat">
                 {% include "partials/tax_send_body.html" %}
             </tbody>
         </table>

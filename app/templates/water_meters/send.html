@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Rozesílka odečtů vodoměrů{% endblock %}
+{% block title %}Rozesílka odečtů vodoměrů - SVJ Správa{% endblock %}
 {% block content %}
 <div class="flex flex-col" style="height: calc(100vh - 4rem);">
 
@@ -137,7 +137,7 @@
                     S emailem <span class="ml-1 opacity-75">{{ bubble_counts.s_emailem }}</span>
                 </a>
                 <a href="{{ _base }}&filtr=bez_emailu"
-                   class="px-2 py-1 text-xs rounded border {% if filtr == 'bez_emailu' %}bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300 border-orange-300 ring-2 ring-orange-400{% else %}bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-100{% endif %}">
+                   class="px-2 py-1 text-xs rounded border {% if filtr == 'bez_emailu' %}bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300 border-orange-300 ring-2 ring-orange-400{% elif bubble_counts.bez_emailu %}bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 border-orange-200 dark:border-orange-700 hover:bg-orange-100{% else %}bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-100{% endif %}">
                     Bez emailu <span class="ml-1 opacity-75">{{ bubble_counts.bez_emailu }}</span>
                 </a>
                 <a href="{{ _base }}&filtr=odeslano"
@@ -173,15 +173,16 @@
                                title="Vybrat vše / Zrušit výběr">
                     </th>
                     <th class="px-2 py-2 w-6"></th>
-                    {% for col_key, col_label, col_align in [
+                    {% set _cols = [
                         ("prijemce", "Příjemce / Email", "left"),
                         ("jednotky", "Jednotky", "left"),
                         ("vodomer", "Vodoměry", "left"),
                         ("spotreba_sv", "SV (m³)", "right"),
-                        ("spotreba_tv", "TV (m³)", "right"),
-                        ("odchylka_sv", "Odch. SV", "right"),
-                        ("odchylka_tv", "Odch. TV", "right"),
                     ] %}
+                    {% if has_tv %}{% set _cols = _cols + [("spotreba_tv", "TV (m³)", "right")] %}{% endif %}
+                    {% set _cols = _cols + [("odchylka_sv", "Odch. SV", "right")] %}
+                    {% if has_tv %}{% set _cols = _cols + [("odchylka_tv", "Odch. TV", "right")] %}{% endif %}
+                    {% for col_key, col_label, col_align in _cols %}
                     {% set new_order = "desc" if sort == col_key and order == "asc" else "asc" %}
                     <th class="px-2 py-2 text-{{ col_align }} font-semibold text-gray-600 dark:text-gray-300 cursor-pointer select-none hover:text-gray-900 dark:hover:text-white whitespace-nowrap"
                         onclick="window.location='{{ _sort_base }}sort={{ col_key }}&order={{ new_order }}'">
@@ -221,7 +222,7 @@
                     <td class="px-2 py-2 text-gray-600 dark:text-gray-400">{{ r.unit_labels }}</td>
                     <td class="px-2 py-2 text-gray-500 dark:text-gray-400 max-w-[150px] truncate" title="{{ r.meter_serials }}">{{ r.meter_serials }}</td>
                     <td class="px-2 py-2 text-right text-gray-900 dark:text-gray-100">{{ '%.1f'|format(r.spotreba_sv) }}</td>
-                    <td class="px-2 py-2 text-right text-gray-900 dark:text-gray-100">{{ '%.1f'|format(r.spotreba_tv) }}</td>
+                    {% if has_tv %}<td class="px-2 py-2 text-right text-gray-900 dark:text-gray-100">{{ '%.1f'|format(r.spotreba_tv) }}</td>{% endif %}
                     <td class="px-2 py-2 text-right">
                         {% if r.odchylka_sv is not none %}
                         {% set abs_sv = r.odchylka_sv|abs %}
@@ -235,6 +236,7 @@
                         <span class="text-gray-400">—</span>
                         {% endif %}
                     </td>
+                    {% if has_tv %}
                     <td class="px-2 py-2 text-right">
                         {% if r.odchylka_tv is not none %}
                         {% set abs_tv = r.odchylka_tv|abs %}
@@ -248,10 +250,11 @@
                         <span class="text-gray-400">—</span>
                         {% endif %}
                     </td>
+                    {% endif %}
                 </tr>
                 {% if preview %}
                 <tr id="preview-{{ r.owner_id }}" class="email-preview hidden">
-                    <td colspan="9" class="px-3 py-0">
+                    <td colspan="{{ 9 if has_tv else 7 }}" class="px-3 py-0">
                         <div class="mx-6 my-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
                             <p class="text-[10px] text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wider font-semibold">Náhled emailu</p>
                             <p class="text-xs font-medium text-gray-800 dark:text-gray-200 mb-2">

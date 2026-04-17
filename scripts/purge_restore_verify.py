@@ -450,7 +450,7 @@ def run_dynamic_test(sandbox: Path) -> list[dict]:
         # ----- Phase 7b: HTTP smoke test -----
         smoke_urls = [
             "/", "/vlastnici", "/jednotky", "/prostory", "/najemci",
-            "/hlasovani", "/dane", "/platby", "/synchronizace",
+            "/hlasovani", "/rozesilani", "/platby", "/synchronizace",
             "/kontrola-podilu", "/sprava", "/nastaveni",
         ]
         smoke_results = {}
@@ -477,7 +477,7 @@ def run_dynamic_test(sandbox: Path) -> list[dict]:
             ("spaces", "/prostory/{id}"),
             ("tenants", "/najemci/{id}"),
             ("votings", "/hlasovani/{id}"),
-            ("tax_sessions", "/dane/{id}"),
+            ("tax_sessions", "/rozesilani/{id}"),
             ("sync_sessions", "/synchronizace/{id}"),
             ("bank_statements", "/platby/vypisy/{id}"),
             ("share_check_sessions", "/kontrola-podilu/{id}"),

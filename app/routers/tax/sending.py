@@ -167,11 +167,11 @@ async def tax_send_export(
     from openpyxl.styles import Font
 
     if fmt not in ("xlsx", "csv"):
-        return RedirectResponse(f"/dane/{session_id}/rozeslat", status_code=302)
+        return RedirectResponse(f"/rozesilani/{session_id}/rozeslat", status_code=302)
 
     session = db.query(TaxSession).get(session_id)
     if not session:
-        return RedirectResponse("/dane", status_code=302)
+        return RedirectResponse("/rozesilani", status_code=302)
 
     documents = (
         db.query(TaxDocument)
@@ -299,14 +299,14 @@ async def tax_send_preview(
     """Náhled rozesílání s příjemci, emaily a nastavením."""
     session = db.query(TaxSession).get(session_id)
     if not session:
-        return RedirectResponse("/dane", status_code=302)
+        return RedirectResponse("/rozesilani", status_code=302)
 
     # If sending is in progress, redirect to progress page
     with _sending_lock:
         progress = _sending_progress.get(session_id)
         sending_in_progress = progress and not progress.get("done")
     if sending_in_progress:
-        return RedirectResponse(f"/dane/{session_id}/rozeslat/prubeh", status_code=302)
+        return RedirectResponse(f"/rozesilani/{session_id}/rozeslat/prubeh", status_code=302)
 
     # Edge case: DB says SENDING but no progress dict (server restart)
     if session.send_status == SendStatus.SENDING and not progress:
@@ -386,7 +386,7 @@ async def tax_send_preview(
     sort_fn = SEND_SORT_KEYS.get(sort, SEND_SORT_KEYS["name"])
     recipients.sort(key=sort_fn, reverse=(order == "desc"))
 
-    back_url = back or f"/dane/{session_id}"
+    back_url = back or f"/rozesilani/{session_id}"
 
     list_url = build_list_url(request)
 
@@ -437,7 +437,7 @@ async def update_recipient_email(
     """Změna emailové adresy příjemce pro rozesílání."""
     dist = db.query(TaxDistribution).get(dist_id)
     if not dist:
-        return RedirectResponse(f"/dane/{session_id}/rozeslat", status_code=302)
+        return RedirectResponse(f"/rozesilani/{session_id}/rozeslat", status_code=302)
 
     email = email.strip()
 
@@ -459,7 +459,7 @@ async def update_recipient_email(
                 "session": db.query(TaxSession).get(session_id),
                 "list_url": build_list_url(request),
             })
-        return RedirectResponse(f"/dane/{session_id}/rozeslat", status_code=302)
+        return RedirectResponse(f"/rozesilani/{session_id}/rozeslat", status_code=302)
 
     assignments_changed = False
 
@@ -504,7 +504,7 @@ async def update_recipient_email(
 
     # If new assignments were created, full page refresh is needed
     if assignments_changed:
-        redirect_url = f"/dane/{session_id}/rozeslat"
+        redirect_url = f"/rozesilani/{session_id}/rozeslat"
         if request.headers.get("HX-Request"):
             return HTMLResponse(
                 status_code=200,
@@ -515,7 +515,7 @@ async def update_recipient_email(
     # Rebuild only the relevant recipient row (optimized — no full rebuild)
     recipient = _build_single_recipient(db, session_id, dist)
     if not recipient:
-        return RedirectResponse(f"/dane/{session_id}/rozeslat", status_code=302)
+        return RedirectResponse(f"/rozesilani/{session_id}/rozeslat", status_code=302)
 
     return templates.TemplateResponse(request, "partials/tax_recipient_row.html", {
         "r": recipient,
@@ -536,7 +536,7 @@ async def toggle_recipient_email(
     """Toggle an individual email address on/off for a recipient."""
     dist = db.query(TaxDistribution).get(dist_id)
     if not dist:
-        return RedirectResponse(f"/dane/{session_id}/rozeslat", status_code=302)
+        return RedirectResponse(f"/rozesilani/{session_id}/rozeslat", status_code=302)
 
     email = email.strip()
     is_checked = checked == "true"
@@ -597,7 +597,7 @@ async def toggle_recipient_email(
     key = f"owner_{dist.owner_id}" if dist.owner_id else f"ext_{dist.id}"
     recipient = next((r for r in recipients if r["key"] == key), None)
     if not recipient:
-        return RedirectResponse(f"/dane/{session_id}/rozeslat", status_code=302)
+        return RedirectResponse(f"/rozesilani/{session_id}/rozeslat", status_code=302)
 
     list_url = build_list_url(request)
 
@@ -622,7 +622,7 @@ async def send_test_email(
     """Odeslání testovacího emailu s vybraným dokumentem."""
     session = db.query(TaxSession).get(session_id)
     if not session:
-        return RedirectResponse("/dane", status_code=302)
+        return RedirectResponse("/rozesilani", status_code=302)
 
     # Profil z formuláře má přednost (uživatel mohl změnit dropdown bez Uložit)
     effective_smtp_profile_id = smtp_profile_id if smtp_profile_id else session.smtp_profile_id
@@ -701,7 +701,7 @@ async def send_test_email(
     count_sent = sum(1 for r in all_recipients if r["email_status"] == "sent")
     count_failed = sum(1 for r in all_recipients if r["email_status"] == "failed")
 
-    back_url = f"/dane/{session_id}/rozeslat"
+    back_url = f"/rozesilani/{session_id}/rozeslat"
     smtp_profiles = db.query(SmtpProfile).order_by(SmtpProfile.is_default.desc(), SmtpProfile.id).all()
     return templates.TemplateResponse(request, "tax/send.html", {
         "active_nav": "tax",
@@ -714,7 +714,7 @@ async def send_test_email(
         "count_pending": count_pending,
         "count_sent": count_sent,
         "count_failed": count_failed,
-        "back_url": f"/dane/{session_id}",
+        "back_url": f"/rozesilani/{session_id}",
         "list_url": back_url,
         "flash_message": flash_message,
         "flash_type": flash_type,
@@ -741,7 +741,7 @@ async def save_send_settings(
     """Uložení nastavení rozesílání (předmět, tělo, dávkování)."""
     session = db.query(TaxSession).get(session_id)
     if not session:
-        return RedirectResponse("/dane", status_code=302)
+        return RedirectResponse("/rozesilani", status_code=302)
 
     # Invalidate test if email content changed (#8)
     test_invalidated = False
@@ -765,7 +765,7 @@ async def save_send_settings(
         session.send_status = SendStatus.READY
     db.commit()
 
-    redirect_url = f"/dane/{session_id}/rozeslat?config=open"
+    redirect_url = f"/rozesilani/{session_id}/rozeslat?config=open"
     if test_invalidated:
         redirect_url += "&varovani=test-zneplatnen"
     return RedirectResponse(redirect_url, status_code=302)
@@ -962,18 +962,18 @@ async def start_batch_send(
     session = db.query(TaxSession).get(session_id)
     if not session:
         logger.warning("Session %s not found", session_id)
-        return RedirectResponse("/dane", status_code=302)
+        return RedirectResponse("/rozesilani", status_code=302)
 
     if not session.test_email_passed:
         logger.warning("Session %s: test email not passed", session_id)
-        return RedirectResponse(f"/dane/{session_id}/rozeslat", status_code=302)
+        return RedirectResponse(f"/rozesilani/{session_id}/rozeslat", status_code=302)
 
     # Check no concurrent sending
     with _sending_lock:
         progress = _sending_progress.get(session_id)
         if progress and not progress.get("done"):
             logger.info("Session %s: concurrent sending in progress", session_id)
-            return RedirectResponse(f"/dane/{session_id}/rozeslat/prubeh", status_code=302)
+            return RedirectResponse(f"/rozesilani/{session_id}/rozeslat/prubeh", status_code=302)
 
     # Get selected keys from form
     form = await request.form()
@@ -981,7 +981,7 @@ async def start_batch_send(
     logger.info("Session %s: received %d selected keys", session_id, len(selected_keys))
     if not selected_keys:
         logger.warning("Session %s: no selected keys in form", session_id)
-        return RedirectResponse(f"/dane/{session_id}/rozeslat", status_code=302)
+        return RedirectResponse(f"/rozesilani/{session_id}/rozeslat", status_code=302)
 
     # Build recipients
     documents = (
@@ -1003,7 +1003,7 @@ async def start_batch_send(
 
     if not recipients_to_send:
         logger.warning("Session %s: no recipients with email in selection", session_id)
-        return RedirectResponse(f"/dane/{session_id}/rozeslat", status_code=302)
+        return RedirectResponse(f"/rozesilani/{session_id}/rozeslat", status_code=302)
 
     # Mark only unsent distributions as QUEUED
     for rcpt in recipients_to_send:
@@ -1053,7 +1053,7 @@ async def start_batch_send(
     )
     thread.start()
 
-    return RedirectResponse(f"/dane/{session_id}/rozeslat/prubeh", status_code=302)
+    return RedirectResponse(f"/rozesilani/{session_id}/rozeslat/prubeh", status_code=302)
 
 
 @router.get("/{session_id}/rozeslat/prubeh")
@@ -1065,12 +1065,12 @@ async def sending_progress_page(
     """Show progress page while emails are being sent."""
     session = db.query(TaxSession).get(session_id)
     if not session:
-        return RedirectResponse("/dane", status_code=302)
+        return RedirectResponse("/rozesilani", status_code=302)
 
     with _sending_lock:
         progress = _sending_progress.get(session_id)
         if not progress:
-            return RedirectResponse(f"/dane/{session_id}/rozeslat", status_code=302)
+            return RedirectResponse(f"/rozesilani/{session_id}/rozeslat", status_code=302)
         progress = dict(progress)
 
     return templates.TemplateResponse(request, "tax/sending.html", {
@@ -1091,7 +1091,7 @@ async def sending_progress_status(
         progress = _sending_progress.get(session_id)
         if not progress:
             response = HTMLResponse("")
-            response.headers["HX-Redirect"] = f"/dane/{session_id}/rozeslat"
+            response.headers["HX-Redirect"] = f"/rozesilani/{session_id}/rozeslat"
             return response
         # Po dokončení počkat 3 sekundy, aby uživatel viděl výsledek
         if progress.get("done"):
@@ -1099,7 +1099,7 @@ async def sending_progress_status(
             if time.monotonic() - finished_at >= 3:
                 _sending_progress.pop(session_id, None)
                 response = HTMLResponse("")
-                response.headers["HX-Redirect"] = f"/dane/{session_id}/rozeslat"
+                response.headers["HX-Redirect"] = f"/rozesilani/{session_id}/rozeslat"
                 return response
         progress = dict(progress)  # snapshot under lock
 
@@ -1125,7 +1125,7 @@ async def pause_sending(
         session.send_status = SendStatus.PAUSED
         db.commit()
 
-    return RedirectResponse(f"/dane/{session_id}/rozeslat/prubeh", status_code=302)
+    return RedirectResponse(f"/rozesilani/{session_id}/rozeslat/prubeh", status_code=302)
 
 
 @router.post("/{session_id}/rozeslat/pokracovat")
@@ -1145,7 +1145,7 @@ async def resume_sending(
         session.send_status = SendStatus.SENDING
         db.commit()
 
-    return RedirectResponse(f"/dane/{session_id}/rozeslat/prubeh", status_code=302)
+    return RedirectResponse(f"/rozesilani/{session_id}/rozeslat/prubeh", status_code=302)
 
 
 @router.post("/{session_id}/rozeslat/zrusit")
@@ -1178,7 +1178,7 @@ async def cancel_sending(
         session.send_status = SendStatus.PAUSED
         db.commit()
 
-    return RedirectResponse(f"/dane/{session_id}/rozeslat", status_code=302)
+    return RedirectResponse(f"/rozesilani/{session_id}/rozeslat", status_code=302)
 
 
 @router.post("/{session_id}/rozeslat/retry")
@@ -1190,13 +1190,13 @@ async def retry_failed(
     """Retry all failed recipients."""
     session = db.query(TaxSession).get(session_id)
     if not session:
-        return RedirectResponse("/dane", status_code=302)
+        return RedirectResponse("/rozesilani", status_code=302)
 
     # Check no concurrent sending
     with _sending_lock:
         progress = _sending_progress.get(session_id)
         if progress and not progress.get("done"):
-            return RedirectResponse(f"/dane/{session_id}/rozeslat/prubeh", status_code=302)
+            return RedirectResponse(f"/rozesilani/{session_id}/rozeslat/prubeh", status_code=302)
 
     # Build recipients and filter to failed only
     documents = (
@@ -1212,7 +1212,7 @@ async def retry_failed(
     failed_recipients = [r for r in all_recipients if r["email_status"] == "failed" and r["email"]]
 
     if not failed_recipients:
-        return RedirectResponse(f"/dane/{session_id}/rozeslat", status_code=302)
+        return RedirectResponse(f"/rozesilani/{session_id}/rozeslat", status_code=302)
 
     # Reset failed distributions to QUEUED
     for rcpt in failed_recipients:
@@ -1258,4 +1258,4 @@ async def retry_failed(
     )
     thread.start()
 
-    return RedirectResponse(f"/dane/{session_id}/rozeslat/prubeh", status_code=302)
+    return RedirectResponse(f"/rozesilani/{session_id}/rozeslat/prubeh", status_code=302)
