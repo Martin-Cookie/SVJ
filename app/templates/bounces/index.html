@@ -76,17 +76,17 @@
             <a href="{{ _base }}typ=hard&{{ _qs_modul }}{{ _qs_q }}"
                class="flex-1 block bg-red-50 dark:bg-red-900/20 rounded p-2 text-center border border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors {% if typ == 'hard' %}ring-2 ring-red-400{% endif %}">
                 <p class="text-lg font-bold text-red-600 dark:text-red-400">{{ counts.hard }}</p>
-                <p class="text-xs text-red-600 dark:text-red-400">🔴 Hard</p>
+                <p class="text-xs text-red-600 dark:text-red-400"><span class="inline-block w-2 h-2 rounded-full bg-red-500 mr-0.5 align-middle"></span> Hard</p>
             </a>
             <a href="{{ _base }}typ=soft&{{ _qs_modul }}{{ _qs_q }}"
                class="flex-1 block bg-amber-50 dark:bg-amber-900/20 rounded p-2 text-center border border-amber-200 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors {% if typ == 'soft' %}ring-2 ring-amber-400{% endif %}">
                 <p class="text-lg font-bold text-amber-600 dark:text-amber-400">{{ counts.soft }}</p>
-                <p class="text-xs text-amber-600 dark:text-amber-400">🟡 Soft</p>
+                <p class="text-xs text-amber-600 dark:text-amber-400"><span class="inline-block w-2 h-2 rounded-full bg-amber-500 mr-0.5 align-middle"></span> Soft</p>
             </a>
             <a href="{{ _base }}typ=unknown&{{ _qs_modul }}{{ _qs_q }}"
                class="flex-1 block bg-gray-50 dark:bg-gray-700/40 rounded p-2 text-center border border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors {% if typ == 'unknown' %}ring-2 ring-gray-400{% endif %}">
                 <p class="text-lg font-bold text-gray-600 dark:text-gray-300">{{ counts.unknown }}</p>
-                <p class="text-xs text-gray-600 dark:text-gray-400">⚪ Neznámé</p>
+                <p class="text-xs text-gray-600 dark:text-gray-400"><span class="inline-block w-2 h-2 rounded-full bg-gray-400 mr-0.5 align-middle"></span> Neznámé</p>
             </a>
         </div>
 

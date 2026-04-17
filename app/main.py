@@ -256,13 +256,19 @@ def _migrate_email_log_name_normalized():
 
 
 def _migrate_bounce_smtp_profile():
-    """Přidat smtp_profile_name do email_bounces."""
+    """Přidat smtp_profile_name do email_bounces a smtp_profile_id do svj_info."""
     with engine.connect() as conn:
         cols = [r[1] for r in conn.execute(text("PRAGMA table_info('email_bounces')")).fetchall()]
         if "smtp_profile_name" not in cols:
             conn.execute(text("ALTER TABLE email_bounces ADD COLUMN smtp_profile_name VARCHAR(100)"))
             conn.commit()
             logger.info("Added smtp_profile_name to email_bounces")
+
+        cols2 = [r[1] for r in conn.execute(text("PRAGMA table_info('svj_info')")).fetchall()]
+        if "smtp_profile_id" not in cols2:
+            conn.execute(text("ALTER TABLE svj_info ADD COLUMN smtp_profile_id INTEGER REFERENCES smtp_profiles(id)"))
+            conn.commit()
+            logger.info("Added smtp_profile_id to svj_info")
 
 
 def _ensure_indexes():
@@ -370,6 +376,7 @@ def _ensure_indexes():
         ("ix_smtp_profiles_is_default", "smtp_profiles", "is_default"),
         ("ix_tax_sessions_smtp_profile_id", "tax_sessions", "smtp_profile_id"),
         ("ix_bank_statements_smtp_profile_id", "bank_statements", "smtp_profile_id"),
+        ("ix_svj_info_smtp_profile_id", "svj_info", "smtp_profile_id"),
     ]
     # Složené indexy: (název, tabulka, "sloupec1, sloupec2")
     _COMPOUND_INDEXES = [

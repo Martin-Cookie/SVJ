@@ -321,6 +321,18 @@ async def water_meter_detail(request: Request, meter_id: int, db: Session = Depe
     readings = sorted(meter.readings, key=lambda r: r.reading_date, reverse=True)
     back = request.query_params.get("back", "/vodometry")
 
+    # Current owner of the unit
+    meter_owner = None
+    if meter.unit_id:
+        ou = (
+            db.query(OwnerUnit)
+            .filter(OwnerUnit.unit_id == meter.unit_id, OwnerUnit.valid_to.is_(None))
+            .options(joinedload(OwnerUnit.owner))
+            .first()
+        )
+        if ou and ou.owner:
+            meter_owner = ou.owner
+
     # Units for assignment select, grouped by section
     all_units = (
         db.query(Unit)
@@ -341,6 +353,7 @@ async def water_meter_detail(request: Request, meter_id: int, db: Session = Depe
     return templates.TemplateResponse(request, "water_meters/detail.html", {
         "active_nav": "water_meters",
         "meter": meter,
+        "meter_owner": meter_owner,
         "readings": readings,
         "back": back,
         "all_units": all_units,

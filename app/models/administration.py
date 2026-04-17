@@ -28,6 +28,7 @@ class SvjInfo(Base):
     send_confirm_each_batch = Column(Boolean, default=False)  # potvrzení po každé dávce
     send_test_email_address = Column(String(200), nullable=True)  # poslední testovací email
     water_test_passed = Column(Boolean, default=False)             # gating: test email odeslán před rozesílkou vodoměrů
+    smtp_profile_id = Column(Integer, ForeignKey("smtp_profiles.id"), nullable=True, index=True)  # SMTP profil pro rozesílku vodoměrů
     vs_prefix = Column(String(10), nullable=True, default="1098")  # prefix VS v předpisech (např. "1098")
     created_at = Column(DateTime, default=utcnow)
     updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)

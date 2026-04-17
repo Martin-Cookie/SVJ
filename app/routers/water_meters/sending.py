@@ -625,8 +625,8 @@ async def save_send_settings(
         svj.send_batch_size = max(1, min(100, int(form.get("send_batch_size", 10))))
         svj.send_batch_interval = max(1, min(60, int(form.get("send_batch_interval", 5))))
         svj.send_confirm_each_batch = form.get("send_confirm_each_batch") == "true"
-        # smtp_profile_id se předává přímo z formuláře při odesílání,
-        # neukládá se do SvjInfo (nemá ten sloupec — řeší se per-akce)
+        smtp_pid = form.get("smtp_profile_id")
+        svj.smtp_profile_id = int(smtp_pid) if smtp_pid else None
         db.commit()
 
     return RedirectResponse("/vodometry/rozeslat?flash=settings_ok", status_code=302)
@@ -732,9 +732,8 @@ async def start_batch_send(
     batch_interval = svj.send_batch_interval or 5
     confirm_batch = svj.send_confirm_each_batch or False
 
-    # SMTP profil z formuláře
-    smtp_pid = (await request.form()).get("smtp_profile_id")
-    smtp_profile_id = int(smtp_pid) if smtp_pid else None
+    # SMTP profil z uloženého nastavení
+    smtp_profile_id = svj.smtp_profile_id
 
     log_activity(db, ActivityAction.STATUS_CHANGED, "water_meters", "vodometry",
                  description=f"Rozesílka odečtů vodoměrů zahájena: {len(recipients)} příjemců")

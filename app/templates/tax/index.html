@@ -106,7 +106,9 @@
                 {% elif session.send_status and session.send_status.value == 'completed' %}
                 <span class="px-3 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">Odesláno</span>
                 {% else %}
-                <span class="px-3 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full">Rozpracováno</span>
+                <a href="/rozesilani/{{ session.id }}" class="px-3 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full hover:bg-yellow-200 transition-colors">
+                    Pokračovat &rarr;
+                </a>
                 {% endif %}
                 {% if session.send_status and session.send_status.value == 'completed' %}
                 <a href="/rozesilani/{{ session.id }}/exportovat" hx-boost="false" title="Exportovat přehled"

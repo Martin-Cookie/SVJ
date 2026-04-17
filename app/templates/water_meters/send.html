@@ -66,7 +66,7 @@
                             <select name="smtp_profile_id"
                                     class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1.5 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                                 {% for p in smtp_profiles %}
-                                <option value="{{ p.id }}" {% if p.is_default %}selected{% endif %}>
+                                <option value="{{ p.id }}" {% if svj and svj.smtp_profile_id == p.id %}selected{% elif not svj or not svj.smtp_profile_id %}{% if p.is_default %}selected{% endif %}{% endif %}>
                                     {{ p.name }} ({{ p.smtp_from_email }})
                                 </option>
                                 {% endfor %}

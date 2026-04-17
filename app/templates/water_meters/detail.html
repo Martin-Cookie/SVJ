@@ -48,6 +48,14 @@
                 {% endif %}
             </div>
         </div>
+        {% if meter_owner %}
+        <div class="px-3 py-2 bg-purple-50 dark:bg-purple-900/30 rounded-lg">
+            <span class="text-xs text-purple-600 dark:text-purple-400">Vlastník</span>
+            <div class="text-sm font-semibold text-purple-700 dark:text-purple-300">
+                <a href="/vlastnici/{{ meter_owner.id }}" class="hover:underline">{{ meter_owner.display_name }}</a>
+            </div>
+        </div>
+        {% endif %}
         <div class="px-3 py-2 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg">
             <span class="text-xs text-indigo-600 dark:text-indigo-400">Typ</span>
             <div class="text-sm font-semibold text-indigo-700 dark:text-indigo-300">
