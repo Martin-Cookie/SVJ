@@ -162,6 +162,7 @@
         </div>
         {% else %}
         <form id="send-form" method="post" action="/vodometry/rozeslat/odeslat" hx-boost="false">
+        <input type="hidden" name="smtp_profile_id" id="send-smtp-profile-hidden" value="{{ smtp_profiles[0].id if smtp_profiles else '' }}">
         <table class="w-full text-xs">
             <thead class="sticky top-0 z-10 bg-gray-50 dark:bg-gray-700">
                 {% set _sort_base = "/vodometry/rozeslat?" ~ ("filtr=" ~ filtr ~ "&" if filtr else "") %}
@@ -381,6 +382,11 @@ function closeSendModal() {
 
 function confirmSend() {
     closeSendModal();
+    // Sync SMTP profile from config dropdown to send form
+    var sel = document.querySelector('select[name="smtp_profile_id"]');
+    var hid = document.querySelector('input[name="smtp_profile_id"][type="hidden"]:not(#send-smtp-profile-hidden)');
+    var val = sel ? sel.value : (hid ? hid.value : '');
+    document.getElementById('send-smtp-profile-hidden').value = val;
     document.getElementById('send-form').submit();
 }
 

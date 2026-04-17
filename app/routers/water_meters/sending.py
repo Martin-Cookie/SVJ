@@ -16,13 +16,13 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import SessionLocal, get_db
+from urllib.parse import quote
+
 from app.models import (
-    ActivityAction, Owner, OwnerUnit, Unit, WaterMeter, MeterType,
+    ActivityAction, EmailLog, EmailTemplate, Owner, OwnerUnit,
+    SmtpProfile, SvjInfo, Unit, WaterMeter, MeterType,
     log_activity,
 )
-from app.models.administration import EmailTemplate, SvjInfo
-from app.models.common import EmailLog
-from app.models.smtp_profile import SmtpProfile
 from app.utils import build_list_url, compute_eta, render_email_template, templates, utcnow
 
 from ._helpers import compute_consumption, compute_deviations
@@ -622,9 +622,8 @@ async def save_send_settings(
         svj.send_batch_size = max(1, min(100, int(form.get("send_batch_size", 10))))
         svj.send_batch_interval = max(1, min(60, int(form.get("send_batch_interval", 5))))
         svj.send_confirm_each_batch = form.get("send_confirm_each_batch") == "true"
-        smtp_pid = form.get("smtp_profile_id")
-        if smtp_pid:
-            svj.smtp_profile_id = int(smtp_pid) if hasattr(svj, "smtp_profile_id") else None
+        # smtp_profile_id se předává přímo z formuláře při odesílání,
+        # neukládá se do SvjInfo (nemá ten sloupec — řeší se per-akce)
         db.commit()
 
     return RedirectResponse("/vodometry/rozeslat?flash=settings_ok", status_code=302)
@@ -681,7 +680,7 @@ async def send_test_email(
         return RedirectResponse(f"/vodometry/rozeslat?flash=test_ok&email={test_email}", status_code=302)
     else:
         err = result.get("error", "neznámá chyba")[:100]
-        return RedirectResponse(f"/vodometry/rozeslat?flash=test_fail&err={err}", status_code=302)
+        return RedirectResponse(f"/vodometry/rozeslat?flash=test_fail&err={quote(err)}", status_code=302)
 
 
 @router.post("/rozeslat/odeslat")
@@ -737,6 +736,10 @@ async def start_batch_send(
     batch_interval = svj.send_batch_interval or 5
     confirm_batch = svj.send_confirm_each_batch or False
 
+    # SMTP profil z formuláře
+    smtp_pid = (await request.form()).get("smtp_profile_id")
+    smtp_profile_id = int(smtp_pid) if smtp_pid else None
+
     log_activity(db, ActivityAction.STATUS_CHANGED, "water_meters", "vodometry",
                  description=f"Rozesílka odečtů vodoměrů zahájena: {len(recipients)} příjemců")
     db.commit()
@@ -760,7 +763,7 @@ async def start_batch_send(
 
     thread = threading.Thread(
         target=_send_emails_batch,
-        args=(send_id, recipients, batch_size, batch_interval, confirm_batch),
+        args=(send_id, recipients, batch_size, batch_interval, confirm_batch, smtp_profile_id),
         daemon=True,
     )
     thread.start()

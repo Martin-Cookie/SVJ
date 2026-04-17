@@ -1268,7 +1268,7 @@ async def lifespan(app: FastAPI):
     # Ensure data directories exist
     for d in [settings.upload_dir, settings.generated_dir, settings.temp_dir]:
         d.mkdir(parents=True, exist_ok=True)
-    for sub in ["excel", "word_templates", "scanned_ballots", "tax_pdfs", "csv", "share_check", "contracts"]:
+    for sub in ["excel", "word_templates", "scanned_ballots", "tax_pdfs", "csv", "share_check", "contracts", "water_meters"]:
         (settings.upload_dir / sub).mkdir(exist_ok=True)
     for sub in ["ballots", "exports"]:
         (settings.generated_dir / sub).mkdir(exist_ok=True)

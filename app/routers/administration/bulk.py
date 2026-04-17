@@ -92,6 +92,7 @@ async def purge_data(request: Request, db: Session = Depends(get_db)):
         "sync": ["csv"],
         "share_check": ["share_check"],
         "payments": ["csv"],
+        "water_meters": ["water_meters"],
     }
     for cat_key in categories:
         for subdir in _CATEGORY_UPLOAD_DIRS.get(cat_key, []):
