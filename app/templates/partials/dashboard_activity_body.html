@@ -1,7 +1,7 @@
 {% for item in recent_activity %}
 <tr class="{% if item.url %}hover:bg-gray-50 cursor-pointer{% endif %}" {% if item.url %}onclick="window.location='{{ item.url }}?back=/'"{% endif %}>
     <td class="px-3 py-1.5 text-xs text-gray-500 whitespace-nowrap">{{ item.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
-    {% set _module_labels = {"payment_notice": "Platební upozornění", "dane": "Rozesílání", "hlasovani": "Hlasování", "prostory": "Prostory", "najemci": "Nájemci", "vlastnici": "Vlastníci", "jednotky": "Jednotky", "sprava": "Administrace", "nastaveni": "Nastavení", "sync": "Kontroly", "platby": "Platby", "import": "Import", "backup": "Zálohy", "share_check": "Kontrola podílů", "water_meters": "Vodoměry", "water_meter": "Vodoměry", "water_notice": "Vodoměry"} %}
+    {% set _module_labels = {"payment_notice": "Platební upozornění", "dane": "Rozesílání", "hlasovani": "Hlasování", "prostory": "Prostory", "najemci": "Nájemci", "vlastnici": "Vlastníci", "jednotky": "Jednotky", "sprava": "Administrace", "nastaveni": "Nastavení", "sync": "Kontroly", "platby": "Platby", "import": "Import", "backup": "Zálohy", "share_check": "Kontrola podílů", "water_meters": "Vodoměry", "water_meter": "Vodoměry", "water_notice": "Vodoměry", "vodometry": "Vodoměry"} %}
     <td class="px-3 py-1.5 text-xs text-gray-500">{{ _module_labels.get(item.module, item.module) }}</td>
     <td class="px-3 py-1.5 text-xs text-gray-900">{% if item.url %}<a href="{{ item.url }}?back=/" class="text-blue-600 hover:underline">{{ item.description }}</a>{% else %}{{ item.description }}{% endif %}</td>
     <td class="px-3 py-1.5 text-xs text-gray-500">{{ item.detail }}</td>

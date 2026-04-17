@@ -26,15 +26,16 @@ _MODULE_CANONICAL = {
     "tax": "dane",
     "voting": "hlasovani",
     "tenants": "najemci",
-    "water_meter": "water_meters",
-    "water_notice": "water_meters",
+    "water_meter": "vodometry",
+    "water_notice": "vodometry",
+    "water_meters": "vodometry",
 }
 
 
 _KNOWN_MODULES = {
     "vlastnici", "jednotky", "najemci", "prostory",
     "hlasovani", "dane", "sync", "platby", "payment_notice",
-    "sprava", "nastaveni", "water_meters",
+    "sprava", "nastaveni", "water_meters", "vodometry",
 }
 
 
