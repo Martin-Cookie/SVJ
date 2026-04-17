@@ -193,7 +193,7 @@
                 {% for r in recipients %}
                 {% set preview = email_previews.get(r.owner_id) %}
                 <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50{% if preview %} cursor-pointer{% endif %}{% if not r.email %} opacity-60{% endif %}"
-                    {% if preview %}onclick="if(event.target.closest('a')||event.target.closest('input'))return;var el=document.getElementById('preview-{{ r.owner_id }}');el.classList.toggle('hidden')"{% endif %}>
+                    {% if preview %}onclick="if(event.target.closest('a')||event.target.closest('input'))return;var el=document.getElementById('preview-{{ r.owner_id }}');el.style.display='';el.classList.toggle('hidden')"{% endif %}>
                     <td class="px-2 py-2 text-center">
                         {% if r.email %}
                         <input type="checkbox" name="selected_ids" value="{{ r.owner_id }}"
@@ -448,7 +448,13 @@ function filterSendTable(q) {
         // Also hide/show the preview row right after
         var next = row.nextElementSibling;
         if (next && next.classList.contains('email-preview')) {
-            next.style.display = show ? next.classList.contains('hidden') ? 'none' : '' : 'none';
+            if (show) {
+                // Clear inline style — let .hidden class control visibility
+                next.style.display = '';
+            } else {
+                next.style.display = 'none';
+                next.classList.add('hidden');
+            }
         }
         if (show) visible++;
     }

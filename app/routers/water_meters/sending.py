@@ -130,26 +130,24 @@ def _build_recipients(db: Session) -> list[dict]:
                 last_reading = sorted_readings[-1] if sorted_readings else None
                 prev_reading = sorted_readings[-2] if len(sorted_readings) >= 2 else None
 
-                # Historical consumption — within-month consumption for last 3 months
-                # Group readings by month, keep first and last per month
-                monthly_first: dict[str, object] = {}  # "YYYY-MM" → first reading
-                monthly_last: dict[str, object] = {}   # "YYYY-MM" → last reading
+                # Historical consumption — last 3 periods (last - second-to-last per month)
+                # Group readings by month, keep last two per month
+                monthly_readings: dict[str, list] = {}  # "YYYY-MM" → list of readings
                 for r in sorted_readings:
                     if r.reading_date:
                         key = r.reading_date.strftime("%Y-%m")
-                        if key not in monthly_first:
-                            monthly_first[key] = r
-                        monthly_last[key] = r
+                        monthly_readings.setdefault(key, []).append(r)
 
                 history: list[dict] = []
-                for key in sorted(monthly_first.keys(), reverse=True):
+                for key in sorted(monthly_readings.keys(), reverse=True):
                     if len(history) >= 3:
                         break
-                    first = monthly_first[key]
-                    last = monthly_last[key]
-                    if first.id == last.id:
-                        continue  # only one reading in month
-                    diff = round(last.value - first.value, 1)
+                    month_r = monthly_readings[key]
+                    if len(month_r) < 2:
+                        continue  # need at least 2 readings in month
+                    last = month_r[-1]
+                    prev = month_r[-2]
+                    diff = round(last.value - prev.value, 1)
                     if diff < 0:
                         continue
                     history.append({
