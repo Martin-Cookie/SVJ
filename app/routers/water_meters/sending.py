@@ -130,26 +130,30 @@ def _build_recipients(db: Session) -> list[dict]:
                 last_reading = sorted_readings[-1] if sorted_readings else None
                 prev_reading = sorted_readings[-2] if len(sorted_readings) >= 2 else None
 
-                # Historical consumption — last 2-3 periods (last reading per month only)
-                # Deduplicate: keep only the last reading in each calendar month
-                monthly: dict[str, object] = {}  # "YYYY-MM" → reading
+                # Historical consumption — within-month consumption for last 3 months
+                # Group readings by month, keep first and last per month
+                monthly_first: dict[str, object] = {}  # "YYYY-MM" → first reading
+                monthly_last: dict[str, object] = {}   # "YYYY-MM" → last reading
                 for r in sorted_readings:
                     if r.reading_date:
                         key = r.reading_date.strftime("%Y-%m")
-                        monthly[key] = r  # later reading in same month overwrites
-                monthly_readings = sorted(monthly.values(), key=lambda r: r.reading_date)
+                        if key not in monthly_first:
+                            monthly_first[key] = r
+                        monthly_last[key] = r
 
                 history: list[dict] = []
-                for hi in range(len(monthly_readings) - 1, 0, -1):
+                for key in sorted(monthly_first.keys(), reverse=True):
                     if len(history) >= 3:
                         break
-                    r_cur = monthly_readings[hi]
-                    r_prev = monthly_readings[hi - 1]
-                    diff = round(r_cur.value - r_prev.value, 1)
+                    first = monthly_first[key]
+                    last = monthly_last[key]
+                    if first.id == last.id:
+                        continue  # only one reading in month
+                    diff = round(last.value - first.value, 1)
                     if diff < 0:
                         continue
                     history.append({
-                        "date": r_cur.reading_date.strftime("%m/%Y"),
+                        "date": last.reading_date.strftime("%m/%Y"),
                         "consumption": diff,
                     })
 
@@ -254,14 +258,15 @@ def _build_email_context(rcpt: dict) -> dict:
             else:
                 historie = "—"
 
-            # Vs. historical average — compare current consumption against older periods
+            # Vs. historical average — compare latest month against older months
             vs_prumer = "—"
-            if mi["consumption"] is not None and len(hist) >= 2:
+            if len(hist) >= 2:
+                current_month = hist[0]["consumption"]
                 older = [h["consumption"] for h in hist[1:]]
                 if older:
                     avg = sum(older) / len(older)
                     if avg > 0:
-                        diff_pct = (mi["consumption"] - avg) / avg * 100
+                        diff_pct = (current_month - avg) / avg * 100
                         if diff_pct > 5:
                             color, bg, arrow = "#dc2626", "#fee2e2", "▲"
                         elif diff_pct < -5:
