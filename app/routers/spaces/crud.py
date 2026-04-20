@@ -733,7 +733,7 @@ async def space_export(
 
     spaces = _filter_spaces(db, q, stav, sekce, sort, order)
 
-    headers = ["Č. prostoru", "Označení", "Sekce", "Podlaží", "Výměra", "Stav", "Nájemce", "Měs. nájemné", "VS"]
+    headers = ["Č. prostoru", "Označení", "Sekce", "Podlaží", "Výměra", "Stav", "Nájemce", "Měs. nájemné", "Smlouva od", "VS"]
     status_labels = {"rented": "Pronajato", "vacant": "Volné", "blocked": "Blokované"}
 
     def _row(s):
@@ -741,6 +741,7 @@ async def space_export(
         tenant_name = at.tenant.display_name if at else ""
         rent = at.monthly_rent if at else ""
         vs = at.variable_symbol if at else ""
+        contract = at.contract_start.strftime("%d.%m.%Y") if at and at.contract_start else ""
         return [
             s.space_number,
             s.designation or "",
@@ -750,6 +751,7 @@ async def space_export(
             status_labels.get(s.status.value, s.status.value) if s.status else "",
             tenant_name,
             rent,
+            contract,
             vs,
         ]
 

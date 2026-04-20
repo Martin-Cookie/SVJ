@@ -34,6 +34,11 @@
         <span class="text-gray-300 dark:text-gray-600">—</span>
         {% endif %}
     </td>
+    <td class="px-2 py-1.5 text-gray-500 dark:text-gray-400 font-mono whitespace-nowrap">
+        {% if at and at.contract_start %}
+        {{ at.contract_start.strftime('%d.%m.%Y') }}
+        {% else %}—{% endif %}
+    </td>
     <td class="px-2 py-1.5 text-gray-500 dark:text-gray-400 font-mono">
         {% if at and at.variable_symbol %}
             {% if '???' in at.variable_symbol %}

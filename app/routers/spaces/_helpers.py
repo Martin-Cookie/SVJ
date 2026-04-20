@@ -21,6 +21,7 @@ SORT_COLUMNS = {
     "status": Space.status,
     "rent": None,  # Python-side — z SpaceTenant
     "tenant": None,  # Python-side — jméno nájemce
+    "smlouva": None,  # Python-side — contract_start z SpaceTenant
 }
 
 
@@ -73,6 +74,12 @@ def _filter_spaces(db: Session, q="", stav="", sekce="", najemce="", sort="space
             at = s.active_tenant_rel
             return at.tenant.resolved_name_normalized if at else ""
         spaces.sort(key=_tenant_name, reverse=(order == "desc"))
+    elif sort == "smlouva":
+        from datetime import date as _date
+        def _contract(s):
+            at = s.active_tenant_rel
+            return at.contract_start if at and at.contract_start else _date.min
+        spaces.sort(key=_contract, reverse=(order == "desc"))
 
     return spaces
 
