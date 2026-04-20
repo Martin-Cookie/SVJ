@@ -50,11 +50,11 @@ git log --oneline -10
 # Necommitnuté změny
 git status
 
-# Poslední audit report (pokud existuje)
-cat docs/agents/AUDIT-REPORT.md 2>/dev/null | head -20
+# Poslední audit report
+cat docs/reports/AUDIT-REPORT.md 2>/dev/null | head -20
 
-# Poslední UX report (pokud existuje)
-cat docs/reports/UX-REPORT*.md 2>/dev/null | head -20
+# Poslední UX report
+cat docs/reports/UX-REPORT.md 2>/dev/null | head -20
 
 # Kdy byla naposledy synchronizovaná dokumentace
 git log --oneline -1 -- CLAUDE.md README.md docs/
