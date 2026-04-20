@@ -54,7 +54,7 @@ python3 -m pytest tests/ -v          # spustit všechny testy
 python3 -m pytest tests/ -q --tb=short  # stručný výstup
 ```
 
-**336 testů** (~4s, in-memory SQLite) pokrývá:
+**415 testů** (~15s, in-memory SQLite) pokrývá:
 
 | Soubor | Testů | Oblast |
 |--------|-------|--------|
@@ -62,8 +62,11 @@ python3 -m pytest tests/ -q --tb=short  # stručný výstup
 | `test_voting.py` | 72 | wizard, ballot stats, import, SJM párování |
 | `test_payment_advanced.py` | 50 | space matching, confirm/reject, lock, multi-unit, endpoints, diacritics |
 | `test_backup.py` | 43 | lock, ZIP create/restore, cleanup, integrity |
+| `test_bounce_service.py` | 33 | DSN parsing, bounce type detection, humanize_reason |
 | `test_payment_matching.py` | 33 | matching pipeline, settlement, rounding |
-| `test_smoke.py` | 19 | app start, dashboard, routes smoke |
+| `test_water_meters.py` | 27 | import, consumption, deviations, label normalization |
+| `test_smoke.py` | 20 | app start, dashboard, routes smoke |
+| `test_utils.py` | 18 | utility funkce, strip_diacritics, flash_from_params |
 | `test_tenants.py` | 12 | dedup helper, resolved properties, multi-space, /prostory/novy flow |
 | `test_owner_matcher.py` | 10 | TITLE_PATTERNS, Czech surname stemming, stem overlap |
 | `test_import_mapping.py` | 9 | column detection, mapping validation |
@@ -282,7 +285,7 @@ Modul pro správu předpisů, bankovních výpisů, variabilních symbolů a př
   - Náhled s checkboxy pro výběr příjemců, testovací email, dávkové odesílání s progress barem
   - SJM podpora — příjemce se vybírá dle shody jména odesílatele platby s vlastníkem jednotky
   - Sdílený progress bar (`partials/_send_progress.html`) s Pozastavit/Pokračovat/Zrušit (sdílený s hromadným rozesíláním)
-- **Dashboard integrace** — 5. karta na hlavním dashboardu (napárované platby, výpisy)
+- **Dashboard integrace** — 7. karta na hlavním dashboardu (napárované platby, výpisy)
 - **Badge v detailu jednotky** — "Zaplaceno ✓" (zelený) nebo "Dluh X Kč" (červený/žlutý)
 
 ### F. Prostory a nájemci (`/prostory`, `/najemci`)
@@ -384,7 +387,7 @@ Sloučená stránka se dvěma sekcemi — Kontrola vlastníků (nahoře) a Kontr
   - `application/octet-stream` pro stahování — Safari nerozbaluje automaticky
   - WAL mode: SQLite journal_mode=WAL pro lepší concurrent read/write
 - Smazání dat:
-  - Výběr kategorií ke smazání (vlastníci, hlasování, daně, synchronizace, kontrola podílu, logy, administrace, zálohy, historie obnovení)
+  - Výběr kategorií ke smazání (vlastníci, prostory, vodoměry, hlasování, daně, synchronizace, kontrola podílu, platby, logy, administrace, zálohy, historie obnovení)
   - Checkbox „Vybrat/Zrušit vše" pro hromadné označení
   - Počet záznamů a popis u každé kategorie (DB modely i souborové kategorie)
   - Potvrzení zadáním slova DELETE — tlačítko disabled dokud není zadáno
@@ -497,7 +500,7 @@ app/
 ├── main.py                    # FastAPI aplikace
 ├── config.py                  # Nastavení (Pydantic)
 ├── database.py                # SQLAlchemy engine + session
-├── utils.py                   # Sdílené utility (utcnow, strip_diacritics, build_list_url, is_htmx_partial, fmt_num, is_safe_path, validate_upload, validate_uploads, setup_jinja_filters, excel_auto_width, compute_eta, build_wizard_steps, build_name_with_titles, render_email_template, UPLOAD_LIMITS, is_valid_email, templates)
+├── utils.py                   # Sdílené utility (utcnow, strip_diacritics, build_list_url, is_htmx_partial, fmt_num, is_safe_path, validate_upload, validate_uploads, setup_jinja_filters, excel_auto_width, compute_eta, build_wizard_steps, build_import_wizard, build_name_with_titles, render_email_template, flash_from_params, encode_smtp_password, decode_smtp_password, get_invalid_emails, UPLOAD_LIMITS, is_valid_email, templates)
 ├── models/                    # Databázové modely
 │   ├── owner.py               #   Owner, Unit, OwnerUnit, Proxy
 │   ├── voting.py              #   Voting, VotingItem, Ballot, BallotVote
@@ -508,9 +511,10 @@ app/
 │   ├── space.py               #   Space, SpaceStatus, Tenant, SpaceTenant
 │   ├── water_meter.py         #   WaterMeter, WaterReading, MeterType
 │   ├── smtp_profile.py        #   SmtpProfile (multi-SMTP profily s base64 heslem)
-│   ├── common.py              #   EmailLog (+ name_normalized), ImportLog, ActivityLog, ActivityAction, log_activity()
+│   ├── common.py              #   EmailLog (+ name_normalized), EmailBounce, BounceType, ImportLog, ActivityLog, ActivityAction, log_activity()
 │   └── administration.py      #   SvjInfo (+ owner/contact_import_mapping), SvjAddress, BoardMember, CodeListItem, EmailTemplate
 ├── routers/                   # HTTP endpointy
+│   ├── bounces.py             #   /rozesilani/bounces (detekce nedoručených emailů)
 │   ├── dashboard.py           #   GET /
 │   ├── owners/                #   /vlastnici (crud, import vlastníků, import kontaktů)
 │   │   ├── __init__.py
@@ -552,6 +556,7 @@ app/
 │   │   ├── crud.py            #   Seznam, detail, identita/kontakt/adresa editace
 │   │   └── _helpers.py        #   Sdílené funkce
 │   ├── sync/                  #   /synchronizace (sloučená stránka Kontroly)
+│   │   ├── __init__.py
 │   │   ├── session.py         #   Seznam, vytvoření, smazání, detail, export
 │   │   ├── contacts.py        #   Přijetí/zamítnutí změn, aplikace kontaktů
 │   │   ├── exchange.py        #   Výměna vlastníků preview + potvrzení
@@ -596,7 +601,8 @@ app/
 │   ├── payment_discrepancy.py #   Detekce nesrovnalostí v platbách, SJM matching, email kontext
 │   ├── payment_overview.py    #   Matice plateb, dlužníci, detail jednotky
 │   ├── settlement_service.py  #   Logika vyúčtování (generování, přepočet)
-│   └── space_import.py        #   Import prostorů z Excelu
+│   ├── space_import.py        #   Import prostorů z Excelu
+│   └── bounce_service.py      #   IMAP bounce detekce, RFC 3464 DSN parsing
 ├── templates/                 # Jinja2 šablony
 │   ├── base.html              #   Layout se sidebar navigací
 │   ├── dashboard.html         #   Přehled (statistiky vlastníků, jednotek, podílů)
@@ -1183,6 +1189,7 @@ LIBREOFFICE_PATH=/Applications/LibreOffice.app/Contents/MacOS/soffice
 - **WaterMeter** — vodoměr (meter_serial, meter_type SV/TV, unit_letter, unit_number, unit_suffix, location, unit_id FK → Unit); `readings` relace na odečty
 - **WaterReading** — odečet vodoměru (reading_date, value m³, import_batch); meter_id FK → WaterMeter
 - **MeterType** — enum: COLD (SV), HOT (TV)
+- **EmailBounce** — nedoručený email (recipient_email, bounce_type, diagnostic_code, reason, imap_uid, smtp_profile_name, owner_id FK, email_log_id FK); **BounceType** — enum: HARD, SOFT, UNKNOWN
 - **EmailLog** (+ `name_normalized` pro diacritics-insensitive vyhledávání), **ImportLog** — systémové logy
 
 ## Bezpečnost a kvalita kódu

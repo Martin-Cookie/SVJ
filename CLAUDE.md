@@ -60,9 +60,9 @@
 
 ## Dashboard
 
-- 6 stat karet v jednom řádku: vlastníci, jednotky, hlasování, rozesílání, platby, prostory
-- Jednoduché karty (vlastníci, jednotky, prostory) — celá karta je `<a>` tag
-- Karty se sub-odkazy (hlasování, rozesílání, platby) — `<div>` wrapper s hlavním `<a>` a per-status linky uvnitř
+- 7 stat karet v jednom řádku: vlastníci, jednotky, nájemci, prostory, hlasování, rozesílání, platby
+- Jednoduché karty (vlastníci, jednotky) — celá karta je `<a>` tag
+- Karty se sub-odkazy (nájemci, prostory, hlasování, rozesílání, platby) — `<div>` wrapper s hlavním `<a>` a per-status linky uvnitř
 - Per-status řádky: count badge + `→ název poslední kampaně` (truncate + title tooltip)
 - Přehledové karty zobrazují VŽDY všechny stavy — nikdy nefiltrovat na „jen aktivní"
 - Fixní header (stat karty + search) se scrollovatelnou tabulkou poslední aktivity
@@ -181,6 +181,8 @@
 - `utcnow()` — naive UTC datetime, náhrada za deprecated `datetime.utcnow()` (Python 3.12+)
 - `flash_from_params(request, flash_map, **extra_ctx)` — čte `?flash=` z URL, vrací `(message, type)` z mapy. Šablona zprávy může mít `{placeholder}` z query params nebo extra_ctx. Použití: `flash_message, flash_type = flash_from_params(request, {"ok": ("Hotovo.", "success")})`
 - `render_email_template(template_str, context)` — renderuje Jinja2 email šablonu s kontextem (pro platební upozornění). Neznámé proměnné se renderují jako prázdný řetězec
+- `encode_smtp_password(plain)` / `decode_smtp_password(b64)` — base64 kódování/dekódování SMTP hesel
+- `get_invalid_emails(db)` — vrací set neplatných emailů (na základě hard bounces)
 - `templates` — sdílená `Jinja2Templates` instance s registrovanými filtry (singleton pro celý projekt)
 
 ## JavaScript
@@ -230,6 +232,7 @@
   - `administration/` — `info.py`, `board.py`, `code_lists.py`, `backups.py`, `bulk.py`, `_helpers.py`
   - `sync/` — `session.py`, `contacts.py`, `exchange.py`, `_helpers.py`
   - `water_meters/` — `overview.py`, `import_readings.py`, `sending.py`, `_helpers.py`
+- Standalone routery (ne packages): `dashboard.py`, `units.py`, `share_check.py`, `settings_page.py`, `bounces.py`
 
 ## Startup (lifespan)
 

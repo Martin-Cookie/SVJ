@@ -22,10 +22,11 @@ Každá entita s identifikací, kontakty a adresami (vlastníci, nájemci) MUSÍ
 ```html
 <div class="bg-white rounded-lg shadow mb-3">
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-gray-100">
-        <div class="p-3" id="identity-section">{% include "partials/entity_identity_info.html" %}</div>
-        <div class="p-3" id="contact-section">{% include "partials/entity_contact_info.html" %}</div>
-        <div class="p-3" id="perm-address-section">{% include "partials/entity_address_info.html" %}</div>
-        <div class="p-3" id="corr-address-section">{% include "partials/entity_address_info.html" %}</div>
+        <div class="p-3" id="identity-section">{% include "partials/owner_identity_info.html" %}</div>
+        <div class="p-3" id="contact-section">{% include "partials/owner_contact_info.html" %}</div>
+        <div class="p-3" id="perm-address-section">{% include "partials/owner_address_info.html" %}</div>
+        <div class="p-3" id="corr-address-section">{% include "partials/owner_address_info.html" %}</div>
+        {# Nájemci: tenants/partials/_tenant_identity_info.html atd. #}
     </div>
 </div>
 ```
