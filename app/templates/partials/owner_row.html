@@ -35,6 +35,10 @@
         {% endfor %}
         {{ sections|join(", ") or '—' }}
     </td>
+    <td class="px-2 py-1.5 text-right text-gray-600 font-mono">
+        {% set _mc = (meter_counts or {}).get(owner.id, 0) %}
+        {% if _mc > 0 %}{{ _mc }}{% else %}<span class="text-gray-300">—</span>{% endif %}
+    </td>
     <td class="px-2 py-1.5 text-gray-700 overflow-hidden" style="text-overflow:ellipsis;white-space:nowrap" title="{{ owner.email or '' }}{% if owner.email_secondary and owner.email_secondary != owner.email %} / {{ owner.email_secondary }}{% endif %}">
         {% if owner.email %}{{ owner.email }}{% if owner.email_secondary and owner.email_secondary != owner.email %} <span class="text-gray-400 text-xs">+1</span>{% endif %}{% elif owner.email_secondary %}<span class="text-gray-400">{{ owner.email_secondary }}</span>{% else %}<span class="text-gray-300">—</span>{% endif %}
     </td>

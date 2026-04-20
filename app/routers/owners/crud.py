@@ -26,6 +26,7 @@ from ._helpers import (
     _filter_owners,
     _format_address,
     _header_oob_html,
+    _owner_meter_counts,
     _owner_units_context,
     _rebuild_owner_name,
     logger,
@@ -238,6 +239,9 @@ async def owner_list(
                 if presc.monthly_total:
                     unit_monthly[presc.unit_id] = presc.monthly_total
 
+    # Water meter counts per owner
+    meter_counts = _owner_meter_counts(db)
+
     # Return partial only for targeted HTMX requests (search/filter), not boosted navigation
     if is_htmx_partial(request):
         return templates.TemplateResponse(request, "partials/owner_table_body.html", {
@@ -246,6 +250,7 @@ async def owner_list(
             "debt_map": debt_map,
             "unit_vs": unit_vs,
             "unit_monthly": unit_monthly,
+            "meter_counts": meter_counts,
         })
 
     # Stats for header
@@ -312,6 +317,7 @@ async def owner_list(
         "debt_map": debt_map,
         "unit_vs": unit_vs,
         "unit_monthly": unit_monthly,
+        "meter_counts": meter_counts,
         "owner_types": OwnerType,
         "stats": {
             "total_owners": all_owners,
@@ -347,7 +353,9 @@ async def owner_export(
 
     owners = _filter_owners(db, q, owner_type, vlastnictvi, kontakt, stav, sekce, sort, order)
 
-    headers = ["Vlastník", "Typ", "Jednotky", "Sekce", "Email", "Email 2", "Telefon", "Podíl SČD", "RČ/IČ", "Trvalá adresa", "Korespondenční adresa"]
+    headers = ["Vlastník", "Typ", "Jednotky", "Sekce", "Vodoměrů", "Email", "Email 2", "Telefon", "Podíl SČD", "RČ/IČ", "Trvalá adresa", "Korespondenční adresa"]
+
+    meter_counts = _owner_meter_counts(db)
 
     def _row(o):
         units = ", ".join(str(ou.unit.unit_number) for ou in o.current_units)
@@ -360,6 +368,7 @@ async def owner_export(
             typ,
             units,
             sections,
+            meter_counts.get(o.id, 0),
             o.email or "",
             o.email_secondary or "",
             o.phone or "",

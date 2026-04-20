@@ -7,7 +7,7 @@ from markupsafe import escape
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
-from app.models import Owner, OwnerType, OwnerUnit, SvjInfo, Unit
+from app.models import Owner, OwnerType, OwnerUnit, SvjInfo, Unit, WaterMeter
 from app.services.code_list_service import get_all_code_lists
 from app.utils import strip_diacritics, templates
 
@@ -22,6 +22,7 @@ SORT_COLUMNS = {
     "podil": None,  # handled in Python — needs sum across units
     "jednotky": None,  # handled in Python
     "sekce": None,  # handled in Python
+    "vodometry": None,  # handled in Python — count of water meters
 }
 
 
@@ -119,6 +120,20 @@ def _filter_owners(db: Session, q="", owner_type="", vlastnictvi="", kontakt="",
         col = sec_sub.c.min_section
         query = query.order_by(col.desc().nulls_last() if order == "desc" else col.asc().nulls_last())
         owners = query.all()
+    elif sort == "vodometry":
+        # SQL subquery: count of water meters per owner (via units)
+        meter_sub = (
+            db.query(OwnerUnit.owner_id, func.count(WaterMeter.id).label("meter_count"))
+            .join(Unit, OwnerUnit.unit_id == Unit.id)
+            .outerjoin(WaterMeter, WaterMeter.unit_id == Unit.id)
+            .filter(OwnerUnit.valid_to.is_(None))
+            .group_by(OwnerUnit.owner_id)
+            .subquery()
+        )
+        query = query.outerjoin(meter_sub, Owner.id == meter_sub.c.owner_id)
+        col = meter_sub.c.meter_count
+        query = query.order_by(col.desc().nulls_last() if order == "desc" else col.asc().nulls_last())
+        owners = query.all()
     elif sort_col is not None:
         if order == "desc":
             query = query.order_by(sort_col.desc().nulls_last())
@@ -129,6 +144,19 @@ def _filter_owners(db: Session, q="", owner_type="", vlastnictvi="", kontakt="",
         owners = query.order_by(Owner.name_normalized).all()
 
     return owners
+
+
+def _owner_meter_counts(db: Session) -> dict[int, int]:
+    """Return {owner_id: water_meter_count} for all active owners."""
+    rows = (
+        db.query(OwnerUnit.owner_id, func.count(WaterMeter.id))
+        .join(Unit, OwnerUnit.unit_id == Unit.id)
+        .outerjoin(WaterMeter, WaterMeter.unit_id == Unit.id)
+        .filter(OwnerUnit.valid_to.is_(None))
+        .group_by(OwnerUnit.owner_id)
+        .all()
+    )
+    return {owner_id: cnt for owner_id, cnt in rows}
 
 
 def _format_address(owner, prefix):
