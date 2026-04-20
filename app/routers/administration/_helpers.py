@@ -19,7 +19,8 @@ from app.models import (
     BankStatementColumnMapping,
     UnitBalance, Settlement, SettlementItem,
     WaterMeter, WaterReading,
-    EmailTemplate, EmailLog, ImportLog, ActivityLog,
+    EmailTemplate, EmailLog, EmailBounce, ImportLog, ActivityLog,
+    SmtpProfile,
 )
 from app.services.backup_service import read_restore_log
 from app.services.code_list_service import CODE_LIST_CATEGORIES
@@ -108,8 +109,8 @@ _PURGE_CATEGORIES = {
     # Logy — rozpad na 3 podkategorie
     "email_logs": {
         "label": "Email logy",
-        "description": "Záznamy o odeslaných emailech",
-        "models": [EmailLog],
+        "description": "Záznamy o odeslaných emailech a nedoručených bounce zprávách",
+        "models": [EmailBounce, EmailLog],
     },
     "import_logs": {
         "label": "Import logy",
@@ -142,6 +143,11 @@ _PURGE_CATEGORIES = {
         "description": "Šablony pro hromadné rozesílání",
         "models": [EmailTemplate],
     },
+    "smtp_profiles": {
+        "label": "SMTP profily",
+        "description": "Profily pro odesílání emailů (SMTP servery)",
+        "models": [SmtpProfile],
+    },
     "backups": {
         "label": "Existující zálohy",
         "description": "ZIP soubory záloh v adresáři data/backups",
@@ -157,7 +163,7 @@ _PURGE_CATEGORIES = {
 _PURGE_ORDER = [
     "owners", "spaces", "water_meters", "votings", "tax", "sync", "share_check", "payments",
     "email_logs", "import_logs", "activity_logs",
-    "svj_info", "board", "code_lists", "email_templates",
+    "svj_info", "board", "code_lists", "email_templates", "smtp_profiles",
     "backups", "restore_log",
 ]
 
@@ -172,7 +178,7 @@ _PURGE_GROUPS = [
     {"cat_keys": ["share_check"]},
     {"cat_keys": ["payments"]},
     {"label": "Logy", "cat_keys": ["email_logs", "import_logs", "activity_logs"]},
-    {"label": "Administrace SVJ", "cat_keys": ["svj_info", "board", "code_lists", "email_templates"]},
+    {"label": "Administrace SVJ", "cat_keys": ["svj_info", "board", "code_lists", "email_templates", "smtp_profiles"]},
     {"cat_keys": ["backups"]},
     {"cat_keys": ["restore_log"]},
 ]

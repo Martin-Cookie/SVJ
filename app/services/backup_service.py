@@ -414,11 +414,13 @@ def _get_table_counts(db_path: str) -> dict:
         "variable_symbol_mappings", "bank_statements", "payments",
         "payment_allocations", "bank_statement_column_mappings",
         "unit_balances", "settlements", "settlement_items",
+        # Vodoměry
+        "water_meters", "water_readings",
         # Logy
         "email_logs", "email_bounces", "import_logs", "activity_logs",
         # Administrace
         "svj_info", "svj_addresses", "board_members",
-        "code_list_items", "email_templates",
+        "code_list_items", "email_templates", "smtp_profiles",
     ]
     counts = {}
     try:
