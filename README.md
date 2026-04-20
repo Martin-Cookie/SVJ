@@ -54,19 +54,23 @@ python3 -m pytest tests/ -v          # spustit všechny testy
 python3 -m pytest tests/ -q --tb=short  # stručný výstup
 ```
 
-**415 testů** (~15s, in-memory SQLite) pokrývá:
+**561 testů** (~15s, in-memory SQLite) pokrývá:
 
 | Soubor | Testů | Oblast |
 |--------|-------|--------|
 | `test_csv_comparator.py` | 77 | CSV parsing, fuzzy matching, Czech stemming |
 | `test_voting.py` | 72 | wizard, ballot stats, import, SJM párování |
 | `test_payment_advanced.py` | 50 | space matching, confirm/reject, lock, multi-unit, endpoints, diacritics |
+| `test_utils.py` | 50 | utility funkce, wizard steps, name builder, safe path, SMTP password |
 | `test_backup.py` | 43 | lock, ZIP create/restore, cleanup, integrity |
 | `test_bounce_service.py` | 33 | DSN parsing, bounce type detection, humanize_reason |
 | `test_payment_matching.py` | 33 | matching pipeline, settlement, rounding |
+| `test_prescription_import.py` | 30 | DOCX parsery předpisů, kategorizace, data |
 | `test_water_meters.py` | 27 | import, consumption, deviations, label normalization |
+| `test_payment_discrepancy.py` | 24 | sender matching, email kontext, formátování |
+| `test_bank_import.py` | 22 | Fio CSV parsing, metadata, pipeline |
 | `test_smoke.py` | 20 | app start, dashboard, routes smoke |
-| `test_utils.py` | 18 | utility funkce, strip_diacritics, flash_from_params |
+| `test_owner_exchange.py` | 20 | split_votes, parse_csv_name, split_csv_names |
 | `test_tenants.py` | 12 | dedup helper, resolved properties, multi-space, /prostory/novy flow |
 | `test_owner_matcher.py` | 10 | TITLE_PATTERNS, Czech surname stemming, stem overlap |
 | `test_import_mapping.py` | 9 | column detection, mapping validation |
