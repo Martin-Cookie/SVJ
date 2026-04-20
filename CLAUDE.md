@@ -163,27 +163,13 @@
 
 ## Utility funkce (`app/utils.py`)
 
-- `strip_diacritics(text)` — odstraní diakritiku a převede na lowercase (pro vyhledávání)
-- `fmt_num(value)` — formátuje čísla s oddělovači tisíců (registrován jako Jinja2 filtr `fmt_num`)
-- `build_list_url(request)` — sestaví URL aktuální stránky s query parametry pro `list_url`
-- `is_htmx_partial(request)` — `True` pokud request je HTMX ale NE boosted (pro partial odpovědi)
-- `is_safe_path(path, allowed_dirs)` — validace cesty proti path traversal
-- `UPLOAD_LIMITS` — dict centralizovaných upload limitů (`max_size_mb`, `allowed_extensions`). Klíče: `excel`, `csv`, `csv_xlsx`, `pdf`, `docx`, `backup`, `db`, `folder`
-- `async validate_upload(file, max_size_mb, allowed_extensions)` — validace nahraného souboru (přípona, velikost). Volání: `await validate_upload(file, **UPLOAD_LIMITS["excel"])`
-- `async validate_uploads(files, max_size_mb, allowed_extensions)` — validace seznamu souborů (vrací první chybu)
-- `is_valid_email(email)` — základní regex validace emailového formátu
-- `excel_auto_width(ws, max_width=45)` — auto-šířka sloupců v openpyxl worksheet (pro Excel exporty)
-- `compute_eta(current, total, started_at)` — výpočet progrese (%), uplynulého času a ETA textu. Vrací dict `{pct, elapsed, eta}`
-- `build_wizard_steps(step_defs, current_step, max_done, sending_step=None)` — společná logika wizard stepperu (voting + tax)
-- `build_import_wizard(current_step)` — vrací wizard kontext pro import workflows (4 kroky: Nahrání → Mapování → Náhled → Výsledek)
-- `build_name_with_titles(title, first_name, last_name)` — sestaví zobrazovací jméno: titul + příjmení + jméno
-- `setup_jinja_filters(templates)` — registrace custom Jinja2 filtrů (aktuálně `fmt_num`) na Jinja2Templates instanci
-- `utcnow()` — naive UTC datetime, náhrada za deprecated `datetime.utcnow()` (Python 3.12+)
-- `flash_from_params(request, flash_map, **extra_ctx)` — čte `?flash=` z URL, vrací `(message, type)` z mapy. Šablona zprávy může mít `{placeholder}` z query params nebo extra_ctx. Použití: `flash_message, flash_type = flash_from_params(request, {"ok": ("Hotovo.", "success")})`
-- `render_email_template(template_str, context)` — renderuje Jinja2 email šablonu s kontextem (pro platební upozornění). Neznámé proměnné se renderují jako prázdný řetězec
-- `encode_smtp_password(plain)` / `decode_smtp_password(stored)` — Fernet šifrování/dešifrování SMTP hesel (klíč v `data/.smtp_key`). Zpětně kompatibilní s legacy base64
-- `get_invalid_emails(db)` — vrací set neplatných emailů (na základě hard bounces)
-- `templates` — sdílená `Jinja2Templates` instance s registrovanými filtry (singleton pro celý projekt)
+Kompletní API viz přímo `app/utils.py`. Klíčové konvence:
+
+- Upload validace přes `await validate_upload(file, **UPLOAD_LIMITS["klíč"])` — klíče: `excel`, `csv`, `csv_xlsx`, `pdf`, `docx`, `backup`, `db`, `folder`
+- Flash zprávy přes `flash_from_params(request, {"kód": ("Zpráva {placeholder}.", "typ")})` — viz Router vzory
+- SMTP hesla: `encode_smtp_password()` / `decode_smtp_password()` — Fernet (klíč v `data/.smtp_key`), zpětně kompatibilní s legacy base64
+- Timestamps: `utcnow()` místo deprecated `datetime.utcnow()`
+- Jinja2: sdílená instance `templates` se zaregistrovaným filtrem `fmt_num`
 
 ## JavaScript
 
@@ -222,36 +208,16 @@
 - Struktura: `__init__.py` (kombinuje sub-routery), `_helpers.py` (sdílené funkce), logické sub-moduly
 - `__init__.py`: vlastní `APIRouter()` + `include_router(sub_router)` pro každý sub-modul
 - `main.py` import zůstává beze změny (`from app.routers import modul`)
-- Příklady:
-  - `owners/` — `crud.py`, `import_owners.py`, `import_contacts.py`, `_helpers.py`
-  - `voting/` — `session.py`, `ballots.py`, `import_votes.py`, `_helpers.py`
-  - `tax/` — `session.py`, `processing.py`, `matching.py`, `sending.py`, `_helpers.py`
-  - `payments/` — `prescriptions.py`, `symbols.py`, `statements.py`, `balances.py`, `overview.py`, `settlement.py`, `discrepancies.py`, `_helpers.py`
-  - `spaces/` — `crud.py`, `import_spaces.py`, `_helpers.py`
-  - `tenants/` — `crud.py`, `_helpers.py`
-  - `administration/` — `info.py`, `board.py`, `code_lists.py`, `backups.py`, `bulk.py`, `_helpers.py`
-  - `sync/` — `session.py`, `contacts.py`, `exchange.py`, `_helpers.py`
-  - `water_meters/` — `overview.py`, `import_readings.py`, `sending.py`, `_helpers.py`
-- Standalone routery (ne packages): `dashboard.py`, `units.py`, `share_check.py`, `settings_page.py`, `bounces.py`
 
 ## Startup (lifespan)
 
-- `main.py` lifespan: (1) import modelů, (2) `create_all`, (3) `_ALL_MIGRATIONS` list (28 migračních funkcí + `_ensure_indexes()` + `_seed_code_lists()` + `_seed_email_templates()` = 31 položek), (4) `recover_stuck_sending_sessions()`, (5) vytvoření upload/generated/temp adresářů
-- Migrace zahrnují mj. `_migrate_svj_send_settings` (SvjInfo send_batch_size/interval/confirm/test_email), `_migrate_payment_notified_at` (Payment.notified_at sloupec) a `_migrate_dedupe_tenants` (sloučí duplicitní Tenant záznamy podle priority owner_id → RČ → IČ → jméno+typ; vítěz = nejvíce vyplněných polí, SpaceTenant vztahy se přesunou na vítěze)
+- `main.py` lifespan: (1) import modelů, (2) `create_all`, (3) `_ALL_MIGRATIONS` list, (4) `recover_stuck_sending_sessions()`, (5) vytvoření upload/generated/temp adresářů
 - `_ALL_MIGRATIONS` se sdílí s `run_post_restore_migrations()` — po obnově zálohy se spustí stejné migrace
-- Nové funkce vyžadující adresáře: přidat do lifespan. Nové indexy: přidat do `_ensure_indexes()`. Nové migrace: přidat do `_ALL_MIGRATIONS`
+- **Kam přidat nové věci:** adresáře → lifespan, indexy → `_ensure_indexes()`, migrace → `_ALL_MIGRATIONS`
 
 ## Nasazení na USB (jiný počítač)
 
-- Projekt se spouští přes `spustit.command` (macOS) — dvakrát kliknout ve Finderu
-- Skript automaticky: zkontroluje Python, vytvoří `.venv`, nainstaluje závislosti, spustí aplikaci, otevře prohlížeč
-- **Wheels (offline balíčky) jsou vázané na verzi Pythonu** — pokud má cílový počítač jinou verzi Pythonu, wheels nebudou fungovat a skript stáhne balíčky online
-- `.venv/` se NIKDY nekopíruje na USB — obsahuje absolutní cesty a je nepřenositelná
-- Skript automaticky ověří existující `.venv/` — pokud chybí uvicorn (poškozená/neúplná instalace), smaže ji a vytvoří znovu
-- Skript používá `"$VENV_DIR/bin/python" -m uvicorn` místo holého `uvicorn` — zajistí správnou cestu k binárce
-- Skript používá `"$VENV_DIR/bin/pip"` místo holého `pip` — zajistí instalaci do správného venv
-- Požadavky na cílovém počítači: **Python 3.9+** (ověřit `python3 --version`), volitelně LibreOffice pro PDF lístky
-- Pro přenos dat: zkopírovat `data/svj.db` a `data/uploads/` na USB
+> Viz **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)** — spustit.command, wheels, .venv, požadavky na cílový počítač.
 
 ## Workflow
 
@@ -276,23 +242,8 @@
 - Komunikovat stručně — co jsem udělal, ne co bych mohl udělat
 - Na potvrzení se PTÁT — "Chceš commitnout?", "Chceš něco upravit?" atd. jsou v pořádku
 - **Po opravě chyby se VŽDY zeptat**, zda se nemá stejný problém zkontrolovat v celém projektu — stejná chyba se často opakuje na více místech
-- **Prezentace nálezů a doporučení** — každý nález/doporučení MUSÍ obsahovat:
-  1. **Co a kde**: stručný popis problému + kde v aplikaci (URL, stránka, akce)
-  2. **Řešení**: jak to opravit (konkrétní postup, ne vágní "vylepšit")
-  3. **Varianty**: pokud existuje víc přístupů, nabídnout je s pro/proti
-  4. **Náročnost + čas**: odhadovaná složitost (nízká/střední/vysoká) a čas (~5 min, ~30 min, ~2 hod)
-  5. **Závislosti**: závisí oprava na jiném nálezu? "Nejdřív oprav X, pak Y"
-  6. **Regrese riziko**: může oprava rozbít něco jiného? (nízké/střední/vysoké)
-  7. **Rozhodnutí potřeba**: 🔧 (jen opravit) vs ❓ (potřeba rozhodnutí uživatele)
-  8. **Jak otestovat**: polopatický postup krok za krokem (URL → klik → očekávaný výsledek)
-- **Při zápisu dat do evidence (update, exchange, import, checkbox aktualizace) VŽDY aktivně testovat všechny kombinace scénářů:**
-  - 1 vlastník → 1 vlastník (přepis)
-  - 1 vlastník → N vlastníků (přidání spoluvlastníků)
-  - N vlastníků → 1 vlastník (odebrání spoluvlastníků)
-  - N vlastníků → M vlastníků (částečná shoda, částečná výměna)
-  - Reuse vlastník (už na jednotce) vs nový vlastník vs vlastník z jiné jednotky
-  - Ověřit že se propisují VŠECHNA relevantní pole všem dotčeným záznamům (ownership_type, space_type, podíl, jméno)
-  - Výstup analýzy scénářů nabízet uživateli při každé změně v datové logice
+- **Prezentace nálezů** — každý nález MUSÍ obsahovat: (1) co a kde, (2) konkrétní řešení, (3) náročnost + čas, (4) jak otestovat (URL → klik → očekávaný výsledek). Pokud víc přístupů → varianty s pro/proti. Pokud závislosti/regrese riziko → uvést.
+- **Datová logika (update/import/exchange)** — testovat scénáře: 1→1, 1→N, N→1, N→M vlastníků. Ověřit propis VŠECH polí (ownership_type, podíl, jméno). Analýzu scénářů nabízet uživateli.
 
 ## Uživatelské role — plán implementace (na konec)
 
@@ -303,47 +254,23 @@
 
 ## Pravidla pro práci na úkolech
 
-### Vždy dodržuj tento postup:
+### Postup:
 
 1. **Přečti CLAUDE.md** a pochop strukturu projektu
 2. **Analyzuj** současný stav relevantních souborů
-3. **Pokud ti něco není jasné — ZEPTEJ SE**, nedomýšlej si. Používej **AskUserQuestion** s roletovými menu a checkboxy místo volných otázek v textu — uživatel vybere z nabídky místo psaní.
-4. **Ukaž strukturovaný plán** přes update_plan tool (co budeš měnit, které soubory, jak)
-5. **UI změny — ukaž mockup** před implementací (ASCII wireframe současného a navrhovaného stavu):
-   ```
-   Současný stav:
-   ┌──────────────────────────┐
-   │ [jak to vypadá teď]      │
-   └──────────────────────────┘
+3. **Pokud ti něco není jasné — ZEPTEJ SE** (AskUserQuestion s roletovými menu, ne volný text)
+4. **Ukaž strukturovaný plán** přes update_plan tool
+5. **UI změny — ukaž mockup** před implementací (ASCII wireframe současného vs navrhovaného stavu)
+6. **POČKEJ NA SCHVÁLENÍ** — neimplementuj dokud uživatel neschválí
+7. **Implementuj** po schválení
+8. **Otestuj přes Playwright** — rovnou projet dotčené stránky (načtení, bubliny/filtry, search, export). curl = sanity check, Playwright = skutečný test. Po testování smazat `.playwright-mcp/` a `*.png`
+9. **Commitni** každý úkol zvlášť s výstižnou českou commit message
+10. Pokud měníš strukturu projektu → **aktualizuj CLAUDE.md**
 
-   Navrhovaný stav:
-   ┌──────────────────────────┐
-   │ [jak to bude vypadat]    │
-   └──────────────────────────┘
-   ```
-6. **POČKEJ NA SCHVÁLENÍ** — neimplementuj dokud uživatel neschválí plán
-6. **Implementuj** po schválení
-7. **Ověř** že existující funkce stále fungují (spusť server, otestuj dotčené stránky)
-8. **Otestuj rovnou přes Playwright** — NEPTAT SE, rovnou projet dotčené stránky (browser_navigate → browser_snapshot → kliknout na klíčové prvky: bubliny, export linky, search, HTMX swap). curl testuje jen HTTP status, neověří UI interakce, HTMX delay, vizuální konzistenci, ani zda tlačítka reálně něco dělají. **curl = sanity check, Playwright = skutečný test.** Pro každou stránku s daty otestovat alespoň: (a) načtení + snapshot bez chyb v konzoli, (b) kliknutí na jednu z bublin/filtrů, (c) vyplnění search (pokud existuje HTMX search), (d) kliknutí na export (ověřit stažení souboru + název). Po testování smazat soubory v `.playwright-mcp/` (screenshoty, logy, stažené soubory) a testovací screenshoty z kořene
-9. **Vyžádej si potvrzení pro commit** — ukaž co se změnilo a zeptej se "Mám commitnout?"
-10. **Commitni** každý úkol zvlášť s výstižnou českou commit message
-11. Pokud měníš strukturu projektu → **aktualizuj CLAUDE.md**
-
-### Na konci každého úkolu vypiš:
+### Na konci úkolu vypiš:
 - Co jsi změnil (soubory + stručný popis)
-- Co má uživatel otestovat (konkrétní URL a kroky)
+- Co má uživatel otestovat (URL + kroky)
 - Jestli je potřeba restart serveru
 
-### Při více úkolech:
-- Dělej úkoly JEDEN PO DRUHÉM (ne všechny najednou)
-- Po každém úkolu commitni zvlášť
-- Na konci vypiš souhrnnou tabulku:
-
-| # | Úkol | Stav | Změněné soubory | Co otestovat |
-|---|------|------|-----------------|--------------|
-
 ### Striktní pravidla:
-- **Piš česky**
-- **Nedělej víc než je zadáno**
-- **Nedomýšlej si požadavky** — radši se zeptej
-- **Neměň nesouvisející kód** — i když vidíš problém, pouze ho nahlas
+- **Piš česky** · **Nedělej víc než je zadáno** · **Nedomýšlej si požadavky** · **Neměň nesouvisející kód** (pouze nahlas)
