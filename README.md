@@ -108,7 +108,7 @@ python3 -m pytest tests/ -q --tb=short  # stručný výstup
 - Filtrační bublina „Bez jednotky" — vlastníci bez aktuální jednotky (historičtí, po výměně)
 - Všechny bubliny dynamicky roztažené na celou šířku (flex-1)
 - Zachování filtrů při navigaci seznam → detail → detail → zpět (back URL řetěz)
-- Řazení kliknutím na hlavičky sloupců (jméno, typ, email, telefon, podíl, jednotky, sekce)
+- Řazení kliknutím na hlavičky sloupců (jméno, typ, email, telefon, podíl, jednotky, sekce, počet vodoměrů)
 - Sticky hlavička tabulky
 - RČ/IČ viditelné v seznamu i detailu
 - Porovnání podílů: prohlášení vlastníka vs evidence s barevným rozdílem a %
@@ -289,7 +289,7 @@ Modul pro správu předpisů, bankovních výpisů, variabilních symbolů a př
 
 Evidence pronajímaných společných prostorů SVJ (sklady, nebytové prostory, kočárkárny) a jejich nájemců.
 
-- **Prostory** — CRUD s řaditelnými sloupci, hledáním, filtry (stav, sekce), bubliny (pronajato/volné/blokované), export Excel/CSV; formulář vytvoření prostoru s volitelnými poli nájemce (auto-vytvoří Tenant + SpaceTenant + VS mapping + Prescription)
+- **Prostory** — CRUD s řaditelnými sloupci (vč. "Smlouva od"), hledáním, filtry (stav, sekce), bubliny (pronajato/volné/blokované), export Excel/CSV; formulář vytvoření prostoru s volitelnými poli nájemce (auto-vytvoří Tenant + SpaceTenant + VS mapping + Prescription)
 - **Nájemci** — CRUD s per-section inline editací (identita, kontakt, adresy), propojení na vlastníky (Tenant ↔ Owner), resolved properties (jméno, telefon, email, RČ, IČ, typ se čtou z Owner pokud propojený), export Excel/CSV
   - **Multi-space**: 1 nájemce může mít souběžně více prostor (více smluv). Seznam zobrazuje jeden řádek per nájemce se stacked prostory/nájemným/VS pod sebou, detail má sekci „Aktuální prostory (N)", export 1 řádek per smlouva
   - **Deduplikace**: `find_existing_tenant()` helper (priorita owner_id → RČ → IČ → jméno+typ) zabraňuje vytváření duplicitních nájemců při create přes `/najemci/novy` i při inline vytvoření v `/prostory/novy`. Historické duplicity řeší startup migrace `_migrate_dedupe_tenants` (sloučí záznamy, vítěz = nejvíce vyplněných polí, SpaceTenant vztahy se přesunou na vítěze)
@@ -470,7 +470,8 @@ Sloučená stránka se dvěma sekcemi — Kontrola vlastníků (nahoře) a Kontr
   - Režim Doplnit (přeskočí existující data) / Přepsat (smaže a nahradí)
   - Párování vodoměrů na jednotky přes `building_number` (číslo v rámci budovy)
 - **Přehledová stránka** — datová tabulka s plným checklistem:
-  - Řaditelné sloupce (jednotka, katastrální č., typ, sériové č., umístění, vlastník, hodnota, datum, spotřeba, odchylka)
+  - Řaditelné sloupce (jednotka, katastrální č., typ, sériové č., umístění, vlastník, hodnota, datum, spotřeba+odchylka)
+  - Barevné kódování řádků dle odchylky (>50% červená, 20-50% žlutá) + inline badge
   - Bubliny: Vše / SV / TV, Přiřazeno / Nepřiřazeno / Vysoká odchylka
   - HTMX search (sériové č., umístění, číslo jednotky, sekce)
   - Export do Excel/CSV s filename suffix dle filtru
