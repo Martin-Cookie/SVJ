@@ -3,7 +3,7 @@
 {% set dev_info = deviations.get(meter.id, {}) if deviations is defined else {} %}
 {% set consumption = dev_info.get('consumption') %}
 {% set deviation_pct = dev_info.get('deviation_pct') %}
-<tr>
+<tr class="{% if deviation_pct is not none %}{% if deviation_pct|abs > 50 %}bg-red-100 dark:bg-red-900/20{% elif deviation_pct|abs > 20 %}bg-yellow-100 dark:bg-yellow-900/20{% endif %}{% endif %}">
     <td class="px-3 py-2 text-sm" data-v="{{ meter.unit_number or 0 }}">
         {% if meter.unit %}
         <a href="/jednotky/{{ meter.unit.id }}?back={{ list_url|urlencode }}" class="text-blue-600 hover:text-blue-800 hover:underline">
@@ -49,29 +49,18 @@
     <td class="px-3 py-2 text-sm text-right text-gray-900 dark:text-gray-100" data-v="{{ last_reading.value if last_reading and last_reading.value is not none else 0 }}">
         {{ '%.1f'|format(last_reading.value) if last_reading and last_reading.value is not none else '—' }}
     </td>
-    <td class="px-3 py-2 text-sm text-right text-gray-900 dark:text-gray-100" data-v="{{ consumption if consumption is not none else 0 }}">
+    <td class="px-3 py-2 text-sm text-right whitespace-nowrap" data-v="{{ consumption if consumption is not none else 0 }}">
         {% if consumption is not none %}
-        {{ '%.1f'|format(consumption) }}
-        {% else %}
-        <span class="text-gray-400">—</span>
-        {% endif %}
-    </td>
-    <td class="px-3 py-2 text-sm text-right" data-v="{{ deviation_pct|abs if deviation_pct is not none else 0 }}">
+        <span class="text-gray-900 dark:text-gray-100">{{ '%.1f'|format(consumption) }}</span>
         {% if deviation_pct is not none %}
             {% set abs_dev = deviation_pct|abs %}
-            {% if abs_dev <= 20 %}
-            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">
-                {{ '%+.0f'|format(deviation_pct) }} %
+            <span class="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium
+                {% if abs_dev <= 20 %}bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300
+                {% elif abs_dev <= 50 %}bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300
+                {% else %}bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300{% endif %}">
+                {{ '%+.0f'|format(deviation_pct) }}%
             </span>
-            {% elif abs_dev <= 50 %}
-            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300">
-                {{ '%+.0f'|format(deviation_pct) }} %
-            </span>
-            {% else %}
-            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300">
-                {{ '%+.0f'|format(deviation_pct) }} %
-            </span>
-            {% endif %}
+        {% endif %}
         {% else %}
         <span class="text-gray-400">—</span>
         {% endif %}
