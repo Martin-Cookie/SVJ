@@ -12,8 +12,8 @@ from sqlalchemy.orm import Session, contains_eager, joinedload
 from app.database import get_db
 from app.models import WaterMeter, WaterReading, MeterType, Unit, OwnerUnit, Owner, ActivityAction, log_activity
 from app.utils import (
-    build_list_url, excel_auto_width, is_htmx_partial,
-    strip_diacritics, templates,
+    build_list_url, excel_auto_width, flash_from_params,
+    is_htmx_partial, strip_diacritics, templates,
 )
 
 from ._helpers import compute_deviations
@@ -200,12 +200,9 @@ async def water_meters_overview(request: Request, db: Session = Depends(get_db))
 
     ctx = _build_ctx(request, meters, db)
 
-    # Flash messages from query params
-    flash = request.query_params.get("flash", "")
-    msg = request.query_params.get("msg", "")
-    if flash == "import_ok":
-        ctx["flash_message"] = msg or "Import dokončen."
-        ctx["flash_type"] = "success"
+    ctx["flash_message"], ctx["flash_type"] = flash_from_params(request, {
+        "import_ok": ("{msg}", "success"),
+    }, msg="Import dokončen.")
 
     if is_htmx_partial(request):
         return templates.TemplateResponse(request, "partials/water_meter_tbody.html", ctx)
@@ -340,15 +337,10 @@ async def water_meter_detail(request: Request, meter_id: int, db: Session = Depe
         .all()
     )
 
-    flash = request.query_params.get("flash", "")
-    flash_message = ""
-    flash_type = ""
-    if flash == "assigned":
-        flash_message = "Vodoměr přiřazen k jednotce."
-        flash_type = "success"
-    elif flash == "unlinked":
-        flash_message = "Vodoměr odpojen od jednotky."
-        flash_type = "success"
+    flash_message, flash_type = flash_from_params(request, {
+        "assigned": ("Vodoměr přiřazen k jednotce.", "success"),
+        "unlinked": ("Vodoměr odpojen od jednotky.", "success"),
+    })
 
     return templates.TemplateResponse(request, "water_meters/detail.html", {
         "active_nav": "water_meters",

@@ -31,6 +31,35 @@ def decode_smtp_password(b64: str) -> str:
     return base64.b64decode(b64.encode()).decode()
 
 
+def flash_from_params(request: Request, flash_map: dict, **extra_ctx) -> tuple[str, str]:
+    """Read flash code from query params and resolve to (message, type).
+
+    ``flash_map`` maps flash codes to ``(message, type)`` tuples.
+    Message may contain ``{key}`` placeholders filled from query params or *extra_ctx*.
+    Returns ``("", "")`` when no flash or unknown code.
+
+    Usage::
+
+        flash_message, flash_type = flash_from_params(request, {
+            "import_ok": ("Import dokončen — {count} záznamů.", "success"),
+            "deleted":   ("Smazáno.", "success"),
+        })
+    """
+    code = request.query_params.get("flash", "")
+    if not code or code not in flash_map:
+        return "", ""
+    msg_tpl, flash_type = flash_map[code]
+    ctx = dict(extra_ctx)
+    for k, v in request.query_params.items():
+        if v:
+            ctx[k] = v
+    try:
+        msg = msg_tpl.format_map(ctx)
+    except (KeyError, IndexError):
+        msg = msg_tpl
+    return msg, flash_type
+
+
 def build_list_url(request: Request) -> str:
     """Build current page URL with query params for list_url context variable."""
     url = str(request.url.path)
