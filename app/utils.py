@@ -1,5 +1,6 @@
 """Shared utility functions used across routers and services."""
 import base64
+import logging
 import re
 import time as _time
 from datetime import datetime, timezone
@@ -7,7 +8,29 @@ from pathlib import Path
 from typing import List, Optional
 from unicodedata import category, normalize
 
+from cryptography.fernet import Fernet, InvalidToken
 from fastapi import Request, UploadFile
+
+_logger = logging.getLogger(__name__)
+
+# ── SMTP password encryption ────────────────────────────────────────────────
+_SMTP_KEY_PATH = Path(__file__).resolve().parent.parent / "data" / ".smtp_key"
+_fernet: Optional[Fernet] = None
+
+
+def _get_fernet() -> Fernet:
+    """Lazy-load or generate Fernet key from data/.smtp_key."""
+    global _fernet
+    if _fernet is not None:
+        return _fernet
+    if _SMTP_KEY_PATH.exists():
+        key = _SMTP_KEY_PATH.read_bytes().strip()
+    else:
+        key = Fernet.generate_key()
+        _SMTP_KEY_PATH.parent.mkdir(parents=True, exist_ok=True)
+        _SMTP_KEY_PATH.write_bytes(key)
+    _fernet = Fernet(key)
+    return _fernet
 
 
 def utcnow() -> datetime:
@@ -22,13 +45,21 @@ def strip_diacritics(text: str) -> str:
 
 
 def encode_smtp_password(plain: str) -> str:
-    """Base64 obfuskace SMTP hesla pro uložení v DB."""
-    return base64.b64encode(plain.encode()).decode()
+    """Fernet šifrování SMTP hesla pro uložení v DB."""
+    return _get_fernet().encrypt(plain.encode()).decode()
 
 
-def decode_smtp_password(b64: str) -> str:
-    """Dekódování base64 SMTP hesla z DB."""
-    return base64.b64decode(b64.encode()).decode()
+def decode_smtp_password(stored: str) -> str:
+    """Dešifrování SMTP hesla z DB. Fallback na base64 pro zpětnou kompatibilitu."""
+    try:
+        return _get_fernet().decrypt(stored.encode()).decode()
+    except (InvalidToken, Exception):
+        # Fallback: staré base64-only heslo — dekódovat a vrátit
+        try:
+            return base64.b64decode(stored.encode()).decode()
+        except Exception:
+            _logger.warning("Cannot decrypt SMTP password — returning empty")
+            return ""
 
 
 def flash_from_params(request: Request, flash_map: dict, **extra_ctx) -> tuple[str, str]:

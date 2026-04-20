@@ -7,6 +7,7 @@ data/svj.db
 data/svj.db-shm
 data/svj.db-wal
 data/svj.db.backup*
+data/.smtp_key
 data/uploads/
 data/generated/
 data/temp/

@@ -19,8 +19,8 @@ from app.config import settings
 from app.database import get_db
 from app.models import ActivityAction, EmailLog, Owner, SmtpProfile, SvjInfo, log_activity
 from app.utils import (
-    build_list_url, decode_smtp_password, encode_smtp_password,
-    excel_auto_width, is_htmx_partial, is_safe_path, strip_diacritics, templates,
+    build_list_url, decode_smtp_password, encode_smtp_password, excel_auto_width,
+    flash_from_params, is_htmx_partial, is_safe_path, strip_diacritics, templates,
 )
 
 logger = logging.getLogger(__name__)
@@ -137,9 +137,9 @@ async def settings_view(
     }
 
     # Flash zprávy
-    flash = request.query_params.get("flash", "")
-    if flash == "send_ok":
-        ctx["flash_message"] = "Výchozí nastavení odesílání uloženo"
+    ctx["flash_message"], ctx["flash_type"] = flash_from_params(request, {
+        "send_ok": ("Výchozí nastavení odesílání uloženo", "success"),
+    })
 
     if is_htmx_partial(request):
         return templates.TemplateResponse(request, "partials/settings_email_tbody.html", ctx)

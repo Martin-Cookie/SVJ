@@ -23,7 +23,8 @@ from app.services.import_mapping import (
     read_excel_sheet_names, validate_water_meter_mapping,
 )
 from app.utils import (
-    build_import_wizard, is_safe_path, validate_upload, UPLOAD_LIMITS, templates,
+    build_import_wizard, flash_from_params, is_safe_path, validate_upload,
+    UPLOAD_LIMITS, templates,
 )
 
 from ._helpers import logger, normalize_unit_label, parse_techem_xls, parse_water_readings_row_format, _parse_header_date
@@ -76,12 +77,9 @@ def _count_date_columns(file_path: str, sheet_name: str | None = None,
 
 @router.get("/import", response_class=HTMLResponse)
 async def water_import_form(request: Request):
-    flash = request.query_params.get("flash", "")
-    flash_message = ""
-    flash_type = ""
-    if flash == "expired":
-        flash_message = "Náhled vypršel. Nahrajte soubor znovu."
-        flash_type = "error"
+    flash_message, flash_type = flash_from_params(request, {
+        "expired": ("Náhled vypršel. Nahrajte soubor znovu.", "error"),
+    })
 
     return templates.TemplateResponse(request, "water_meters/import.html", {
         "active_nav": "water_meters",

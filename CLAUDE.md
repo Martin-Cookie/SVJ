@@ -181,7 +181,7 @@
 - `utcnow()` — naive UTC datetime, náhrada za deprecated `datetime.utcnow()` (Python 3.12+)
 - `flash_from_params(request, flash_map, **extra_ctx)` — čte `?flash=` z URL, vrací `(message, type)` z mapy. Šablona zprávy může mít `{placeholder}` z query params nebo extra_ctx. Použití: `flash_message, flash_type = flash_from_params(request, {"ok": ("Hotovo.", "success")})`
 - `render_email_template(template_str, context)` — renderuje Jinja2 email šablonu s kontextem (pro platební upozornění). Neznámé proměnné se renderují jako prázdný řetězec
-- `encode_smtp_password(plain)` / `decode_smtp_password(b64)` — base64 kódování/dekódování SMTP hesel
+- `encode_smtp_password(plain)` / `decode_smtp_password(stored)` — Fernet šifrování/dešifrování SMTP hesel (klíč v `data/.smtp_key`). Zpětně kompatibilní s legacy base64
 - `get_invalid_emails(db)` — vrací set neplatných emailů (na základě hard bounces)
 - `templates` — sdílená `Jinja2Templates` instance s registrovanými filtry (singleton pro celý projekt)
 
@@ -236,7 +236,7 @@
 
 ## Startup (lifespan)
 
-- `main.py` lifespan: (1) import modelů, (2) `create_all`, (3) `_ALL_MIGRATIONS` list (27 migračních funkcí + `_ensure_indexes()` + `_seed_code_lists()` + `_seed_email_templates()` = 30 položek), (4) `recover_stuck_sending_sessions()`, (5) vytvoření upload/generated/temp adresářů
+- `main.py` lifespan: (1) import modelů, (2) `create_all`, (3) `_ALL_MIGRATIONS` list (28 migračních funkcí + `_ensure_indexes()` + `_seed_code_lists()` + `_seed_email_templates()` = 31 položek), (4) `recover_stuck_sending_sessions()`, (5) vytvoření upload/generated/temp adresářů
 - Migrace zahrnují mj. `_migrate_svj_send_settings` (SvjInfo send_batch_size/interval/confirm/test_email), `_migrate_payment_notified_at` (Payment.notified_at sloupec) a `_migrate_dedupe_tenants` (sloučí duplicitní Tenant záznamy podle priority owner_id → RČ → IČ → jméno+typ; vítěz = nejvíce vyplněných polí, SpaceTenant vztahy se přesunou na vítěze)
 - `_ALL_MIGRATIONS` se sdílí s `run_post_restore_migrations()` — po obnově zálohy se spustí stejné migrace
 - Nové funkce vyžadující adresáře: přidat do lifespan. Nové indexy: přidat do `_ensure_indexes()`. Nové migrace: přidat do `_ALL_MIGRATIONS`

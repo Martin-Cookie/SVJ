@@ -23,7 +23,7 @@ from app.models import (
     SmtpProfile, SvjInfo, Unit, WaterMeter, MeterType,
     log_activity,
 )
-from app.utils import build_list_url, compute_eta, get_invalid_emails, render_email_template, templates, utcnow
+from app.utils import build_list_url, compute_eta, flash_from_params, get_invalid_emails, render_email_template, templates, utcnow
 
 from ._helpers import compute_consumption, compute_deviations
 
@@ -593,25 +593,13 @@ async def send_preview(request: Request, db: Session = Depends(get_db)):
     }
 
     # Flash zprávy
-    flash = request.query_params.get("flash", "")
-    if flash == "sent":
-        sent = request.query_params.get("sent", "0")
-        failed = request.query_params.get("failed", "0")
-        ctx["flash_message"] = f"Odesláno {sent} upozornění."
-        if int(failed) > 0:
-            ctx["flash_message"] += f" {failed} selhalo."
-            ctx["flash_type"] = "warning"
-        else:
-            ctx["flash_type"] = "success"
-    elif flash == "test_ok":
-        ctx["flash_message"] = f"Testovací email odeslán na {request.query_params.get('email', '')}"
-        ctx["flash_type"] = "success"
-    elif flash == "test_fail":
-        ctx["flash_message"] = f"Chyba: {request.query_params.get('err', 'neznámá chyba')}"
-        ctx["flash_type"] = "error"
-    elif flash == "settings_ok":
-        ctx["flash_message"] = "Nastavení odesílání uloženo"
-        ctx["flash_type"] = "success"
+    ctx["flash_message"], ctx["flash_type"] = flash_from_params(request, {
+        "sent": ("Odesláno {sent} upozornění.", "success"),
+        "sent_warn": ("Odesláno {sent} upozornění. {failed} selhalo.", "warning"),
+        "test_ok": ("Testovací email odeslán na {email}", "success"),
+        "test_fail": ("Chyba: {err}", "error"),
+        "settings_ok": ("Nastavení odesílání uloženo", "success"),
+    })
 
     return templates.TemplateResponse(request, "water_meters/send.html", ctx)
 
@@ -802,7 +790,8 @@ async def sending_progress_status(request: Request):
                 failed = progress["failed"]
                 _sending_progress.pop(send_id, None)
                 response = HTMLResponse("")
-                response.headers["HX-Redirect"] = f"/vodometry/rozeslat?flash=sent&sent={sent}&failed={failed}"
+                flash_code = "sent_warn" if failed > 0 else "sent"
+                response.headers["HX-Redirect"] = f"/vodometry/rozeslat?flash={flash_code}&sent={sent}&failed={failed}"
                 return response
         progress = dict(progress)
 

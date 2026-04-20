@@ -18,8 +18,8 @@ from app.models import (
 )
 from app.config import settings
 from app.utils import (
-    build_list_url, excel_auto_width, is_htmx_partial, is_safe_path,
-    strip_diacritics, utcnow, validate_upload, UPLOAD_LIMITS,
+    build_list_url, excel_auto_width, flash_from_params, is_htmx_partial,
+    is_safe_path, strip_diacritics, utcnow, validate_upload, UPLOAD_LIMITS,
 )
 from ._helpers import templates, logger, compute_nav_stats
 
@@ -375,18 +375,9 @@ async def predpisy_detail(
     space_types = sorted(set(t[0] for t in space_types))
 
     # Flash zprávy z importu
-    flash_message = ""
-    flash_type = ""
-    flash = request.query_params.get("flash", "")
-    if flash == "import_ok":
-        matched = request.query_params.get("matched", "0")
-        total = request.query_params.get("total", "0")
-        vs_created = request.query_params.get("vs_created", "0")
-        flash_message = (
-            f"Import dokončen: {total} předpisů, "
-            f"{matched} napárováno na jednotky, "
-            f"{vs_created} nových VS mapování."
-        )
+    flash_message, flash_type = flash_from_params(request, {
+        "import_ok": ("Import dokončen: {total} předpisů, {matched} napárováno na jednotky, {vs_created} nových VS mapování.", "success"),
+    })
 
     list_url = build_list_url(request)
     back_url = request.query_params.get("back", "")

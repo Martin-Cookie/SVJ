@@ -21,7 +21,7 @@ from app.services.settlement_service import (
     get_settlement_detail,
     update_settlement_status,
 )
-from app.utils import build_list_url, excel_auto_width, is_htmx_partial, strip_diacritics, utcnow
+from app.utils import build_list_url, excel_auto_width, flash_from_params, is_htmx_partial, strip_diacritics, utcnow
 
 from ._helpers import templates, compute_nav_stats
 
@@ -139,21 +139,11 @@ async def vyuctovani_seznam(
     list_url = build_list_url(request)
 
     # Flash zprávy
-    flash_message = ""
-    flash_param = request.query_params.get("flash", "")
-    if flash_param == "generated":
-        created = request.query_params.get("created", "0")
-        updated = request.query_params.get("updated", "0")
-        flash_message = f"Vygenerováno {created} nových"
-        if int(updated or 0) > 0:
-            flash_message += f", aktualizováno {updated}"
-        flash_message += " vyúčtování."
-    elif flash_param == "deleted":
-        flash_message = "Vyúčtování roku smazána."
-    elif flash_param == "bulk_stav":
-        count = request.query_params.get("count", "0")
-        stav_label = request.query_params.get("stav_label", "")
-        flash_message = f"Stav {count} vyúčtování změněn na \u201E{stav_label}\u201C."
+    flash_message, _ = flash_from_params(request, {
+        "generated": ("Vygenerováno {created} nových, aktualizováno {updated} vyúčtování.", "success"),
+        "deleted": ("Vyúčtování roku smazána.", "success"),
+        "bulk_stav": ("Stav {count} vyúčtování změněn na \u201E{stav_label}\u201C.", "success"),
+    })
 
     ctx = {
         "request": request,
@@ -219,11 +209,9 @@ async def vyuctovani_detail(
         back_label = "Zpět na vyúčtování"
 
     # Flash z query parametru → globální toast
-    flash_param = request.query_params.get("flash", "")
-    flash_message = ""
-    if flash_param == "stav_ok":
-        stav_label = request.query_params.get("stav_label", "")
-        flash_message = f"Stav změněn na {stav_label}."
+    flash_message, _ = flash_from_params(request, {
+        "stav_ok": ("Stav změněn na {stav_label}.", "success"),
+    })
 
     return templates.TemplateResponse(request, "payments/vyuctovani_detail.html", {
         "active_nav": "platby",

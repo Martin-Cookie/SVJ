@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.models import ActivityAction, VariableSymbolMapping, Unit, Space, SymbolSource, log_activity
-from app.utils import build_list_url, excel_auto_width, is_htmx_partial, strip_diacritics
+from app.utils import build_list_url, excel_auto_width, flash_from_params, is_htmx_partial, strip_diacritics
 from ._helpers import templates, logger, compute_nav_stats
 
 router = APIRouter()
@@ -93,19 +93,14 @@ async def symboly_seznam(
     back_url = request.query_params.get("back", "")
 
     # Flash zprávy
-    flash_message = ""
-    flash_param = request.query_params.get("flash", "")
-    chyba = request.query_params.get("chyba", "")
-    if flash_param == "ok":
-        flash_message = "Variabilní symbol přidán."
-    elif flash_param == "upraveno":
-        flash_message = "Variabilní symbol upraven."
-    elif flash_param == "smazano":
-        flash_message = "Variabilní symbol smazán."
-    elif chyba == "duplicita":
-        flash_message = "Variabilní symbol již existuje."
-    elif chyba == "prazdny":
-        flash_message = "Variabilní symbol nesmí být prázdný."
+    flash_message, flash_type = flash_from_params(request, {
+        "ok": ("Variabilní symbol přidán.", "success"),
+        "upraveno": ("Variabilní symbol upraven.", "success"),
+        "smazano": ("Variabilní symbol smazán.", "success"),
+        "chyba_duplicita": ("Variabilní symbol již existuje.", "error"),
+        "chyba_prazdny": ("Variabilní symbol nesmí být prázdný.", "error"),
+        "chyba_nenalezeno": ("Variabilní symbol nebyl nalezen.", "error"),
+    })
 
     # Count by entity type for bubbles
     total_vs_count = db.query(VariableSymbolMapping).count()
@@ -130,7 +125,7 @@ async def symboly_seznam(
         "list_url": list_url,
         "back_url": back_url,
         "flash_message": flash_message,
-        "flash_type": "error" if chyba else "",
+        "flash_type": flash_type,
         "active_tab": "symboly",
         **(compute_nav_stats(db) if not is_htmx_partial(request) else {}),
     }
@@ -232,13 +227,11 @@ async def symboly_export(
         )
 
 
-def _symboly_redirect_url(form_data, flash: str = "", chyba: str = "") -> str:
+def _symboly_redirect_url(form_data, flash: str = "") -> str:
     """Sestaví redirect URL zpět na symboly se zachováním filtrů."""
     params = []
     if flash:
         params.append(f"flash={flash}")
-    if chyba:
-        params.append(f"chyba={chyba}")
     for key in ("q", "sort", "order", "zdroj", "entita", "back"):
         val = form_data.get(key, "")
         if val:
@@ -263,12 +256,12 @@ async def symbol_pridat(
     # Validace VS — pouze číslice a alfanumerické znaky
     vs_clean = variable_symbol.strip()
     if not vs_clean:
-        return RedirectResponse(_symboly_redirect_url(form_data, chyba="prazdny"), status_code=302)
+        return RedirectResponse(_symboly_redirect_url(form_data, flash="chyba_prazdny"), status_code=302)
 
     # Kontrola duplicity
     existing = db.query(VariableSymbolMapping).filter_by(variable_symbol=vs_clean).first()
     if existing:
-        return RedirectResponse(_symboly_redirect_url(form_data, chyba="duplicita"), status_code=302)
+        return RedirectResponse(_symboly_redirect_url(form_data, flash="chyba_duplicita"), status_code=302)
 
     mapping = VariableSymbolMapping(
         variable_symbol=vs_clean,
@@ -367,16 +360,16 @@ async def symbol_upravit(
     form_data = await request.form()
     mapping = db.query(VariableSymbolMapping).get(mapping_id)
     if not mapping:
-        return RedirectResponse(_symboly_redirect_url(form_data, chyba="nenalezeno"), status_code=302)
+        return RedirectResponse(_symboly_redirect_url(form_data, flash="chyba_nenalezeno"), status_code=302)
 
     # Aktualizace VS pokud se změnil
     vs_clean = variable_symbol.strip()
     if not vs_clean:
-        return RedirectResponse(_symboly_redirect_url(form_data, chyba="prazdny"), status_code=302)
+        return RedirectResponse(_symboly_redirect_url(form_data, flash="chyba_prazdny"), status_code=302)
     if vs_clean != mapping.variable_symbol:
         existing = db.query(VariableSymbolMapping).filter_by(variable_symbol=vs_clean).first()
         if existing:
-            return RedirectResponse(_symboly_redirect_url(form_data, chyba="duplicita"), status_code=302)
+            return RedirectResponse(_symboly_redirect_url(form_data, flash="chyba_duplicita"), status_code=302)
         mapping.variable_symbol = vs_clean
 
     if entity_type == "space" and space_id:

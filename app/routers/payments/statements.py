@@ -6,6 +6,7 @@ import logging
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
+from urllib.parse import quote
 
 logger = logging.getLogger(__name__)
 
@@ -22,8 +23,8 @@ from app.models import (
     log_activity,
 )
 from app.utils import (
-    build_list_url, excel_auto_width, is_htmx_partial, is_safe_path,
-    strip_diacritics, utcnow, validate_upload, UPLOAD_LIMITS,
+    build_list_url, excel_auto_width, flash_from_params, is_htmx_partial,
+    is_safe_path, strip_diacritics, utcnow, validate_upload, UPLOAD_LIMITS,
 )
 from ._helpers import templates, compute_nav_stats, MONTH_NAMES_LONG
 
@@ -529,12 +530,17 @@ async def vypis_import_upload(
         except OSError:
             pass
 
+    skipped_count = skipped
+    suggested_count = match_result.get('suggested', 0)
+    msg = (
+        f"Import dokončen: {inserted} plateb vloženo"
+        + (f", {skipped_count} duplicit přeskočeno" if skipped_count > 0 else "")
+        + f", {match_result['matched']} napárováno"
+        + (f", {suggested_count} návrhů" if suggested_count > 0 else "")
+        + f", {match_result['unmatched']} nenapárováno."
+    )
     return RedirectResponse(
-        f"/platby/vypisy/{statement.id}?flash=import_ok"
-        f"&inserted={inserted}&skipped={skipped}"
-        f"&matched={match_result['matched']}"
-        f"&suggested={match_result.get('suggested', 0)}"
-        f"&unmatched={match_result['unmatched']}",
+        f"/platby/vypisy/{statement.id}?flash=import_ok&msg={quote(msg)}",
         status_code=302,
     )
 
@@ -696,49 +702,18 @@ async def vypis_detail(
     typ_counts = {"vse": all_count, "jednotky": unit_count, "prostory": space_count}
 
     # Flash zprávy
-    flash_message = ""
-    flash_type = ""
-    flash = request.query_params.get("flash", "")
-    if flash == "import_ok":
-        inserted = request.query_params.get("inserted", "0")
-        skipped = request.query_params.get("skipped", "0")
-        matched = request.query_params.get("matched", "0")
-        suggested_count = request.query_params.get("suggested", "0")
-        unmatched = request.query_params.get("unmatched", "0")
-        flash_message = (
-            f"Import dokončen: {inserted} plateb vloženo"
-            + (f", {skipped} duplicit přeskočeno" if int(skipped) > 0 else "")
-            + f", {matched} napárováno"
-            + (f", {suggested_count} návrhů" if int(suggested_count) > 0 else "")
-            + f", {unmatched} nenapárováno."
-        )
-    elif flash == "match_ok":
-        flash_message = "Ruční přiřazení uloženo."
-    elif flash == "match_fail":
-        flash_message = "Jednotka s tímto číslem nebyla nalezena."
-        flash_type = "error"
-    elif flash == "confirmed":
-        flash_message = "Návrh potvrzen."
-    elif flash == "bulk_confirmed":
-        count = request.query_params.get("count", "0")
-        flash_message = f"Potvrzeno {count} návrhů."
-    elif flash == "rejected":
-        flash_message = "Návrh odmítnut."
-    elif flash == "rematch_ok":
-        matched = request.query_params.get("matched", "0")
-        suggested_count = request.query_params.get("suggested", "0")
-        flash_message = (
-            f"Přepárování dokončeno: {matched} plateb napárováno"
-            + (f", {suggested_count} návrhů" if int(suggested_count) > 0 else "")
-            + "."
-        )
-    elif flash == "locked":
-        flash_message = "Výpis je zamčený — párování nelze měnit."
-        flash_type = "warning"
-    elif flash == "lock_ok":
-        flash_message = "Párování zamčeno."
-    elif flash == "unlock_ok":
-        flash_message = "Párování odemčeno."
+    flash_message, flash_type = flash_from_params(request, {
+        "import_ok": ("{msg}", "success"),
+        "match_ok": ("Ruční přiřazení uloženo.", "success"),
+        "match_fail": ("Jednotka s tímto číslem nebyla nalezena.", "error"),
+        "confirmed": ("Návrh potvrzen.", "success"),
+        "bulk_confirmed": ("Potvrzeno {count} návrhů.", "success"),
+        "rejected": ("Návrh odmítnut.", "success"),
+        "rematch_ok": ("{msg}", "success"),
+        "locked": ("Výpis je zamčený — párování nelze měnit.", "warning"),
+        "lock_ok": ("Párování zamčeno.", "success"),
+        "unlock_ok": ("Párování odemčeno.", "success"),
+    })
 
     # Nesrovnalosti pro upozornění
     from app.services.payment_discrepancy import detect_discrepancies, DISCREPANCY_LABELS
@@ -1346,9 +1321,15 @@ async def vypis_preparovat(
     statement.matched_count = result["matched"]
     db.commit()
 
+    suggested = result.get('suggested', 0)
+    rematch_msg = (
+        f"Přepárování dokončeno: {result['matched']} plateb napárováno"
+        + (f", {suggested} návrhů" if suggested > 0 else "")
+        + "."
+    )
     url = _detail_redirect_url(
         statement_id, form_data,
-        f"rematch_ok&matched={result['matched']}&suggested={result.get('suggested', 0)}",
+        f"rematch_ok&msg={quote(rematch_msg)}",
     )
     return RedirectResponse(url, status_code=302)
 

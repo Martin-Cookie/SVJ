@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db, SessionLocal
 from app.models import BankStatement, Owner, Payment, SmtpProfile, SvjInfo
-from app.utils import build_list_url, compute_eta, get_invalid_emails, utcnow
+from app.utils import build_list_url, compute_eta, flash_from_params, get_invalid_emails, utcnow
 from ._helpers import templates, compute_nav_stats, MONTH_NAMES_LONG, _discrepancy_progress, _discrepancy_lock
 
 router = APIRouter()
@@ -353,21 +353,13 @@ async def discrepancy_preview(
     ctx["bubble_counts"] = bubble_counts
 
     # Flash zprávy
-    flash = request.query_params.get("flash", "")
-    if flash == "sent":
-        sent = request.query_params.get("sent", "0")
-        failed = request.query_params.get("failed", "0")
-        ctx["flash_message"] = f"Odesláno {sent} upozornění."
-        if int(failed) > 0:
-            ctx["flash_message"] += f" {failed} selhalo."
-            ctx["flash_type"] = "warning"
-    elif flash == "test_ok":
-        ctx["flash_message"] = f"Testovací email odeslán na {request.query_params.get('email', '')}"
-    elif flash == "test_fail":
-        ctx["flash_message"] = f"Chyba: {request.query_params.get('err', 'neznámá chyba')}"
-        ctx["flash_type"] = "error"
-    elif flash == "settings_ok":
-        ctx["flash_message"] = "Nastavení odesílání uloženo"
+    ctx["flash_message"], ctx["flash_type"] = flash_from_params(request, {
+        "sent": ("Odesláno {sent} upozornění.", "success"),
+        "sent_warn": ("Odesláno {sent} upozornění. {failed} selhalo.", "warning"),
+        "test_ok": ("Testovací email odeslán na {email}", "success"),
+        "test_fail": ("Chyba: {err}", "error"),
+        "settings_ok": ("Nastavení odesílání uloženo", "success"),
+    })
 
     return templates.TemplateResponse(request, "payments/nesrovnalosti_preview.html", ctx)
 
@@ -600,7 +592,8 @@ async def discrepancy_progress_status(
                 failed = progress["failed"]
                 _discrepancy_progress.pop(statement_id, None)
                 response = HTMLResponse("")
-                response.headers["HX-Redirect"] = f"/platby/vypisy/{statement_id}/nesrovnalosti?flash=sent&sent={sent}&failed={failed}"
+                flash_code = "sent_warn" if failed > 0 else "sent"
+                response.headers["HX-Redirect"] = f"/platby/vypisy/{statement_id}/nesrovnalosti?flash={flash_code}&sent={sent}&failed={failed}"
                 return response
         progress = dict(progress)
 

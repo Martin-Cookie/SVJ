@@ -1192,6 +1192,41 @@ def _migrate_water_meter_notified_at():
         conn.commit()
 
 
+def _migrate_smtp_password_encryption():
+    """Re-encrypt SMTP passwords from base64 to Fernet."""
+    import base64 as _b64
+    from cryptography.fernet import Fernet as _Fernet, InvalidToken as _InvalidToken
+    from app.utils import _get_fernet, encode_smtp_password
+
+    fernet = _get_fernet()
+    db = SessionLocal()
+    try:
+        rows = db.execute(text("SELECT id, smtp_password_b64 FROM smtp_profiles WHERE smtp_password_b64 != ''")).fetchall()
+        for row in rows:
+            pwd_stored = row[1]
+            # Test if already Fernet-encrypted (starts with gAAAAA)
+            try:
+                fernet.decrypt(pwd_stored.encode())
+                continue  # already encrypted
+            except (_InvalidToken, Exception):
+                pass
+            # Try base64 decode → re-encrypt with Fernet
+            try:
+                plain = _b64.b64decode(pwd_stored.encode()).decode()
+                encrypted = encode_smtp_password(plain)
+                db.execute(text("UPDATE smtp_profiles SET smtp_password_b64 = :enc WHERE id = :id"),
+                           {"enc": encrypted, "id": row[0]})
+                logger.info("Re-encrypted SMTP password for profile %s", row[0])
+            except Exception:
+                logger.warning("Could not re-encrypt SMTP password for profile %s", row[0])
+        db.commit()
+    except Exception:
+        db.rollback()
+        logger.warning("SMTP password encryption migration failed", exc_info=True)
+    finally:
+        db.close()
+
+
 _ALL_MIGRATIONS = [
     ("units table", _migrate_units_table),
     ("owner_units history", _migrate_owner_units_history),
@@ -1220,6 +1255,7 @@ _ALL_MIGRATIONS = [
     ("water email template v3", _migrate_water_email_template_v3),
     ("water email template v4", _migrate_water_email_template_v4),
     ("bounce smtp_profile_name", _migrate_bounce_smtp_profile),
+    ("smtp password encryption", _migrate_smtp_password_encryption),
     ("index creation", _ensure_indexes),
     ("code list seeding", _seed_code_lists),
     ("email template seeding", _seed_email_templates),

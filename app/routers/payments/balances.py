@@ -20,8 +20,9 @@ from app.models import (
     VariableSymbolMapping, log_activity,
 )
 from app.utils import (
-    build_list_url, build_import_wizard, excel_auto_width, is_htmx_partial,
-    is_safe_path, strip_diacritics, utcnow, validate_upload, UPLOAD_LIMITS,
+    build_list_url, build_import_wizard, excel_auto_width, flash_from_params,
+    is_htmx_partial, is_safe_path, strip_diacritics, utcnow, validate_upload,
+    UPLOAD_LIMITS,
 )
 from ._helpers import templates, logger, compute_nav_stats
 
@@ -159,21 +160,13 @@ async def zustatky_seznam(
     list_url = build_list_url(request)
     back_url = request.query_params.get("back", "")
 
-    flash_param = request.query_params.get("flash", "")
-    flash_message = ""
-    flash_type = ""
-    if flash_param == "ok":
-        flash_message = "Zůstatek uložen."
-    elif flash_param == "smazano":
-        flash_message = "Zůstatek smazán."
-    elif flash_param == "chyba_rok":
-        flash_message = "Rok musí být mezi 2020 a 2040."
-        flash_type = "error"
-    elif flash_param == "import_ok":
-        flash_message = "Zůstatky úspěšně naimportovány."
-    elif flash_param == "import_chyba":
-        flash_message = "Chyba při importu zůstatků."
-        flash_type = "error"
+    flash_message, flash_type = flash_from_params(request, {
+        "ok": ("Zůstatek uložen.", "success"),
+        "smazano": ("Zůstatek smazán.", "success"),
+        "chyba_rok": ("Rok musí být mezi 2020 a 2040.", "error"),
+        "import_ok": ("Zůstatky úspěšně naimportovány.", "success"),
+        "import_chyba": ("Chyba při importu zůstatků.", "error"),
+    })
 
     ctx = {
         "request": request,
