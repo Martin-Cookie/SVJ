@@ -37,7 +37,7 @@ git status
 git branch --show-current
 
 # Existující reporty
-ls -la docs/reports/AUDIT-REPORT.md docs/reports/UX-REPORT.md docs/reports/TEST-REPORT.md docs/reports/BACKUP-REPORT.md docs/agents/BUSINESS-LOGIC.md docs/agents/BUSINESS-SUMMARY.md 2>/dev/null
+ls -la docs/reports/AUDIT-REPORT.md docs/reports/UX-REPORT.md docs/reports/TEST-REPORT.md docs/reports/BACKUP-REPORT.md docs/reports/BUSINESS-LOGIC-AUDIT.md docs/BUSINESS-LOGIC.md 2>/dev/null
 
 # Poslední změna dokumentace
 git log --oneline -1 -- CLAUDE.md README.md docs/

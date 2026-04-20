@@ -10,8 +10,8 @@
 Projít celý projekt a extrahovat veškerou business logiku, procesy, pravidla a skryté know-how
 do strukturovaného dokumentu. Výstupem jsou DVA soubory:
 
-1. **BUSINESS-LOGIC.md** — technický dokument pro vývojáře / Clauda
-2. **BUSINESS-SUMMARY.md** — srozumitelný souhrn pro netechnického člověka
+1. **docs/BUSINESS-LOGIC.md** — technický dokument pro vývojáře / Clauda
+2. **docs/BUSINESS-SUMMARY.md** — srozumitelný souhrn pro netechnického člověka
 
 ---
 
@@ -252,5 +252,5 @@ bez technického žargonu]
 V Claude Code zadej:
 
 ```
-Přečti soubor BUSINESS-LOGIC-AGENT.md a proveď kompletní extrakci business logiky z projektu. Výstupem jsou soubory BUSINESS-LOGIC.md a BUSINESS-SUMMARY.md. Nic v kódu neměň.
+Přečti soubor BUSINESS-LOGIC-AGENT.md a proveď kompletní extrakci business logiky z projektu. Výstupem jsou soubory docs/BUSINESS-LOGIC.md a docs/BUSINESS-SUMMARY.md. Nic v kódu neměň.
 ```
