@@ -14,12 +14,7 @@
     </a>
 </div>
 
-{# Helper: poskládá querystring z neprázdných kv dvojic #}
-{% macro qs(pairs) -%}
-    {%- set parts = [] -%}
-    {%- for k, v in pairs -%}{%- if v -%}{%- set _ = parts.append(k ~ '=' ~ (v|urlencode)) -%}{%- endif -%}{%- endfor -%}
-    {%- if parts -%}?{{ parts|join('&') }}{%- endif -%}
-{%- endmacro %}
+{% from "partials/qs_macro.html" import qs %}
 {% set _sort_val = current_sort if current_sort and current_sort != 'created_desc' else '' %}
 
 <!-- Bubliny + řazení ve společném kontejneru (kanonický vzor /vlastnici) -->

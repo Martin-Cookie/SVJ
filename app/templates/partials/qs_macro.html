@@ -1,0 +1,6 @@
+{# Shared macro: build query string from key-value pairs, skipping empty values #}
+{% macro qs(pairs) -%}
+    {%- set parts = [] -%}
+    {%- for k, v in pairs -%}{%- if v -%}{%- set _ = parts.append(k ~ '=' ~ (v|urlencode)) -%}{%- endif -%}{%- endfor -%}
+    {%- if parts -%}?{{ parts|join('&') }}{%- endif -%}
+{%- endmacro %}

@@ -15,9 +15,8 @@ from app.config import settings
 from app.database import get_db
 from app.models import (
     Unit, WaterMeter, WaterReading, MeterType,
-    ImportLog, ActivityAction, log_activity,
+    ImportLog, ActivityAction, log_activity, SvjInfo,
 )
-from app.models.administration import SvjInfo
 from app.services.import_mapping import (
     WATER_METER_FIELD_DEFS, WATER_METER_FIELD_GROUPS,
     build_mapping_context, is_row_format, read_excel_headers,

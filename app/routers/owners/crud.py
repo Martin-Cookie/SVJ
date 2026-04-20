@@ -779,7 +779,7 @@ async def owner_address_update(
 
 
 @router.post("/{owner_id}/upravit")
-async def owner_update(
+async def owner_contact_edit(
     owner_id: int,
     request: Request,
     email: str = Form(""),

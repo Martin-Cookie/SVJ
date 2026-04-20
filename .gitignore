@@ -6,6 +6,7 @@ venv/
 data/svj.db
 data/svj.db-shm
 data/svj.db-wal
+data/svj.db.backup*
 data/uploads/
 data/generated/
 data/temp/

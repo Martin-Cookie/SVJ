@@ -4,12 +4,7 @@
 <div class="flex flex-col">
     {% include "payments/partials/_platby_nav.html" %}
 
-    {# Helper makro: poskládá querystring z neprázdných kv dvojic #}
-    {% macro qs(pairs) -%}
-        {%- set parts = [] -%}
-        {%- for k, v in pairs -%}{%- if v -%}{%- set _ = parts.append(k ~ '=' ~ (v|urlencode)) -%}{%- endif -%}{%- endfor -%}
-        {%- if parts -%}?{{ parts|join('&') }}{%- endif -%}
-    {%- endmacro %}
+    {% from "partials/qs_macro.html" import qs %}
     {% set _export_qs = qs([('q', q), ('rok', rok), ('stav', stav)]) %}
 
     <div class="flex items-center justify-between mb-3">

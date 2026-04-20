@@ -142,28 +142,33 @@ def _filter_meters(db: Session, q: str = "", typ: str = "", stav: str = "",
     return meters
 
 
-def _build_ctx(request: Request, meters: list, db: Session) -> dict:
-    """Build common template context."""
+def _build_ctx(request: Request, meters: list, db: Session, all_meters: list | None = None) -> dict:
+    """Build common template context.
+
+    If *all_meters* is passed (already eager-loaded with readings), it is used
+    for bubble counts and deviations — avoids a second full DB query.
+    """
     q = request.query_params.get("q", "")
     typ = request.query_params.get("typ", "")
     stav = request.query_params.get("stav", "")
     sort = request.query_params.get("sort", "jednotka")
     order = request.query_params.get("order", "asc")
 
-    # Compute deviations for all displayed meters
-    all_loaded = db.query(WaterMeter).options(
-        joinedload(WaterMeter.readings),
-    ).all()
-    deviations = compute_deviations(all_loaded)
+    # Use provided all_meters or load fresh (fallback for export etc.)
+    if all_meters is None:
+        all_meters = db.query(WaterMeter).options(
+            joinedload(WaterMeter.readings),
+        ).all()
+    deviations = compute_deviations(all_meters)
 
     # Bubble counts (on full dataset, not filtered)
-    count_all = len(all_loaded)
-    count_sv = sum(1 for m in all_loaded if m.meter_type == MeterType.COLD)
-    count_tv = sum(1 for m in all_loaded if m.meter_type == MeterType.HOT)
-    count_linked = sum(1 for m in all_loaded if m.unit_id is not None)
+    count_all = len(all_meters)
+    count_sv = sum(1 for m in all_meters if m.meter_type == MeterType.COLD)
+    count_tv = sum(1 for m in all_meters if m.meter_type == MeterType.HOT)
+    count_linked = sum(1 for m in all_meters if m.unit_id is not None)
     count_unlinked = count_all - count_linked
     count_high_dev = sum(
-        1 for m in all_loaded
+        1 for m in all_meters
         if deviations.get(m.id, {}).get("deviation_pct") is not None
         and abs(deviations[m.id]["deviation_pct"]) > 50
     )
@@ -196,9 +201,12 @@ async def water_meters_overview(request: Request, db: Session = Depends(get_db))
     sort = request.query_params.get("sort", "jednotka")
     order = request.query_params.get("order", "asc")
 
-    meters = _filter_meters(db, q=q, typ=typ, stav=stav, sort=sort, order=order)
+    # Load all meters once for bubble counts + deviations (avoids duplicate query in _build_ctx)
+    all_meters = _filter_meters(db, sort=sort, order=order)
+    has_filter = q or typ or stav
+    meters = _filter_meters(db, q=q, typ=typ, stav=stav, sort=sort, order=order) if has_filter else all_meters
 
-    ctx = _build_ctx(request, meters, db)
+    ctx = _build_ctx(request, meters, db, all_meters=all_meters)
 
     ctx["flash_message"], ctx["flash_type"] = flash_from_params(request, {
         "import_ok": ("{msg}", "success"),

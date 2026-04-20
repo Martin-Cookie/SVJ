@@ -12,9 +12,14 @@ from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import ActivityLog, EmailLog, Owner, OwnerUnit, PrescriptionYear, Space, SpaceStatus, SpaceTenant, SvjInfo, Tenant, Unit, Voting, BankStatement, Payment, PaymentDirection, PaymentMatchStatus
-from app.models.voting import Ballot, BallotStatus, BallotVote
-from app.models.tax import TaxDocument, TaxSession, TaxDistribution, EmailDeliveryStatus
+from app.models import (
+    ActivityLog, Ballot, BallotStatus, BallotVote, BankStatement,
+    EmailDeliveryStatus, EmailLog, Owner, OwnerUnit, Payment,
+    PaymentDirection, PaymentMatchStatus, PrescriptionYear,
+    Space, SpaceStatus, SpaceTenant, SvjInfo,
+    TaxDistribution, TaxDocument, TaxSession,
+    Tenant, Unit, Voting,
+)
 from app.utils import excel_auto_width, strip_diacritics, templates, utcnow
 
 logger = logging.getLogger(__name__)

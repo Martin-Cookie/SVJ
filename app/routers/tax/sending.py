@@ -17,10 +17,9 @@ from sqlalchemy.orm import Session, joinedload
 from app.database import SessionLocal, get_db
 from app.models import (
     EmailDeliveryStatus, MatchStatus, Owner, OwnerUnit, SendStatus,
-    TaxDistribution, TaxDocument, TaxSession,
+    SmtpProfile, TaxDistribution, TaxDocument, TaxSession,
     ActivityAction, log_activity,
 )
-from app.models.smtp_profile import SmtpProfile
 from app.services.email_service import create_smtp_connection, send_email
 from app.utils import build_list_url, compute_eta, excel_auto_width, strip_diacritics, utcnow
 

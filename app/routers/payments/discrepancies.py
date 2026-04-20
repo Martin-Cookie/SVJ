@@ -13,7 +13,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db, SessionLocal
-from app.models import BankStatement, Owner, Payment, SvjInfo
+from app.models import BankStatement, Owner, Payment, SmtpProfile, SvjInfo
 from app.utils import build_list_url, compute_eta, get_invalid_emails, utcnow
 from ._helpers import templates, compute_nav_stats, MONTH_NAMES_LONG, _discrepancy_progress, _discrepancy_lock
 
@@ -93,7 +93,6 @@ def _discrepancy_base_ctx(request, db, statement, discrepancies, back_url, sort,
         }
 
     # SMTP profily pro dropdown výběr
-    from app.models.smtp_profile import SmtpProfile
     smtp_profiles = db.query(SmtpProfile).order_by(SmtpProfile.is_default.desc(), SmtpProfile.id).all()
 
     return {

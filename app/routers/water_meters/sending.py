@@ -57,10 +57,11 @@ SORT_COLUMNS = {
 # ---------------------------------------------------------------------------
 
 
-def _build_recipients(db: Session) -> list[dict]:
+def _build_recipients(db: Session, limit: int = 0) -> list[dict]:
     """Build recipient list: one entry per owner who has units with water meters.
 
     Each recipient gets aggregated consumption data for all their meters.
+    Pass *limit* > 0 to return at most that many recipients (useful for test emails).
     """
     meters = db.query(WaterMeter).options(
         joinedload(WaterMeter.unit),
@@ -220,6 +221,8 @@ def _build_recipients(db: Session) -> list[dict]:
             "notified_at": latest_notified,
             "type_avg": type_avg,
         })
+        if limit and len(recipients) >= limit:
+            break
 
     recipients.sort(key=lambda r: r["name"])
     return recipients
@@ -649,7 +652,7 @@ async def send_test_email(
     if not test_email:
         return RedirectResponse("/vodometry/rozeslat?flash=test_fail&err=Chybí+email", status_code=302)
 
-    recipients = _build_recipients(db)
+    recipients = _build_recipients(db, limit=1)
     sendable = [r for r in recipients if r["email"]]
 
     if not sendable:
