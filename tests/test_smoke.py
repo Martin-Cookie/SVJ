@@ -40,6 +40,7 @@ def test_owners_package_routes(client):
     "/nastaveni",
     "/kontrola-podilu",
     "/rozesilani/bounces",
+    "/vodometry",
 ])
 def test_top_level_urls_return_ok(client, url):
     """Smoke — všechny top-level URL musí vrátit 200/302/307 (ne 500).
