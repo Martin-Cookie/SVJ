@@ -6,28 +6,28 @@
 <div class="shrink-0">
 {% if back_url %}
 <div class="mb-3">
-    <a href="{{ back_url }}" class="text-sm text-blue-600 hover:text-blue-800">&larr; Zpět na přehled</a>
+    <a href="{{ back_url }}" class="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300">&larr; Zpět na přehled</a>
 </div>
 {% endif %}
 <div class="flex items-center justify-between mb-3">
     <div>
-        <h1 class="text-xl font-bold text-gray-800">Evidence vlastníků</h1>
-        <div class="text-xs text-gray-500 mt-0.5">
+        <h1 class="text-xl font-bold text-gray-800 dark:text-white">Evidence vlastníků</h1>
+        <div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
             <span>{{ owners|length }} vlastníků | {{ stats.total_units }} jednotek</span>
         </div>
         {% if stats.declared_shares %}
         {% set diff = stats.total_scd - stats.declared_shares %}
         {% set diff_pct = ((diff / stats.declared_shares) * 100) | round(2) if stats.declared_shares else 0 %}
         <div class="overflow-x-auto">
-        <table class="text-xs text-gray-500 mt-1" style="border-spacing:0">
+        <table class="text-xs text-gray-500 dark:text-gray-400 mt-1" style="border-spacing:0">
             <tr>
                 <td class="pr-2">Podíly dle prohlášení vlastníka:</td>
-                <td class="text-right font-mono text-gray-700 whitespace-nowrap">{{ "{:,}".format(stats.declared_shares).replace(",", " ") }}</td>
+                <td class="text-right font-mono text-gray-700 dark:text-gray-300 whitespace-nowrap">{{ "{:,}".format(stats.declared_shares).replace(",", " ") }}</td>
                 <td></td>
             </tr>
             <tr>
                 <td class="pr-2">Podíly v evidenci vlastníků:</td>
-                <td class="text-right font-mono text-gray-700 whitespace-nowrap">{{ "{:,}".format(stats.total_scd).replace(",", " ") }}</td>
+                <td class="text-right font-mono text-gray-700 dark:text-gray-300 whitespace-nowrap">{{ "{:,}".format(stats.total_scd).replace(",", " ") }}</td>
                 <td></td>
             </tr>
             <tr>
@@ -38,8 +38,8 @@
         </table>
         </div>
         {% else %}
-        <div class="text-xs text-gray-500 mt-0.5">
-            Podíl SČD: <span class="font-mono text-gray-700">{{ "{:,}".format(stats.total_scd).replace(",", " ") }}</span>
+        <div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+            Podíl SČD: <span class="font-mono text-gray-700 dark:text-gray-300">{{ "{:,}".format(stats.total_scd).replace(",", " ") }}</span>
         </div>
         {% endif %}
     </div>
@@ -47,11 +47,11 @@
         {% set _export_qs = "q=" ~ q ~ "&typ=" ~ owner_type ~ "&vlastnictvi=" ~ vlastnictvi ~ "&kontakt=" ~ kontakt ~ "&stav=" ~ stav ~ "&sekce=" ~ sekce ~ "&sort=" ~ sort ~ "&order=" ~ order %}
         <a href="/vlastnici/exportovat/xlsx?{{ _export_qs }}" hx-boost="false"
            onclick="var b=this,t=b.textContent;b.textContent='Generuji…';b.classList.add('opacity-50');setTimeout(function(){b.textContent=t;b.classList.remove('opacity-50')},3000)"
-           class="px-2.5 py-1.5 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 text-xs font-medium transition-colors border border-gray-200"
+           class="px-2.5 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 text-xs font-medium transition-colors border border-gray-200 dark:border-gray-600"
            title="Export do Excelu">↓ Excel</a>
         <a href="/vlastnici/exportovat/csv?{{ _export_qs }}" hx-boost="false"
            onclick="var b=this,t=b.textContent;b.textContent='Generuji…';b.classList.add('opacity-50');setTimeout(function(){b.textContent=t;b.classList.remove('opacity-50')},3000)"
-           class="px-2.5 py-1.5 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 text-xs font-medium transition-colors border border-gray-200"
+           class="px-2.5 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 text-xs font-medium transition-colors border border-gray-200 dark:border-gray-600"
            title="Export do CSV">↓ CSV</a>
         <button hx-get="/vlastnici/novy-formular" hx-target="#owner-create-section" hx-swap="innerHTML"
                 class="px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium transition-colors">
@@ -65,39 +65,39 @@
 {% set _back = "&back=" ~ (back_url|default('')|urlencode) if back_url else "" %}
 {% set _base = "q=" ~ q ~ "&sekce=" ~ sekce ~ "&vlastnictvi=" ~ vlastnictvi ~ "&sort=" ~ sort ~ "&order=" ~ order ~ _back %}
 {% if stats %}
-<div class="bg-white rounded-lg shadow mb-2">
+<div class="bg-white dark:bg-gray-800 rounded-lg shadow mb-2">
 <!-- Type filter cards -->
 <div class="flex gap-2 p-3 pb-2">
-    <a href="/vlastnici?{{ _base }}" class="flex-1 block rounded p-2 text-center hover:bg-gray-50 transition-colors {% if not owner_type and not kontakt and not stav %}ring-2 ring-gray-400{% endif %}">
-        <p class="text-lg font-bold text-gray-800">{{ stats.total_owners }}</p>
-        <p class="text-xs text-gray-500">Vše</p>
+    <a href="/vlastnici?{{ _base }}" class="flex-1 block rounded p-2 text-center hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors {% if not owner_type and not kontakt and not stav %}ring-2 ring-gray-400{% endif %}">
+        <p class="text-lg font-bold text-gray-800 dark:text-gray-200">{{ stats.total_owners }}</p>
+        <p class="text-xs text-gray-500 dark:text-gray-400">Vše</p>
     </a>
-    <a href="/vlastnici?typ=physical&{{ _base }}" class="flex-1 block bg-gray-50 rounded p-2 text-center border border-gray-200 hover:bg-gray-100 transition-colors {% if owner_type == 'physical' %}ring-2 ring-gray-400{% endif %}">
-        <p class="text-lg font-bold text-gray-600">{{ stats.type_counts.get('physical', 0) }}</p>
-        <p class="text-xs text-gray-600">Fyzická os.</p>
+    <a href="/vlastnici?typ=physical&{{ _base }}" class="flex-1 block bg-gray-50 dark:bg-gray-700/40 rounded p-2 text-center border border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors {% if owner_type == 'physical' %}ring-2 ring-gray-400{% endif %}">
+        <p class="text-lg font-bold text-gray-600 dark:text-gray-300">{{ stats.type_counts.get('physical', 0) }}</p>
+        <p class="text-xs text-gray-600 dark:text-gray-400">Fyzická os.</p>
     </a>
-    <a href="/vlastnici?typ=legal&{{ _base }}" class="flex-1 block bg-blue-50 rounded p-2 text-center border border-blue-200 hover:bg-blue-100 transition-colors {% if owner_type == 'legal' %}ring-2 ring-blue-400{% endif %}">
-        <p class="text-lg font-bold text-blue-600">{{ stats.type_counts.get('legal', 0) }}</p>
-        <p class="text-xs text-blue-600">Právnická os.</p>
+    <a href="/vlastnici?typ=legal&{{ _base }}" class="flex-1 block bg-blue-50 dark:bg-blue-900/20 rounded p-2 text-center border border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors {% if owner_type == 'legal' %}ring-2 ring-blue-400{% endif %}">
+        <p class="text-lg font-bold text-blue-600 dark:text-blue-400">{{ stats.type_counts.get('legal', 0) }}</p>
+        <p class="text-xs text-blue-600 dark:text-blue-400">Právnická os.</p>
     </a>
-    <a href="/vlastnici?kontakt=s_emailem&{{ _base }}" class="flex-1 block bg-teal-50 rounded p-2 text-center border border-teal-200 hover:bg-teal-100 transition-colors {% if kontakt == 's_emailem' %}ring-2 ring-teal-400{% endif %}">
-        <p class="text-lg font-bold text-teal-600">{{ stats.emails_count }}</p>
-        <p class="text-xs text-teal-600">S emailem</p>
+    <a href="/vlastnici?kontakt=s_emailem&{{ _base }}" class="flex-1 block bg-teal-50 dark:bg-teal-900/20 rounded p-2 text-center border border-teal-200 dark:border-teal-800 hover:bg-teal-100 dark:hover:bg-teal-900/40 transition-colors {% if kontakt == 's_emailem' %}ring-2 ring-teal-400{% endif %}">
+        <p class="text-lg font-bold text-teal-600 dark:text-teal-400">{{ stats.emails_count }}</p>
+        <p class="text-xs text-teal-600 dark:text-teal-400">S emailem</p>
     </a>
-    <a href="/vlastnici?kontakt=bez_emailu&{{ _base }}" class="flex-1 block bg-red-50 rounded p-2 text-center border border-red-200 hover:bg-red-100 transition-colors {% if kontakt == 'bez_emailu' %}ring-2 ring-red-400{% endif %}">
+    <a href="/vlastnici?kontakt=bez_emailu&{{ _base }}" class="flex-1 block bg-red-50 dark:bg-red-900/20 rounded p-2 text-center border border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors {% if kontakt == 'bez_emailu' %}ring-2 ring-red-400{% endif %}">
         <p class="text-lg font-bold text-red-400">{{ stats.total_owners - stats.emails_count }}</p>
         <p class="text-xs text-red-400">Bez emailu</p>
     </a>
     {% if stats.no_units_count %}
-    <a href="/vlastnici?stav=bez_jednotky&{{ _base }}" class="flex-1 block bg-gray-50 rounded p-2 text-center border border-gray-200 hover:bg-gray-100 transition-colors {% if stav == 'bez_jednotky' %}ring-2 ring-gray-400{% endif %}">
-        <p class="text-lg font-bold text-gray-500">{{ stats.no_units_count }}</p>
-        <p class="text-xs text-gray-500">Bez&nbsp;jednotky</p>
+    <a href="/vlastnici?stav=bez_jednotky&{{ _base }}" class="flex-1 block bg-gray-50 dark:bg-gray-700/40 rounded p-2 text-center border border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors {% if stav == 'bez_jednotky' %}ring-2 ring-gray-400{% endif %}">
+        <p class="text-lg font-bold text-gray-500 dark:text-gray-400">{{ stats.no_units_count }}</p>
+        <p class="text-xs text-gray-500 dark:text-gray-400">Bez&nbsp;jednotky</p>
     </a>
     {% endif %}
 </div>
 
 <!-- Separator -->
-<div class="border-t border-gray-100"></div>
+<div class="border-t border-gray-100 dark:border-gray-700"></div>
 
 <!-- Search + dropdown filters -->
 <div class="flex items-center gap-2 px-3 py-2">
@@ -113,14 +113,14 @@
                hx-target="#owner-table-body" hx-include="[name='typ'],[name='vlastnictvi'],[name='kontakt'],[name='stav'],[name='sekce'],[name='sort'],[name='order'],[name='back']"
                hx-push-url="true"
                hx-indicator="#search-spinner"
-               class="w-full px-3 py-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs">
+               class="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs">
         <svg id="search-spinner" class="htmx-indicator absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-500 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
     </div>
     <select name="kontakt" id="kontakt-filter"
             hx-get="/vlastnici" hx-trigger="change"
             hx-target="#owner-table-body" hx-include="[name='q'],[name='typ'],[name='vlastnictvi'],[name='stav'],[name='sekce'],[name='sort'],[name='order'],[name='back']"
             hx-push-url="true"
-            class="px-2 py-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 text-xs h-[30px] {% if kontakt == 's_telefonem' or kontakt == 'bez_telefonu' %}border-teal-400 bg-teal-50{% endif %}">
+            class="px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 text-xs h-[30px] {% if kontakt == 's_telefonem' or kontakt == 'bez_telefonu' %}border-teal-400 bg-teal-50 dark:bg-teal-900/30{% endif %}">
         <option value="">Telefon: vše</option>
         <option value="s_telefonem" {% if kontakt == 's_telefonem' %}selected{% endif %}>S telefonem ({{ stats.phones_count }})</option>
         <option value="bez_telefonu" {% if kontakt == 'bez_telefonu' %}selected{% endif %}>Bez telefonu ({{ stats.total_owners - stats.phones_count }})</option>
@@ -130,7 +130,7 @@
             hx-get="/vlastnici" hx-trigger="change"
             hx-target="#owner-table-body" hx-include="[name='q'],[name='typ'],[name='kontakt'],[name='stav'],[name='sekce'],[name='sort'],[name='order'],[name='back']"
             hx-push-url="true"
-            class="px-2 py-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 text-xs h-[30px] {% if vlastnictvi %}border-orange-400 bg-orange-50{% endif %}">
+            class="px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 text-xs h-[30px] {% if vlastnictvi %}border-orange-400 bg-orange-50 dark:bg-orange-900/30{% endif %}">
         <option value="">Vlastnictví: vše</option>
         {% for ot, cnt in stats.ownership_counts.items()|sort(attribute='0') %}
         {% if ot %}
@@ -147,7 +147,7 @@
             hx-get="/vlastnici" hx-trigger="change"
             hx-target="#owner-table-body" hx-include="[name='q'],[name='typ'],[name='vlastnictvi'],[name='kontakt'],[name='stav'],[name='sort'],[name='order'],[name='back']"
             hx-push-url="true"
-            class="px-2 py-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 text-xs h-[30px]">
+            class="px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 text-xs h-[30px]">
         <option value="">Všechny sekce</option>
         {% for s in stats.sections %}
         <option value="{{ s }}" {% if sekce == s %}selected{% endif %}>Sekce {{ s }}</option>
@@ -160,7 +160,7 @@
 
 <!-- Owner table -->
 </div>
-<div class="flex-1 bg-white rounded-lg shadow overflow-y-auto overflow-x-auto min-h-0">
+<div class="flex-1 bg-white dark:bg-gray-800 rounded-lg shadow overflow-y-auto overflow-x-auto min-h-0">
     <table class="w-full text-xs" style="table-layout:fixed">
         <colgroup>
             <col style="width:20%">
@@ -173,7 +173,7 @@
             <col style="width:10%">
             <col style="width:8%">
         </colgroup>
-        <thead class="bg-gray-50 border-b-2 border-gray-300 sticky top-0 z-10">
+        <thead class="bg-gray-50 dark:bg-gray-700 border-b-2 border-gray-300 dark:border-gray-600 sticky top-0 z-10">
             <tr>
                 {% macro sort_th(label, col, align="left", title="") %}
                 {% set next_order = "desc" if sort == col and order == "asc" else "asc" %}
@@ -203,20 +203,20 @@
                 {{ sort_th("Podíl SČD", "podil", "right", "Spoluvlastnický podíl na společných částech domu") }}
             </tr>
         </thead>
-        <tbody id="owner-table-body" class="divide-y divide-gray-200">
+        <tbody id="owner-table-body" class="divide-y divide-gray-200 dark:divide-gray-700">
             {% for owner in owners %}
             {% include "partials/owner_row.html" %}
             {% endfor %}
         </tbody>
     </table>
     {% if not owners %}
-    <div class="p-6 text-center text-gray-500 text-sm">
+    <div class="p-6 text-center text-gray-500 dark:text-gray-400 text-sm">
         Žádní vlastníci. <a href="/vlastnici/import" class="text-blue-600 hover:underline">Importujte data z Excelu</a>.
     </div>
     {% endif %}
 </div>
 
-<div class="shrink-0 mt-2 text-xs text-gray-500">Zobrazeno: {{ owners|length }} vlastníků</div>
+<div class="shrink-0 mt-2 text-xs text-gray-500 dark:text-gray-400">Zobrazeno: {{ owners|length }} vlastníků</div>
 </div>
 <script>
 scrollToHash();

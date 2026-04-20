@@ -5,15 +5,15 @@
 <div class="flex flex-col" style="height:calc(100vh - 48px)">
     <div class="mb-3 flex-none">
         {% if back_url %}
-        <a href="{{ back_url }}" class="text-sm text-blue-600 hover:text-blue-800">&larr; Zpět na přehled</a>
+        <a href="{{ back_url }}" class="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300">&larr; Zpět na přehled</a>
         {% endif %}
     </div>
-    <h1 class="text-xl font-bold text-gray-800 mb-4 flex-none">Kontroly</h1>
+    <h1 class="text-xl font-bold text-gray-800 dark:text-white mb-4 flex-none">Kontroly</h1>
     {# ── Taby ── #}
-    <div class="flex gap-1 mb-4 flex-none border-b border-gray-200">
+    <div class="flex gap-1 mb-4 flex-none border-b border-gray-200 dark:border-gray-700">
         <button id="tab-vlastnici" onclick="switchTab('vlastnici')"
                 class="px-4 py-2 text-sm font-medium rounded-t-lg border border-b-0 transition-colors
-                       bg-white text-blue-600 border-gray-200 -mb-px">
+                       bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 border-gray-200 dark:border-gray-700 -mb-px">
             <svg aria-hidden="true" class="w-4 h-4 inline-block mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
             </svg>
@@ -21,7 +21,7 @@
         </button>
         <button id="tab-podily" onclick="switchTab('podily')"
                 class="px-4 py-2 text-sm font-medium rounded-t-lg border border-b-0 transition-colors
-                       bg-gray-50 text-gray-500 border-transparent hover:text-gray-700">
+                       bg-gray-50 dark:bg-gray-900 text-gray-500 dark:text-gray-400 border-transparent hover:text-gray-700 dark:hover:text-gray-300">
             <svg aria-hidden="true" class="w-4 h-4 inline-block mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
             </svg>
@@ -33,15 +33,15 @@
     <div id="panel-vlastnici" class="flex-1 flex flex-col min-h-0">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 min-h-0">
             <!-- Upload form -->
-            <div class="bg-white rounded-lg shadow p-5">
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-5">
                 <div class="flex items-center justify-between mb-3">
-                    <h3 class="text-sm font-semibold text-gray-700">Nahrát CSV export z katastru (sousede)</h3>
-                    <button id="sync-submit-btn" type="submit" form="sync-upload-form" class="hidden px-3 py-1.5 text-sm font-medium text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors">
+                    <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-200">Nahrát CSV export z katastru (sousede)</h3>
+                    <button id="sync-submit-btn" type="submit" form="sync-upload-form" class="hidden px-3 py-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 border border-blue-300 dark:border-blue-700 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors">
                         Nahrát a porovnat
                     </button>
                 </div>
                 <div class="mb-4">
-                    <ol class="text-xs text-gray-500 list-decimal list-inside space-y-0.5">
+                    <ol class="text-xs text-gray-500 dark:text-gray-400 list-decimal list-inside space-y-0.5">
                         <li>Exportujte seznam vlastníků ze sousede.cz jako CSV</li>
                         <li>Nahrajte CSV soubor níže</li>
                         <li>Systém porovná vlastníky s daty v evidenci</li>
@@ -55,7 +55,7 @@
                                class="file-input block w-full text-sm text-gray-500 file:mr-4 file:py-1.5 file:px-3
                                       file:rounded file:border-0 file:text-sm file:font-medium
                                       file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
-                        <p class="text-xs text-gray-500 mt-1">
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
                             CSV s oddělovačem středník nebo čárka, kódování UTF-8 nebo Windows-1250.
                         </p>
                     </div>
@@ -63,9 +63,9 @@
             </div>
 
             <!-- History -->
-            <div class="bg-white rounded-lg shadow flex flex-col min-h-0 h-full">
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow flex flex-col min-h-0 h-full">
                 <div class="px-4 pt-4 flex-none">
-                    <h3 class="text-sm font-semibold text-gray-700 mb-2">Historie kontrol</h3>
+                    <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">Historie kontrol</h3>
                     <div class="mb-2">
                         <input type="hidden" name="sync_sort" value="{{ sync_sort }}">
                         <input type="hidden" name="sync_order" value="{{ sync_order }}">
@@ -79,7 +79,7 @@
                                hx-target="#sync-history-body"
                                hx-include="[name='sync_sort'],[name='sync_order'],[name='back']"
                                hx-indicator="#sync-search-spinner"
-                               class="w-full px-3 py-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs">
+                               class="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs">
                         <svg id="sync-search-spinner" class="htmx-indicator absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-500 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
                         </div>
                     </div>
@@ -88,7 +88,7 @@
                 <div class="flex-none px-4">
                     <div class="overflow-x-auto">
                     <table class="w-full text-sm">
-                        <thead class="border-b border-gray-200">
+                        <thead class="border-b border-gray-200 dark:border-gray-600">
                             <tr>
                                 {% for label, col, align in [("Soubor", "filename", "left"), ("Datum", "date", "left"), ("Shoda", "matches", "right"), ("Rozdíly", "differences", "right")] %}
                                 {% set next_order = "desc" if sync_sort == col and sync_order == "asc" else "asc" %}
@@ -115,7 +115,7 @@
                 <div class="flex-1 overflow-y-auto px-4 pb-4 min-h-0">
                     <div class="overflow-x-auto">
                     <table class="w-full text-sm">
-                        <tbody id="sync-history-body" class="divide-y divide-gray-100">
+                        <tbody id="sync-history-body" class="divide-y divide-gray-100 dark:divide-gray-700">
                             {% with sessions=sync_sessions, q=sync_q %}
                             {% include "partials/sync_list_body.html" %}
                             {% endwith %}
@@ -125,7 +125,7 @@
                 </div>
                 {% else %}
                 <div class="px-4 pb-4">
-                    <p class="text-sm text-gray-500">Zatím žádné kontroly.</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">Zatím ��ádné kontroly.</p>
                 </div>
                 {% endif %}
             </div>
@@ -136,15 +136,15 @@
     <div id="panel-podily" class="flex-1 flex flex-col min-h-0 hidden">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 min-h-0">
             <!-- Upload form -->
-            <div class="bg-white rounded-lg shadow p-5">
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-5">
                 <div class="flex items-center justify-between mb-3">
-                    <h3 class="text-sm font-semibold text-gray-700">Nahrát soubor s podíly</h3>
-                    <button id="sc-submit-btn" type="submit" form="sc-upload-form" class="hidden px-3 py-1.5 text-sm font-medium text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors">
+                    <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-200">Nahrát soubor s podíly</h3>
+                    <button id="sc-submit-btn" type="submit" form="sc-upload-form" class="hidden px-3 py-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 border border-blue-300 dark:border-blue-700 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors">
                         Nahrát a pokračovat
                     </button>
                 </div>
                 <div class="mb-4">
-                    <ol class="text-xs text-gray-500 list-decimal list-inside space-y-0.5">
+                    <ol class="text-xs text-gray-500 dark:text-gray-400 list-decimal list-inside space-y-0.5">
                         <li>Připravte CSV nebo XLSX soubor s podíly SČD</li>
                         <li>Nahrajte soubor níže</li>
                         <li>Potvrďte mapování sloupců</li>
@@ -158,7 +158,7 @@
                                class="file-input block w-full text-sm text-gray-500 file:mr-4 file:py-1.5 file:px-3
                                       file:rounded file:border-0 file:text-sm file:font-medium
                                       file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
-                        <p class="text-xs text-gray-500 mt-1">
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
                             CSV (středník/čárka, UTF-8/Windows-1250) nebo XLSX soubor.
                         </p>
                     </div>
@@ -166,9 +166,9 @@
             </div>
 
             <!-- History -->
-            <div class="bg-white rounded-lg shadow flex flex-col min-h-0 h-full">
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow flex flex-col min-h-0 h-full">
                 <div class="px-4 pt-4 flex-none">
-                    <h3 class="text-sm font-semibold text-gray-700 mb-2">Historie kontrol</h3>
+                    <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">Historie kontrol</h3>
                     <div class="mb-2">
                         <input type="hidden" name="sc_sort" value="{{ sc_sort }}">
                         <input type="hidden" name="sc_order" value="{{ sc_order }}">
@@ -181,7 +181,7 @@
                                hx-target="#sc-history-body"
                                hx-include="[name='sc_sort'],[name='sc_order']"
                                hx-indicator="#sc-search-spinner"
-                               class="w-full px-3 py-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs">
+                               class="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs">
                         <svg id="sc-search-spinner" class="htmx-indicator absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-500 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
                         </div>
                     </div>
@@ -190,7 +190,7 @@
                 <div class="flex-none px-4">
                     <div class="overflow-x-auto">
                     <table class="w-full text-sm">
-                        <thead class="border-b border-gray-200">
+                        <thead class="border-b border-gray-200 dark:border-gray-600">
                             <tr>
                                 {% for label, col, align in [("Soubor", "filename", "left"), ("Datum", "date", "left"), ("Shoda", "matches", "right"), ("Rozdíly", "differences", "right")] %}
                                 {% set next_order = "desc" if sc_sort == col and sc_order == "asc" else "asc" %}
@@ -217,7 +217,7 @@
                 <div class="flex-1 overflow-y-auto px-4 pb-4 min-h-0">
                     <div class="overflow-x-auto">
                     <table class="w-full text-sm">
-                        <tbody id="sc-history-body" class="divide-y divide-gray-100">
+                        <tbody id="sc-history-body" class="divide-y divide-gray-100 dark:divide-gray-700">
                             {% with sessions=sc_sessions, q=sc_q %}
                             {% include "partials/share_check_list_body.html" %}
                             {% endwith %}
@@ -227,7 +227,7 @@
                 </div>
                 {% else %}
                 <div class="px-4 pb-4">
-                    <p class="text-sm text-gray-500">Zatím žádné kontroly.</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">Zatím žádné kontroly.</p>
                 </div>
                 {% endif %}
             </div>
@@ -242,10 +242,10 @@ function switchTab(tab) {
     // Tab styles
     var tabV = document.getElementById('tab-vlastnici');
     var tabP = document.getElementById('tab-podily');
-    var active = 'bg-white text-blue-600 border-gray-200 -mb-px';
-    var inactive = 'bg-gray-50 text-gray-500 border-transparent hover:text-gray-700';
-    tabV.className = tabV.className.replace(/bg-\S+|text-\S+|border-\S+|-mb-px|hover:\S+/g, '').trim() + ' ' + (isVlastnici ? active : inactive);
-    tabP.className = tabP.className.replace(/bg-\S+|text-\S+|border-\S+|-mb-px|hover:\S+/g, '').trim() + ' ' + (isVlastnici ? inactive : active);
+    var active = 'bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 border-gray-200 dark:border-gray-700 -mb-px';
+    var inactive = 'bg-gray-50 dark:bg-gray-900 text-gray-500 dark:text-gray-400 border-transparent hover:text-gray-700 dark:hover:text-gray-300';
+    tabV.className = tabV.className.replace(/bg-\S+|text-\S+|border-\S+|-mb-px|hover:\S+|dark:\S+/g, '').trim() + ' ' + (isVlastnici ? active : inactive);
+    tabP.className = tabP.className.replace(/bg-\S+|text-\S+|border-\S+|-mb-px|hover:\S+|dark:\S+/g, '').trim() + ' ' + (isVlastnici ? inactive : active);
     // Update hash
     history.replaceState(null, '', isVlastnici ? '/synchronizace' : '/synchronizace#kontrola-podilu');
 }

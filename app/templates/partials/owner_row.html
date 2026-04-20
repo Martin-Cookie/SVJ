@@ -1,32 +1,32 @@
 {% set has_units = owner.current_units|length > 0 %}
-<tr id="owner-{{ owner.id }}" class="{% if has_units %}hover:bg-gray-50{% else %}bg-gray-50 opacity-50{% endif %}">
+<tr id="owner-{{ owner.id }}" class="{% if has_units %}hover:bg-gray-50 dark:hover:bg-gray-700{% else %}bg-gray-50 dark:bg-gray-800/50 opacity-50{% endif %}">
     <td class="px-2 py-1.5">
         <div class="overflow-hidden" style="text-overflow:ellipsis;white-space:nowrap">
             <a href="/vlastnici/{{ owner.id }}?back={{ ((list_url or '/vlastnici') ~ '#owner-' ~ owner.id)|urlencode }}" class="font-medium {% if has_units %}text-blue-600 hover:text-blue-800{% else %}text-gray-500{% endif %} hover:underline" title="{{ owner.display_name }}{% if not has_units %} (bez jednotek){% endif %}">{{ owner.display_name }}</a>
         </div>
         {% if owner.birth_number %}
-        <div class="text-gray-500" style="font-size:10px">RČ: {{ owner.birth_number }}</div>
+        <div class="text-gray-500 dark:text-gray-400" style="font-size:10px">RČ: {{ owner.birth_number }}</div>
         {% elif owner.company_id %}
-        <div class="text-gray-500" style="font-size:10px">IČ: {{ owner.company_id }}</div>
+        <div class="text-gray-500 dark:text-gray-400" style="font-size:10px">IČ: {{ owner.company_id }}</div>
         {% endif %}
     </td>
     <td class="px-2 py-1.5 text-right whitespace-nowrap">
         {% set _debt = (debt_map or {}).get(owner.id, 0) %}
         {% if _debt > 0 %}
-        <span class="px-1.5 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700">{{ _debt|fmt_num }} Kč</span>
+        <span class="px-1.5 py-0.5 text-xs font-medium rounded-full bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400">{{ _debt|fmt_num }} Kč</span>
         {% endif %}
     </td>
     <td class="px-2 py-1.5">
         {% if owner.owner_type.value == 'legal' %}
-        <span class="px-1.5 py-0.5 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">Právnická</span>
+        <span class="px-1.5 py-0.5 text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded-full">Právnická</span>
         {% else %}
-        <span class="px-1.5 py-0.5 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">Fyzická</span>
+        <span class="px-1.5 py-0.5 text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300 rounded-full">Fyzická</span>
         {% endif %}
     </td>
-    <td class="px-2 py-1.5 text-gray-700 font-mono">
+    <td class="px-2 py-1.5 text-gray-700 dark:text-gray-300 font-mono">
         {% for ou in owner.current_units %}<a href="/jednotky/{{ ou.unit.id }}?back={{ ((list_url or '/vlastnici') ~ '#owner-' ~ owner.id)|urlencode }}" class="text-blue-600 hover:text-blue-800 hover:underline" title="Jednotka č. {{ ou.unit.unit_number }}{% if unit_vs and unit_vs.get(ou.unit.id) %} · VS: {{ unit_vs[ou.unit.id] }}{% endif %}{% if unit_monthly and unit_monthly.get(ou.unit.id) %} · Předpis: {{ unit_monthly[ou.unit.id]|fmt_num }} Kč/měs{% endif %}">{{ ou.unit.unit_number }}</a>{% if not loop.last %}, {% endif %}{% endfor %}
     </td>
-    <td class="px-2 py-1.5 text-gray-500 text-center">
+    <td class="px-2 py-1.5 text-gray-500 dark:text-gray-400 text-center">
         {% set sections = [] %}
         {% for ou in owner.current_units %}
             {% if ou.unit.section and ou.unit.section not in sections %}
@@ -35,17 +35,17 @@
         {% endfor %}
         {{ sections|join(", ") or '—' }}
     </td>
-    <td class="px-2 py-1.5 text-right text-gray-600 font-mono">
+    <td class="px-2 py-1.5 text-right text-gray-600 dark:text-gray-400 font-mono">
         {% set _mc = (meter_counts or {}).get(owner.id, 0) %}
-        {% if _mc > 0 %}{{ _mc }}{% else %}<span class="text-gray-300">—</span>{% endif %}
+        {% if _mc > 0 %}{{ _mc }}{% else %}<span class="text-gray-300 dark:text-gray-600">—</span>{% endif %}
     </td>
-    <td class="px-2 py-1.5 text-gray-700 overflow-hidden" style="text-overflow:ellipsis;white-space:nowrap" title="{{ owner.email or '' }}{% if owner.email_secondary and owner.email_secondary != owner.email %} / {{ owner.email_secondary }}{% endif %}">
-        {% if owner.email %}{{ owner.email }}{% if owner.email_secondary and owner.email_secondary != owner.email %} <span class="text-gray-400 text-xs">+1</span>{% endif %}{% elif owner.email_secondary %}<span class="text-gray-400">{{ owner.email_secondary }}</span>{% else %}<span class="text-gray-300">—</span>{% endif %}
+    <td class="px-2 py-1.5 text-gray-700 dark:text-gray-300 overflow-hidden" style="text-overflow:ellipsis;white-space:nowrap" title="{{ owner.email or '' }}{% if owner.email_secondary and owner.email_secondary != owner.email %} / {{ owner.email_secondary }}{% endif %}">
+        {% if owner.email %}{{ owner.email }}{% if owner.email_secondary and owner.email_secondary != owner.email %} <span class="text-gray-400 dark:text-gray-500 text-xs">+1</span>{% endif %}{% elif owner.email_secondary %}<span class="text-gray-400 dark:text-gray-500">{{ owner.email_secondary }}</span>{% else %}<span class="text-gray-300 dark:text-gray-600">—</span>{% endif %}
     </td>
-    <td class="px-2 py-1.5 text-gray-700" title="{{ owner.phone or '' }}{% if owner.phone_secondary and owner.phone_secondary != owner.phone %} / {{ owner.phone_secondary }}{% endif %}">
-        {% if owner.phone %}{{ owner.phone }}{% else %}<span class="text-gray-300">—</span>{% endif %}
+    <td class="px-2 py-1.5 text-gray-700 dark:text-gray-300" title="{{ owner.phone or '' }}{% if owner.phone_secondary and owner.phone_secondary != owner.phone %} / {{ owner.phone_secondary }}{% endif %}">
+        {% if owner.phone %}{{ owner.phone }}{% else %}<span class="text-gray-300 dark:text-gray-600">—</span>{% endif %}
     </td>
-    <td class="px-2 py-1.5 text-gray-700 text-right font-mono" title="Součet podílů ze všech jednotek vlastníka">
+    <td class="px-2 py-1.5 text-gray-700 dark:text-gray-300 text-right font-mono" title="Součet podílů ze všech jednotek vlastníka">
         {% set total_votes = owner.current_units | map(attribute='votes') | sum %}
         {{ "{:,}".format(total_votes).replace(",", " ") }}
     </td>
