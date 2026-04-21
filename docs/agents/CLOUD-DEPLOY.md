@@ -1,13 +1,12 @@
-# Cloud Deploy Agent – Nasazení SVJ aplikace do cloudu
+# Cloud Deploy Agent – Nasazení do cloudu
 
 > Spusť když budeš chtít přejít z lokálního/USB nasazení na cloudové.
-> Agent analyzuje projekt, navrhne infrastrukturu a připraví nasazení.
 
 ---
 
 ## Cíl
 
-Připravit SVJ aplikaci pro nasazení do cloudu — aby k ní měli členové SVJ přístup přes internet bez USB.
+Analyzovat připravenost SVJ aplikace pro cloud a připravit nasazení.
 
 ---
 
@@ -15,159 +14,70 @@ Připravit SVJ aplikaci pro nasazení do cloudu — aby k ní měli členové SV
 
 ### Fáze 1: ANALÝZA PŘIPRAVENOSTI
 
-#### 1.1 Závislosti na lokálním prostředí
-- SQLite databáze — cesta hardcoded nebo konfigurovatelná?
-- Upload soubory — lokální filesystem nebo konfigurovatelné úložiště?
-- LibreOffice — je vyžadován? Pro které funkce?
-- `spustit.command` — macOS specifické věci?
+#### Závislosti na lokálním prostředí
+- SQLite — cesta hardcoded nebo konfigurovatelná?
+- Upload soubory — lokální filesystem nebo konfigurovatelné?
+- LibreOffice — vyžadován? Pro které funkce?
 - Absolutní cesty v kódu?
-- `.env` konfigurace — co vše je konfigurovatelné?
+- `.env` — co je konfigurovatelné?
 
-#### 1.2 Bezpečnost pro internet
-- Autentizace implementovaná? (bez ní NIKDY nevystavovat na internet)
-- HTTPS — aplikace je připravená na proxy (X-Forwarded-For, X-Forwarded-Proto)?
-- CSRF ochrana na formulářích?
-- Rate limiting?
-- Session bezpečnost (secure cookie, httponly, samesite)?
+#### Bezpečnost pro internet
+- Autentizace implementovaná? (bez ní NIKDY nevystavovat)
+- HTTPS ready (X-Forwarded-For, X-Forwarded-Proto)?
+- CSRF, rate limiting, session bezpečnost?
 - Debug mode vypnutý?
-- Citlivá data v kódu?
 
-#### 1.3 Výkon pro víceuživatelský přístup
-- SQLite zvládne souběžné přístupy? (WAL mode?)
-- Session storage (in-memory vs persistent)?
-- Statické soubory — CDN nebo lokální?
+#### Víceuživatelský přístup
+- SQLite souběžné přístupy (WAL mode)?
+- Session storage?
 
 ### Fáze 2: DOPORUČENÍ PLATFORMY
 
-Na základě analýzy navrhni nejlepší variantu. Porovnej:
+| Varianta | Kdy | Příklad | Cena | Pro | Proti |
+|----------|-----|---------|------|-----|-------|
+| **VPS** | Plná kontrola, SQLite stačí | Hetzner, DigitalOcean | od 100 Kč/měs | Jednoduché, levné | Ruční správa |
+| **PaaS** | Nechceš spravovat server | Railway, Render, Fly.io | 0–500 Kč/měs | Auto deploy, HTTPS | SQLite problém (ephemeral FS) |
+| **Docker** | Přenositelnost | docker-compose + nginx | — | Funguje všude stejně | Docker knowledge |
 
-#### Varianta A: VPS (Virtual Private Server)
-- **Kdy:** Plná kontrola, SQLite stačí, nízký provoz
-- **Příklad:** Hetzner, DigitalOcean, Wedos
-- **Cena:** od 100 Kč/měsíc
-- **Stack:** Ubuntu + nginx + gunicorn/uvicorn + systemd + Let's Encrypt
-- **Pro:** Jednoduché, levné, SQLite funguje přímo
-- **Proti:** Ruční správa serveru, zálohy, aktualizace
+### Fáze 3: PŘÍPRAVA (po schválení varianty)
 
-#### Varianta B: PaaS (Platform as a Service)
-- **Kdy:** Nechceš spravovat server, jednoduchý deploy
-- **Příklad:** Railway, Render, Fly.io
-- **Cena:** od 0 Kč (free tier) do 500 Kč/měsíc
-- **Stack:** Dockerfile nebo buildpack, managed HTTPS
-- **Pro:** Automatické deploye, HTTPS, škálování
-- **Proti:** SQLite může být problém (ephemeral filesystem), potřeba persistent volume nebo přechod na PostgreSQL
+#### Společné
+1. Dockerfile (Python 3.11-slim, uvicorn)
+2. Environment variables: `DATABASE_URL`, `SECRET_KEY`, `SMTP_*`, `UPLOAD_DIR`, `DEBUG`
+3. Healthcheck: `GET /health → {"status": "ok"}`
+4. Produkční nastavení: `debug=False`, secure cookies, HTTPS redirect
 
-#### Varianta C: Kontejner (Docker)
-- **Kdy:** Chceš přenositelnost, reproducibilní prostředí
-- **Stack:** Dockerfile + docker-compose + nginx
-- **Pro:** Funguje všude stejně, snadná záloha
-- **Proti:** Potřeba Docker knowledge
+#### VPS specifické
+- `nginx.conf`, systemd service, Let's Encrypt, cron zálohy, ufw
 
-### Fáze 3: PŘÍPRAVA NASAZENÍ (po schválení varianty)
+#### PaaS specifické
+- `Procfile`/`railway.toml`, persistent volume, env vars v dashboard
 
-#### 3.1 Společné pro všechny varianty
-1. **Dockerfile:**
-   ```dockerfile
-   FROM python:3.11-slim
-   WORKDIR /app
-   COPY requirements.txt .
-   RUN pip install --no-cache-dir -r requirements.txt
-   COPY . .
-   RUN mkdir -p data data/uploads data/backups
-   EXPOSE 8000
-   CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
-   ```
+#### Docker specifické
+- `docker-compose.yml`, volumes, nginx reverse proxy
 
-2. **Konfigurace přes environment variables:**
-   - `DATABASE_URL` — cesta k DB
-   - `SECRET_KEY` — pro session
-   - `SMTP_*` — emailové nastavení
-   - `UPLOAD_DIR` — cesta k uploadům
-   - `DEBUG` — false v produkci
-
-3. **Healthcheck endpoint:**
-   ```python
-   @app.get("/health")
-   def health():
-       return {"status": "ok"}
-   ```
-
-4. **Produkční nastavení:**
-   - `debug=False`
-   - Secure cookies
-   - HTTPS redirect
-   - Logging do souboru
-
-#### 3.2 VPS specifické
-- `nginx.conf` pro reverse proxy
-- `systemd` service file pro auto-start
-- Let's Encrypt certbot setup
-- Cron pro zálohy
-- Firewall (ufw) konfigurace
-
-#### 3.3 PaaS specifické
-- `Procfile` nebo `railway.toml` / `render.yaml`
-- Persistent volume pro SQLite a uploads
-- Environment variables v dashboard
-
-#### 3.4 Docker specifické
-- `docker-compose.yml`
-- Volume pro data persistence
-- nginx reverse proxy kontejner
-
-### Fáze 4: TESTOVÁNÍ
-
-1. Nasaď na staging prostředí
-2. Ověř:
-   - [ ] Login funguje
-   - [ ] Všechny moduly přístupné
-   - [ ] Import Excel/CSV funguje
-   - [ ] Upload souborů funguje
-   - [ ] Odesílání emailů funguje
-   - [ ] Záloha/obnova funguje
-   - [ ] HTTPS funguje
-   - [ ] Výkon je přijatelný
-3. Bezpečnostní kontrola:
-   - [ ] Žádné citlivé soubory přístupné přes web
-   - [ ] Debug mode vypnutý
-   - [ ] HTTP redirectuje na HTTPS
-
-### Fáze 5: REPORT
+### Fáze 4: REPORT
 
 ```
 ## Cloud Deploy Report – [datum]
 
-### Analýza připravenosti
-- Autentizace: ✅/❌
-- HTTPS ready: ✅/❌
-- Konfigurovatelnost: ✅/❌
-- Bezpečnost: ✅/❌
+### Připravenost
+Autentizace: ... | HTTPS: ... | Konfigurovatelnost: ... | Bezpečnost: ...
 
 ### Doporučená platforma
 [varianta] — [důvod]
 
-### Potřebné změny v kódu
+### Potřebné změny
 | # | Změna | Soubor | Složitost |
-|---|-------|--------|-----------|
-| 1 | ...   | ...    | nízká/střední/vysoká |
 
 ### Odhad nákladů
-- Hosting: X Kč/měsíc
-- Doména: X Kč/rok (volitelné)
-- SSL: zdarma (Let's Encrypt)
-
-### Postup nasazení
-1. [krok]
-2. [krok]
-...
+Hosting: X Kč/měs | Doména: X Kč/rok | SSL: zdarma
 ```
 
 ---
 
 ## Spuštění
 
-V Claude Code zadej:
-
 ```
-Přečti soubor CLOUD-DEPLOY.md a analyzuj připravenost projektu pro nasazení do cloudu. Navrhni nejlepší variantu a připrav plán.
+Přečti CLOUD-DEPLOY.md a analyzuj připravenost pro cloud. Navrhni variantu a plán.
 ```

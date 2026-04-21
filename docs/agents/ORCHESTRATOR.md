@@ -2,181 +2,179 @@
 
 > Spouštěj místo jednotlivých agentů když nevíš co spustit jako první,
 > nebo chceš provést komplexní údržbu projektu.
-> Orchestrátor se tě zeptá, zanalyzuje stav projektu a navrhne plán.
 
 ---
 
 ## Cíl
 
-Zanalyzovat aktuální stav projektu, navrhnout které agenty spustit a v jakém pořadí,
-a po schválení je postupně spouštět. Mezi každým agentem čeká na tvé potvrzení.
+Zanalyzovat stav projektu, navrhnout které agenty spustit, v jakém pořadí a módu,
+a postupně je spouštět s **předáváním kontextu** mezi nimi.
 
 **SÁM NIC NEOPRAVUJE. POUZE KOORDINUJE AGENTY.**
 
 ---
 
-## Instrukce
-
-### Fáze 1: ROZHOVOR (vždy)
+## Fáze 1: ROZHOVOR
 
 Zeptej se uživatele přes AskUserQuestion:
 
 **Otázka 1: Co potřebuješ?**
-- Dokončil jsem blok změn → chci zkontrolovat projekt
+- Dokončil jsem blok změn → zkontrolovat projekt
 - Chci zlepšit UX / procesy
 - Připravuji release
 - Chci zdokumentovat projekt
-- Nevím, zhodnoť stav projektu a poraď
+- Nevím, zhodnoť stav a poraď
 
 **Otázka 2: Jaký rozsah?**
 - Celý projekt
 - Konkrétní modul (který?)
 
 **Otázka 3: Kolik máš času?**
-- Rychlá kontrola (1–2 agenti)
-- Důkladná údržba (3–5 agentů)
-- Kompletní průchod (všichni relevantní agenti)
+- Rychlá kontrola (1–2 agenti, rychlý mód)
+- Důkladná údržba (3–5 agentů, hluboký mód)
+- Kompletní průchod (všichni, hluboký mód)
 
 ---
 
-### Fáze 2: ANALÝZA STAVU
-
-Než navrneš plán, rychle zkontroluj stav projektu:
+## Fáze 2: ANALÝZA STAVU
 
 ```bash
-# Poslední commity
 git log --oneline -10
-
-# Necommitnuté změny
 git status
-
-# Poslední audit report
 cat docs/reports/AUDIT-REPORT.md 2>/dev/null | head -20
-
-# Poslední UX report
 cat docs/reports/UX-REPORT.md 2>/dev/null | head -20
-
-# Kdy byla naposledy synchronizovaná dokumentace
 git log --oneline -1 -- CLAUDE.md README.md docs/
 ```
 
 ---
 
-### Fáze 3: NÁVRH PLÁNU
+## Fáze 3: NÁVRH PLÁNU
 
-Na základě odpovědí a stavu projektu navrhni plán. Vysvětli PROČ doporučuješ každého agenta a v jakém pořadí.
+Na základě odpovědí a stavu navrhni plán. Urči **mód** pro každého agenta (rychlý/hluboký).
 
-#### Doporučená pořadí podle situace:
+### Scénáře:
 
 **Po bloku změn:**
-1. **Code Guardian** — nejdřív zjisti jestli je kód v pořádku
-2. **Doc Sync** — pak synchronizuj dokumentaci s realitou
-3. **Test Agent** — ověř že aplikace funguje
-4. **UX Optimizer** (volitelně) — pokud se měnilo UI
+1. Code Guardian (rychlý) → 2. Doc Sync → 3. Test Agent (rychlý)
+4. UX Optimizer (volitelně, pokud se měnilo UI)
 
 **Zlepšení UX:**
-1. **UX Optimizer** — analýza a návrhy
-2. **Doc Sync** (po implementaci návrhů) — aktualizuj dokumentaci
+1. UX Optimizer → 2. Doc Sync (po implementaci návrhů)
 
 **Před releasem:**
-1. **Code Guardian** — audit kódu
-2. **Backup Agent** — ověř zálohy (statická analýza)
-3. **Purge/Restore/Verify** — end-to-end test zálohy + obnovy
-4. **Doc Sync** — dokumentace aktuální?
-5. **Test Agent** — finální testování celé aplikace
-6. **Release Agent** — pre-release kontrola + balíček
+1. Code Guardian (hluboký) → 2. Purge/Restore/Verify (hluboký) → 3. Doc Sync → 4. Test Agent (hluboký) → 5. Release Agent
 
-**Dokumentace projektu:**
-1. **Business Logic Agent** — extrahuj logiku z kódu
-2. **Doc Sync** — synchronizuj existující dokumentaci
+**Dokumentace:**
+1. Business Logic Agent → 2. Doc Sync
 
-**Kompletní údržba (nevím co potřebuji):**
-1. **Code Guardian** — stav kódu
-2. **Doc Sync** — stav dokumentace
-3. **Test Agent** — stav funkčnosti aplikace
-4. **UX Optimizer** — stav UX
-5. **Backup Agent** — stav záloh
-6. **Business Logic Agent** — stav dokumentace logiky
+**Kompletní údržba:**
+1. Code Guardian (hluboký) → 2. Doc Sync → 3. Test Agent (hluboký) → 4. UX Optimizer → 5. Purge/Restore/Verify → 6. Business Logic Agent
 
-#### Formát návrhu:
+### Formát návrhu:
 
 ```
 ## Navrhovaný plán
 
-Na základě stavu projektu doporučuji:
-
-| Pořadí | Agent | Důvod |
-|--------|-------|-------|
-| 1. | Code Guardian | 15 commitů od posledního auditu, žádný AUDIT-REPORT.md |
-| 2. | Doc Sync | CLAUDE.md naposledy změněn před 3 týdny, kód se od té doby výrazně změnil |
-| 3. | UX Optimizer (modul Platby) | Nové UI v posledních commitech, stojí za kontrolu |
+| # | Agent | Mód | Důvod | Kontext z předchozího |
+|---|-------|-----|-------|----------------------|
+| 1 | Code Guardian | hluboký | 15 commitů od auditu | — |
+| 2 | Test Agent | rychlý | Smoke test po auditu | Nálezy z Code Guardian |
+| 3 | Doc Sync | — | CLAUDE.md 3 týdny staré | — |
 
 Odhadovaný čas: ~20 minut
-
-Chceš spustit tento plán? Nebo chceš upravit pořadí / přidat / odebrat agenta?
+Chceš spustit? Nebo upravit?
 ```
 
 ---
 
-### Fáze 4: SPOUŠTĚNÍ (po schválení)
+## Fáze 4: SPOUŠTĚNÍ (po schválení)
 
-Po schválení plánu spouštěj agenty JEDNOHO PO DRUHÉM:
+### 4.1 Pravidlo předávání kontextu
 
-1. **Před každým agentem** oznam: "Spouštím [Agent] — [co bude dělat]"
-2. **Přečti soubor agenta** a proveď jeho instrukce
-3. **Po dokončení** ukaž stručný souhrn výsledků
-4. **Zeptej se:** "Agent [X] dokončen. Pokračovat s [dalším agentem]?"
-5. **Počkej na potvrzení** — nikdy nespouštěj dalšího agenta bez souhlasu
+Po dokončení každého agenta **extrahuj klíčové nálezy** (max 5–8 bodů) a předej je dalšímu agentovi jako vstupní kontext. Agent je použije k zaměření své práce.
 
-#### Mezi agenty:
+**Co předávat:**
+
+| Z agenta | Dalšímu | Jaký kontext |
+|----------|---------|-------------|
+| Code Guardian | Test Agent | Soubory s problémy → zaměřit smoke testy na tyto stránky |
+| Code Guardian | Doc Sync | Přejmenované/smazané funkce → ověřit že nejsou v dokumentaci |
+| Test Agent | UX Optimizer | Stránky kde selhaly testy → zaměřit UX analýzu |
+| Test Agent | Code Guardian | Chybějící testy → doplnit do sekce "Testy" |
+| UX Optimizer | Doc Sync | Nové UI vzory → ověřit že jsou v UI_GUIDE.md |
+| Purge/Restore/Verify | Release Agent | PASS/FAIL status záloh |
+| Business Logic | Doc Sync | Nově zdokumentované procesy → křížové odkazy |
+
+### 4.2 Postup spouštění
+
+Pro každého agenta:
+
+1. **Oznam**: `Spouštím [Agent] v [rychlém/hlubokém] módu.`
+2. **Předej kontext** (pokud existuje):
+   ```
+   Kontext z předchozích agentů:
+   - Code Guardian: N+1 v app/routers/voting.py:145, chybějící index na payments.status
+   - Test Agent: /platby vrací 500 při prázdné DB
+   → Zaměř se na tyto oblasti.
+   ```
+3. **Přečti soubor agenta** a proveď jeho instrukce
+4. **Extrahuj klíčové nálezy** (max 8 bodů) pro další agenty
+5. **Vypiš souhrn**:
 
 ```
-╔══════════════════════════════════════════╗
-║  ✅ Code Guardian dokončen               ║
-║  Výsledek: 3 kritické, 7 důležité nálezy ║
-║                                          ║
-║  Další: Doc Sync                         ║
-║  Pokračovat? (ano / přeskočit / ukončit) ║
-╚══════════════════════════════════════════╝
+╔══════════════════════════════════════════════════╗
+║  Code Guardian dokončen (hluboký mód)            ║
+║  Výsledek: 2 CRITICAL, 5 HIGH, 3 MEDIUM         ║
+║                                                  ║
+║  Kontext pro další agenty:                       ║
+║  - N+1 v voting.py:145                           ║
+║  - SQL injection risk v sync/import.py:89        ║
+║  - 3 moduly bez testů: tax, spaces, water_meters ║
+║                                                  ║
+║  Další: Test Agent (rychlý mód)                  ║
+║  Pokračovat? (ano / přeskočit / ukončit)         ║
+╚══════════════════════════════════════════════════╝
 ```
+
+6. **Počkej na potvrzení** — nikdy nespouštěj dalšího bez souhlasu
 
 ---
 
-### Fáze 5: ZÁVĚREČNÝ SOUHRN
-
-Po dokončení všech agentů vypiš souhrnnou tabulku:
+## Fáze 5: ZÁVĚREČNÝ SOUHRN
 
 ```
 ## Souhrn orchestrace
 
-| # | Agent | Stav | Klíčové nálezy |
-|---|-------|------|----------------|
-| 1 | Code Guardian | ✅ Dokončen | 3 kritické, 7 důležitých |
-| 2 | Doc Sync | ✅ Dokončen | 5 zastaralých pravidel opraveno |
-| 3 | UX Optimizer | ⏭️ Přeskočen | — |
+| # | Agent | Mód | Stav | Klíčové nálezy |
+|---|-------|-----|------|----------------|
+| 1 | Code Guardian | hluboký | dokončen | 2 CRITICAL, 5 HIGH |
+| 2 | Test Agent | rychlý | dokončen | 580/580 pytest, 2 route failures |
+| 3 | Doc Sync | — | dokončen | 5 zastaralých pravidel opraveno |
+
+### Křížové nálezy (nalezené díky předávání kontextu):
+- Code Guardian flagoval N+1 v voting → Test Agent potvrdil pomalé načítání /hlasovani
+- Test Agent našel 500 na /platby → Code Guardian to nedetekoval (přidat do dalšího auditu)
 
 ### Doporučené další kroky:
-1. Opravit 3 kritické nálezy z Code Guardian
-2. Po opravách spustit orchestrátora znovu pro ověření
+1. Opravit 2 CRITICAL nálezy
+2. Po opravách spustit orchestrátora znovu (rychlá kontrola)
 ```
 
 ---
 
 ## Dostupní agenti
 
-| Agent | Soubor | Co dělá | Doba |
-|-------|--------|---------|------|
-| **Code Guardian** | docs/agents/CODE-GUARDIAN.md | Audit kódu — kvalita, bezpečnost, UI, výkon | ~6 min |
-| **Doc Sync** | docs/agents/DOC-SYNC.md | Synchronizace dokumentace s realitou | ~5 min (analýza) + ~5 min (opravy) |
-| **UX Optimizer** | docs/agents/UX-OPTIMIZER.md | Analýza a návrhy zlepšení UX (6 pohledů) | ~8 min |
-| **Backup Agent** | docs/agents/BACKUP-AGENT.md | Kontrola integrity záloh | ~3 min |
-| **Purge/Restore/Verify** | docs/agents/PURGE-RESTORE-VERIFY.md | Automatizovaný end-to-end test: záloha → smazání dat → obnova → ověření | ~1 min |
-| **Release Agent** | docs/agents/RELEASE-AGENT.md | Příprava verze (pre-release + balíček) | ~5 min |
-| **Business Logic** | docs/agents/BUSINESS-LOGIC-AGENT.md | Extrakce business logiky z kódu | ~8 min |
-| **Test Agent** | docs/agents/TEST-AGENT.md | Automatické testování celé aplikace (8 fází) | ~15 min |
-| **Cloud Deploy** | docs/agents/CLOUD-DEPLOY.md | Analýza připravenosti pro cloud | ~5 min |
-
-> **Task Agent** není v seznamu — ten běží automaticky při zadání úkolů.
+| Agent | Soubor | Co dělá | Mód | Doba |
+|-------|--------|---------|-----|------|
+| **Code Guardian** | CODE-GUARDIAN.md | Audit kódu, bezpečnosti, výkonu | rychlý/hluboký | ~4/6 min |
+| **Doc Sync** | DOC-SYNC.md | Synchronizace dokumentace s realitou | rychlý/hluboký | ~5/10 min |
+| **UX Optimizer** | UX-OPTIMIZER.md | Analýza a návrhy UX zlepšení (6 pohledů) | rychlý/hluboký | ~4/8 min |
+| **Purge/Restore/Verify** | PURGE-RESTORE-VERIFY.md | End-to-end test: záloha → purge → restore → verify | rychlý/hluboký | ~1 min |
+| **Release Agent** | RELEASE-AGENT.md | Pre-release kontrola + balíček | — | ~5 min |
+| **Business Logic** | BUSINESS-LOGIC-AGENT.md | Extrakce business logiky z kódu | — | ~8 min |
+| **Test Agent** | TEST-AGENT.md | Pytest + route coverage + Playwright (6 fází) | rychlý/hluboký | ~5/12 min |
+| **Cloud Deploy** | CLOUD-DEPLOY.md | Analýza připravenosti pro cloud | — | ~5 min |
+| **USB Deploy** | USB-DEPLOY.md | Přenos aplikace na jiný Mac | — | ~25 min |
 
 ---
 
