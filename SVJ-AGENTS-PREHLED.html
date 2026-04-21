@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SVJ Agenti — Přehled</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+  
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  
+  body {
+    font-family: 'DM Sans', system-ui, sans-serif;
+    background: #0f0f12;
+    color: #e4e2db;
+    padding: 2rem;
+    line-height: 1.6;
+  }
+  
+  .container { max-width: 900px; margin: 0 auto; }
+  
+  h1 {
+    font-size: 1.75rem;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+    color: #fff;
+  }
+  
+  .subtitle {
+    font-size: 0.9rem;
+    color: #8a8880;
+    margin-bottom: 2rem;
+  }
+  
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 2.5rem;
+  }
+  
+  .stat {
+    background: #1a1a1f;
+    border: 1px solid #2a2a30;
+    border-radius: 10px;
+    padding: 1rem;
+    text-align: center;
+  }
+  
+  .stat-num { font-size: 1.75rem; font-weight: 600; color: #fff; }
+  .stat-label { font-size: 0.75rem; color: #6a6860; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+  
+  .section-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #5a5850;
+    margin-bottom: 10px;
+    padding-left: 4px;
+  }
+  
+  .section { margin-bottom: 2rem; }
+  
+  .agent-card {
+    background: #1a1a1f;
+    border: 1px solid #2a2a30;
+    border-radius: 10px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 8px;
+    transition: border-color 0.2s;
+  }
+  
+  .agent-card:hover { border-color: #3a3a44; }
+  
+  .agent-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  
+  .agent-name-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  
+  .badge {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 500;
+    padding: 3px 10px;
+    border-radius: 20px;
+    letter-spacing: 0.3px;
+  }
+  
+  .badge-coord { background: #2d2554; color: #b0a4f0; }
+  .badge-auto { background: #1e3a2a; color: #7dd4a0; }
+  .badge-anal { background: #1a3040; color: #6db8e0; }
+  .badge-action { background: #3a2520; color: #e09070; }
+  
+  .agent-name {
+    font-size: 1rem;
+    font-weight: 500;
+    color: #fff;
+  }
+  
+  .agent-file {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: #5a5850;
+  }
+  
+  .agent-meta {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+  
+  .agent-time {
+    font-size: 0.7rem;
+    color: #5a5850;
+    background: #222228;
+    padding: 2px 8px;
+    border-radius: 4px;
+  }
+  
+  .agent-output {
+    font-size: 0.7rem;
+    color: #5a5850;
+  }
+  
+  .agent-desc {
+    font-size: 0.85rem;
+    color: #8a8880;
+    margin-bottom: 10px;
+    line-height: 1.5;
+  }
+  
+  .agent-cmd {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    background: #12121a;
+    border: 1px solid #252530;
+    border-radius: 6px;
+    padding: 8px 12px;
+    color: #a0d8b0;
+    word-break: break-all;
+    position: relative;
+    cursor: pointer;
+  }
+  
+  .agent-cmd:hover { background: #181822; }
+  
+  .agent-cmd::after {
+    content: 'klikni pro kopírování';
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.6rem;
+    color: #4a4a50;
+    font-family: 'DM Sans', sans-serif;
+  }
+  
+  .copied .agent-cmd::after {
+    content: 'zkopírováno!';
+    color: #7dd4a0;
+  }
+  
+  .scenarios {
+    display: grid;
+    gap: 6px;
+  }
+  
+  .scenario {
+    background: #1a1a1f;
+    border: 1px solid #2a2a30;
+    border-radius: 8px;
+    padding: 10px 16px;
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+  }
+  
+  .scenario-name {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #d0cec6;
+    min-width: 140px;
+    flex-shrink: 0;
+  }
+  
+  .scenario-flow {
+    font-size: 0.8rem;
+    color: #6a6860;
+  }
+  
+  .scenario-flow span {
+    color: #8a8880;
+    background: #222228;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 0.75rem;
+  }
+  
+  .matrix {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+  
+  .matrix-item {
+    background: #1a1a1f;
+    border: 1px solid #2a2a30;
+    border-radius: 6px;
+    padding: 8px 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .matrix-area { font-size: 0.8rem; color: #8a8880; }
+  .matrix-agent { font-size: 0.8rem; color: #d0cec6; font-weight: 500; }
+  
+  .mode-tags {
+    display: flex;
+    gap: 4px;
+    margin-top: 2px;
+  }
+  
+  .mode-tag {
+    font-size: 0.6rem;
+    padding: 1px 6px;
+    border-radius: 3px;
+    background: #222228;
+    color: #6a6860;
+  }
+
+  @media print {
+    body { background: #fff; color: #222; padding: 1rem; }
+    .agent-card, .stat, .scenario, .matrix-item { background: #f8f8f6; border-color: #ddd; }
+    .agent-name, .stat-num, h1 { color: #111; }
+    .agent-cmd { background: #f0f0ee; border-color: #ccc; color: #2a6040; }
+    .agent-cmd::after { display: none; }
+    .badge-coord { background: #e8e4f8; color: #4a3c8a; }
+    .badge-auto { background: #e0f4ea; color: #2a6a40; }
+    .badge-anal { background: #e0eef8; color: #2a5a7a; }
+    .badge-action { background: #f8e8e0; color: #8a4a30; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>SVJ — Přehled agentů</h1>
+<p class="subtitle">12 agentů pro vývoj, testování, dokumentaci a nasazení</p>
+
+<div class="stats">
+  <div class="stat"><div class="stat-num">12</div><div class="stat-label">Agentů celkem</div></div>
+  <div class="stat"><div class="stat-num">3</div><div class="stat-label">Koordinačních</div></div>
+  <div class="stat"><div class="stat-num">6</div><div class="stat-label">Analytických</div></div>
+  <div class="stat"><div class="stat-num">3</div><div class="stat-label">Akčních</div></div>
+</div>
+
+<!-- KOORDINACE -->
+<div class="section">
+  <div class="section-label">Koordinace a workflow</div>
+  
+  <div class="agent-card" onclick="copyCmd(this)">
+    <div class="agent-header">
+      <div class="agent-name-row">
+        <span class="badge badge-coord">koordinace</span>
+        <span class="agent-name">Orchestrátor</span>
+      </div>
+      <span class="agent-file">ORCHESTRATOR.md</span>
+    </div>
+    <div class="agent-desc">Zeptá se co potřebuješ, zanalyzuje stav, navrhne plán agentů s módem (rychlý/hluboký), spouští je postupně s předáváním kontextu. Sám nic neopravuje.</div>
+    <div class="agent-cmd">Přečti ORCHESTRATOR.md a zkoordinuj údržbu projektu.</div>
+  </div>
+
+  <div class="agent-card" onclick="copyCmd(this)">
+    <div class="agent-header">
+      <div class="agent-name-row">
+        <span class="badge badge-coord">koordinace</span>
+        <span class="agent-name">Session Start</span>
+      </div>
+      <span class="agent-file">SESSION-START.md</span>
+    </div>
+    <div class="agent-desc">Orientace na začátku session — git stav, reporty, co dál.</div>
+    <div class="agent-cmd">Přečti SESSION-START.md a proveď orientaci v projektu.</div>
+  </div>
+
+  <div class="agent-card" onclick="copyCmd(this)">
+    <div class="agent-header">
+      <div class="agent-name-row">
+        <span class="badge badge-auto">automatický</span>
+        <span class="agent-name">Task Agent</span>
+      </div>
+      <span class="agent-file">CLAUDE.md</span>
+    </div>
+    <div class="agent-desc">Automaticky při každém úkolu — plán, mockupy, schválení, potvrzení commitu, report.</div>
+    <div class="agent-cmd">Stačí napsat úkol — pravidla se aplikují automaticky.</div>
+  </div>
+</div>
+
+<!-- ANALYTIČTÍ -->
+<div class="section">
+  <div class="section-label">Analytičtí agenti (nic neopravují, pouze reportují)</div>
+
+  <div class="agent-card" onclick="copyCmd(this)">
+    <div class="agent-header">
+      <div class="agent-name-row">
+        <span class="badge badge-anal">analytický</span>
+        <span class="agent-name">Code Guardian</span>
+      </div>
+      <div class="agent-meta">
+        <span class="agent-time">~4/6 min</span>
+        <span class="agent-output">→ AUDIT-REPORT.md</span>
+      </div>
+    </div>
+    <div class="agent-desc">Audit kódu, bezpečnosti, výkonu, error handlingu, git hygieny, testů.</div>
+    <div class="agent-cmd">Přečti CODE-GUARDIAN.md a proveď audit projektu. Výstupem je AUDIT-REPORT.md. Nic neopravuj, pouze reportuj.</div>
+  </div>
+
+  <div class="agent-card" onclick="copyCmd(this)">
+    <div class="agent-header">
+      <div class="agent-name-row">
+        <span class="badge badge-anal">analytický</span>
+        <span class="agent-name">Test Agent</span>
+      </div>
+      <div class="agent-meta">
+        <span class="agent-time">~5/12 min</span>
+        <span class="agent-output">→ TEST-REPORT.md</span>
+      </div>
+    </div>
+    <div class="agent-desc">Pytest, route coverage, Playwright smoke + funkční testy, exporty, back URL.</div>
+    <div class="agent-cmd">Přečti TEST-AGENT.md a proveď kompletní testování projektu. Výstupem je TEST-REPORT.md. Nic neopravuj, pouze testuj a reportuj.</div>
+  </div>
+
+  <div class="agent-card" onclick="copyCmd(this)">
+    <div class="agent-header">
+      <div class="agent-name-row">
+        <span class="badge badge-anal">analytický</span>
+        <span class="agent-name">UX Optimizer</span>
+      </div>
+      <div class="agent-meta">
+        <span class="agent-time">~4/8 min</span>
+        <span class="agent-output">→ UX-REPORT.md</span>
+      </div>
+    </div>
+    <div class="agent-desc">Analýza UX z 6 pohledů: uživatel, business, designer, performance, error recovery, data quality.</div>
+    <div class="agent-cmd">Přečti UX-OPTIMIZER.md a analyzuj celou aplikaci. Výstupem je UX-REPORT.md. Nic neopravuj.</div>
+  </div>
+
+  <div class="agent-card" onclick="copyCmd(this)">
+    <div class="agent-header">
+      <div class="agent-name-row">
+        <span class="badge badge-anal">analytický</span>
+        <span class="agent-name">Doc Sync</span>
+      </div>
+      <div class="agent-meta">
+        <span class="agent-time">~5/10 min</span>
+        <span class="agent-output">→ opravy v docs</span>
+      </div>
+    </div>
+    <div class="agent-desc">Synchronizace dokumentace s kódem — zastaralé, chybějící, duplikáty, křížové odkazy.</div>
+    <div class="agent-cmd">Přečti DOC-SYNC.md a proveď synchronizaci dokumentace s aktuálním stavem projektu.</div>
+  </div>
+
+  <div class="agent-card" onclick="copyCmd(this)">
+    <div class="agent-header">
+      <div class="agent-name-row">
+        <span class="badge badge-anal">analytický</span>
+        <span class="agent-name">Business Logic</span>
+      </div>
+      <div class="agent-meta">
+        <span class="agent-time">~8 min</span>
+        <span class="agent-output">→ BUSINESS-LOGIC.md</span>
+      </div>
+    </div>
+    <div class="agent-desc">Extrakce business procesů, pravidel, datového modelu, edge cases, integrací.</div>
+    <div class="agent-cmd">Přečti BUSINESS-LOGIC-AGENT.md a proveď extrakci business logiky. Nic neopravuj.</div>
+  </div>
+
+  <div class="agent-card" onclick="copyCmd(this)">
+    <div class="agent-header">
+      <div class="agent-name-row">
+        <span class="badge badge-anal">analytický</span>
+        <span class="agent-name">Purge/Restore/Verify</span>
+      </div>
+      <div class="agent-meta">
+        <span class="agent-time">~1 min</span>
+        <span class="agent-output">→ purge report</span>
+      </div>
+    </div>
+    <div class="agent-desc">Automatický end-to-end test: záloha → purge → restore → ověření. Nahrazuje Backup Agent.</div>
+    <div class="agent-cmd">Přečti PURGE-RESTORE-VERIFY.md a proveď end-to-end test zálohovacího systému.</div>
+  </div>
+</div>
+
+<!-- AKČNÍ -->
+<div class="section">
+  <div class="section-label">Akční agenti (provádějí změny)</div>
+
+  <div class="agent-card" onclick="copyCmd(this)">
+    <div class="agent-header">
+      <div class="agent-name-row">
+        <span class="badge badge-action">akční</span>
+        <span class="agent-name">Release Agent</span>
+      </div>
+      <div class="agent-meta">
+        <span class="agent-time">~5 min</span>
+      </div>
+    </div>
+    <div class="agent-desc">Pre-release kontrola, changelog, git tag, ZIP balíček.</div>
+    <div class="agent-cmd">Přečti RELEASE-AGENT.md a připrav release. Nejdřív proveď pre-release kontrolu, pak po schválení připrav balíček.</div>
+  </div>
+
+  <div class="agent-card" onclick="copyCmd(this)">
+    <div class="agent-header">
+      <div class="agent-name-row">
+        <span class="badge badge-action">akční</span>
+        <span class="agent-name">USB Deploy</span>
+      </div>
+      <div class="agent-meta">
+        <span class="agent-time">~25 min</span>
+      </div>
+    </div>
+    <div class="agent-desc">Přenos na jiný Mac: příprava zdrojového Macu, setup cílového, verifikace, troubleshooting.</div>
+    <div class="agent-cmd">Přečti docs/agents/USB-DEPLOY.md a proveď přenos aplikace na USB. Cíl: /Volumes/NAZEV_USB</div>
+  </div>
+
+  <div class="agent-card" onclick="copyCmd(this)">
+    <div class="agent-header">
+      <div class="agent-name-row">
+        <span class="badge badge-action">akční</span>
+        <span class="agent-name">Cloud Deploy</span>
+      </div>
+      <div class="agent-meta">
+        <span class="agent-time">~5 min</span>
+      </div>
+    </div>
+    <div class="agent-desc">Analýza připravenosti pro cloud, doporučení platformy (VPS/PaaS/Docker), příprava nasazení.</div>
+    <div class="agent-cmd">Přečti CLOUD-DEPLOY.md a analyzuj připravenost projektu pro nasazení do cloudu. Navrhni nejlepší variantu.</div>
+  </div>
+</div>
+
+<!-- SCÉNÁŘE -->
+<div class="section">
+  <div class="section-label">Doporučené scénáře</div>
+  <div class="scenarios">
+    <div class="scenario">
+      <span class="scenario-name">Po bloku změn</span>
+      <span class="scenario-flow"><span>Code Guardian</span> → <span>Doc Sync</span> → <span>Test Agent</span> (rychlý)</span>
+    </div>
+    <div class="scenario">
+      <span class="scenario-name">Před releasem</span>
+      <span class="scenario-flow"><span>Code Guardian</span> → <span>P/R/V</span> → <span>Doc Sync</span> → <span>Test Agent</span> → <span>Release</span> (hluboký)</span>
+    </div>
+    <div class="scenario">
+      <span class="scenario-name">Zlepšení UX</span>
+      <span class="scenario-flow"><span>UX Optimizer</span> → <span>Doc Sync</span></span>
+    </div>
+    <div class="scenario">
+      <span class="scenario-name">Dokumentace</span>
+      <span class="scenario-flow"><span>Business Logic</span> → <span>Doc Sync</span></span>
+    </div>
+    <div class="scenario">
+      <span class="scenario-name">Kompletní údržba</span>
+      <span class="scenario-flow"><span>CG</span> → <span>Doc</span> → <span>Test</span> → <span>UX</span> → <span>P/R/V</span> → <span>BL</span></span>
+    </div>
+    <div class="scenario">
+      <span class="scenario-name">Nevím co dělat</span>
+      <span class="scenario-flow">Spustit <span>Orchestrátora</span> — zeptá se a navrhne plán</span>
+    </div>
+  </div>
+</div>
+
+<!-- MATICE -->
+<div class="section">
+  <div class="section-label">Matice odpovědnosti</div>
+  <div class="matrix">
+    <div class="matrix-item"><span class="matrix-area">Kód, bezpečnost, výkon</span><span class="matrix-agent">Code Guardian</span></div>
+    <div class="matrix-item"><span class="matrix-area">Funkční testování</span><span class="matrix-agent">Test Agent</span></div>
+    <div class="matrix-item"><span class="matrix-area">UX, workflow, procesy</span><span class="matrix-agent">UX Optimizer</span></div>
+    <div class="matrix-item"><span class="matrix-area">Dokumentace</span><span class="matrix-agent">Doc Sync</span></div>
+    <div class="matrix-item"><span class="matrix-area">Zálohy, purge, restore</span><span class="matrix-agent">Purge/Restore</span></div>
+    <div class="matrix-item"><span class="matrix-area">Business logika</span><span class="matrix-agent">Business Logic</span></div>
+    <div class="matrix-item"><span class="matrix-area">Release balíček</span><span class="matrix-agent">Release Agent</span></div>
+    <div class="matrix-item"><span class="matrix-area">Cloud / USB nasazení</span><span class="matrix-agent">Deploy agenti</span></div>
+  </div>
+</div>
+
+</div>
+
+<script>
+function copyCmd(card) {
+  const cmd = card.querySelector('.agent-cmd');
+  if (cmd) {
+    navigator.clipboard.writeText(cmd.textContent).then(() => {
+      card.classList.add('copied');
+      setTimeout(() => card.classList.remove('copied'), 1500);
+    });
+  }
+}
+</script>
+</body>
+</html>
